@@ -35,9 +35,10 @@ public final class MessageCompiler {
   /**
    * What {@code #{key(args)}} writes as HTML ({@code t:utext}, {@code [(...)]}), or
    * {@code null} after reporting an error: the message, looked up with its arguments escaped as
-   * text and cleaned at runtime by the fixed message policy ({@code Escapers.htmlMessage}). Links
-   * are kept only if the bundle is unchecked or a value of the key has an {@code <a}; otherwise the
-   * message is phrasing without links, which can stand inside a link too.
+   * text and cleaned at runtime by the fixed message policy. Links are kept
+   * ({@code Escapers.linkedHtmlMessage}, a {@code SafeHtml}) only if the bundle is unchecked or a
+   * value of the key has an {@code <a}; otherwise the message is a {@code SafeInlineHtml}
+   * ({@code Escapers.htmlMessage}), which can stand inside a link too.
    */
   public static Emitted html(Expr.Message message, Scope scope, ExpressionCompiler expressions) {
     String args = args(message, scope, expressions);
@@ -49,8 +50,8 @@ public final class MessageCompiler {
     for (String value : bundle.values(message.key()).values()) {
       links |= HtmlParser.asciiLower(value).contains("<a");
     }
-    String code = "dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(message.key()) + ", "
-        + args + ", " + links + ")";
+    String code = "dev.tessera.runtime.Escapers." + (links ? "linkedHtmlMessage" : "htmlMessage") + "(ctx, "
+        + JavaStrings.literal(message.key()) + ", " + args + ")";
     return Emitted.htmlMessage(message.pos(), code, links);
   }
 

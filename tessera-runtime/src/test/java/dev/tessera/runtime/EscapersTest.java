@@ -989,9 +989,8 @@ class EscapersTest {
   // HTML messages (#677): sanitized by the fixed message policy
 
   private static String htmlMessage(Messages m, Object[] args, boolean links) {
-    return Escapers.htmlMessage(
-            new RenderContext(Locale.US, m, new DefaultLinks(""), Forms.NONE), "k", args, links)
-        .html();
+    RenderContext ctx = new RenderContext(Locale.US, m, new DefaultLinks(""), Forms.NONE);
+    return links ? Escapers.linkedHtmlMessage(ctx, "k", args).html() : Escapers.htmlMessage(ctx, "k", args).html();
   }
 
   private static Messages format(String pattern) {
@@ -1008,6 +1007,8 @@ class EscapersTest {
     assertEquals("Tom &amp; Jerry", htmlMessage(format("Tom &amp; Jerry"), new Object[0], false));
     assertEquals("", htmlMessage((k, a) -> null, new Object[0], true));
     assertEquals("", htmlMessage((k, a) -> null, new Object[] {"x"}, true));
+    assertEquals("", htmlMessage((k, a) -> null, new Object[0], false));
+    assertEquals("", htmlMessage((k, a) -> null, new Object[] {"x"}, false));
   }
 
   @ParameterizedTest
@@ -1076,10 +1077,12 @@ class EscapersTest {
       return "<b>cached</b>" + k;
     };
     RenderContext ctx = new RenderContext(Locale.US, m, new DefaultLinks(""), Forms.NONE);
-    SafeHtml first = Escapers.htmlMessage(ctx, "k", new Object[0], false);
-    assertSame(first, Escapers.htmlMessage(ctx, "k", new Object[0], false));
+    SafeInlineHtml first = Escapers.htmlMessage(ctx, "k", new Object[0]);
+    assertSame(first, Escapers.htmlMessage(ctx, "k", new Object[0]));
     assertEquals(2, calls.get(), "the source is asked every time; only the sanitizing is cached");
-    assertEquals("<b>cached</b>k", Escapers.htmlMessage(ctx, "k", new Object[0], true).html());
+    SafeHtml linked = Escapers.linkedHtmlMessage(ctx, "k", new Object[0]);
+    assertSame(linked, Escapers.linkedHtmlMessage(ctx, "k", new Object[0]));
+    assertEquals("<b>cached</b>k", linked.html());
   }
 
   @Test

@@ -62,13 +62,14 @@ public final class Skeleton {
     /** A {@code SafeHtml} value: {@code t:utext}, {@code [(...)]}. */
     SAFE_HTML,
     /**
-     * A bundle message as HTML, {@code t:utext="#{key}"}, sanitized by the message policy without
-     * links: PHRASING content with no {@code a} ({@link ContentKinds}).
+     * A bundle message as HTML whose key may have a link, {@code t:utext="#{key}"}, sanitized by the
+     * message policy: PHRASING content that may have an {@code a} ({@link ContentKinds}).
      */
-    HTML_MESSAGE,
-    /** As {@link #HTML_MESSAGE}, with links: PHRASING content that may have an {@code a}. */
     LINKED_HTML_MESSAGE,
-    /** A {@code SafeInlineHtml} value (#397): PHRASING content with no {@code a}, as {@link #HTML_MESSAGE}. */
+    /**
+     * A {@code SafeInlineHtml} value (#397), or an HTML message without links, which is one:
+     * PHRASING content with no {@code a}.
+     */
     SAFE_INLINE_HTML,
     /**
      * An unbound {@code Fragment} parameter: a fragment checked apart from any call site. A bound

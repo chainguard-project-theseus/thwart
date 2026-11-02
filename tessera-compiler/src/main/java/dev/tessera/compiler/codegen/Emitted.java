@@ -174,11 +174,12 @@ public final class Emitted {
 
   /**
    * A bundle message as HTML: {@code Escapers.html(out, <messageCode>);}, where {@code messageCode}
-   * ({@code Escapers.htmlMessage(...)}) sanitizes it by the message policy, with or without
-   * {@code links}.
+   * sanitizes it by the message policy: with {@code links} a {@code SafeHtml}
+   * ({@code Escapers.linkedHtmlMessage}), otherwise a {@code SafeInlineHtml} ({@code
+   * Escapers.htmlMessage}), which the verifier checks as one.
    */
   public static Emitted htmlMessage(SourcePos pos, String messageCode, boolean links) {
-    Skeleton.Source source = links ? Skeleton.Source.LINKED_HTML_MESSAGE : Skeleton.Source.HTML_MESSAGE;
+    Skeleton.Source source = links ? Skeleton.Source.LINKED_HTML_MESSAGE : Skeleton.Source.SAFE_INLINE_HTML;
     return of(ESCAPERS + "html(out, " + messageCode + ");", new Skeleton.RawInsert(source, pos));
   }
 

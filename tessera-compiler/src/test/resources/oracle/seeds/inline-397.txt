@@ -25,3 +25,9 @@
 ====
 # name: i397-safehtml-button
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="SafeHtml h"><button type="button">Go <span t:utext="h">x</span></button></div>
+====
+# name: i397-option
+<div t:import="dev.tessera.runtime.SafeInlineHtml" t:params="SafeInlineHtml h"><select><option t:utext="h">x</option></select></div>
+====
+# name: i397-safehtml-option
+<div t:import="dev.tessera.runtime.SafeHtml" t:params="SafeHtml h"><select><option t:utext="h">x</option></select></div>

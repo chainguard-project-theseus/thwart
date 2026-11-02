@@ -65,7 +65,7 @@ Stages are concrete classes; the only interface with several implementations is 
 - Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`,
   plus an optional CSP nonce written on every `<script>`/`<style>` start tag (#335),
   is the *entire* ambient surface of a template. Escapers: `Escapers.{text,attr,url,resourceUrl,
-  refresh,html,htmlMessage,javaScript,json}`.
+  refresh,html,htmlMessage,linkedHtmlMessage,javaScript,json}`.
 - `ExpressionParser.parseExpression/parseEach/parseAssignments/parseParams/parseImports/parseFragmentSignature/parseFragmentRef`.
 - `ExpressionCompiler.compile/compileCondition/elementType/resolveType/checkOutputType` → `CompiledExpr(code, type, pos)`.
 - `AttributeProcessor.process(CodegenContext, Attribute, ElementPlan)`. A processor adds wrappers
