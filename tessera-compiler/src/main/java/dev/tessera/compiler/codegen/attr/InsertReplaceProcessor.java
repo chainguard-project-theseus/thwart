@@ -106,7 +106,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         // The call is still emitted: nothing is written on error, and the skeleton keeps it for the
         // verifier's own check (#367).
       }
-      return call == null ? null : Emitted.wrap("{\n" + pre, call.emit(ref.pos(), ctx.insertionContext()).then("\n"), "}");
+      return call == null ? null : Emitted.wrap("{\n" + pre, call.emit(ref.pos()).then("\n"), "}");
     }
     CompiledExpr e = ctx.compile(attr, plan.scope());
     if (e == null) {
@@ -142,7 +142,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     String f = ctx.freshName("f");
-    return Emitted.fragmentValue(JavaStrings.FRAGMENT_BODY, f, e.code(), candidates, ctx.insertionContext());
+    return Emitted.fragmentValue(JavaStrings.FRAGMENT_BODY, f, e.code(), candidates);
   }
 
   /** What to do where no fragment fits ({@code point} is unwrapped content), or null. */
@@ -179,9 +179,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       this.contexts = contexts;
     }
 
-    /** The call, writing to the template's output with render context {@code ctxCode}. */
-    Emitted emit(SourcePos pos, String ctxCode) {
-      return Emitted.call(target, fragmentArgs, pos, method, args, ctxCode);
+    /** The call, writing to the template's output with the caller's {@code ctx}. */
+    Emitted emit(SourcePos pos) {
+      return Emitted.call(target, fragmentArgs, pos, method, args);
     }
 
     /** The skeleton of what the call writes, for a fragment argument. */
