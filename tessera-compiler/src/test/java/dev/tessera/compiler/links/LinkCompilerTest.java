@@ -277,15 +277,62 @@ class LinkCompilerTest {
   @Test
   void ordinaryLinksStillCompile() {
     Compilation c =
-        page("<script t:src=\"@{/js/app.js}\"></script><script t:src=\"@{//cdn.example/a.js}\"></script>"
-            + "<script t:src=\"@{https://cdn.example/a.js}\"></script><a t:href=\"@{/x/{p}(p=${s})}\">x</a>"
+        page("<script t:src=\"@{/js/app.js}\"></script><a t:href=\"@{//cdn.example/a}\">x</a>"
+            + "<a t:href=\"@{https://cdn.example/a}\">x</a><a t:href=\"@{/x/{p}(p=${s})}\">x</a>"
             + "<a t:href=\"@{/x\\y}\">x</a><a t:href=\"@{/%5Cevil.example/}\">x</a>")
             .assertSuccess();
     assertEquals(
-        "<div>\n<script src=\"/js/app.js\"></script><script src=\"//cdn.example/a.js\"></script>"
-            + "<script src=\"https://cdn.example/a.js\"></script><a href=\"/x/a%2Fb\">x</a>"
+        "<div>\n<script src=\"/js/app.js\"></script><a href=\"//cdn.example/a\">x</a>"
+            + "<a href=\"https://cdn.example/a\">x</a><a href=\"/x/a%2Fb\">x</a>"
             + "<a href=\"/x\\y\">x</a><a href=\"/%5Cevil.example/\">x</a>\n</div>",
         c.render("page", Map.of("s", "a/b")));
+  }
+
+  /**
+   * #756: a resource URL (script, frame, embed, object, link) is a same-origin path with no query
+   * parameters, so data cannot pick another origin or reach a script through its query string.
+   * Path variables are percent-encoded, so {@code a/b} stays one segment. Static tags are unaffected.
+   */
+  @Test
+  void resourceUrlsAreSameOriginPaths() {
+    Compilation c = page("<script t:src=\"@{/js/{v}/app.js(v=${s})}\"></script><link t:href=\"@{css/{v}.css(v=${s})}\">"
+        + "<script src=\"https://cdn.example/a.js?v=1\"></script><script t:src=\"@{/js/app.js?v=1}\"></script>")
+        .assertSuccess();
+    assertEquals(
+        "<div>\n<script src=\"/js/a%2Fb/app.js\"></script><link href=\"css/a%2Fb.css\">"
+            + "<script src=\"https://cdn.example/a.js?v=1\"></script><script src=\"/js/app.js?v=1\"></script>\n</div>",
+        c.render("page", Map.of("s", "a/b")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<script t:src=\"@{//h/x.js}\"></script>",
+        "<script t:src=\"@{https://h/x.js}\"></script>",
+        "<iframe t:src=\"@{HTTP://h/}\"></iframe>",
+        "<link rel=\"stylesheet\" t:href=\"@{//h/a.css}\">",
+        "<object t:data=\"@{https://h/{p}(p=${s})}\"></object>",
+        "<script t:attr=\"src=@{//h/x.js}\"></script>"
+      })
+  void resourceUrlFromAnotherOriginIsAnError(String markup) {
+    Compilation c = page(markup);
+    c.assertError("page.html:2:", "loads code or a document, so it must be a same-origin path",
+        "write a static attribute");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<script t:src=\"@{/x(cb=${s})}\"></script>",
+        "<script t:src=\"@{/x/{p}(p=${s}, cb=${s})}\"></script>",
+        "<embed t:src=\"@{/x(cb)}\">",
+        "<script t:attr=\"src=@{/x(cb=${s})}\"></script>"
+      })
+  void resourceUrlQueryParameterIsAnError(String markup) {
+    Compilation c = page(markup);
+    c.assertError("page.html:2:", "takes no query parameter such as 'cb'", "@{/js/{v}/app.js(v=${v})}");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 
   @Test

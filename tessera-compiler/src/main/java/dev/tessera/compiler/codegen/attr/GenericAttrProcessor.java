@@ -18,6 +18,7 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Checks;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -148,7 +149,39 @@ public final class GenericAttrProcessor implements AttributeProcessor {
               + " @{/js/app.js}, not a " + c.type());
       return;
     }
+    if (context == OutputContext.RESOURCE_URL) {
+      String code = resourceLink(ctx, (Expr.Link) value, c, label, element);
+      if (code != null) {
+        plan.setAttribute(name, code, pos);
+      }
+      return;
+    }
     plan.setAttribute(name, c.code(), pos);
+  }
+
+  /**
+   * The code of a resource-URL link (#751 F2), or null after reporting why not: it loads code or a
+   * document, so it must stay on the page's origin (no scheme, no {@code //}) and take no query
+   * parameters; data goes in the path, where it is percent-encoded. A rooted path is re-checked at
+   * render time, since the context path or a custom {@code Links} could make it protocol-relative.
+   */
+  private static String resourceLink(CodegenContext ctx, Expr.Link link, CompiledExpr c, String label,
+      String element) {
+    String what = label + " on <" + element + "> loads code or a document, so ";
+    if (!Checks.isSameOriginUrl(link.path())) {
+      ctx.diagnostics().error(link.pos(), what + "it must be a same-origin path such as @{/js/app.js}, not @{"
+          + link.path() + "}: write a static attribute to load from another origin");
+      return null;
+    }
+    List<String> vars = LinkCompiler.placeholders(link.path());
+    for (Assignment p : link.params()) {
+      if (!vars.contains(p.name())) {
+        ctx.diagnostics().error(p.pos(), what + "its link takes no query parameter such as '" + p.name()
+            + "': put the value in the path, such as @{/js/{v}/app.js(v=${v})}");
+        return null;
+      }
+    }
+    return link.path().startsWith("/") ? sameOrigin(c) : c.code();
   }
 
   /** The recipes for a value that is not framework-neutral. */

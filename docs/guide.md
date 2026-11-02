@@ -407,7 +407,7 @@ each one accepts:
 | Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
 | Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
-| Resource URL | `script[src]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A literal-path `@{...}` link. |
+| Resource URL | `script[src]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |
 | Neutral | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, `ng-*`, custom elements' attributes | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
 | Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`, `css.var(name)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |

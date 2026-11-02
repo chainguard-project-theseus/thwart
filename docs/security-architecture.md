@@ -102,9 +102,9 @@ its own message, what it doesn't model:
 - **Single URL**: only attributes whose grammar is exactly one URL take a URL; the scheme is
   checked at render time.
 - **Resource URL**: `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]` and
-  `base/link[href]` take only a literal-path `@{...}` link. The author's literal fixes the origin,
-  a path variable in the host is a build error, and the scheme check is the only render-time
-  check. A `<base href>` must also be same-origin (§9).
+  `base/link[href]` take only a same-origin literal-path `@{...}` link with no query parameters: no
+  scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked
+  as same-origin when rendered. A `<base href>` must also be same-origin (§9).
 - **Neutral**: every name that isn't a standard HTML, SVG, MathML or ARIA name (`data-*`, `hx-*`,
   `x-*`, `v-*`, custom element attributes) takes only a framework-neutral value: an exact-class
   number, a boolean, a same-origin `@{/path}` without a query, or a choice of those and literals.

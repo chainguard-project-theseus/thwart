@@ -82,13 +82,13 @@ class AttributesEndToEndTest {
     assertEquals(track, render(track, model()));
   }
 
-  /** A literal-path link, or an absolute http(s) one with a literal host (#668: the way to another site). */
+  /** A same-origin literal-path link; another origin is a static attribute (#756, LinkCompilerTest). */
   @Test
   void resourceUrlAcceptsLiteralLink() {
     Compilation c = Compilation.builder().template("t.html", HEADER + "<script t:src=\"@{/js/app.js}\"></script></div>").compile();
     assertEquals("<div><script src=\"/js/app.js\"></script></div>", c.assertSuccess().render("t", model()));
-    assertEquals("<script src=\"https://cdn.example/app.js?v=1\"></script>",
-        render("<script t:src=\"@{https://cdn.example/app.js(v=${n})}\"></script>", model("n", 1)));
+    assertEquals("<script src=\"/js/1/app.js\"></script>",
+        render("<script t:src=\"@{/js/{v}/app.js(v=${n})}\"></script>", model("n", 1)));
   }
 
   /** Negative: no computed value but a literal-path link loads code or a document (#668: no safe type either). */
