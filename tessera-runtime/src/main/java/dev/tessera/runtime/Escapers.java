@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Checks;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.MessageFormat;
@@ -149,7 +150,7 @@ public final class Escapers {
         sb.append(c);
       }
     }
-    if (!isSameOriginPath(sb.substring(urlStart))) {
+    if (!Checks.isSameOriginPath(sb.substring(urlStart))) {
       throw new IllegalArgumentException("refresh URL must be a same-origin path starting with a single '/'");
     }
     escapeHtml(out, sb.toString());
@@ -177,23 +178,6 @@ public final class Escapers {
     if (value != null) {
       out.write(value.html());
     }
-  }
-
-  /** How far from the decimal point a formatted {@link BigDecimal} may reach; see {@link #messageArgs}. */
-  static final int MAX_NUMBER_DIGITS = 10000;
-
-  /**
-   * {@code d}, unless it is nonzero and reaches more than 10,000 places from the decimal point
-   * either way ({@code precision() - scale()} above it, or at or below its negation),
-   * which throws {@link IllegalArgumentException} with {@code message}. The rationale is on
-   * {@link #messageArgs}; {@code numbers.format*} uses the same bound.
-   */
-  public static BigDecimal requireBoundedMagnitude(BigDecimal d, String message) {
-    long magnitude = (long) d.precision() - d.scale();
-    if (d.signum() != 0 && (magnitude > MAX_NUMBER_DIGITS || magnitude <= -MAX_NUMBER_DIGITS)) {
-      throw new IllegalArgumentException(message);
-    }
-    return d;
   }
 
   /**
@@ -225,8 +209,8 @@ public final class Escapers {
         requireJdkNumber((Number) a);
       }
       if (a instanceof BigDecimal) {
-        requireBoundedMagnitude(
-            (BigDecimal) a, "a message argument has a decimal exponent beyond " + MAX_NUMBER_DIGITS + " either way");
+        Checks.requireBoundedMagnitude(
+            (BigDecimal) a, "a message argument has a decimal exponent beyond " + Checks.MAX_NUMBER_DIGITS + " either way");
       }
     }
     return args;
@@ -481,96 +465,20 @@ public final class Escapers {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // URL scheme check
-
-  /**
-   * Whether {@code s} is scheme-less or has an allowed scheme. Mirrors how browsers find the
-   * scheme: leading C0 controls and spaces are stripped, tab/CR/LF are ignored, and the scheme
-   * ends at the first {@code :} unless a {@code / ? #} comes first. Anything that looks like a
-   * scheme and is not exactly (ASCII case-insensitively) an allowed one is rejected.
-   */
-  static boolean isAllowedUrl(String s) {
-    int i = 0;
-    while (i < s.length() && s.charAt(i) <= ' ') {
-      i++;
-    }
-    int start = i;
-    for (; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (c == '\t' || c == '\n' || c == '\r') {
-        continue;
-      }
-      if (c == '/' || c == '?' || c == '#') {
-        return true;
-      }
-      if (c == ':') {
-        return schemeEquals(s, start, i, "http")
-            || schemeEquals(s, start, i, "https")
-            || schemeEquals(s, start, i, "mailto")
-            || schemeEquals(s, start, i, "tel");
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Whether a browser resolves {@code value}, written as a URL attribute, against the page's own
-   * origin: {@code null} (the attribute is omitted), or a relative URL with no scheme that does not
-   * start with two of {@code /} and {@code \} (protocol-relative). As in {@link #isAllowedUrl},
-   * leading C0 controls and spaces are stripped and tab/CR/LF are ignored; any {@code :} before a
-   * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. The
-   * value is checked as {@link #url} writes it, so one that fails the scheme check (written as
-   * {@code about:invalid#tessera}) is not same-origin.
-   */
-  public static boolean isSameOriginUrl(Object value) {
-    if (value == null) {
-      return true;
-    }
-    String s = toText(value);
-    if (!isAllowedUrl(s)) {
-      return false;
-    }
-    int i = 0;
-    while (i < s.length() && s.charAt(i) <= ' ') {
-      i++;
-    }
-    if (i < s.length() && (s.charAt(i) == '/' || s.charAt(i) == '\\')) {
-      // A path, unless a second slash makes it protocol-relative (a browser reads \ as /).
-      i++;
-      while (i < s.length() && (s.charAt(i) == '\t' || s.charAt(i) == '\n' || s.charAt(i) == '\r')) {
-        i++;
-      }
-      return i == s.length() || (s.charAt(i) != '/' && s.charAt(i) != '\\');
-    }
-    for (; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (c == '/' || c == '?' || c == '#') {
-        return true;
-      }
-      if (c == ':') {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /** Whether {@code url} is a same-origin path: it starts with one {@code /} and {@link #isSameOriginUrl}. */
-  static boolean isSameOriginPath(String url) {
-    return url != null && url.startsWith("/") && isSameOriginUrl(url);
-  }
+  // Same-origin links
 
   /**
    * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
    * {@code <base href>}, a refresh URL,
    * the link {@code action} of any form and every {@code formaction}, which may receive the
    * CSRF token), if it starts
-   * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
+   * with {@code /} and {@linkplain Checks#isSameOriginUrl is same-origin}. The compiler checks only the
    * literal path; a context path ending in {@code /}, a custom {@link Links}, or a path variable can
    * still turn {@code /a} into the protocol-relative {@code //a}. Anything else fails the
    * render with an {@link IllegalStateException} rather than leave the origin.
    */
   public static String sameOriginLink(String url) {
-    if (!isSameOriginPath(url)) {
+    if (!Checks.isSameOriginPath(url)) {
       throw new IllegalStateException(
           "link must be a same-origin path starting with a single '/' (the Links implementation or the"
               + " context path produced " + (url == null ? "null" : "'" + url + "'") + ")");
@@ -663,28 +571,9 @@ public final class Escapers {
     return sb.toString();
   }
 
-  /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
+  /** {@code s} if it {@linkplain Checks#isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
   private static String checkedUrl(String s) {
-    return isAllowedUrl(s) ? s : INVALID_URL;
-  }
-
-  /** Compare without allocating a normalized scheme; only ASCII case and tab/CR/LF are ignored. */
-  private static boolean schemeEquals(String s, int start, int end, String expected) {
-    int matched = 0;
-    for (int i = start; i < end; i++) {
-      char c = s.charAt(i);
-      if (c == '\t' || c == '\n' || c == '\r') {
-        continue;
-      }
-      if (c >= 'A' && c <= 'Z') {
-        c = (char) (c + ('a' - 'A'));
-      }
-      if (matched == expected.length() || c != expected.charAt(matched)) {
-        return false;
-      }
-      matched++;
-    }
-    return matched == expected.length();
+    return Checks.isAllowedUrl(s) ? s : INVALID_URL;
   }
 
   // ---------------------------------------------------------------------------------------------

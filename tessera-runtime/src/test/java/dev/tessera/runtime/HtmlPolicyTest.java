@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.runtime.fn.Html;
+import dev.tessera.runtime.internal.Checks;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -382,7 +383,7 @@ class HtmlPolicyTest {
           if (name.equals("href") || name.equals("src")) {
             String url = a.group(2).replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<")
                 .replace("&gt;", ">").replace("&amp;", "&");
-            assertTrue(Escapers.isAllowedUrl(url), () -> "unsafe URL in " + out);
+            assertTrue(Checks.isAllowedUrl(url), () -> "unsafe URL in " + out);
           }
         }
       }

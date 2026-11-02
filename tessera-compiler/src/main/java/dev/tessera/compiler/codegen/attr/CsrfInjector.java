@@ -10,7 +10,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.verify.Skeleton;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Checks;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  *   <li>The method is a static {@code method="post"} (ASCII case-insensitive, untrimmed, as a
  *       browser reads it). Any other static value submits as GET and gets no token. A computed
  *       method on a {@code <form>} is a build error ({@code GenericAttrProcessor}).
- *   <li>The action is absent, a static URL same-origin by shape ({@link Escapers#isSameOriginUrl}),
+ *   <li>The action is absent, a static URL same-origin by shape ({@link Checks#isSameOriginUrl}),
  *       or, computed ({@code t:action}, {@code t:attr="action=..."}), a link with a same-origin
  *       literal path, re-checked when rendered, or a choice whose every branch is one
  *       ({@code GenericAttrProcessor}); any other computed action of a static POST form is a build
@@ -213,7 +213,7 @@ public final class CsrfInjector {
           + " site is meant (it gets no token)";
 
   /**
-   * {@link Escapers#isSameOriginUrl} for a static attribute value, which is written as in the source.
+   * {@link Checks#isSameOriginUrl} for a static attribute value, which is written as in the source.
    * The parser decodes numeric and a few named character references; a browser decodes every named
    * one ({@code &sol;}, {@code &colon;}, {@code &Tab;}, ...). So each {@code &name;} left in
    * {@code value} may be any character: the value must pass with it removed, as {@code /} and as
@@ -228,7 +228,7 @@ public final class CsrfInjector {
       return true;
     }
     for (String c : new String[] {"", "/", ":"}) {
-      if (!Escapers.isSameOriginUrl(UNDECODED_REFERENCE.matcher(value).replaceAll(c))) {
+      if (!Checks.isSameOriginUrl(UNDECODED_REFERENCE.matcher(value).replaceAll(c))) {
         return false;
       }
     }

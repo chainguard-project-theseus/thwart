@@ -121,7 +121,9 @@
                 <target>
                   <delete dir="${project.build.testSourceDirectory}" />
                   <copy todir="${project.build.testSourceDirectory}" encoding="UTF-8">
-                    <fileset dir="${starter.dir}/src/test/java" includes="${shared.tests}" />
+                    <!-- PublicApiTest pins the starter's own jar, which runs once, in the starter. -->
+                    <fileset dir="${starter.dir}/src/test/java" includes="${shared.tests}"
+                             excludes="dev/tessera/spring/PublicApiTest.java" />
                     <filterchain>
                       <replacestring from="jakarta.servlet." to="${servlet.package}." />
                       <replacestring from="org.springframework.boot.webmvc.test.autoconfigure."

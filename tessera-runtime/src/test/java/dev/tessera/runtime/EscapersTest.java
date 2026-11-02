@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.StringWriter;
+import dev.tessera.runtime.internal.Checks;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DayOfWeek;
@@ -175,7 +175,6 @@ class EscapersTest {
     for (BiConsumer<Output, Object> escaper : List.<BiConsumer<Output, Object>>of(
         Escapers::text, Escapers::attr, Escapers::url, Escapers::resourceUrl)) {
       StringOutput string = new StringOutput();
-      StringWriter writer = new StringWriter();
       StringBuilder fallback = new StringBuilder();
       Output legacy = new Output() {
         public void write(String s) {
@@ -190,10 +189,8 @@ class EscapersTest {
       String input = "/" + value;
       String want = "/" + expected;
       escaper.accept(string, input);
-      escaper.accept(new WriterOutput(writer), input);
       escaper.accept(legacy, input);
       assertEquals(want, string.toString());
-      assertEquals(want, writer.toString());
       assertEquals(want, fallback.toString());
     }
     assertEquals(expected, SafeHtml.escape(value).html());
@@ -359,27 +356,27 @@ class EscapersTest {
     for (String scheme : new String[] {"HTTP", "HTTPS", "MAILTO", "TEL"}) {
       for (int i = 0; i <= scheme.length(); i++) {
         String u = "\u0000 " + scheme.substring(0, i) + "\t\r\n" + scheme.substring(i) + ":x";
-        assertTrue(Escapers.isAllowedUrl(u), u);
+        assertTrue(Checks.isAllowedUrl(u), u);
       }
       for (int i = 1; i <= scheme.length(); i++) {
         for (char c : new char[] {' ', '\u0000', '\u001f', '\u007f', '\u00a0', 'ſ'}) {
           String u = scheme.substring(0, i) + c + scheme.substring(i) + ":x";
-          assertFalse(Escapers.isAllowedUrl(u), u);
+          assertFalse(Checks.isAllowedUrl(u), u);
         }
       }
-      assertFalse(Escapers.isAllowedUrl(scheme + "x:x"));
-      assertFalse(Escapers.isAllowedUrl("x" + scheme + ":x"));
+      assertFalse(Checks.isAllowedUrl(scheme + "x:x"));
+      assertFalse(Checks.isAllowedUrl("x" + scheme + ":x"));
     }
   }
 
   @Test
   void longRelativeNamesAreAllowedButUnknownSchemesAreRejected() {
     String name = "a".repeat(10_000);
-    assertTrue(Escapers.isAllowedUrl(name));
-    assertTrue(Escapers.isAllowedUrl(name + "/javascript:x"));
-    assertTrue(Escapers.isAllowedUrl(name + "?javascript:x"));
-    assertTrue(Escapers.isAllowedUrl(name + "#javascript:x"));
-    assertFalse(Escapers.isAllowedUrl(name + ":x"));
+    assertTrue(Checks.isAllowedUrl(name));
+    assertTrue(Checks.isAllowedUrl(name + "/javascript:x"));
+    assertTrue(Checks.isAllowedUrl(name + "?javascript:x"));
+    assertTrue(Checks.isAllowedUrl(name + "#javascript:x"));
+    assertFalse(Checks.isAllowedUrl(name + ":x"));
   }
 
   @Test
@@ -395,9 +392,9 @@ class EscapersTest {
           "", "/x", "x", "?q=1", "#", "./x", "../x", "  /x", "\t/x", "/x;jsessionid=1", "/a:b", "a/b:c", "?a:b",
           "#a:b", "/", "\\x", "/x//y", "\u00a0//evil"
         }) {
-      assertTrue(Escapers.isSameOriginUrl(u), u);
+      assertTrue(Checks.isSameOriginUrl(u), u);
     }
-    assertTrue(Escapers.isSameOriginUrl(null));
+    assertTrue(Checks.isSameOriginUrl(null));
   }
 
   /** Negative (#285): a scheme or a protocol-relative start is another origin, however written. */
@@ -413,7 +410,7 @@ class EscapersTest {
           // A browser reads this as a path, but url() writes about:invalid#tessera for it.
           "\\u003c:x"
         }) {
-      assertFalse(Escapers.isSameOriginUrl(u), u);
+      assertFalse(Checks.isSameOriginUrl(u), u);
     }
   }
 
@@ -1106,9 +1103,6 @@ class EscapersTest {
     // Braces are plain text: client frameworks that compile server DOM are outside the guarantee.
     assertEquals("{{x}} &amp; &lt;", text("{{x}} & <"));
     for (String s : new String[] {"{", "{{", "a{{b}}", "}}{{x}}", "<{{&}}>", "\u0000{\ud800{", "\"'"}) {
-      StringWriter writer = new StringWriter();
-      Escapers.text(new WriterOutput(writer), s);
-      assertEquals(text(s), writer.toString(), s);
       assertEquals(text(s), attr(s), s);
       assertEquals(text(s), SafeHtml.escape(s).html(), s);
     }

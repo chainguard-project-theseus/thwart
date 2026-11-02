@@ -63,10 +63,10 @@ public final class HtmlPolicy {
       Ascii.set("id", "title", "alt", "width", "height", "start", "reversed", "value");
 
   /** Link {@code rel} tokens a policy may add. */
-  public static final Set<String> REL_TOKENS = Ascii.set("nofollow", "noopener", "noreferrer", "ugc");
+  static final Set<String> REL_TOKENS = Ascii.set("nofollow", "noopener", "noreferrer", "ugc");
 
   /** Written before every kept {@code id}, so user content cannot clobber page ids or globals. */
-  public static final String ID_PREFIX = "user-content-";
+  static final String ID_PREFIX = "user-content-";
 
   /**
    * The policy of {@link SafeHtml#sanitize(String)} and {@code html.sanitize}: {@code p br hr
