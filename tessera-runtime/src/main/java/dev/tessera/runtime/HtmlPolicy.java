@@ -21,7 +21,7 @@ import java.util.TreeSet;
  * framework directive attributes, comments, or
  * script-capable, raw-text or foreign elements, and
  * it is balanced {@code FLOW} content in a closed content model: it closes everything it opens
- * and nests elements only as that model allows, so a browser parses it as written (#329, #592).
+ * and nests elements only as that model allows, so a browser parses it as written.
  *
  * <p>To give templates an application policy, return it from a function of your own, in a class
  * annotated {@code @TemplateFunctions("notices")}: a {@code @TemplateFunction} method
@@ -54,7 +54,7 @@ public final class HtmlPolicy {
   /** Link {@code rel} tokens a policy may add. */
   public static final Set<String> REL_TOKENS = Ascii.set("nofollow", "noopener", "noreferrer", "ugc");
 
-  /** Written before every kept {@code id}, so user content cannot clobber page ids or globals (#661). */
+  /** Written before every kept {@code id}, so user content cannot clobber page ids or globals. */
   public static final String ID_PREFIX = "user-content-";
 
   /**
@@ -91,7 +91,7 @@ public final class HtmlPolicy {
           .build();
 
   /**
-   * The fixed policy of HTML messages ({@code t:utext="#{key}"}, #677): phrasing markup only,
+   * The fixed policy of HTML messages ({@code t:utext="#{key}"}): phrasing markup only,
    * {@code b i em strong u s sub sup small mark code kbd span br} with a {@code title}, and
    * {@code a} with a checked {@code href}, {@code rel="noopener noreferrer"} and
    * {@code target="_blank"} kept. Phrasing content never closes a {@code <p>} or heading around it,
@@ -203,7 +203,7 @@ public final class HtmlPolicy {
     /**
      * Allows {@code class} tokens: an exact name, or a prefix ending in {@code *}
      * ({@code "language-*"}). A bare {@code "*"} throws: it would give user content the page's
-     * whole class namespace, for CSS overlays and class-initialised widgets (#661). Only tokens of
+     * whole class namespace, for CSS overlays and class-initialised widgets. Only tokens of
      * the form {@code [A-Za-z0-9_-]+} are ever kept; other tokens are dropped.
      */
     public Builder allowClasses(String... patterns) {

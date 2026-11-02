@@ -48,7 +48,7 @@ public final class WithProcessor implements AttributeProcessor {
       }
       Skeleton.Node candidates = null;
       if (ctx.env().types().isAssignable(value.type(), ctx.env().elements().getTypeElement(Fragment.class.getName()).asType())) {
-        // An alias of a Fragment is checked where it is inserted as what its value may write (#561).
+        // An alias of a Fragment is checked where it is inserted as what its value may write.
         candidates = FragmentCandidates.of(ctx, a.value(), scope, "t:with value '" + a.name() + "'");
         if (candidates == null) {
           return;

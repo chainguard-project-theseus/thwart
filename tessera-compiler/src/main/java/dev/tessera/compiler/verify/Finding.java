@@ -36,7 +36,7 @@ final class Finding {
   /** Reached only by a fragment calling itself. */
   final boolean recursive;
   /**
-   * The element the first state reads the value in because of markup before it (#393): the raw-text
+   * The element the first state reads the value in because of markup before it: the raw-text
    * element, the outermost {@code <svg>} or {@code <math>}, or the table part; else null.
    */
   final OpenElement cause;

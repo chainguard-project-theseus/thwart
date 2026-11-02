@@ -95,7 +95,7 @@ public final class Scope {
   /**
    * This scope, recording that the {@code Fragment} local with Java name {@code javaName} (a
    * {@code t:with} alias) writes one of {@code candidates}, the skeleton the verifier checks where
-   * it is inserted (#561).
+   * it is inserted.
    */
   public Scope withFragment(String javaName, Skeleton.Node candidates) {
     Map<String, Skeleton.Node> copy = new LinkedHashMap<>(fragments);

@@ -13,7 +13,7 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
- * What the processor compiled (#425, #447): after a version line, one line per template, {@code
+ * What the processor compiled: after a version line, one line per template, {@code
  * <sha-256 of its bytes> <path relative to the templates root>}, sorted by path; then, for each
  * {@code -Atessera.messages} basename in option order, a line {@code messages <its file name>}
  * followed by one {@code <sha-256> <file name>} line per message file beside it, sorted by name.

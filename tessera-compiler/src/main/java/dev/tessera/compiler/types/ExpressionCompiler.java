@@ -95,8 +95,8 @@ public final class ExpressionCompiler {
 
   /**
    * The static type of the form field path {@code e} (property and index steps from a variable or a
-   * {@code *{...}} selection) for a field that is bound by name only and whose value is never read
-   * (#129): {@code t:errors}, {@code fields.*}, {@code t:field} on a file input. The steps resolve
+   * {@code *{...}} selection) for a field that is bound by name only and whose value is never read:
+   * {@code t:errors}, {@code fields.*}, {@code t:field} on a file input. The steps resolve
    * as in {@link #compile}, so a property is still only resolved on a view-safe type, but a step's
    * own type may be one that is never view-safe, such as {@code MultipartFile} or
    * {@code List<MultipartFile>}. Only the type is returned, never code, so nothing can read the
@@ -241,7 +241,7 @@ public final class ExpressionCompiler {
       return null;
     }
     if (FormPaths.isField(t)) {
-      // Field<T>: T is what the fragment may bind sub-paths of (#239); a plain Field is Field<?>.
+      // Field<T>: T is what the fragment may bind sub-paths of; a plain Field is Field<?>.
       TypeMirror fieldType = FormPaths.fieldType(t);
       if (fieldType != null && !safety.isViewSafe(fieldType)) {
         return error(ref.pos(), "parameter type " + t + " is not allowed: " + fieldType + " is not view-safe"
@@ -289,7 +289,7 @@ public final class ExpressionCompiler {
 
   /**
    * {@code type} seen as the container interface it implements if it is a {@code java.util}
-   * implementation such as {@code ArrayList} or {@code TreeMap} (#135), else {@code type}.
+   * implementation such as {@code ArrayList} or {@code TreeMap}, else {@code type}.
    */
   public TypeMirror containerView(TypeMirror type) {
     return safety.containerView(type);
@@ -302,7 +302,7 @@ public final class ExpressionCompiler {
 
   /**
    * Why generated code can't name a class in {@code type} (it, or a class it is nested in, is not
-   * public; also as a type argument), or empty (#269).
+   * public; also as a type argument), or empty.
    */
   public Optional<String> inaccessibleReason(TypeMirror type) {
     String hidden = safety.inaccessible(type);
@@ -420,7 +420,7 @@ public final class ExpressionCompiler {
             "cannot read '" + name + "': " + describe(type) + " is not view-safe"
                 + badTypeArgument(type, " (make it a record or annotate it @TemplateView)"));
       }
-      // An ArrayList or TreeMap is read as its List or Map: only the interface's getters (#135).
+      // An ArrayList or TreeMap is read as its List or Map: only the interface's getters.
       TypeMirror owner = safety.containerView(type);
       ExecutableElement accessor = owner.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) owner, name, call) : null;
       if (accessor == null) {
@@ -513,7 +513,7 @@ public final class ExpressionCompiler {
   /**
    * A record component accessor or public no-arg getter for {@code name}, or null. The property
    * {@code x.isActive} (not the call {@code x.isActive()}) also tries {@code getIsActive()}, first,
-   * as SpEL, OGNL and JavaBeans do: Lombok generates it for a {@code Boolean isActive} field (#130).
+   * as SpEL, OGNL and JavaBeans do: Lombok generates it for a {@code Boolean isActive} field.
    */
   private ExecutableElement findAccessor(DeclaredType type, String name, boolean call) {
     TypeElement te = (TypeElement) type.asElement();
@@ -1027,7 +1027,7 @@ public final class ExpressionCompiler {
 
   /**
    * {@code ": its type argument X is ..."} naming the type argument that makes the container
-   * {@code type} not view-safe (#260), else {@code otherwise} (advice about {@code type} itself).
+   * {@code type} not view-safe, else {@code otherwise} (advice about {@code type} itself).
    */
   private String badTypeArgument(TypeMirror type, String otherwise) {
     Optional<String> access = safety.accessReason(type);
@@ -1040,7 +1040,7 @@ public final class ExpressionCompiler {
 
   /**
    * Reports at {@code pos} if {@code result}, the type of {@code what}, holds a class the generated
-   * code can't name (#269); otherwise javac would fail on the generated code with no template position.
+   * code can't name; otherwise javac would fail on the generated code with no template position.
    */
   private boolean inaccessibleResult(TypeMirror result, String what, SourcePos pos) {
     Optional<String> why = inaccessibleReason(result);

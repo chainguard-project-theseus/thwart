@@ -104,13 +104,13 @@ public final class JavaStrings {
   private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
 
   /**
-   * The Java type of a {@code Fragment} in generated code (#676): {@code Fragment} has no
+   * The Java type of a {@code Fragment} in generated code: {@code Fragment} has no
    * instances, so a fragment argument is a lambda of this type, passed only to private methods.
    */
   public static final String FRAGMENT_BODY = FRAGMENT + ".Body";
 
   /**
-   * {@code t} as Java source, without type-use annotations (#627). {@code TypeMirror.toString()}
+   * {@code t} as Java source, without type-use annotations. {@code TypeMirror.toString()}
    * keeps them, and JDK 8's javac writes {@code List<@NotNull Integer>}'s element as
    * {@code (@NotNull :: java.lang.Integer)}, which does not compile. Generics, arrays, wildcards and
    * inner classes of generic classes are kept. {@code Fragment} is written {@link #FRAGMENT_BODY}.

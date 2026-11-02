@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A single CSS value that is safe to place in a {@code style} attribute (#182): a colour, a
+ * A single CSS value that is safe to place in a {@code style} attribute: a colour, a
  * length, an image URL or a custom property reference. Only built by the validating factories
  * {@link #color(String)}, {@link #length(String)}, {@link #url(String)} and {@link #var(String)},
  * which return {@code null} for anything else. Each accepts a strict positive grammar and rebuilds
@@ -34,17 +34,17 @@ public final class CssValue {
   /** A colour function argument: a number with an optional unit ({@code 255}, {@code 50%}, {@code 120deg}, {@code .5}). */
   private static final String ARG = "-?(?:[0-9]{1,10}(?:\\.[0-9]{1,10})?|\\.[0-9]{1,10})(?:%|deg|rad|grad|turn)?";
 
-  /** {@code rgb(255, 0, 0)}, {@code hsla(120deg, 50%, 50%, .5)}: comma-separated arguments (#429). */
+  /** {@code rgb(255, 0, 0)}, {@code hsla(120deg, 50%, 50%, .5)}: comma-separated arguments. */
   private static final Pattern COLOR_COMMAS =
       Pattern.compile(
           "(rgba?|hsla?)\\( *(" + ARG + ") *, *(" + ARG + ") *, *(" + ARG + ") *(?:, *(" + ARG + ") *)?\\)");
 
-  /** {@code rgb(255 0 0)}, {@code hsl(120deg 50% 50% / .5)}: space-separated, alpha after {@code /} (#429). */
+  /** {@code rgb(255 0 0)}, {@code hsl(120deg 50% 50% / .5)}: space-separated, alpha after {@code /}. */
   private static final Pattern COLOR_SPACES =
       Pattern.compile(
           "(rgba?|hsla?)\\( *(" + ARG + ") +(" + ARG + ") +(" + ARG + ") *(?:/ *(" + ARG + ") *)?\\)");
 
-  /** A custom property name (#429): {@code --} and an identifier. */
+  /** A custom property name: {@code --} and an identifier. */
   private static final Pattern CUSTOM_PROPERTY = Pattern.compile("--[a-zA-Z-][a-zA-Z0-9-]{0,255}");
 
   /** CSS Color Module Level 4 named colours, plus {@code transparent} and {@code currentcolor}. */
@@ -85,7 +85,7 @@ public final class CssValue {
 
   /**
    * A colour: {@code #rgb}, {@code #rgba}, {@code #rrggbb}, {@code #rrggbbaa}, a CSS named
-   * colour (case-insensitive; names are lower-cased), or (#429) {@code rgb}, {@code rgba}, {@code hsl} or
+   * colour (case-insensitive; names are lower-cased), or {@code rgb}, {@code rgba}, {@code hsl} or
    * {@code hsla} with three or four numeric arguments, each a number with an optional {@code %},
    * {@code deg}, {@code rad}, {@code grad} or {@code turn}, separated by commas
    * ({@code rgb(0, 128, 255)}, {@code hsla(120deg, 50%, 50%, .5)}) or by spaces with the alpha after
@@ -138,7 +138,7 @@ public final class CssValue {
   }
 
   /**
-   * A reference to a custom property (#429): {@code var(--name)} for {@code --name}, an identifier
+   * A reference to a custom property: {@code var(--name)} for {@code --name}, an identifier
    * after {@code --} (ASCII letters, digits and {@code -}, not starting with a digit, at most 258
    * chars in all). Surrounding whitespace is ignored. Returns {@code null} for {@code null} and for
    * anything else, including a name without {@code --} and a fallback ({@code --a, red}).
@@ -155,7 +155,7 @@ public final class CssValue {
   static final int MAX_URL_LENGTH = 4096;
 
   /**
-   * An image URL for {@code background}, {@code background-image} and the like (#238), written as
+   * An image URL for {@code background}, {@code background-image} and the like, written as
    * {@code url("...")}. Surrounding whitespace is ignored. The URL must be relative
    * ({@code /img/a.png}, {@code a.png}, {@code ?v=1}), protocol-relative ({@code //cdn/a.png}) or
    * {@code http}/{@code https}: the URL context's scheme check without {@code mailto} and

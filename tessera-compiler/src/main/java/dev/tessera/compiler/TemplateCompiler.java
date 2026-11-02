@@ -36,7 +36,7 @@ public final class TemplateCompiler {
     this.env = env;
   }
 
-  /** The generated files and, in memory only, the skeleton of every template (#366). */
+  /** The generated files and, in memory only, the skeleton of every template. */
   public static final class Result {
     private final List<GeneratedFile> files;
     private final Map<String, Skeleton.TemplateSkeleton> skeletons;
@@ -72,7 +72,7 @@ public final class TemplateCompiler {
      * {@link #files()}, checked that each private fragment copy writes its fragment's skeleton, with
      * a registry that also has an entry for each fragment in {@code servable} ({@code page ::
      * fragment}, as {@code ContextVerifier.servableFragments} returns them) whose parameters a model
-     * can supply (#131).
+     * can supply.
      */
     public List<GeneratedFile> files(Set<String> servable) {
       checkCopies();

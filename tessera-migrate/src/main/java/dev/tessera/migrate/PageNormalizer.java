@@ -38,13 +38,13 @@ import org.jsoup.nodes.TextNode;
  *       named or id'd {@code *csrf*}, {@code _csrf=} query parameters, and {@code ;jsessionid=}
  *       path parameters;
  *   <li>{@code nonce} attributes are dropped: the Tessera starter puts a fresh CSP nonce on every
- *       script and style (#335), which the old page did not have or had with another value;
+ *       script and style, which the old page did not have or had with another value;
  *   <li>in JavaScript and JSON scripts, whitespace next to {@code [ ] { } , :} outside string
  *       literals is dropped: {@code [[...]]} writes compact JSON where the old page often had
- *       {@code [ "a", "b" ]} (#183). Whitespace inside strings still counts;
+ *       {@code [ "a", "b" ]}. Whitespace inside strings still counts;
  *   <li>in JavaScript scripts, a JSON value in parentheses after {@code =} and before {@code ;}
  *       loses them: the compiler writes {@code var x = ("a");} where the old page had
- *       {@code var x = "a";} (#540, #625).
+ *       {@code var x = "a";}.
  * </ul>
  *
  * <p>Pages that still differ are compared once more with each script's prelude expanded: every
@@ -52,7 +52,7 @@ import org.jsoup.nodes.TextNode;
  * removed and its value written where the code below uses the name. Agents hoist values into
  * such declarations by hand under the guide's script prelude rule, so a page equal only in that
  * form is {@link Verdict#REORDERED}, not {@link Verdict#SAME}: a declared {@code var} is not the
- * same JavaScript as the value written in place (#625).
+ * same JavaScript as the value written in place.
  */
 final class PageNormalizer {
   private PageNormalizer() {}

@@ -31,13 +31,13 @@ final class Rules {
   /**
    * The problem with {@code hole} in state {@code s}, or null if it is accepted.
    *
-   * <p>No hole is accepted while the current node is SVG or MathML (#678, {@link Problem#VALUE_IN_FOREIGN}):
+   * <p>No hole is accepted while the current node is SVG or MathML ({@link Problem#VALUE_IN_FOREIGN}):
    * foreign content, its integration points and CDATA sections are not modelled. The state names the one
-   * escaper a hole there may have (#378): the script data of an HTML {@code <script>}, {@code json}; a
+   * escaper a hole there may have: the script data of an HTML {@code <script>}, {@code json}; a
    * double-quoted attribute value, an attribute escaper for that attribute (which one is policy,
    * {@code Contexts.attribute}); element text, data or RCDATA alike, {@code text}. A hole with another
    * escaper is rejected, so a hole whose paths reach states that name different escapers is rejected on
-   * one of them (the branch rule). No hole is accepted in raw text (#586): {@code <noscript>} (scripting
+   * one of them (the branch rule). No hole is accepted in raw text: {@code <noscript>} (scripting
    * on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>} and {@code <noframes>} decode no character
    * reference, so no escaper fits; {@code <style>} raw text is rejected below.
    */
@@ -69,7 +69,7 @@ final class Rules {
     switch (s.tokenizer()) {
       case DATA:
         // Formatting elements to reopen first, or a foster-parented element in a table mode, are
-        // reached only by error recovery: parse errors (#406, #410).
+        // reached only by error recovery: parse errors.
         if (!TEXT_MODES.contains(s.mode())) {
           return TABLE_MODES.contains(s.mode()) ? Problem.TEXT_IN_TABLE : Problem.TEXT_OUTSIDE_BODY;
         }
@@ -132,10 +132,10 @@ final class Rules {
         && asciiLower(s.substring(at, at + lower.length())).equals(lower);
   }
 
-  // ---- error-free parses and the coarse exclusions (#406, security-architecture.md §11.4) ----
+  // ---- error-free parses and the coarse exclusions (security-architecture.md §11.4) ----
 
   /**
-   * Whether a parse error is on the allow-list, the measurement's (#406): the missing-doctype
+   * Whether a parse error is on the allow-list measured over the bench corpus: the missing-doctype
    * messages ("... without seeing a doctype first"), which say nothing about the tree (most views
    * are partials, and many pages start with {@code <html>}); and "Duplicate ID", which isn't a
    * parse error in the HTML standard but a conformance check of validator.nu's tree builder, and
@@ -146,15 +146,15 @@ final class Rules {
     return message.contains("without seeing a doctype first") || message.startsWith("Duplicate ID \u201C");
   }
 
-  /** Below SVG or MathML on the stack, these split browsers (#398): exclusion (a). */
+  /** Below SVG or MathML on the stack, these split browsers: exclusion (a). */
   private static final Set<String> TABLE_PARTS_BELOW_FOREIGN =
       Backports.setOf("td", "th", "caption", "tr", "tbody", "thead", "tfoot", "table", "template");
 
-  /** Directly in {@code <template>}, these split browsers (#401): exclusion (b). */
+  /** Directly in {@code <template>}, these split browsers: exclusion (b). */
   private static final Set<String> TABLE_PARTS_IN_TEMPLATE =
       Backports.setOf("caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th");
 
-  /** What classic {@code <select>} parsing keeps in a select (#305): exclusion (c). */
+  /** What classic {@code <select>} parsing keeps in a select: exclusion (c). */
   private static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr");
 
   /** An excluded stack shape: the rule and the shape in words, for the message. */

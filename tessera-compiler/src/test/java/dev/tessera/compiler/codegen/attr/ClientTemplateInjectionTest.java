@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Client-side template injection is outside the guarantee (#679, reverses #248): client frameworks
+ * Client-side template injection is outside the guarantee: client frameworks
  * that compile the server's DOM as a template are unsupported, and a strict CSP is the backstop.
  * A value is escaped as plain text, the same in element text, RCDATA and attributes: {@code {{}
  * renders as {@code {{}, no comment breaks it and no {@code v-pre} is added. Static braces are

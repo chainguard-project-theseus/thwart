@@ -62,7 +62,7 @@ public final class TemplateGenerator implements CodegenContext {
   private static final Set<String> LEADING_LINE_FEED = Backports.setOf("pre", "listing", "textarea");
 
   /**
-   * Elements a browser parses by rules Tessera doesn't model (#678): raw text a browser never renders as
+   * Elements a browser parses by rules Tessera doesn't model: raw text a browser never renders as
    * markup ({@code xmp noembed noframes}) and {@code frameset} (applies only if no body content came
    * before it). {@code plaintext} is rejected where it is parsed.
    */
@@ -81,7 +81,7 @@ public final class TemplateGenerator implements CodegenContext {
   private int[] lineStarts;
   private Map<String, String> constants;
   private List<String> members;
-  /** The skeleton of the template generated last (#366). */
+  /** The skeleton of the template generated last. */
   private Skeleton.TemplateSkeleton skeleton;
   /** The fragment whose method is being generated, or null. */
   private TemplateIndex.FragmentInfo fragment;
@@ -170,8 +170,8 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * The skeleton of the template {@link #generate} generated last: exactly what its class writes
-   * (#366). Meaningful only if no errors were reported.
+   * The skeleton of the template {@link #generate} generated last: exactly what its class writes.
+   * Meaningful only if no errors were reported.
    */
   public Skeleton.TemplateSkeleton skeleton() {
     return skeleton;
@@ -434,7 +434,7 @@ public final class TemplateGenerator implements CodegenContext {
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
     String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
-    // In raw text the tag is text, so nothing is dropped (and the content is static, #571).
+    // In raw text the tag is text, so nothing is dropped (and the content is static).
     boolean leadingLineFeed = outer == null && !e.foreign() && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
@@ -549,7 +549,7 @@ public final class TemplateGenerator implements CodegenContext {
         if (!plan.tagOmitted()) {
           if (Contexts.browserRawText(e.name()) && computed(written.nodes())) {
             // Raw text decodes no character reference, so no escaper fits: only static content there. The
-            // verifier rejects every value there too (VALUE_IN_RAW_TEXT, #586); this also covers conditions and loops.
+            // verifier rejects every value there too (VALUE_IN_RAW_TEXT); this also covers conditions and loops.
             diagnostics()
                 .error(e.pos(), "a value, condition or loop inside <" + HtmlParser.asciiLower(e.name()) + "> is not"
                     + " supported: a browser reads its content as raw text, which decodes no escaping; write the"
@@ -622,7 +622,7 @@ public final class TemplateGenerator implements CodegenContext {
 
   /**
    * Reports the first computed value, condition, loop or fragment call in or on {@code e}, the outermost
-   * {@code <svg>} or {@code <math>} (#678): a browser parses foreign content by its own rules
+   * {@code <svg>} or {@code <math>}: a browser parses foreign content by its own rules
    * (integration points, CDATA, presentation attributes that are CSS), which Tessera doesn't model.
    * Control flow on the element itself ({@code <svg t:if>}, {@code t:replace}) is outside it and allowed.
    */
@@ -679,7 +679,7 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * Whether the start tag gets the render's CSP nonce (#335): every {@code <script>} and {@code
+   * Whether the start tag gets the render's CSP nonce: every {@code <script>} and {@code
    * <style>} the template writes where a browser reads it as an HTML element. One inside {@code
    * <svg>} or {@code <math>} (whose content a browser parses differently, decoding character
    * references) or inside a raw text element such as {@code <noscript>} (where it
@@ -739,8 +739,8 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * A static {@code is} must be a valid custom element name ({@link Contexts#isCustomElementName},
-   * #272, #584): any other value, such as {@code <component is="script">}, would let what reads
+   * A static {@code is} must be a valid custom element name ({@link Contexts#isCustomElementName}):
+   * any other value, such as {@code <component is="script">}, would let what reads
    * {@code is} render another element than the one classified. A computed one is FORBIDDEN.
    */
   private void checkStaticIs(Element e) {
@@ -755,8 +755,8 @@ public final class TemplateGenerator implements CodegenContext {
 
   private Emitted dynamicAttr(ElementPlan.DynamicAttr d) {
     // Only attribute escapers: e.g. the SCRIPT (json) escaper does not escape '"'.
-    // GenericAttrProcessor admits only safe style values in STYLE (#182), literals and numbers in
-    // TYPED_ATTRIBUTE (#565) and neutral values in NEUTRAL (#584).
+    // GenericAttrProcessor admits only safe style values in STYLE, literals and numbers in
+    // TYPED_ATTRIBUTE and neutral values in NEUTRAL.
     Skeleton.Escaper escaper = d.context().attributeEscaper();
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()

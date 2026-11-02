@@ -99,7 +99,7 @@ class KnownAttributesTest {
 
   /**
    * The class claim: the names behind #415, #416, #419 and #421 fall out of the inert-text list, so
-   * a String would have been a build error without their specific fixes. #414 (ping) and the
+   * a String would have been a build error without their specific fixes. {@code ping} and the
    * {@code <animate>}/{@code <set>} values of #421 are not covered here: they hold URLs (#539)
    * and are TYPED_ATTRIBUTE by name (#668).
    */

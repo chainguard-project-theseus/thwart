@@ -29,12 +29,12 @@ import javax.lang.model.type.TypeMirror;
  * Any other {@code t:<name>} ({@code t:href}, {@code t:id}, {@code t:data-x}, ...): sets attribute
  * {@code name} from the expression, escaped for {@link Contexts#attribute}, whose contexts
  * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
- * ({@code checked}, {@code disabled}, ...) take a condition; a NEUTRAL name (#584) takes only a
- * framework-neutral value ({@link #neutralCode}); a {@code <base href>} (#350), the
+ * ({@code checked}, {@code disabled}, ...) take a condition; a NEUTRAL name takes only a
+ * framework-neutral value ({@link #neutralCode}); a {@code <base href>}, the
  * {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF
- * token, {@link CsrfInjector}) take only a same-origin link or a choice between such links (#635);
+ * token, {@link CsrfInjector}) take only a same-origin link or a choice between such links;
  * the {@code action} of any other form also only a same-origin link or a choice of them (client code
- * may submit it and swap the response in, #585, #668); and a computed {@code formmethod}, or
+ * may submit it and swap the response in); and a computed {@code formmethod}, or
  * {@code method} on a {@code <form>}, is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
@@ -108,7 +108,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     if (lower.equals("href") && HtmlParser.asciiEqualsIgnoreCase(element, "base")) {
-      // #350: every relative URL on the page, a token-bearing form's action included, resolves against it.
+      // Every relative URL on the page, a token-bearing form's action included, resolves against it.
       sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.BASE_MOVES_URLS, "", "a <base href>");
       return;
     }
@@ -118,18 +118,18 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     if (form && lower.equals("action") && CsrfInjector.isStaticPost(plan.element())) {
-      // The CSRF token goes wherever the form posts (#285).
+      // The CSRF token goes wherever the form posts.
       sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.POST_ACTION, CsrfInjector.POST_ACTION_ELSE,
           "the action of a POST form, which gets the CSRF token,");
       return;
     }
     if (form && lower.equals("action")) {
-      // #585: client code may submit any form and swap the response into the page as HTML.
+      // Client code may submit any form and swap the response into the page as HTML.
       sameOriginUrl(ctx, plan, name, value, pos, label, FORM_ACTION, FORM_ACTION_ELSE, "the action of a form");
       return;
     }
     if (lower.equals("formaction")) {
-      // #314: the token goes wherever the button submits the form, and any form may get it.
+      // The token goes wherever the button submits the form, and any form may get it.
       sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM, "",
           "a formaction, which may receive the CSRF token,");
       return;
@@ -151,14 +151,14 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     plan.setAttribute(name, c.code(), pos);
   }
 
-  /** The recipes for a value that is not framework-neutral (#584). */
+  /** The recipes for a value that is not framework-neutral. */
   private static final String DATA_FIX_IT =
       "put text in the element text or a standard inert attribute such as title, send request values as"
           + " hidden inputs (with hx-include), or put data in a <script type=\"application/json\"> block and read it"
           + " from your script";
 
   /**
-   * The code of {@code e} for NEUTRAL attribute {@code name} (#583 rule 3, #584), or null after
+   * The code of {@code e} for NEUTRAL attribute {@code name} (client frameworks may run any non-standard attribute as code), or null after
    * reporting why it is not framework-neutral, at the offending piece. By static type and expression
    * shape only: a literal, an expression of a number type (an exact-class check and plain decimal at
    * render time, {@link Escapers#neutralNumber}) or a boolean type, a {@link #neutralLink neutral
@@ -210,11 +210,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     return null;
   }
 
-  /** What a neutral link's literal path may hold, with each {@code {var}} as one letter (#583's research). */
+  /** What a neutral link's literal path may hold, with each {@code {var}} as one letter: nothing a client framework reads as code. */
   private static final Pattern NEUTRAL_PATH = Pattern.compile("/(?!/)([A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})*");
 
   /**
-   * The code of {@code link} if it is a neutral path (#584), else null after reporting why: its
+   * The code of {@code link} if it is a neutral path, else null after reporting why: its
    * literal path starts with a single {@code /}, holds only {@code A-Z a-z 0-9 . _ ~ / -} and
    * {@code %XX}, and every parameter fills a path variable, so there is no query or fragment.
    * {@link Escapers#neutralPath} encodes the built URL the same way (path variables come from data)
@@ -255,7 +255,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           Pattern.CASE_INSENSITIVE);
 
   /**
-   * The {@code content} of a {@code <meta http-equiv="refresh">} (#237): only
+   * The {@code content} of a {@code <meta http-equiv="refresh">}: only
    * {@code '<seconds>;url=' + @{/path...}}, where the link path is a literal starting with a single
    * {@code /}, so the page can only refresh to the same origin. Path variables and parameters are
    * percent-encoded by the link, and {@code Escapers.refresh} encodes what would end the URL.
@@ -290,11 +290,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   /**
-   * A URL that must stay on the page's origin: a {@code <base href>} (#350), the {@code action} of a
-   * POST form or a {@code formaction}, which may receive the CSRF token (#285, #314), and a link
-   * {@code action} of any other form (#585). Only a link whose literal path is same-origin
+   * A URL that must stay on the page's origin: a {@code <base href>}, the {@code action} of a
+   * POST form or a {@code formaction}, which may receive the CSRF token, and a link
+   * {@code action} of any other form. Only a link whose literal path is same-origin
    * ({@link LinkCompiler#isSameOriginPath}) compiles, re-checked at render time ({@link #sameOrigin}),
-   * or a choice ({@code c ? a : b}, {@code c ? a}) whose every branch is one (#635), as
+   * or a choice ({@code c ? a : b}, {@code c ? a}) whose every branch is one, as
    * {@link #neutralCode} takes a choice; a missing else branch omits the attribute.
    * {@code why} starts the error for a non-link value and {@code orElse} ends it; {@code what} names
    * the URL in the error for a link that is not same-origin.
@@ -345,14 +345,14 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   /**
    * The code of a link whose literal path {@link LinkCompiler#isSameOriginPath is same-origin},
-   * re-checked at render time (#358): the context path or a custom {@code Links} could still make it
+   * re-checked at render time: the context path or a custom {@code Links} could still make it
    * protocol-relative.
    */
   private static String sameOrigin(CompiledExpr link) {
     return Escapers.class.getName() + ".sameOriginLink(" + link.code() + ")";
   }
 
-  /** Starts the reason for the computed action error on a form that is not a static POST one (#585). */
+  /** Starts the reason for the computed action error on a form that is not a static POST one. */
   private static final String FORM_ACTION =
       "a form's computed action must stay on the page's origin, since client code may submit the form and swap"
           + " the response into the page as HTML";
@@ -363,7 +363,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   /**
    * Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity.
    * BigDecimal and BigInteger are not final, so {@link #styleCode} wraps them in
-   * {@link Escapers#styleNumber}, which accepts only the exact JDK class at render time (#540).
+   * {@link Escapers#styleNumber}, which accepts only the exact JDK class at render time.
    */
   private static final Set<String> NUMBER_TYPES =
       Backports.setOf(
@@ -371,7 +371,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           "java.lang.Double", "java.math.BigDecimal", "java.math.BigInteger");
 
   /**
-   * A {@code style} attribute (#182). CSS cannot be escaped, so the value is built only from
+   * A {@code style} attribute. CSS cannot be escaped, so the value is built only from
    * pieces that cannot change the declaration structure: literals (written by the template
    * author), numbers and {@link CssValue}s, joined by {@code +}, {@code |...|}, {@code c ? a : b} and
    * {@code a ?: b}. Any other piece, such as a String expression, is a build error. The
@@ -379,7 +379,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * piece goes through {@link Escapers#styleNumber}, which fails the render if a subclass's
    * {@code toString()} is not a number.
    *
-   * <p>A TYPED_ATTRIBUTE (#565) is checked the same way but takes no safe type: only literals
+   * <p>A TYPED_ATTRIBUTE is checked the same way but takes no safe type: only literals
    * and numbers. {@code context} is the attribute's context: TYPED_ATTRIBUTE or STYLE.
    */
   private static void style(

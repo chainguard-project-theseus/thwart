@@ -33,7 +33,7 @@ public final class MessageCompiler {
   }
 
   /**
-   * What {@code #{key(args)}} writes as HTML ({@code t:utext}, {@code [(...)]}; #677), or
+   * What {@code #{key(args)}} writes as HTML ({@code t:utext}, {@code [(...)]}), or
    * {@code null} after reporting an error: the message, looked up with its arguments escaped as
    * text and cleaned at runtime by the fixed message policy ({@code Escapers.htmlMessage}). Links
    * are kept only if the bundle is unchecked or a value of the key has an {@code <a}; otherwise the

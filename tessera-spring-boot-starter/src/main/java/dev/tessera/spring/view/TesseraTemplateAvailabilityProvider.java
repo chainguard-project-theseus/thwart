@@ -9,8 +9,8 @@ import org.springframework.core.io.ResourceLoader;
 
 /**
  * Tells Boot which view names are Tessera templates, so that Boot's {@code
- * DefaultErrorViewResolver} renders {@code error/404.html}, {@code error/4xx.html} and the like
- * (#628).
+ * DefaultErrorViewResolver} renders {@code error/404.html}, {@code error/4xx.html}
+ * and the like.
  *
  * <p>Boot passes the application context as {@code resourceLoader}. Then a name is available
  * exactly when one of the context's {@link TesseraViewResolver} beans (ancestors included) would

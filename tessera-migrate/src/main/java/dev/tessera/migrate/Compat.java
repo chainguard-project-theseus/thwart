@@ -16,7 +16,7 @@ import java.util.Set;
 
 /**
  * The few post-Java-8 library methods this tool used, written for Java 8: the tool runs on the
- * developer's machine, which may be a JDK 8 (#167). Each behaves like the JDK method it names.
+ * developer's machine, which may be a JDK 8. Each behaves like the JDK method it names.
  */
 final class Compat {
   private Compat() {}

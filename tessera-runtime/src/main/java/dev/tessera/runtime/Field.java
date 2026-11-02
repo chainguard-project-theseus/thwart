@@ -47,7 +47,7 @@ public final class Field<T> {
 
   /**
    * The element id {@code t:field} writes for this field: the path without '[' and ']', as Spring
-   * and Thymeleaf write it ({@code items1.name} for {@code items[1].name}, #193).
+   * and Thymeleaf write it ({@code items1.name} for {@code items[1].name}).
    */
   public String id() {
     return path.replace("[", "").replace("]", "");

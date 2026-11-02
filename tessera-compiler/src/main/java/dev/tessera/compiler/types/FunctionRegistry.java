@@ -33,10 +33,10 @@ import javax.lang.model.util.Types;
  * {@code @TemplateFunction} in classes annotated {@code @TemplateFunctions("ns")}, taken from
  * {@link CompilerEnv#functionNamespaces()} plus every {@link BuiltinNamespaces} class present on
  * the classpath. Any other namespace is looked up on first use in the function index
- * ({@link CompilerEnv#functionIndex()}: classes compiled earlier, #118); the indexed class must
+ * ({@link CompilerEnv#functionIndex()}: classes compiled earlier); the indexed class must
  * still be annotated {@code @TemplateFunctions} with that namespace and goes through the same
  * checks. Duplicate namespaces, non-static or non-public methods, signatures using
- * never-view-safe types, and {@code Fragment} parameters (#561) are build errors (reported once, when the class is registered, at
+ * never-view-safe types, and {@code Fragment} parameters are build errors (reported once, when the class is registered, at
  * {@code path/To/Class.java:1:1}). A leading {@code java.util.Locale} parameter is not a template
  * argument: the compiler passes the render locale ({@code ctx.locale()}) to it ({@link
  * #takesLocale}).
@@ -194,7 +194,7 @@ public final class FunctionRegistry {
     for (VariableElement p : templateParameters(m)) {
       Optional<String> pr = safety.reason(p.asType(), true);
       if (!pr.isPresent() && takesFragment(p.asType())) {
-        // It could return a template-built Fragment the verifier can't trace to where it lands (#561).
+        // It could return a template-built Fragment the verifier can't trace to where it lands.
         pr = Optional.of("a function may not take a Fragment, since the compiler can't check the markup it returns where"
             + " it lands; insert the Fragment itself with t:insert or t:replace");
       }
