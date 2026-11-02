@@ -100,14 +100,20 @@ its own message, what it doesn't model:
 - **Typed**: every other standard attribute without a class of its own takes string literals,
   numbers and a choice between literals only.
 - **Single URL**: only attributes whose grammar is exactly one URL take a URL; the scheme is
-  checked at render time. URL lists (`srcset`, `imagesrcset`, `ping`) can't be computed.
-- **Resource URL**: `script[src]`, `iframe[src]`, `link[href]`, `object[data]`, `base[href]` take
-  a literal-path `@{...}` link, re-checked as same-origin at render time.
+  checked at render time.
+- **Resource URL**: `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]` and
+  `base/link[href]` take only a literal-path `@{...}` link. The author's literal fixes the origin,
+  a path variable in the host is a build error, and the scheme check is the only render-time
+  check. A `<base href>` must also be same-origin (§9).
 - **Neutral**: every name that isn't a standard HTML, SVG, MathML or ARIA name (`data-*`, `hx-*`,
   `x-*`, `v-*`, custom element attributes) takes only a framework-neutral value: an exact-class
   number, a boolean, a same-origin `@{/path}` without a query, or a choice of those and literals.
-- **Forbidden**: `on*`, `srcdoc`, the tree-builder inputs of §5.2, and every attribute of an SVG
-  or MathML element.
+- **Forbidden** (`Contexts.forbidden`, which also gives the fix-it): names that aren't plain
+  (`:x`, `@x`), `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), the tree-builder inputs of
+  §5.2, and every attribute of an SVG or MathML element. `on*` is a build error too.
+
+`OutputContext.attributeEscaper()` gives each class its escaper, a `Skeleton.Escaper` naming one
+`Escapers` method (§6).
 
 ### 5.4 Scripts: the script prelude rule
 
@@ -207,7 +213,8 @@ outside a pinned allow-list.
 ## 9. CSRF: one closed form shape
 
 A `<form>` gets the token only if its method is a static `post` and its action is absent, static
-and same-origin by shape, or a computed literal-path `@{...}` link re-checked at render time. A
+and same-origin by shape, or a computed same-origin `@{/...}` link re-checked by
+`Escapers.sameOriginLink` at render time. A
 computed `method`, any other computed action, and a cross-origin `formaction` or `<base href>` are
 build errors. Every computed form `action` is a same-origin link, since client code may submit
 any form.

@@ -168,7 +168,7 @@ is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
 
 ### 6.1 Attribute classes
 
-`Contexts.attribute(element, name)` picks the class of a computed attribute, in this order (a name outside the pattern or on a foreign element is `FORBIDDEN` first; `srcdoc`, URL lists and tree-builder inputs are checked after `REFRESH`). No
+`Contexts.attribute(element, name)` picks the class of a computed attribute, in this order (`Contexts.forbidden` runs first and gives each `FORBIDDEN` reason; `OutputContext.attributeEscaper()` names each class's escaper). No
 name is classified by client framework.
 
 | Class (`OutputContext`) | Where | Accepts | Checked by |
@@ -176,8 +176,8 @@ name is classified by client framework.
 | `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
 | `EVENT_HANDLER` | `on*` | nothing: build error | `ContextsTest` |
 | `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
-| `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3` |
-| `RESOURCE_URL` | `script[src\|href\|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a literal-path `@{...}` link, re-checked as same-origin when rendered (`Escapers.resourceUrl`); every `<base href>` must be same-origin | `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` |
+| `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3`, `SameOriginLinkRenderTest` |
+| `RESOURCE_URL` | `script[src\|href\|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a literal-path `@{...}` link: the author's literal fixes the origin, a path variable in the host is a build error, and only the scheme is checked when rendered (`Escapers.resourceUrl`); every `<base href>` must be same-origin | `LinkCompilerTest`, `AttributesEndToEndTest`, `CsrfBaseTest` |
 | `URL` | attributes whose grammar is exactly one URL: `href src action formaction cite poster xlink:href background longdesc manifest` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera` (`Escapers.url`) | `AttributesEndToEndTest` |
 | `TYPED_ATTRIBUTE` | every other standard name without an inert value type (`rel`, `target`, `sandbox`, `allow`, `crossorigin`, `usemap`, ...), and `<meta content>` unless its static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` |
 | `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA) | any value (`Escapers.attr`) | `ContextsTest` |
