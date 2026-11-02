@@ -245,7 +245,7 @@ class HtmlPolicyTest {
     assertEquals("<img src=\"/a.png\" alt=\"x\">", SafeInlineHtml.sanitize("<img src=/a.png alt=x>",
         HtmlPolicy.inlineBuilder().allowElements("img").allowAttributes("alt").build()).html());
     assertEquals("a<i>bc</i>", SafeInlineHtml.sanitize("a<i>b<b>c</b></i>", HtmlPolicy.inlineBuilder().allowElements("i").build()).html());
-    for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, HtmlPolicy.MESSAGE_NO_LINKS,
+    for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, HtmlPolicy.MESSAGE,
         HtmlPolicy.builder().allowElements("b").build()}) {
       assertThrows(IllegalArgumentException.class, () -> SafeInlineHtml.sanitize("<b>x</b>", p));
     }

@@ -137,7 +137,7 @@ predicate on the parser state where it is inserted plus a promise about what its
   (`RAW_CLOSES_ELEMENT`). Producers (`html.sanitize`, `HtmlPolicy`, `SafeHtml.escape`/`concat`)
   emit balanced content that parses without errors.
 - HTML messages (`t:utext="#{...}"`) and `SafeInlineHtml` values are `PHRASING`: at render time
-  the formatted message is sanitized by a fixed inline policy (`Escapers.htmlMessage`,
+  the formatted message is sanitized by a fixed inline policy (`Escapers.htmlMessage`, which returns a `SafeInlineHtml`, or `linkedHtmlMessage` for a key with links,
   `HtmlMessageTest`), and a `SafeInlineHtml` is escaped text or sanitized in inline mode, with a
   policy limited to `HtmlPolicy.INLINE_ELEMENTS` (#397, `FlowProducerTest`).
 - `Fragment` is compile-time only (`FragmentFromJavaTest`): Java can't build one, and no page or function takes
