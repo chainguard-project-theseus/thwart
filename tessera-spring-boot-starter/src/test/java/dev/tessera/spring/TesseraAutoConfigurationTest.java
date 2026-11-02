@@ -223,7 +223,7 @@ class TesseraAutoConfigurationTest {
     try (AnnotationConfigWebApplicationContext ctx = web(true, UserFilterRegistration.class)) {
       assertThat(ctx.containsBean("tesseraResourceUrlEncodingFilter")).isFalse();
       assertThat(ctx.getBeanNamesForType(FilterRegistrationBean.class))
-          .containsExactly("resourceUrlEncodingFilter");
+          .containsExactlyInAnyOrder("resourceUrlEncodingFilter", "tesseraCspFilter");
     }
   }
 

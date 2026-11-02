@@ -250,10 +250,12 @@ dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.TesseraAu
 dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.view.RenderContextFactory tesseraRenderContextFactory()
 dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.view.TesseraViewResolver tesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
 dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton tesseraOldEngineWarning()
+dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean tesseraCspFilter()
 dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean tesseraResourceUrlEncodingFilter()
 dev.tessera.spring.TesseraConfiguration: public class dev.tessera.spring.TesseraConfiguration
 dev.tessera.spring.TesseraConfiguration: public dev.tessera.runtime.TemplateRegistry tesseraTemplateRegistry(org.springframework.context.ApplicationContext)
 dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.TesseraConfiguration()
+dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.CspFilter tesseraCspFilter()
 dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.RenderContextFactory tesseraRenderContextFactory()
 dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.TesseraViewResolver tesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
 dev.tessera.spring.TesseraConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton tesseraOldEngineWarning()
@@ -267,6 +269,12 @@ dev.tessera.spring.fn.Auth: public static boolean hasAuthority(java.lang.String)
 dev.tessera.spring.fn.Auth: public static boolean hasRole(java.lang.String)
 dev.tessera.spring.fn.Auth: public static boolean isAuthenticated()
 dev.tessera.spring.fn.Auth: public static java.lang.String name()
+dev.tessera.spring.view.CspFilter: public dev.tessera.spring.view.CspFilter()
+dev.tessera.spring.view.CspFilter: public final class dev.tessera.spring.view.CspFilter implements jakarta.servlet.Filter, org.springframework.web.WebApplicationInitializer
+dev.tessera.spring.view.CspFilter: public void destroy()
+dev.tessera.spring.view.CspFilter: public void doFilter(jakarta.servlet.ServletRequest,jakarta.servlet.ServletResponse,jakarta.servlet.FilterChain) throws java.io.IOException,jakarta.servlet.ServletException
+dev.tessera.spring.view.CspFilter: public void init(jakarta.servlet.FilterConfig)
+dev.tessera.spring.view.CspFilter: public void onStartup(jakarta.servlet.ServletContext)
 dev.tessera.spring.view.RenderContextFactory: public abstract dev.tessera.runtime.RenderContext create(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,java.util.Map<java.lang.String, ?>)
 dev.tessera.spring.view.RenderContextFactory: public abstract interface dev.tessera.spring.view.RenderContextFactory
 dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public boolean isTemplateAvailable(java.lang.String,org.springframework.core.env.Environment,java.lang.ClassLoader,org.springframework.core.io.ResourceLoader)
