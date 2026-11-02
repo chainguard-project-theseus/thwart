@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Checks;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -183,7 +184,7 @@ public final class CssValue {
         return null;
       }
     }
-    if (!Escapers.isAllowedUrl(t) || hasScheme(t, "mailto") || hasScheme(t, "tel")) {
+    if (!Checks.isAllowedUrl(t) || hasScheme(t, "mailto") || hasScheme(t, "tel")) {
       return null;
     }
     StringBuilder b = new StringBuilder(t.length() + 16).append("url(\"");

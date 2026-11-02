@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Checks;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -372,10 +373,10 @@ final class HtmlSanitizer {
       return null;
     }
     String url = decode(raw);
-    if (!Escapers.isAllowedUrl(url)) {
+    if (!Checks.isAllowedUrl(url)) {
       return null;
     }
-    if (image && !Escapers.isSameOriginPath(url)) {
+    if (image && !Checks.isSameOriginPath(url)) {
       return null; // not a same-origin path: '/' not followed by '/' or '\' (tab, CR, LF ignored)
     }
     if (!image && policy.attributes.contains("id") && url.length() > 1 && url.charAt(0) == '#'

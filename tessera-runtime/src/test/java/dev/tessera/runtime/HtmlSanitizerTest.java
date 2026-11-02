@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.runtime.internal.Checks;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -426,7 +427,7 @@ class HtmlSanitizerTest {
         String href = m.group(1).replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<")
             .replace("&gt;", ">").replace("&amp;", "&");
         assertFalse(href.contains("&"), () -> "undecoded reference in href " + out + " for " + vector);
-        assertTrue(Escapers.isAllowedUrl(href), () -> "unsafe href " + out + " for " + vector);
+        assertTrue(Checks.isAllowedUrl(href), () -> "unsafe href " + out + " for " + vector);
       }
       pos = m.end();
     }
