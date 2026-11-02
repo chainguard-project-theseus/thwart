@@ -38,7 +38,11 @@ getter, a type that isn't view-safe, or `T(java.lang.Runtime)` is a build error 
 
 ## Design principles
 
-Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS.md).
+The north star: compile the templates real Spring apps use into fast, plain Java, and make
+template injection and XSS impossible by construction. When a feature can't be proven safe
+simply, Tessera rejects it with a `file:line:col` error and a recipe in the guide, rather than
+model browsers or client frameworks. Each principle removes a class of bugs. The full rules are
+in [AGENTS.md](AGENTS.md).
 
 1. **Templates are code.** They compile at build time. The runtime has no template parser and no
    API that takes template source.
@@ -51,7 +55,8 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 4. **No reflection at runtime.** All access is generated Java. No SpEL, OGNL or `ScriptEngine`.
 5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
    templates where it can classify every output position exactly as browsers parse it, and the
-   context picks the escaper. Raw output needs a `SafeHtml` or `Fragment` built in Java.
+   context picks the escaper. Raw output needs a `SafeHtml` built in Java by a checking factory
+   (`html.sanitize`, `SafeHtml.escape`), or a `Fragment` from another template.
 6. **Familiar before novel, inside the profile.** The syntax tracks Thymeleaf wherever that is
    safe, so migration is mostly mechanical. Parity never overrides 5.
 7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
@@ -230,7 +235,8 @@ original app, and a check that security wasn't weakened. See
 
 ## Documentation
 
-- [docs/guide.md](docs/guide.md): porting guide and reference (syntax, every compiler diagnostic, known limitations)
+- [docs/guide.md](docs/guide.md): porting guide and reference (syntax, a recipe for every rejection, every verifier rule, known limitations)
+- [docs/security-architecture.md](docs/security-architecture.md): how injection and XSS are ruled out by construction; [docs/security-model.md](docs/security-model.md): threat model and trust boundaries; [docs/context-model.md](docs/context-model.md): the accepted HTML profile and the verifier's rules as tables
 - [docs/comparison.md](docs/comparison.md): how Tessera compares with JTE, Rocker, JStachio and Qute, and when to pick another engine
 - [docs/mvp-design.md](docs/mvp-design.md): how the compiler, runtime and starter work
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design

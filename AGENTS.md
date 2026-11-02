@@ -7,12 +7,22 @@ pilot of Chainguard's secure-by-design library portfolio.
 - Vision (long-term design): [docs/tessera-vision.md](docs/tessera-vision.md)
 - **MVP design (what we are building now): [docs/mvp-design.md](docs/mvp-design.md)**
 
+## North star
+
+> Tessera compiles the templates our target Spring apps actually use into fast, plain Java, and
+> makes template injection and XSS impossible by construction. When a feature can't be proven
+> safe simply, reject it and let migration absorb the cost; never model browsers, client
+> frameworks or one app's idiom.
+
+Decide judgment calls by it: the smallest correct change, delete rather than add, and a rejection
+with a clear `file:line:col` error and a guide recipe beats new machinery. Before calling a
+feature unused, grep `bench/migration/results/*/run-*/diff.patch` for it.
+
 ## Design principles (non-negotiable)
 
 Every change must uphold all seven. If a task seems to require breaking one, stop and say so
 in the PR/issue instead of working around it. The spec-parser check in 5 is the build-time
-verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/security-architecture.md)
-§11), and the rest of the profile in 3 in the phases of §8; new code moves toward them, never away.
+verifier ([docs/security-architecture.md](docs/security-architecture.md) §11).
 
 1. **Templates are code.** Compiled at build time into Java classes. The runtime has no
    template parser and no API that accepts template source as a `String`.
@@ -34,8 +44,9 @@ verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/se
    parses it. It checks this at build time, for every template, against the spec HTML parser,
    and accepts only parses without errors, outside the constructs where browsers are known to
    split. Within that, it picks the escaper from the context. Raw output needs a safe type of
-   the right content kind (`SafeHtml`, `Fragment`, `CssValue`), built only by a factory that
-   checks it; never a flag on a string, and never a constructor that skips the check.
+   the right content kind (`SafeHtml`, `CssValue`), built only by a factory that checks it, or a
+   `Fragment` from another template (Java can't build one); never a flag on a string, and never
+   a constructor that skips the check.
 6. **Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
    is safe, so migration is mechanical. Where Thymeleaf accepts something outside the profile,
    Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never

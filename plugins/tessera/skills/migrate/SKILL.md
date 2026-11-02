@@ -32,8 +32,13 @@ before you start; look up the rest when you need it.
 
 - **The compiler.** Each error names the file, line and column, says what is wrong and how to fix
   it. Those messages are the documentation for each rule; `mvn compile` is the fastest check you
-  have. The generated Java is in `target/generated-sources/annotations` if you want to see what a
-  template became.
+  have. An error ending in `[verifier:RULE]` has a row with the fix in guide section 5. Some
+  constructs are rejected rather than supported, each with a recipe in the guide: values inside
+  `<svg>`, `<math>`, `<noscript>` or `<iframe>`, CDATA, `<xmp>`/`<frameset>`, a computed input
+  `type`, `srcset` or `<font color>`, unbalanced `t:if`/`t:each` bodies (4.4, 4.8), and block
+  markup in HTML messages (4.5). Client frameworks that compile the server's DOM as a template
+  are unsupported (section 5). The generated Java is in `target/generated-sources/annotations` if
+  you want to see what a template became.
 - **`tessera-migrate`**, a jar that runs on JDK 8+. Fetch it into `.tessera/` (outside `target/`;
   don't commit it):
 
