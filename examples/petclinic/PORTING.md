@@ -1,8 +1,14 @@
 # Porting spring-petclinic's templates to Tessera
 
 This records every manual step and deviation from porting the twelve Thymeleaf templates in
-`thymeleaf-reference/templates` to `src/main/resources/templates` (#18). The general porting guide is
-[docs/guide.md](../../docs/guide.md). Friction points (compiler gaps, migrator misses) are in [MIGRATION-NOTES.md](MIGRATION-NOTES.md).
+`thymeleaf-reference/templates` to `src/main/resources/templates`. The general porting guide is
+[docs/guide.md](../../docs/guide.md).
+
+What went smoothly: once the model was annotated and the stubs were typed, the templates compiled
+after one parser error (step 9). That covers layout with `~{::body}`, `t:object`/`t:field`/`t:errors`,
+`<select t:field>` with `t:each` options, `t:switch` on an `Integer` status, `temporals.format`,
+`numbers.sequence`, inlined `[[${i}]]`, and build-time checks of every `#{key}`. Every page then
+rendered the same content as upstream for the sample data, including the validation-error states.
 
 ## Steps
 
@@ -44,7 +50,7 @@ This records every manual step and deviation from porting the twelve Thymeleaf t
    was `@{__${link}__}`. Now the caller passes a built link (`@{/owners/find}`, type `String`) and
    the fragment writes `t:href="link"`. `t:class="nav-item"` (a Thymeleaf literal token) became a
    static `class="nav-item"`.
-6. **Type the field fragments with `Field`** (#43). `fragments/inputField` and `fragments/selectField`
+6. **Type the field fragments with `Field`.** `fragments/inputField` and `fragments/selectField`
    used `*{__${name}__}` and `#fields.hasErrors(name)`. Tessera has no preprocessing and no dynamic
    field paths. Instead `name` is declared `Field`: `input (String label, Field name, String type)`
    and `select (String label, Field name, Collection<PetType> items)`. The callers are unchanged
@@ -76,21 +82,9 @@ This records every manual step and deviation from porting the twelve Thymeleaf t
 12. **Tests.**
     - Restored the upstream view-rendering tests: `PetClinicIntegrationTests.ownerDetails`/`ownerList`,
       `PetClinicConcurrencyTests`, `CrashControllerIntegrationTests.triggerExceptionHtml`.
-    - Added rendered-HTML assertions to every `@WebMvcTest` test that renders a view (the list in
-      `thymeleaf-reference/README.md`), plus `OwnerControllerTests.ownerDataIsEscapedInEveryPage`
-      (XSS negative test).
+    - Added rendered-HTML assertions to every `@WebMvcTest` test that renders a view, plus
+      `OwnerControllerTests.ownerDataIsEscapedInEveryPage` (XSS negative test).
     - `I18nPropertiesSyncTest` now treats `t:text`/`t:utext`/`t:errors` like `th:text`.
-
-## Changes outside `examples/petclinic`
-
-- **Self-closed elements with a replaced body** (`tessera-compiler`, `TemplateGenerator`):
-  `<td t:text="x" />` rendered `<td />x`. It now renders `<td>x</td>`, like Thymeleaf. Upstream's
-  `ownersList.html` and `vetList.html` use this form. Test:
-  `CodegenEndToEndTest.selfClosingElementWithReplacedBodyGetsAnEndTag`.
-- **`@WebMvcTest` slices** (`tessera-spring-boot-starter`): added
-  `META-INF/spring/org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc.imports`
-  listing `TesseraAutoConfiguration`. Without it, MockMvc slice tests never render a Tessera view:
-  the forward is recorded and the body is empty. Boot's Thymeleaf module registers itself the same way.
 
 ## Deviations from upstream output
 
@@ -101,10 +95,6 @@ and POSTs with validation errors). Text and structure are the same. The remainin
   `<a href="1/edit" class="btn">` becomes `<a class="btn" href="1/edit">`.
 - **Whitespace.** Thymeleaf writes `<td >` for an element whose attribute was removed. Tessera
   writes `<td>`.
-- **Webjars URLs.** Thymeleaf's links pass through Boot's `ResourceUrlEncodingFilter`, which
-  Boot registers only with Thymeleaf, so upstream renders versioned webjar paths
-  (`/webjars/bootstrap/5.3.8/...`). Tessera renders `/webjars/bootstrap/dist/...`, which
-  `webjars-locator-lite` serves just as well.
 - **Null attribute values.** `<input type="hidden" name="id" t:value="*{id}" />` on a new pet omits
   `value`. Thymeleaf writes `value=""`. Omitting the attribute on `null` is Tessera's documented rule.
 - **Null link path variables throw.** `@{/owners/{ownerId}(ownerId=owner.id)}` with a null id fails the
