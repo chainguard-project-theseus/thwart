@@ -18,7 +18,7 @@ class InertAttributesTest {
 
   private static final String HEADER =
       "<div xmlns:t=\"https://tessera.dev\""
-          + " t:params=\"String s, boolean b, int n, TrustedUrl u, CssValue v, com.example.Kind k\">";
+          + " t:params=\"String s, boolean b, int n, SafeHtml u, CssValue v, com.example.Kind k\">";
 
   private static final String KIND = "package com.example; public enum Kind { A, B }";
 

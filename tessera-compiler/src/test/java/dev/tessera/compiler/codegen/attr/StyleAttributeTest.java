@@ -273,11 +273,11 @@ class StyleAttributeTest {
   }
 
   /**
-   * Other animations keep their contexts: their values take only literals, numbers and TrustedUrls
-   * (TRUSTED_URL, #539), not a CssValue or a String.
+   * Other animations keep their contexts: their values hold URLs and take only literals and numbers
+   * (TYPED_ATTRIBUTE, #539, #668), not a CssValue or a String.
    */
   @Test
-  void otherAnimationsTakeOnlyTrustedUrls() {
+  void otherAnimationsTakeOnlyLiteralsAndNumbers() {
     compile("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>").assertError("t.html:1:", "t:to is not allowed",
         "holds URLs but is not exactly one URL");
     compile("<svg><a><set attributeName=\"href\" t:to=\"css.url(s)\"/></a></svg>").assertError("t.html:1:",
@@ -292,7 +292,7 @@ class StyleAttributeTest {
   /**
    * A browser folds A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
    * unknown attributes, so the animation animates href, which the real attributeName names, and splits its
-   * values at ';'. They stay TRUSTED_URL: a decoy naming fill must not make them CSS, so a CssValue or a
+   * values at ';'. They stay TYPED_ATTRIBUTE: a decoy naming fill must not make them CSS, so a CssValue or a
    * String there is a build error.
    */
   @Test

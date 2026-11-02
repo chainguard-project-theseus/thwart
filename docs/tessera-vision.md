@@ -133,12 +133,12 @@ Applications call it through a generated, typed facade, `Templates.ordersPage(us
 |---|---|
 | Element text | HTML entity encoding |
 | Quoted attribute value | Attribute encoding; unquoted attributes are a build error |
-| URL attribute (`href`, `src`, `action`, ...) | Scheme allow-list (http, https, mailto, relative); `javascript:` and `data:` replaced with `about:invalid` unless the value is a `TrustedUrl` |
+| URL attribute (`href`, `src`, `action`, ...) | Scheme allow-list (http, https, mailto, relative); `javascript:` and `data:` replaced with `about:invalid`; no type skips the check (#668) |
 | `<script>` block | Values serialized as JSON, with `</` and line separators escaped |
 | Event handler attribute (`onclick`, ...) | Expressions are a build error; use `data-*` attributes plus script |
 | `<style>` block or `style` attribute | Allow-listed CSS values only; anything else is a build error |
 
-Raw HTML goes through types, not flags. `t:utext` accepts only `SafeHtml`, which comes only from the escaper, a sanitizer or another rendered template; nothing wraps a string unchecked (#664). Same pattern for `TrustedUrl` and `SafeStyle`.
+Raw HTML goes through types, not flags. `t:utext` accepts only `SafeHtml`, which comes only from the escaper, a sanitizer or another rendered template; nothing wraps a string unchecked (#664). Same pattern for `SafeStyle`.
 
 Spring forms get CSRF tokens inserted automatically into every `method="post"` form.
 
@@ -171,7 +171,7 @@ Shares syntax and escapers, none of the trust. Data is an immutable tree of valu
 | View-name injection | Eliminated | Names resolve against a build-time registry |
 | Sandbox escape via reflection chains | Eliminated | Unsafe types rejected by the compiler |
 | XSS from a forgotten escape | Eliminated by default | Contextual escaping is automatic; raw output needs a safe type |
-| XSS from an unchecked door (`TrustedUrl.unchecked`, a hand-written `Template`) | Residual, reviewable | A build error from `tessera:review` (#428, #602); `SafeHtml.unchecked` is gone (#664) |
+| XSS from an unchecked door (a hand-written `Template`) | Residual, reviewable | A build error from `tessera:review` (#428, #602); `SafeHtml.unchecked` and `TrustedUrl` are gone (#664, #668) |
 | Unsafe registered functions | Residual, reviewable | The function list is the whole extension surface; `tessera:review` reports it (#428) |
 | Information disclosure | Reduced | Only declared parameters and allow-listed accessors visible |
 | DoS from template logic | Reduced (main), bounded (sandbox) | |

@@ -1,30 +1,31 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
  * A form's computed {@code action} (#585, replacing the {@code hx-boost} tracking of #258): client
  * code such as htmx 1.x may submit any form with AJAX and swap the response into the page as HTML,
- * so a computed action is a same-origin {@code @{}} link or a {@code TrustedUrl}, with or without
+ * so a computed action is a same-origin {@code @{}} link (or a choice of them), with or without
  * htmx, and a static POST form keeps the stricter CSRF closed shape ({@link CsrfInjector}). Static
- * actions are unchanged. A computed {@code hx-boost} is NEUTRAL (#584).
+ * actions are unchanged, so another site is a static action (#668). A computed {@code hx-boost} is
+ * NEUTRAL (#584).
  */
 class FormActionTest {
 
   private static final String HEADER =
-      "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s, TrustedUrl u, boolean b\">";
+      "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s, boolean b\">";
 
   private static Compilation compile(String body) {
     return Compilation.builder().template("t.html", HEADER + body + "</div>").compile();
   }
 
   private static String render(Compilation c, String s) {
-    return c.render("t", Map.of("s", s, "u", TrustedUrl.unchecked("https://pay.example/x"), "b", true));
+    return c.render("t", Map.of("s", s, "b", true));
   }
 
   private static final String NOT_A_LINK = "a form's computed action must stay on the page's origin";
@@ -51,7 +52,8 @@ class FormActionTest {
       "<form hx-boost=\"false\" t:action=\"s\"></form>",
     };
     for (String body : bodies) {
-      compile(body).assertError("t.html:1:", "t:action is not allowed", NOT_A_LINK, "@{/items/", "TrustedUrl");
+      compile(body).assertError("t.html:1:", "t:action is not allowed", NOT_A_LINK, "@{/items/",
+          "or a static action if another site is meant");
     }
     compile("<form t:attr=\"action=s\"></form>").assertError("t.html:1:", "t:attr action is not allowed", NOT_A_LINK);
   }
@@ -66,10 +68,10 @@ class FormActionTest {
     compile("<form t:attr=\"action=@{//evil.example}\"></form>").assertError("t:attr action is not allowed", "same-origin path");
   }
 
-  /** Negative: a static POST form keeps the closed shape: not even a TrustedUrl (#285). */
+  /** Negative: a static POST form keeps the closed shape (#285). */
   @Test
   void postFormKeepsTheClosedShape() {
-    compile("<form method=\"post\" t:action=\"u\"></form>").assertError("t.html:1:", "t:action is not allowed", "the CSRF token");
+    compile("<form method=\"post\" t:action=\"s\"></form>").assertError("t.html:1:", "t:action is not allowed", "the CSRF token");
     compile("<main hx-boost=\"true\"><form method=\"post\" t:action=\"s\"></form></main>")
         .assertError("t.html:1:", "t:action is not allowed", "the CSRF token");
   }
@@ -87,13 +89,23 @@ class FormActionTest {
     assertEquals("<div><form action=\"/y/a\"></form></div>", render(choice, "a"));
   }
 
-  /** Positive: a TrustedUrl built in Java goes as is, also to another site and under a boost. */
+  /**
+   * Negative (#668): no computed value sends a form that is not a static POST one to another site,
+   * whatever its method, boosted or not; nothing is generated. Another site is a static action.
+   */
   @Test
-  void trustedUrlCompiles() {
-    Compilation c = compile("<form t:action=\"u\"></form><main hx-boost=\"true\"><form t:attr=\"action=u\"></form></main>")
-        .assertSuccess();
-    assertEquals("<div><form action=\"https://pay.example/x\"></form>"
-        + "<main hx-boost=\"true\"><form action=\"https://pay.example/x\"></form></main></div>", render(c, ""));
+  void crossOriginComputedActionIsABuildError() {
+    String[] bodies = {
+      "<form method=\"get\" t:action=\"s\"></form>",
+      "<form t:action=\"${s}\"></form>",
+      "<main hx-boost=\"true\"><form t:attr=\"action=s\"></form></main>",
+      "<form method=\"dialog\" t:action=\"b ? @{/x} : s\"></form>",
+    };
+    for (String body : bodies) {
+      Compilation c = compile(body);
+      c.assertError("t.html:1:", "is not allowed");
+      assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+    }
   }
 
   /** Static actions are unchanged: written as is, boosted or not. */
@@ -108,7 +120,6 @@ class FormActionTest {
   void formactionIsCheckedEverywhere() {
     String[] bodies = {
       "<form><button t:formaction=\"s\">x</button></form>",
-      "<form><button t:formaction=\"u\">x</button></form>",
       "<main hx-boost=\"true\"><form><input type=\"submit\" t:formaction=\"s\"></form></main>",
       "<form hx-get=\"/find\"><button t:attr=\"formaction=s\">x</button></form>",
     };

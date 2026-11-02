@@ -109,7 +109,7 @@ public final class LinkCompiler {
       diagnostics.error(
           link.pos(),
           "link @{" + path + "} has scheme '" + scheme + ":': only http and https absolute links are"
-              + " allowed; use a relative path, or pass a TrustedUrl instead of a link");
+              + " allowed; use a relative path, or a static attribute for another scheme");
       return false;
     }
     String authority = authority(path, scheme != null);

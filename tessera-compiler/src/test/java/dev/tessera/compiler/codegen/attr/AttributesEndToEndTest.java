@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -14,7 +13,7 @@ class AttributesEndToEndTest {
 
   private static final String HEADER =
       "<div xmlns:t=\"https://tessera.dev\""
-          + " t:params=\"String s, String c, TrustedUrl u, boolean b, Boolean nb, Integer n\">";
+          + " t:params=\"String s, String c, boolean b, Boolean nb, Integer n\">";
 
   private static Compilation compile(String body) {
     return Compilation.builder().template("t.html", HEADER + body + "</div>").compile();
@@ -48,6 +47,25 @@ class AttributesEndToEndTest {
         render("<a t:attr=\"href=s\">x</a>", model("s", "vbscript:x")));
   }
 
+  /** Negative (#668): no type vouches for a URL, so nothing skips the scheme or origin checks. */
+  @Test
+  void trustedUrlDoesNotExist() {
+    Compilation.builder()
+        .java("com.example.Raw", "package com.example; public final class Raw {"
+            + " static Object raw(String s) { return dev.tessera.runtime.TrustedUrl.unchecked(s); } }")
+        .compile()
+        .assertError("cannot find symbol", "TrustedUrl");
+  }
+
+  /** Negative (#668): nor can a template take one as a parameter. */
+  @Test
+  void trustedUrlParamIsABuildError() {
+    Compilation.builder()
+        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"TrustedUrl u\"><a t:href=\"u\">x</a></div>")
+        .compile()
+        .assertError("t.html:1:", "TrustedUrl");
+  }
+
   /**
    * The {@code values to from by} of an SVG {@code <animate>} or {@code <set>} are not exactly one
    * URL (#539): {@code values} is a {@code ;}-separated list, and what any of them holds depends on
@@ -68,18 +86,17 @@ class AttributesEndToEndTest {
       "<svg><rect><animate attributeName=\"opacity\" t:values=\"|0;${s}|\"/></rect></svg>",
       "<svg><rect><set attributeName=\"width\" t:to=\"${b} ? s : '1'\"/></rect></svg>",
     }) {
-      compile(t).assertError("t.html:1:", "is not allowed", "holds URLs but is not exactly one URL", "TrustedUrl",
-          "String", "choose between literals");
+      compile(t).assertError("t.html:1:", "is not allowed", "holds URLs but is not exactly one URL",
+          "only combine string literals and numbers", "String", "choose between literals");
     }
   }
 
   /**
-   * What an animation value may still be: literals, numbers, a choice between literals and a
-   * TrustedUrl. A colour animation's values are CSS, like the attribute it animates: literals and
-   * css values.
+   * What an animation value may still be: literals, numbers and a choice between literals. A
+   * colour animation's values are CSS, like the attribute it animates: literals and css values.
    */
   @Test
-  void animationValuesTakeLiteralsNumbersAndTrustedUrls() {
+  void animationValuesTakeLiteralsAndNumbers() {
     assertEquals(
         "<svg><rect><animate attributeName=\"opacity\" values=\"0;5\"/></rect></svg>",
         render("<svg><rect><animate attributeName=\"opacity\" t:values=\"|0;${n}|\"/></rect></svg>", model("n", 5)));
@@ -93,14 +110,6 @@ class AttributesEndToEndTest {
         "<svg><rect><animate attributeName=\"fill\" values=\"red;#00f\"/></rect></svg>",
         render("<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${css.color(c)}|\"/></rect></svg>",
             model("c", "#00f")));
-    assertEquals(
-        "<svg><a><animate attributeName=\"href\" values=\"javascript:void(0);/a\"/></a></svg>",
-        render("<svg><a><animate attributeName=\"href\" t:values=\"u\"/></a></svg>",
-            model("u", TrustedUrl.unchecked("javascript:void(0);/a"))));
-    assertEquals(
-        "<svg><a><set attributeName=\"href\" to=\"/x;jsessionid=1\"/></a></svg>",
-        render("<svg><a><set attributeName=\"href\" t:attr=\"to=u\"/></a></svg>",
-            model("u", TrustedUrl.unchecked("/x;jsessionid=1"))));
   }
 
   /** {@code usemap} is a hash-name reference, not a URL (#539): literals only, like other typed attributes. */
@@ -119,29 +128,21 @@ class AttributesEndToEndTest {
     assertEquals(track, render(track, model()));
   }
 
-  @Test
-  void trustedUrlPasses() {
-    assertEquals(
-        "<a href=\"javascript:void(0)\">x</a>",
-        render("<a t:href=\"u\">x</a>", model("u", TrustedUrl.unchecked("javascript:void(0)"))));
-  }
-
-  @Test
-  void resourceUrlAcceptsTrustedUrl() {
-    assertEquals(
-        "<script src=\"https://cdn.example/app.js\"></script>",
-        render("<script t:src=\"u\"></script>", model("u", TrustedUrl.unchecked("https://cdn.example/app.js"))));
-  }
-
+  /** A literal-path link, or an absolute http(s) one with a literal host (#668: the way to another site). */
   @Test
   void resourceUrlAcceptsLiteralLink() {
     Compilation c = Compilation.builder().template("t.html", HEADER + "<script t:src=\"@{/js/app.js}\"></script></div>").compile();
     assertEquals("<div><script src=\"/js/app.js\"></script></div>", c.assertSuccess().render("t", model()));
+    assertEquals("<script src=\"https://cdn.example/app.js?v=1\"></script>",
+        render("<script t:src=\"@{https://cdn.example/app.js(v=${n})}\"></script>", model("n", 1)));
   }
 
+  /** Negative: no computed value but a literal-path link loads code or a document (#668: no safe type either). */
   @Test
   void resourceUrlRejectsStrings() {
-    compile("<script t:src=\"s\"></script>").assertError("t.html:1:", "t:src on <script>", "@{/js/app.js}", "TrustedUrl");
+    compile("<script t:src=\"s\"></script>")
+        .assertError("t.html:1:", "t:src on <script> loads code or a document: use a literal-path link such as"
+            + " @{/js/app.js}, not a java.lang.String");
     compile("<iframe t:src=\"'/x'\"></iframe>").assertError("t:src on <iframe>", "literal-path link");
     compile("<link t:href=\"s\">").assertError("t:href on <link>");
     compile("<script t:attr=\"src=s\"></script>").assertError("t:attr src on <script>");
@@ -161,77 +162,46 @@ class AttributesEndToEndTest {
     assertTrue(bad.contains("<html manifest=\"about:invalid#tessera\">"), bad);
   }
 
-  /** {@code srcset} and {@code imagesrcset} are lists of image candidates: no String compiles (#415, #539). */
-  @Test
-  void srcsetAcceptsTrustedUrl() {
-    assertEquals(
-        "<img srcset=\"/a.png 1x, /b.png 2x\">",
-        render("<img t:srcset=\"u\">", model("u", TrustedUrl.unchecked("/a.png 1x, /b.png 2x"))));
-    assertEquals(
-        "<link rel=\"preload\" as=\"image\" imagesrcset=\"/a.png 100w\">",
-        render("<link rel=\"preload\" as=\"image\" t:imagesrcset=\"u\">", model("u", TrustedUrl.unchecked("/a.png 100w"))));
-    assertEquals(
-        "<picture><source srcset=\"/a.webp\"></picture>",
-        render("<picture><source t:attr=\"srcset=u\"></picture>", model("u", TrustedUrl.unchecked("/a.webp"))));
-  }
-
+  /**
+   * Negative: {@code srcset} and {@code imagesrcset} are lists of image candidates: no String or
+   * link compiles, and no type vouches for one (#415, #539, #668).
+   */
   @Test
   void srcsetRejectsStrings() {
     compile("<img t:srcset=\"s\">").assertError(
-        "t.html:1:", "t:srcset is not allowed: 'srcset' on <img> holds URLs but is not exactly one URL", "TrustedUrl",
-        "String");
-    compile("<img t:srcset=\"'/a.png 1x, ' + s\">").assertError("'srcset' on <img>", "TrustedUrl", "String");
-    compile("<img t:srcset=\"@{/a.png}\">").assertError("'srcset' on <img>", "TrustedUrl");
-    compile("<source t:attr=\"srcset=s\">").assertError("t:attr srcset is not allowed: 'srcset' on <source>", "TrustedUrl");
-    compile("<link t:imagesrcset=\"s\">").assertError("'imagesrcset' on <link>", "TrustedUrl");
-    compile("<img t:SrcSet=\"s\">").assertError("'SrcSet' on <img>", "TrustedUrl");
+        "t.html:1:", "t:srcset is not allowed: 'srcset' on <img> holds URLs but is not exactly one URL",
+        "only combine string literals and numbers, not a java.lang.String");
+    compile("<img t:srcset=\"'/a.png 1x, ' + s\">").assertError("'srcset' on <img>", "String");
+    compile("<img t:srcset=\"@{/a.png}\">").assertError("'srcset' on <img>", "String");
+    compile("<source t:attr=\"srcset=s\">").assertError("t:attr srcset is not allowed: 'srcset' on <source>");
+    compile("<link t:imagesrcset=\"s\">").assertError("'imagesrcset' on <link>", "String");
+    compile("<img t:SrcSet=\"s\">").assertError("'SrcSet' on <img>", "String");
   }
 
   /** A literal list is the template author's own, so it compiles, as a static attribute does (#539). */
   @Test
-  void trustedUrlAttributesAcceptLiteralsAndNumbers() {
+  void urlListAttributesAcceptLiteralsAndNumbers() {
     assertEquals("<img srcset=\"/a.png 1x, /b.png 2x\">", render("<img t:srcset=\"'/a.png 1x, /b.png 2x'\">", model()));
     assertEquals("<img srcset=\"/a.png 640w\">", render("<img t:srcset=\"|/a.png ${n}w|\">", model("n", 640)));
-    assertEquals(
-        "<img srcset=\"/a.png 1x, /b.png 2x\">",
-        render("<img t:srcset=\"|${u} 1x, /b.png 2x|\">", model("u", TrustedUrl.unchecked("/a.png"))));
     assertEquals("<a ping=\"/b\">x</a>", render("<a t:ping=\"${b} ? '/a' : '/b'\">x</a>", model()));
   }
 
-  /** {@code ping} is a whitespace-separated list of URLs: no String compiles (#414, #539). */
-  @Test
-  void pingAcceptsTrustedUrl() {
-    assertEquals(
-        "<a ping=\"/a https://t.example/b\">x</a>",
-        render("<a t:ping=\"u\">x</a>", model("u", TrustedUrl.unchecked("/a https://t.example/b"))));
-    assertEquals(
-        "<area ping=\"/a\">",
-        render("<area t:attr=\"ping=u\">", model("u", TrustedUrl.unchecked("/a"))));
-  }
-
+  /** Negative: {@code ping} is a whitespace-separated list of URLs: no String compiles (#414, #539). */
   @Test
   void pingRejectsStrings() {
     compile("<a t:ping=\"s\">x</a>").assertError(
-        "t.html:1:", "t:ping is not allowed: 'ping' on <a> holds URLs but is not exactly one URL", "TrustedUrl",
-        "String");
-    compile("<a t:ping=\"'/a ' + s\">x</a>").assertError("'ping' on <a>", "TrustedUrl", "String");
-    compile("<a t:ping=\"@{/track}\">x</a>").assertError("'ping' on <a>", "TrustedUrl");
-    compile("<area t:attr=\"ping=s\">").assertError("t:attr ping is not allowed: 'ping' on <area>", "TrustedUrl");
-    compile("<a t:PING=\"s\">x</a>").assertError("'PING' on <a>", "TrustedUrl");
-    compile("<svg><a t:ping=\"s\"></a></svg>").assertError("'ping' on <a>", "TrustedUrl");
+        "t.html:1:", "t:ping is not allowed: 'ping' on <a> holds URLs but is not exactly one URL", "String");
+    compile("<a t:ping=\"'/a ' + s\">x</a>").assertError("'ping' on <a>", "String");
+    compile("<a t:ping=\"@{/track}\">x</a>").assertError("'ping' on <a>", "String");
+    compile("<area t:attr=\"ping=s\">").assertError("t:attr ping is not allowed: 'ping' on <area>");
+    compile("<a t:PING=\"s\">x</a>").assertError("'PING' on <a>", "String");
+    compile("<svg><a t:ping=\"s\"></a></svg>").assertError("'ping' on <a>", "String");
   }
 
-  /** A type-use annotation does not change the type: the RESOURCE_URL gate still sees TrustedUrl. */
-  @Test
-  void resourceUrlAcceptsTypeAnnotatedTrustedUrl() {
-    Compilation c = annotatedPage("<script t:src=\"p.url\"></script>").compile().assertSuccess();
-    Object page = c.newInstance("com.example.Page", TrustedUrl.unchecked("https://cdn.example/app.js"), "x");
-    assertEquals("<div><script src=\"https://cdn.example/app.js\"></script></div>", c.render("t", Map.of("p", page)));
-  }
-
+  /** Negative: a type-use annotation does not change the type: the RESOURCE_URL gate still sees a String. */
   @Test
   void resourceUrlRejectsTypeAnnotatedString() {
-    annotatedPage("<script t:src=\"p.name\"></script>").compile().assertError("t:src on <script>", "TrustedUrl");
+    annotatedPage("<script t:src=\"p.name\"></script>").compile().assertError("t:src on <script>", "literal-path link");
   }
 
   private static Compilation.Builder annotatedPage(String body) {
@@ -242,7 +212,7 @@ class AttributesEndToEndTest {
                 + " public @interface Ann {}")
         .java(
             "com.example.Page",
-            "package com.example; public record Page(dev.tessera.runtime.@Ann TrustedUrl url, @Ann String name) {}")
+            "package com.example; public record Page(@Ann String name) {}")
         .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"com.example.Page p\">" + body + "</div>");
   }
 

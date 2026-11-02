@@ -61,7 +61,7 @@ class XssContextTest {
           new Line("<i t:class=\"s\">x</i><i t:attr=\"class=s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
           new Line("<a t:href=\"s\">x</a><a t:attr=\"HREF=s\">y</a>", Kind.URL, Kind.URL),
-          // A form's action and every formaction take only a same-origin link or a TrustedUrl (#585, CSRF).
+          // A form's action and every formaction take only a same-origin link (#585, CSRF).
           new Line("<blockquote t:cite=\"s\">x</blockquote><ins t:cite=\"s\">x</ins>", Kind.URL, Kind.URL),
           new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
           new Line("<svg><a t:xlink:href=\"s\"><text>x</text></a><image t:href=\"s\"/></svg>", Kind.URL, Kind.URL),

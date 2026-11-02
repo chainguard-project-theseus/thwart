@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * Reads what {@link ReviewMojo} reports from one class file (#428): its {@code @TemplateFunction}
- * methods and its unverified doors (#602): every reference to {@code TrustedUrl.unchecked} or
+ * methods and its unverified doors (#602): every reference to
  * {@code Fragment.unverifiedForGeneratedCode}, and a {@code verifiedFlowPartial()} it declares.
  * Works on bytecode, so a call is found however the source spells it (qualified, static import,
  * method reference). Only the parts of the class file format this needs are decoded.
@@ -19,7 +19,6 @@ final class ClassScan {
   static final String RUNTIME = "dev/tessera/runtime/";
   private static final String FUNCTIONS = "L" + RUNTIME + "TemplateFunctions;";
   private static final String FUNCTION = "L" + RUNTIME + "TemplateFunction;";
-  private static final String[] UNCHECKED_OWNERS = {RUNTIME + "TrustedUrl"};
   /** A method a template class declares; declared anywhere else it vouches for output nothing checked. */
   static final String VERIFIED_FLOW_PARTIAL = "verifiedFlowPartial";
 
@@ -279,13 +278,6 @@ final class ClassScan {
     String name = utf(((int[]) pool[ref[1]])[0]);
     if (name.equals("unverifiedForGeneratedCode") && owner.equals(RUNTIME + "Fragment")) {
       return index;
-    }
-    if (name.equals("unchecked")) {
-      for (String o : UNCHECKED_OWNERS) {
-        if (o.equals(owner)) {
-          return index;
-        }
-      }
     }
     return 0;
   }

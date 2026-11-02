@@ -239,7 +239,7 @@ public final class ExpressionCompiler {
    * Resolves a declared parameter type. Simple names resolve against {@code imports}
    * ({@code t:import} entries), then the implicit imports {@code java.lang}, {@code java.util},
    * {@code java.time}, {@code java.math}, {@code dev.tessera.runtime}. Parameters must be
-   * view-safe, {@code SafeHtml}, {@code TrustedUrl}, {@code Fragment} or {@code Field} (fragment
+   * view-safe, {@code SafeHtml}, {@code Fragment} or {@code Field} (fragment
    * parameters only; {@code TemplateIndex} rejects it in {@code t:params}).
    */
   public TypeMirror resolveType(TypeRef ref, List<String> imports) {

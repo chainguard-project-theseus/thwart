@@ -54,7 +54,6 @@ class ReviewMojoTest {
       package com.example;
       import static dev.tessera.runtime.Fragment.unverifiedForGeneratedCode;
       import dev.tessera.runtime.Fragment;
-      import dev.tessera.runtime.TrustedUrl;
       import java.util.function.Function;
       public final class Pages {
         static Object pick(int k, Fragment.Body b) {
@@ -76,7 +75,7 @@ class ReviewMojoTest {
           double d = big * 2.5;
           Fragment a = unverifiedForGeneratedCode(d > 0 ? b : null);
           Function<Fragment.Body, Fragment> f = Fragment::unverifiedForGeneratedCode;
-          return TrustedUrl.unchecked(s) + "" + a + f;
+          return s + a + f;
         }
       }
       """;
@@ -251,12 +250,11 @@ class ReviewMojoTest {
   @Test
   void everyDoorCallIsReportedAtItsLine() throws Exception {
     compile(Map.of("com.example.Pages", UNCHECKED, "com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE));
-    String report = failsWithDoors(4);
-    assertTrue(report.contains("doors (4)\n"
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:19\n" // qualified, after a tableswitch and a lookupswitch
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:24\n" // static import
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:25\n" // method reference
-        + "TrustedUrl.unchecked  com/example/Pages.java:26\n"), report);
+    String report = failsWithDoors(3);
+    assertTrue(report.contains("doors (3)\n"
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:18\n" // qualified, after a tableswitch and a lookupswitch
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:23\n" // static import
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:24\n"), report); // method reference
     assertFalse(report.contains("Clean"), report);
   }
 
@@ -336,9 +334,9 @@ class ReviewMojoTest {
   @Test
   void java8BytecodeAndNoDebugInfo() throws Exception {
     compile(Map.of("com.example.Pages", UNCHECKED), "--release", "8", "-Xlint:-options", "-g:none");
-    String report = failsWithDoors(4);
+    String report = failsWithDoors(3);
     assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com.example.Pages.pick\n"), report);
-    assertTrue(report.contains("TrustedUrl.unchecked  com.example.Pages.more\n"), report);
+    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com.example.Pages.more\n"), report);
   }
 
   @Test

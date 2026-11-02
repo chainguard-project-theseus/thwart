@@ -139,9 +139,8 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
   `@TemplateFunction`, for a security review, and every unverified door with its source line. It
-  fails the build on a door: a `TrustedUrl.unchecked` call, a hand-written
-  `verifiedFlowPartial()`, or a call of `Fragment.unverifiedForGeneratedCode` outside generated
-  code.
+  fails the build on a door: a hand-written `verifiedFlowPartial()`, or a call of
+  `Fragment.unverifiedForGeneratedCode` outside generated code.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.
@@ -330,7 +329,7 @@ public record Order(String number, BigDecimal total) {}
 Templates may read only **view-safe** types, checked at build time for every step of a property
 chain: primitives and their boxes, `String`, enums, records, `java.time` values, `BigDecimal`,
 `BigInteger`, `Optional`, `java.util` collections, maps and arrays of view-safe types, `SafeHtml`,
-`TrustedUrl`, and public classes annotated `@TemplateView`. Declare collection getters as the
+and public classes annotated `@TemplateView`. Declare collection getters as the
 `java.util` interface: `java.util.concurrent`, Guava and your own collection subclasses aren't
 view-safe. A view type, any class it is nested in, and its type arguments must be public. `Object`,
 `Class`, reflection, `System`, servlet types and Spring context types are never view-safe.
@@ -408,10 +407,9 @@ each one accepts:
 | Text | element text, `t:text`, `[[...]]` | Any value, escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message checked at build time (section 4.5). |
 | Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
-| Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, SVG geometry, ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
-| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. A `TrustedUrl` passes as is. Forms: section 4.7. |
-| URL list | `srcset`, `ping`, SVG animation values | Literals, numbers, a choice between them, a `TrustedUrl`. |
-| Resource URL | `script[src]`, `iframe[src]`, `link[href]`, `object[data]`, `base[href]` | A literal-path `@{...}` link or a `TrustedUrl`. |
+| Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, SVG geometry, URL lists (`srcset`, `ping`, SVG animation values), ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
+| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
+| Resource URL | `script[src]`, `iframe[src]`, `link[href]`, `object[data]`, `base[href]` | A literal-path `@{...}` link. |
 | Neutral | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, `ng-*`, custom elements' attributes | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
 | Style | the `style` attribute and SVG `fill`, `stroke`, `mask`, `filter`, `clip-path`, `marker*`, `cursor` | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
@@ -544,7 +542,7 @@ structure would depend on data.
 
 In Java, `SafeHtml.escape`, `SafeHtml.concat` and `SafeHtml.sanitize` build markup from checked
 parts, and `SafeHtml.of(template, ctx)` wraps another template's output. Nothing wraps a string
-unchecked; `TrustedUrl.unchecked` is a review point that the migration must not introduce.
+unchecked.
 
 **CSS.** A `style` value is built from literals, numbers and `CssValue`s:
 `t:style="|background-color: ${css.color(category.color)}|"`. `css.color`, `css.length` and
@@ -583,7 +581,8 @@ welcome.html=Hello <b>{0}</b>!
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
 links must be `http`/`https`. Links get the context path and `response.encodeURL`. A `null`, empty,
 `.` or `..` path variable fails the render: guard the link with `t:if`. A URL computed in Java goes
-in `t:href` as a `String` (scheme-checked) or `TrustedUrl`.
+in `t:href` as a `String` (scheme-checked); a URL with another scheme (`sms:`, `data:`, ...) must be
+a static attribute.
 
 ### 4.6 Functions
 
@@ -706,10 +705,11 @@ where the compiler can see the form posts to the page's own origin. So in a POST
 is absent (it posts to the page's own URL, query string included), a static same-origin URL, or a
 link with a literal path starting with `/` (or a choice of such links); `method` is static; every
 `formaction`, `formmethod` and `<base href>` on the page is held to the same rule; and forms don't
-nest. A static action to another origin is allowed and gets no token. The compiler's error names
-the fix in each case. A form that writes its own `_csrf` hidden input as a direct, unconditional
-child keeps it and gets no second one. htmx requests are outside the guarantee: use htmx 2 or set
-`htmx.config.selfRequestsOnly = true`.
+nest. Any other form's computed `action` is held to the link rule too, since client code may submit
+it and swap in the response. A static action to another origin is allowed and gets no token. The
+compiler's error names the fix in each case. A form that writes its own `_csrf` hidden input as a
+direct, unconditional child keeps it and gets no second one. htmx requests are outside the
+guarantee: use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
 
 ### 4.8 Fragments and layouts
 

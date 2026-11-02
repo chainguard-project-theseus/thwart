@@ -18,7 +18,6 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -34,10 +33,9 @@ import javax.lang.model.type.TypeMirror;
  * framework-neutral value ({@link #neutralSafe}); a {@code <base href>} (#350), the
  * {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF
  * token, {@link CsrfInjector}) take only a same-origin link or a choice between such links (#635);
- * the {@code action} of any other form a same-origin link (or a choice of them) or a
- * {@code TrustedUrl} (client code may submit it and swap the response in, #585); and a computed
- * {@code formmethod},
- * or {@code method} on a {@code <form>}, is a build error.
+ * the {@code action} of any other form also only a same-origin link or a choice of them (client code
+ * may submit it and swap the response in, #585, #668); and a computed {@code formmethod}, or
+ * {@code method} on a {@code <form>}, is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -84,7 +82,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         hint = null;
         break;
       case STYLE:
-      case TRUSTED_URL:
         style(ctx, plan, name, value, pos, label, context);
         return;
       case REFRESH:
@@ -145,16 +142,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (form && lower.equals("action")) {
       // #585: client code may submit any form and swap the response into the page as HTML.
-      if (!(value instanceof Expr.Link)) {
-        CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
-        if (c == null) {
-          return;
-        }
-        if (isDeclared(c.type(), TrustedUrl.class.getName())) {
-          plan.setAttribute(name, c.code(), pos);
-          return;
-        }
-      }
       sameOriginUrl(ctx, plan, name, value, pos, label, FORM_ACTION, FORM_ACTION_ELSE, "the action of a form");
       return;
     }
@@ -172,12 +159,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (c == null) {
       return;
     }
-    if (context == OutputContext.RESOURCE_URL
-        && !(value instanceof Expr.Link)
-        && !isDeclared(c.type(), TrustedUrl.class.getName())) {
+    if (context == OutputContext.RESOURCE_URL && !(value instanceof Expr.Link)) {
       ctx.diagnostics()
           .error(pos, label + " on <" + element + "> loads code or a document: use a literal-path link such as"
-              + " @{/js/app.js} or a TrustedUrl value, not a " + c.type());
+              + " @{/js/app.js}, not a " + c.type());
       return;
     }
     plan.setAttribute(name, c.code(), pos);
@@ -425,7 +410,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           + " the response into the page as HTML";
 
   /** Ends it. */
-  private static final String FORM_ACTION_ELSE = ", or a TrustedUrl built in Java if another site is meant";
+  private static final String FORM_ACTION_ELSE = ", or a static action if another site is meant";
 
   /**
    * Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity.
@@ -447,8 +432,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * {@code toString()} is not a number.
    *
    * <p>A TYPED_ATTRIBUTE (#539, #565) is checked the same way but takes no safe type: only literals
-   * and numbers. A TRUSTED_URL (#539) takes {@code TrustedUrl} as its safe type instead of
-   * {@code CssValue}. {@code context} is the attribute's context: one of those or STYLE.
+   * and numbers. {@code context} is the attribute's context: TYPED_ATTRIBUTE or STYLE.
    */
   private static void style(
       CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, OutputContext context) {
@@ -559,31 +543,24 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return false;
     }
     TypeMirror t = c.type();
-    Class<?> safe =
-        context == OutputContext.STYLE ? CssValue.class : context == OutputContext.TRUSTED_URL ? TrustedUrl.class : null;
-    if (isNumber(t) || safe != null && isDeclared(t, safe.getName())) {
+    if (isNumber(t) || context == OutputContext.STYLE && isDeclared(t, CssValue.class.getName())) {
       return true;
     }
     String type = t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
-    if (context == OutputContext.TRUSTED_URL) {
-      ctx.diagnostics()
-          .error(
-              e.pos(),
-              label + " is not allowed: '" + name + "' on <" + plan.element().name() + "> holds URLs but is not"
-                  + " exactly one URL (a list, or an animation value whose meaning depends on attributeName), so a"
-                  + " computed value can only combine string literals, numbers and TrustedUrls, not a " + type
-                  + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or build the"
-                  + " whole value as a TrustedUrl in Java");
-      return false;
-    }
     if (context == OutputContext.TYPED_ATTRIBUTE) {
+      boolean urls = Contexts.holdsUrls(plan.element(), name);
       ctx.diagnostics()
           .error(
               e.pos(),
-              label + " is not allowed: '" + name + "' is not an inert-text attribute on <" + plan.element().name()
-                  + ">, so a computed value can only combine string literals and numbers, not a "
-                  + type + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or"
-                  + " if a script reads it, put the data in a <script type=\"application/json\"> block");
+              label + " is not allowed: '" + name + "'"
+                  + (urls
+                      ? " on <" + plan.element().name() + "> holds URLs but is not exactly one URL (a list, or an"
+                          + " animation value whose meaning depends on attributeName)"
+                      : " is not an inert-text attribute on <" + plan.element().name() + ">")
+                  + ", so a computed value can only combine string literals and numbers, not a "
+                  + type + "; write a static attribute" + (urls ? " or" : ",")
+                  + " choose between literals such as ${c} ? 'a' : 'b'"
+                  + (urls ? "" : ", or if a script reads it, put the data in a <script type=\"application/json\"> block"));
       return false;
     }
     ctx.diagnostics()

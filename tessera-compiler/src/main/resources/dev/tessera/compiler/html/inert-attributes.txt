@@ -1,7 +1,7 @@
 # The inert-text attributes (#539): the standard attributes (attributes.txt) whose
 # computed value may be a plain value (String, number, enum, ...), escaped as an ordinary attribute.
 # Every other standard name gets a specific context from Contexts.attribute (URL, RESOURCE_URL,
-# STYLE, TRUSTED_URL, REFRESH, FORBIDDEN, ...) or is TYPED_ATTRIBUTE: its value may only combine string
+# STYLE, REFRESH, FORBIDDEN, ...) or is TYPED_ATTRIBUTE: its value may only combine string
 # literals and numbers (#565).
 # data-* names and plain [a-z][a-z0-9]* props on a custom element are not listed and stay ordinary
 # attributes, as before; the framework names Contexts classifies (hx-*, data-bind, ...) are
