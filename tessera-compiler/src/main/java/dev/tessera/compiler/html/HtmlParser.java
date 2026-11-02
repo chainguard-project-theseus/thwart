@@ -343,18 +343,10 @@ public final class HtmlParser {
    * {@code <textarea>} inside {@code <svg>} or {@code <math>}, of the first {@code <} followed by
    * an ASCII letter, {@code !}, {@code /} or {@code ?}, or -1. A browser parses such content as
    * markup, not as raw text, so the contexts after that {@code <} could differ from Tessera's. A
-   * {@code <![CDATA[ ... ]]>} that ends inside {@code body} is skipped: it is text in both readings.
+   * {@code <![CDATA[} is markup too: every CDATA section is an error (#678).
    */
   static int foreignMarkup(String body) {
     for (int i = body.indexOf('<'); i >= 0 && i + 1 < body.length(); i = body.indexOf('<', i + 1)) {
-      if (body.startsWith("<![CDATA[", i)) {
-        int end = body.indexOf("]]>", i + "<![CDATA[".length());
-        if (end < 0) {
-          return i;
-        }
-        i = end;
-        continue;
-      }
       char c = body.charAt(i + 1);
       if (isAsciiAlpha(c) || c == '!' || c == '/' || c == '?') {
         return i;
@@ -363,27 +355,9 @@ public final class HtmlParser {
     return -1;
   }
 
-  /**
-   * Index in {@code body}, the content of a {@code <script>} or {@code <style>} inside {@code <svg>}
-   * or {@code <math>} without markup (see {@link #foreignMarkup}), of the first {@code &} outside a
-   * {@code <![CDATA[ ... ]]>} section, or -1. There a browser decodes character references before
-   * the script or style sees the text, so {@code &quot;} would be a quote that Tessera did not see.
-   */
-  static int foreignReference(String body) {
-    for (int i = 0; i < body.length(); i++) {
-      if (body.startsWith("<![CDATA[", i)) {
-        int end = body.indexOf("]]>", i + "<![CDATA[".length());
-        if (end >= 0) {
-          i = end + "]]>".length() - 1;
-          continue;
-        }
-      }
-      if (body.charAt(i) == '&') {
-        return i;
-      }
-    }
-    return -1;
-  }
+  private static final String CDATA_SECTION = "a CDATA section is not supported: a browser reads <![CDATA[ by"
+      + " different rules inside and outside <svg> and <math>; write the text without <![CDATA[ and ]]>,"
+      + " with '<' as &lt; and '&' as &amp;";
 
   /**
    * Index in {@code body}, the content of raw-text element {@code name}, of the first {@code </}
@@ -687,9 +661,7 @@ public final class HtmlParser {
       flushText();
       // #678: a browser reads a CDATA section only in SVG and MathML, and some read it as a comment that
       // ends at the first '>' in an integration point; Tessera doesn't model either.
-      diagnostics.error(position(start), "a CDATA section is not supported: a browser reads <![CDATA[ by"
-          + " different rules inside and outside <svg> and <math>; write the text without <![CDATA[ and ]]>,"
-          + " with '<' as &lt; and '&' as &amp;");
+      diagnostics.error(position(start), CDATA_SECTION);
       // Kept as text, so the verifier also sees the section (Problem.CDATA_SECTION).
       children().add(new Text(str(start, end), textContext(), position(start)));
     }
@@ -909,9 +881,10 @@ public final class HtmlParser {
         boolean foreign = !raw.namespace.equals(HTML);
         int markup = foreign ? foreignMarkup(body) : -1;
         int reference = foreign && markup < 0 && (HtmlParser.asciiEqualsIgnoreCase(raw.name, "script")
-            || HtmlParser.asciiEqualsIgnoreCase(raw.name, "style")) ? foreignReference(body) : -1;
-        // A CDATA section in an SVG <title> (an integration point) is the verifier's exclusion (d) (#441).
-        if (markup >= 0) {
+            || HtmlParser.asciiEqualsIgnoreCase(raw.name, "style")) ? body.indexOf('&') : -1;
+        if (markup >= 0 && body.startsWith("<![CDATA[", markup)) {
+          diagnostics.error(position(rawStart + markup), CDATA_SECTION);
+        } else if (markup >= 0) {
           // Inside svg and math a browser parses this content as markup (SVG <title> as HTML), so
           // a tag in it is a real element that Tessera reads as text. Fail closed.
           diagnostics.error(position(rawStart + markup), "malformed markup: '<' inside <" + raw.name
@@ -921,7 +894,7 @@ public final class HtmlParser {
           // text, so the JS or CSS state at a hole is not the one Tessera lexed. Title and textarea
           // are TEXT, where both readings decode. Fail closed.
           diagnostics.error(position(rawStart + reference), "malformed markup: '&' inside <" + raw.name
-              + "> in <svg> or <math> is decoded by a browser: write the character itself, or use a CDATA section");
+              + "> in <svg> or <math> is decoded by a browser: write the character itself");
         } else if (HtmlParser.asciiEqualsIgnoreCase(raw.name, "script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
           // the next "</script>"); the tokenizer does not. Fail closed.

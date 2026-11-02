@@ -902,7 +902,7 @@ class HtmlParserTest {
     assertEquals(List.of(foreignMarkup(19, "script")), errors("<svg><script>if (a<b) {}</script></svg>"));
     assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style><!-- a{} --></style></svg>"));
     assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style></ a{}</style></svg>"));
-    assertEquals(List.of(foreignMarkup(14, "script")), errors("<svg><script><![CDATA[ f() </script></svg>"));
+    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ f() </script></svg>"));
     // Namespaces: mglyph stays MathML in <mi>, and <math> inside <svg> is an SVG element.
     assertEquals(List.of(foreignMarkup(29, "textarea")),
         errors("<math><mi><mglyph><textarea><b>x</b></textarea></mglyph></mi></math>"));
@@ -925,20 +925,18 @@ class HtmlParserTest {
   }
 
   @Test
-  void cdataInForeignTitleIsLeftToTheVerifier() {
-    // A CDATA section in an SVG <title>, an integration point where browsers disagree, is the
-    // verifier's exclusion (d) (#441, verify/CdataHoleTest); here it is raw text without markup.
-    parseOk("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>");
-    parseOk("<svg><title><![CDATA[ a < b ]]> [[${x}]]</title></svg>");
-    // Script and style keep CDATA with '>': they are not integration points.
-    parseOk("<svg><script><![CDATA[ if (a > b) { f([[${x}]]); } ]]></script>"
-        + "<style><![CDATA[ a > b { fill: red } ]]></style></svg>");
+  void cdataInForeignRawTextIsAnError() {
+    // #678: every CDATA section is an error, in SVG raw text too, with the same message as elsewhere.
+    assertEquals(withCdata(13), errors("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>"));
+    assertEquals(withCdata(13), errors("<svg><title><![CDATA[ a < b ]]> [[${x}]]</title></svg>"));
+    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ if (a > b) { f([[${x}]]); } ]]></script></svg>"));
+    assertEquals(withCdata(13), errors("<svg><style><![CDATA[ a > b { fill: red } ]]></style></svg>"));
   }
 
   @Test
   void foreignRawTextWithoutMarkupStillParses() {
     Element svg = el(parseOk("<svg><title>a &lt; b [[${x}]]</title><desc>d</desc><style>.a > b { fill: red }</style>"
-        + "<script><![CDATA[ if (a < b && c) { f(\"<b>\"); } ]]></script><textarea>a < b</textarea><title/></svg>")
+        + "<script>if (a > b) { f(\"b\"); }</script><textarea>a < b</textarea><title/></svg>")
         .rootElement());
     assertTrue(svg.foreign());
     List<Element> kids = svg.children().stream().map(HtmlParserTest::el).toList();
@@ -1167,7 +1165,7 @@ class HtmlParserTest {
 
   private static String foreignReference(int col, String tag) {
     return "dir/t.html:1:" + col + ": error: malformed markup: '&' inside <" + tag + "> in <svg> or <math> is decoded"
-        + " by a browser: write the character itself, or use a CDATA section";
+        + " by a browser: write the character itself";
   }
 
   @Test
@@ -1175,9 +1173,8 @@ class HtmlParserTest {
     // A browser decodes &quot; in an SVG <script> to a quote that Tessera's JS lexer did not see.
     assertEquals(List.of(foreignReference(22, "script")),
         errors("<svg><script>var a = &quot;[[${x}]]&quot;;</script></svg>"));
-    // After a CDATA section the text is decoded again.
-    assertEquals(List.of(foreignReference(39, "script")),
-        errors("<svg><script><![CDATA[ var a = 1; ]]> &quot;[[${x}]]&quot;</script></svg>"));
+    // A CDATA section is no way out (#678): it is an error first.
+    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ var a = 1; ]]> &quot;[[${x}]]&quot;</script></svg>"));
     assertEquals(List.of(foreignReference(23, "script")),
         errors("<math><script>var a = &#39;[[${x}]]&#39;;</script></math>"));
     assertEquals(List.of(foreignReference(35, "style")),
@@ -1185,9 +1182,7 @@ class HtmlParserTest {
     assertEquals(List.of(foreignReference(17, "STYLE")), errors("<math><STYLE>a{}&#10;</STYLE></math>"));
     // A '&' that is not a reference is still decoded text; fail closed on any '&'.
     assertEquals(List.of(foreignReference(20, "script")), errors("<svg><script>if (a && b) {}</script></svg>"));
-    // A CDATA section is not decoded, and in HTML content a script is raw text.
-    parseOk("<svg><script><![CDATA[ var a = \"&quot;\" && [[${x}]]; ]]></script>"
-        + "<style><![CDATA[ a::before { content: \"&\" } ]]></style></svg>");
+    // In HTML content a script is raw text.
     parseOk("<script>var a = \"&quot;\" && [[${x}]];</script><style>a::before { content: \"&amp;\" }</style>");
     parseOk("<svg><foreignObject><script>if (a && b) {}</script></foreignObject></svg>");
     // Title and textarea are TEXT in svg: both readings decode there.
