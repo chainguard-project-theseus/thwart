@@ -117,7 +117,7 @@ class HtmlParserTest {
             <span t:text="${pet.name}" t:class="x"/>
           </div>
           <textarea name="t"><b>&lt;raw&gt;</b></textarea>
-          <svg><![CDATA[ x < y ]]></svg>
+          <svg><text>x &lt; y</text></svg>
           <input type="checkbox" checked disabled="disabled">
           <p class="multi
         line">text</p>
@@ -169,13 +169,13 @@ class HtmlParserTest {
   }
 
   @Test
-  void commentsDoctypeCdataAndProcessingInstructions() {
-    Document doc = parseOk("<?xml version=\"1.0\"?><!DOCTYPE html><!-- c --><a><![CDATA[x<y]]></a>");
+  void commentsDoctypeAndProcessingInstructions() {
+    Document doc = parseOk("<?xml version=\"1.0\"?><!DOCTYPE html><!-- c --><a>x</a>");
     assertEquals(new DocType("<?xml version=\"1.0\"?>", pos(1, 1)), doc.children().get(0));
     assertEquals(new DocType("<!DOCTYPE html>", pos(1, 22)), doc.children().get(1));
     assertEquals(new Comment("<!-- c -->", pos(1, 37)), doc.children().get(2));
     Element a = el(doc.children().get(3));
-    assertEquals(new Text("<![CDATA[x<y]]>", OutputContext.TEXT, pos(1, 50)), a.children().get(0));
+    assertEquals(new Text("x", OutputContext.TEXT, pos(1, 50)), a.children().get(0));
   }
 
   @Test
@@ -278,18 +278,16 @@ class HtmlParserTest {
         + " the <select> (a <select> holds only <option>, <optgroup>, <hr> and <t:block>)";
   }
 
-  /**
-   * {@code first}, then the error for a {@code <![CDATA[><script>[[...} at column {@code col} of
-   * line 1: its '>'. The hole in it is the verifier's error (#411, {@code CdataHoleTest}).
-   */
+  /** The error for a CDATA section at column {@code col} of line 1 (#678), after {@code first}. */
   private static List<String> withCdata(int col, String... first) {
     List<String> all = new ArrayList<>(List.of(first));
-    all.add(
-        "dir/t.html:1:" + (col + 9) + ": error: malformed markup: '>' inside a CDATA section is not supported, even in"
-            + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
-            + " with '>' as &gt;");
+    all.add("dir/t.html:1:" + col + ": " + CDATA);
     return all;
   }
+
+  private static final String CDATA = "error: a CDATA section is not supported: a browser reads <![CDATA[ by different"
+      + " rules inside and outside <svg> and <math>; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '&'"
+      + " as &amp;";
 
   @Test
   void selectHoldsOnlyOptionsAndOptgroups() {
@@ -336,15 +334,11 @@ class HtmlParserTest {
 
   @Test
   void markupABrowserEndsAtItsFirstGreaterThanIsAnError() {
-    // Outside svg and math a browser reads <![CDATA[ as a bogus comment ending at the first '>',
-    // so it would run this <script> while Tessera escaped [[${x}]] as text.
-    String cdata = "dir/t.html:1:15: error: malformed markup: '>' inside a CDATA section is not supported, even in"
-        + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
-        + " with '>' as &gt;";
-    assertEquals(List.of(cdata), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
-    // An expression in a CDATA section is the verifier's error, not the parser's (#411, CdataHoleTest).
-    assertEquals(List.of(), errors("<div><![CDATA[ [[${x}]] ]]></div><svg><![CDATA[ [(${x})] ]]></svg><![CDATA[[${x}]]>"));
-    assertEquals(List.of(cdata.replace("1:15", "2:2")), errors("<svg><![cdata[\n >]]></svg>"));
+    // #678: any CDATA section is an error at its start (a browser reads it as a bogus comment outside svg and
+    // math); in a script or style it is text.
+    assertEquals(withCdata(4), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
+    assertEquals(withCdata(6), errors("<svg><![cdata[\n >]]></svg>"));
+    assertEquals(List.of(), errors("<script>//<![CDATA[\nif (a > b) {}\n//]]></script>"));
     // A '>' in a <?...?> or DOCTYPE is the verifier's parse error, with the fix-it (#442,
     // verify/ParseErrorFixItTest).
     assertEquals(List.of(), errors("<?php><script>[[${x}]]</script> ?>"));
@@ -354,8 +348,7 @@ class HtmlParserTest {
     assertEquals(
         List.of(),
         errors("<?xml version=\"1.0\"?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"x.dtd\">"
-            + "<p><![CDATA[ x < y ]]><?php echo 1 ?></p><svg><![CDATA[ a ]]]></svg>"
-            + "<script>//<![CDATA[\nif (a > b) {}\n//]]></script>"));
+            + "<p><?php echo 1 ?></p>"));
   }
 
   @Test

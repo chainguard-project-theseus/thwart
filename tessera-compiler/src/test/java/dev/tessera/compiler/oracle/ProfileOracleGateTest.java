@@ -70,15 +70,15 @@ class ProfileOracleGateTest {
   void theCompilerSortsRejectionsByLayer() {
     GateCase ok = gateCase(P + "<p>[[s]]</p></div>");
     GateCase profile = gateCase(P + "<p><[[s]]></p></div>");
-    // JSON in an SVG <script> (as in 306-A4), which the profile lets through.
-    GateCase verifier = gateCase(P + "<svg><script>var a = [[s]];</script></svg></div>");
+    // An <svg> in a table cell (exclusion (a)), which the profile lets through.
+    GateCase verifier = gateCase(P + "<table><tr><td><svg></svg>[[s]]</td></tr></table></div>");
     List<Compiled> out = ProfileOracleTest.compile(List.of(ok, profile, verifier));
     assertTrue(out.get(0).accepted());
     assertFalse(out.get(1).accepted());
     assertEquals(Layer.PROFILE, out.get(1).layer());
     assertFalse(out.get(2).accepted());
     assertEquals(Layer.VERIFIER, out.get(2).layer());
-    assertTrue(out.get(2).errors().get(0).matches("c[0-9a-f]{12}\\.html:1:[0-9]+: .*\\[verifier:JSON_NOT_IN_SCRIPT\\]"),
+    assertTrue(out.get(2).errors().get(0).matches("c[0-9a-f]{12}\\.html:1:[0-9]+: .*\\[verifier:FOREIGN_IN_TABLE\\]"),
         out.get(2).errors().toString());
   }
 

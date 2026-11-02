@@ -150,7 +150,7 @@ class ErrorFreeTest {
         .compile()
         .assertSuccess();
     // SVG and MathML outside tables, and a table inside foreignObject outside any table.
-    build("<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/><foreignObject><table><tr><td t:text=\"s\">x</td></tr></table>"
+    build("<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/><foreignObject><table><tr><td>x</td></tr></table>"
         + "</foreignObject></svg><p><math><mi>x</mi></math></p>").assertSuccess();
   }
 
@@ -206,7 +206,7 @@ class ErrorFreeTest {
   @Test
   void crlfLineBreaksBeforeAnAttributeHoleLoseNothing() {
     String crlf = "\r\n\r\n\r\n\r\n";
-    build("<table><tr><td><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></td></tr></table>")
+    verify("<table><tr><td><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></td></tr></table>")
         .assertError("t.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
     verify("<a href=\"/1\">x<a title=\"" + crlf + "y\" t:href=\"@{/x(q=${s})}\">z</a></a>")
         .assertError("t.html:1:", "Start tag \u201Ca\u201D seen but an element of the same type was already open",
@@ -214,7 +214,7 @@ class ErrorFreeTest {
     verify("<select><option>a</option><span title=\"" + crlf + "y\" t:text=\"s\">z</span></select>")
         .assertError("t.html:1:", "[verifier:SELECT_CONTENT]");
     // Without the error, the same shapes compile.
-    build("<div><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></div>").assertSuccess();
+    build("<div><span class=\"" + crlf + "y\" t:attr=\"title=${s}\"><b></b></span></div>").assertSuccess();
   }
 
   /** Partials that parse only by error recovery are build errors (#406). */

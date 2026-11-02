@@ -406,14 +406,25 @@ each one accepts:
 | Text | element text, `t:text`, `[[...]]` | Any value, escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy (section 4.5). |
 | Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
-| Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, SVG geometry, URL lists (`srcset`, `ping`, SVG animation values), ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
+| Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
 | Resource URL | `script[src]`, `iframe[src]`, `link[href]`, `object[data]`, `base[href]` | A literal-path `@{...}` link. |
 | Neutral | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, `ng-*`, custom elements' attributes | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
-| Style | the `style` attribute and SVG `fill`, `stroke`, `mask`, `filter`, `clip-path`, `marker*`, `cursor` | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
+| Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
-| Forbidden | `on*`, `srcdoc`, a computed `<script type>`, `<meta http-equiv>` or `charset` | Nothing computed. |
+| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `encoding`, `is`, `xmlns*`, `<font color/face/size>` | Nothing computed. |
+
+**SVG, MathML and markup Tessera doesn't model.** An `<svg>` or `<math>` must be static: no
+`t:*` attribute, `[[...]]` or fragment inside it, and no computed attribute on it (control flow on the
+element itself, `<svg t:if="...">` or `t:replace`, is fine). Set what changes outside it: a `t:class` on
+an HTML parent with CSS (`fill: currentColor`, or a CSS variable such as
+`<div t:style="|--progress: ${n}|">` read by `stroke-dasharray: var(--progress) 100` in the stylesheet),
+one static `<svg>` per case under `t:if`/`t:switch`, or an `<img t:src="@{/icons/...svg}">`. For a
+computed `srcset`, write one `src` (or a static `srcset`); for `<font color>` from data, write a `<span>`
+with a `t:class`. CDATA sections, `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>` and `<frameset>` are
+build errors: write the text escaped (`&lt;`) in a `<pre>`, or use `<noscript>`, an ordinary layout or an
+`<iframe>`. Inside `<noscript>` and `<iframe>`, only static text.
 
 **Scripts.** In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
 the top of the script, before any other code: `const roles = [[${account.roles}]];`. The value is
@@ -828,7 +839,10 @@ replaces JSP's `path="${field}.answer"` and Thymeleaf's `*{__${field}__.answer}`
   <div t:fragment="input(String label, Field name, String type)" class="form-group"
        t:classappend="fields.hasErrors(name) ? 'has-error'">
     <label t:for="name" t:text="label">Label</label>
-    <input t:type="type" t:field="name" />
+    <t:block t:switch="type">
+      <input t:case="'email'" type="email" t:field="name" />
+      <input t:case="*" type="text" t:field="name" />
+    </t:block>
     <span t:errors="name">Error</span>
   </div>
 </div>

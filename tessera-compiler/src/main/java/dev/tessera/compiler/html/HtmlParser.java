@@ -386,24 +386,6 @@ public final class HtmlParser {
   }
 
   /**
-   * Index of a {@code >} before the last char of {@code outer}, a CDATA section as the tokenizer
-   * read it, or -1. Outside svg and math a browser reads it as a bogus comment that ends at the
-   * first {@code >}, so the contexts after an earlier {@code >} would differ from Tessera's. (The
-   * verifier accepts such a section in svg and math. A {@code >} in a DOCTYPE or {@code <?...?>},
-   * and text a browser reads as a bogus comment, are its parse errors, #442.)
-   */
-  static int earlyEnd(String outer) {
-    int gt = outer.indexOf('>');
-    return gt < outer.length() - 1 ? gt : -1;
-  }
-
-  /** The build error for a CDATA section when {@link #earlyEnd} finds a {@code >}. */
-  static String earlyEndMessage() {
-    return "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
-        + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
-  }
-
-  /**
    * Index in {@code body}, the content of raw-text element {@code name}, of the first {@code </}
    * followed by a name that equals {@code name} only under Unicode case folding (for {@code script},
    * {@code script} spelled with U+017F) and then whitespace, {@code /}, {@code >} or the end, or -1.
@@ -703,12 +685,12 @@ public final class HtmlParser {
         return;
       }
       flushText();
-      String outer = str(start, end);
-      int gt = earlyEnd(outer);
-      if (gt >= 0) {
-        diagnostics.error(position(start + gt), earlyEndMessage());
-      }
-      // An expression inside is a TEXT_NOT_IN_TEXT for the verifier, which names the CDATA section (#411).
+      // #678: a browser reads a CDATA section only in SVG and MathML, and some read it as a comment that
+      // ends at the first '>' in an integration point; Tessera doesn't model either.
+      diagnostics.error(position(start), "a CDATA section is not supported: a browser reads <![CDATA[ by"
+          + " different rules inside and outside <svg> and <math>; write the text without <![CDATA[ and ]]>,"
+          + " with '<' as &lt; and '&' as &amp;");
+      // Kept as text, so the verifier also sees the section (Problem.CDATA_SECTION).
       children().add(new Text(str(start, end), textContext(), position(start)));
     }
 

@@ -350,10 +350,10 @@ class Jdk8ProcessorTest {
     assertTrue(Files.exists(out.resolve("tessera/generated/OkTemplate.class")), compiled);
 
     write(templates.resolve("bad.html"),
-        "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n<svg><script>var s = [[${s}]];</script></svg></div>");
+        "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n<table><tr><td><svg></svg></td></tr></table></div>");
     String failed = runFailing(javac);
-    assertTrue(failed.contains("bad.html:2:26: error: a browser reads this value (written as JSON for a script) inside SVG <script>"), failed);
-    assertTrue(failed.contains("[verifier:JSON_NOT_IN_SCRIPT]"), failed);
+    assertTrue(failed.contains("bad.html:2:") && failed.contains("<svg> inside <td>"), failed);
+    assertTrue(failed.contains("[verifier:FOREIGN_IN_TABLE]"), failed);
   }
 
   /**

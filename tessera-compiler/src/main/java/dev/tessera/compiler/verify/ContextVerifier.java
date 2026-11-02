@@ -41,7 +41,7 @@ import java.util.TreeMap;
  * that holds it, except the allow-list ({@link Rules#allowedError}); a partial counts them only in
  * its fragment contexts. And it checks
  * the coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts, and at
- * every CDATA section it starts ({@link Rules#cdata}).
+ * rejects every CDATA section it starts ({@link Problem#CDATA_SECTION}).
  *
  * <p>It fails closed: an engine failure, too many states, a loop or recursion without a fixed
  * point and a node it can't interpret are build errors.
@@ -1363,11 +1363,8 @@ public final class ContextVerifier {
 
           @Override
           public void cdata(OpenElement current, int offset) {
-            Problem p = Rules.cdata(current);
-            if (p != null) {
-              // At the '<' of "<![" (the engine reports the '['), if this chunk holds it.
-              note(p, VerifierMessages.element(current), Math.max(0, offset - 2));
-            }
+            // Any CDATA section (#678); at the '<' of "<![" (the engine reports the '['), if this chunk holds it.
+            note(Problem.CDATA_SECTION, VerifierMessages.element(current), Math.max(0, offset - 2));
           }
 
           private void note(Problem problem, String detail, int offset) {

@@ -50,8 +50,9 @@ class VerifierMessagesTest {
   private static final Set<Problem> UNREACHABLE_FROM_TEMPLATES =
       EnumSet.of(Problem.ATTRIBUTE_WRONG_NAME, Problem.LOOP_NO_FIXED_POINT, Problem.UNKNOWN_NODE, Problem.ENGINE_FAILURE);
 
-  /** Retired rule ids (#410): the verifier no longer reports them, so they have no message. */
-  private static final Set<Problem> RETIRED = EnumSet.of(Problem.TEXT_RECONSTRUCTS, Problem.NOAHS_ARK);
+  /** Retired rule ids (#410, #444, #678): the verifier no longer reports them, so they have no message. */
+  private static final Set<Problem> RETIRED = EnumSet.of(Problem.TEXT_RECONSTRUCTS, Problem.NOAHS_ARK,
+      Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, Problem.CDATA_IN_INTEGRATION_POINT);
 
   record Case(String rule, String title, Map<String, String> templates, List<String> expected) {}
 

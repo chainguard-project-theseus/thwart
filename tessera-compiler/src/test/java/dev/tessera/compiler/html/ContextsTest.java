@@ -52,15 +52,15 @@ class ContextsTest {
     "body, background, URL",
     "img, longdesc, URL",
     "img, usemap, TYPED_ATTRIBUTE",
-    "a, ping, TYPED_ATTRIBUTE",
-    "img, srcset, TYPED_ATTRIBUTE",
-    "source, SrcSet, TYPED_ATTRIBUTE",
-    "link, imagesrcset, TYPED_ATTRIBUTE",
+    "a, ping, FORBIDDEN",
+    "img, srcset, FORBIDDEN",
+    "source, SrcSet, FORBIDDEN",
+    "link, imagesrcset, FORBIDDEN",
     "html, manifest, URL",
     "use, xlink:href, URL",
     "area, href, URL",
     "audio, src, URL",
-    // SVG animation values (#44, #284): what they hold depends on attributeName, so not one URL (#539)
+    // SVG animation values: standard and not inert (no computed value reaches SVG since #678)
     "animate, to, TYPED_ATTRIBUTE",
     "set, from, TYPED_ATTRIBUTE",
     "animate, by, TYPED_ATTRIBUTE",
@@ -217,7 +217,7 @@ class ContextsTest {
     "a, _x, NEUTRAL",
     "div, params, NEUTRAL",
     "div, xml:lang, NEUTRAL",
-    "div, xmlns:t, NEUTRAL",
+    "div, xmlns:t, FORBIDDEN",
     "div, ngx, NEUTRAL",
     "div, vue, NEUTRAL",
     "div, up-on-loaded, NEUTRAL",
@@ -237,8 +237,10 @@ class ContextsTest {
     "div, role, ATTRIBUTE",
     "div, aria-describedby, ATTRIBUTE",
     "td, bgcolor, ATTRIBUTE",
-    "font, color, ATTRIBUTE",
-    "font, face, ATTRIBUTE",
+    "font, color, FORBIDDEN",
+    "font, face, FORBIDDEN",
+    "font, size, FORBIDDEN",
+    "p, color, TYPED_ATTRIBUTE",
     "my-el, prop, NEUTRAL",
     "my-el, Prop2, NEUTRAL",
     "my-el, title, ATTRIBUTE",
@@ -320,6 +322,11 @@ class ContextsTest {
     "div, <x, FORBIDDEN",
     "script, type, FORBIDDEN",
     "SCRIPT, TYPE, FORBIDDEN",
+    "input, type, FORBIDDEN",
+    "INPUT, Type, FORBIDDEN",
+    "meta, charset, FORBIDDEN",
+    "p, encoding, FORBIDDEN",
+    "div, xmlns:foo, FORBIDDEN",
     "meta, http-equiv, FORBIDDEN",
     "p, is, FORBIDDEN",
     "P, IS, FORBIDDEN",
@@ -342,22 +349,20 @@ class ContextsTest {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
   }
 
-  /** SVG and MathML names are known (#330); a foreign name with a {@code -} is not a custom element. */
+  /** #678: every attribute of an SVG or MathML element is FORBIDDEN computed, whatever its name. */
   @ParameterizedTest(name = "<{0} {1}> (foreign) -> {2}")
   @CsvSource({
-    "path, stroke-dasharray, TYPED_ATTRIBUTE",
-    "path, d, TYPED_ATTRIBUTE",
-    "svg, viewbox, TYPED_ATTRIBUTE",
-    "svg, viewBox, TYPED_ATTRIBUTE",
-    "animate, dur, TYPED_ATTRIBUTE",
-    // Known, but a computed attributeName could retarget the values to CSS.
-    "animate, attributename, FORBIDDEN",
-    "text, xml:space, ATTRIBUTE",
-    "use, xlink:href, URL",
-    "mi, mathvariant, ATTRIBUTE",
-    "annotation-xml, encoding, TYPED_ATTRIBUTE",
-    "font-face, prop, NEUTRAL",
-    "rect, foo, NEUTRAL",
+    "path, stroke-dasharray, FORBIDDEN",
+    "path, d, FORBIDDEN",
+    "svg, viewbox, FORBIDDEN",
+    "svg, viewBox, FORBIDDEN",
+    "animate, dur, FORBIDDEN",
+    "text, xml:space, FORBIDDEN",
+    "use, xlink:href, FORBIDDEN",
+    "mi, mathvariant, FORBIDDEN",
+    "annotation-xml, encoding, FORBIDDEN",
+    "font-face, prop, FORBIDDEN",
+    "rect, foo, FORBIDDEN",
   })
   void foreignNames(String element, String attribute, OutputContext expected) {
     Element e = new Element(element, List.of(), List.of(), false, true, POS, true);
@@ -393,95 +398,6 @@ class ContextsTest {
       assertEquals(false, Contexts.isCustomElementName(bad), bad);
     }
     assertEquals(false, Contexts.isCustomElementName(null));
-  }
-
-  /** SVG presentation attributes that take a CSS url() are STYLE on a foreign element only. */
-  @ParameterizedTest(name = "<{0} {1}> (foreign: {2}) -> {3}")
-  @CsvSource({
-    "rect, fill, true, STYLE",
-    "path, stroke, true, STYLE",
-    "g, clip-path, true, STYLE",
-    "g, mask, true, STYLE",
-    "g, filter, true, STYLE",
-    "path, marker-start, true, STYLE",
-    "path, marker-mid, true, STYLE",
-    "line, marker-end, true, STYLE",
-    "path, marker, true, STYLE",
-    "svg, cursor, true, STYLE",
-    "RECT, FILL, true, STYLE",
-    "rect, fill-opacity, true, TYPED_ATTRIBUTE",
-    "rect, stroke-width, true, TYPED_ATTRIBUTE",
-    "rect, width, true, TYPED_ATTRIBUTE",
-    "animate, fill, true, TYPED_ATTRIBUTE",
-    "set, fill, true, TYPED_ATTRIBUTE",
-    "animateMotion, fill, true, TYPED_ATTRIBUTE",
-    "animateTransform, fill, true, TYPED_ATTRIBUTE",
-    "animateColor, fill, true, TYPED_ATTRIBUTE",
-    "animate, stroke, true, STYLE",
-    "set, mask, true, STYLE",
-    "div, fill, false, TYPED_ATTRIBUTE",
-    "div, cursor, false, TYPED_ATTRIBUTE",
-    "rect, :fill, true, FORBIDDEN",
-  })
-  void svgCssUrlAttributes(String element, String attribute, boolean foreign, OutputContext expected) {
-    Element e = new Element(element, List.of(), List.of(), false, true, POS, foreign);
-    assertEquals(expected, Contexts.attribute(e, attribute));
-  }
-
-  /**
-   * The values of an animation whose static attributeName is one of those attributes are STYLE;
-   * the attributeName of an animation element cannot be computed.
-   */
-  @ParameterizedTest(name = "<{0} {1}=\"{2}\"> {3} -> {4}")
-  @CsvSource({
-    "animate, attributeName, fill, values, STYLE",
-    "animate, attributeName, fill, to, STYLE",
-    "animate, attributeName, stroke, from, STYLE",
-    "animate, attributeName, clip-path, by, STYLE",
-    "set, attributeName, mask, to, STYLE",
-    "set, attributeName, filter, to, STYLE",
-    "set, attributeName, marker-start, to, STYLE",
-    "animate, attributeName, marker-mid, values, STYLE",
-    "animate, attributeName, marker-end, values, STYLE",
-    "set, attributeName, cursor, to, STYLE",
-    "set, attributeName, marker, to, STYLE",
-    "animateColor, attributeName, fill, values, STYLE",
-    "animateTransform, attributeName, fill, values, STYLE",
-    "ANIMATE, ATTRIBUTENAME, ' Fill ', VALUES, STYLE",
-    "animate, attributeName, svg:fill, values, STYLE",
-    "animate, attributeName, fill, fill, TYPED_ATTRIBUTE",
-    "animate, attributeName, fill, begin, TYPED_ATTRIBUTE",
-    "animate, attributeName, href, values, TYPED_ATTRIBUTE",
-    "set, attributeName, xlink:href, to, TYPED_ATTRIBUTE",
-    "animate, attributeName, fill-opacity, values, TYPED_ATTRIBUTE",
-    "animate, attributeName, opacity, to, TYPED_ATTRIBUTE",
-    "animate, t:attributeName, fill, values, TYPED_ATTRIBUTE",
-    "rect, attributeName, fill, values, TYPED_ATTRIBUTE",
-    "animate, attributeName, fill, attributeName, FORBIDDEN",
-    "set, attributeName, fill, ATTRIBUTENAME, FORBIDDEN",
-    "animateMotion, attributeName, fill, attributeName, FORBIDDEN",
-    "animateTransform, attributeName, fill, attributeName, FORBIDDEN",
-    "animateColor, attributeName, fill, attributeName, FORBIDDEN",
-    "rect, attributeName, fill, attributeName, TYPED_ATTRIBUTE",
-  })
-  void animatedSvgCssUrlValues(String element, String name, String value, String attribute, OutputContext expected) {
-    assertEquals(expected, Contexts.attribute(element(element, name, value), attribute));
-  }
-
-  @Test
-  void animatedSvgCssUrlNameFoldsOnlyAscii() {
-    // A browser lower-cases A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
-    // not attributeName, so they leave the values of an href animation TYPED_ATTRIBUTE, before or after the real one.
-    for (String decoy : List.of("attr\u0131buteName", "attr\u0130buteName")) {
-      assertEquals(OutputContext.TYPED_ATTRIBUTE,
-          Contexts.attribute(element("animate", "attributeName", "href", decoy, "fill"), "values"), decoy);
-      assertEquals(OutputContext.TYPED_ATTRIBUTE,
-          Contexts.attribute(element("animate", decoy, "fill", "attributeName", "href"), "values"), decoy);
-      assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("set", decoy, "fill"), "to"), decoy);
-    }
-    // The name it holds folds A-Z only too: mas\u212A (Kelvin sign) is not mask.
-    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("set", "attributeName", "mas\u212A"), "to"));
-    assertEquals(OutputContext.STYLE, Contexts.attribute(element("set", "AttributeName", "MASK"), "to"));
   }
 
   @Test

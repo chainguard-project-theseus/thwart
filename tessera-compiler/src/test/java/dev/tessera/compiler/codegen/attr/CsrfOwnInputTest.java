@@ -107,7 +107,6 @@ class CsrfOwnInputTest {
       "<input type=\"hidden\" name=\"_csrf\" value=\"v\" t:remove=\"all\" />",
       "<input type=\"hidden\" t:name=\"n\" value=\"v\" />",
       "<input type=\"hidden\" name=\"x\" t:attr=\"name=${n}\" value=\"v\" />",
-      "<input t:attr=\"type='hidden'\" name=\"_csrf\" value=\"v\" />",
       "<input type=\"text\" name=\"_csrf\" value=\"v\" />",
       "<input name=\"_csrf\" value=\"v\" />",
       "<input type=\" hidden\" name=\"_csrf\" value=\"v\" />",

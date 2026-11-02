@@ -15,11 +15,11 @@
 306-A0          -    ACCEPT
 306-A1          -    ACCEPT
 306-A2          C    ACCEPT
-306-A3          AB   VERIFIER JSON_NOT_IN_SCRIPT
-306-A4          AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-A3          AB   VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+306-A4          AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A5          AB   VERIFIER TEXT_IN_SCRIPT
-306-A6          AB   VERIFIER TEXT_IN_SCRIPT
-306-A7          AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
+306-A6          AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+306-A7          AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A8          AB   VERIFIER TEXT_IN_SCRIPT
 306-A9          AB   VERIFIER TEXT_IN_SCRIPT
 306-A10         AB   VERIFIER ATTRIBUTE_NOT_IN_VALUE TEXT_IN_SCRIPT
@@ -39,7 +39,7 @@
 306-A24         AB   VERIFIER TEXT_IN_SCRIPT
 306-A25         -    VERIFIER TEXT_IN_SCRIPT
 306-A26         -    VERIFIER PARSE_ERROR
-306-A27         AB   VERIFIER TEXT_IN_SCRIPT
+306-A27         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A28         AB   VERIFIER TEXT_IN_SCRIPT
 306-A29         AB   VERIFIER FRAMESET TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
 306-A30         AB   VERIFIER TEXT_IN_SCRIPT
@@ -60,15 +60,15 @@
 306-A45         -    ACCEPT
 306-A46         -    ACCEPT
 306-A47         -    ACCEPT
-306-A48         AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
+306-A48         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A49         -    ACCEPT
 306-A50         -    ACCEPT
 306-A51         C    ACCEPT
 306-A52         C    ACCEPT
 306-A53         -    ACCEPT
-306-A54         AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
-306-A55         -    VERIFIER JSON_NOT_IN_SCRIPT
-306-A56         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-A54         AB   VERIFIER CDATA_SECTION VALUE_IN_FOREIGN  # #678: any CDATA section is rejected
+306-A55         -    VERIFIER CDATA_SECTION VALUE_IN_FOREIGN  # #678: any CDATA section is rejected
+306-A56         -    VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A57         -    VERIFIER JSON_NOT_IN_SCRIPT
 306-A58         AB   VERIFIER JSON_NOT_IN_SCRIPT
 306-A59         OVER VERIFIER VALUE_IN_RAW_TEXT
@@ -82,11 +82,11 @@
 306-B4          -    ACCEPT
 306-B5          -    ACCEPT
 306-B6          -    ACCEPT
-306-B7          -    VERIFIER JSON_NOT_IN_SCRIPT
+306-B7          -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-B8          AB   VERIFIER TEXT_IN_SCRIPT
 306-B9          AB   VERIFIER TEXT_IN_SCRIPT
 306-B10         AB   VERIFIER JSON_NOT_IN_SCRIPT
-306-B11         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-B11         -    VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr295-1         -    ACCEPT
 pr295-2         AB   VERIFIER TEXT_IN_SCRIPT
 pr295-3         AB   VERIFIER TEXT_IN_SCRIPT
@@ -134,14 +134,14 @@ pr300-2         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-1         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-2         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-3         AB   VERIFIER TEXT_IN_SCRIPT
-pr301-4         AB   VERIFIER TEXT_NOT_IN_TEXT
-pr301-5         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr301-4         AB   VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+pr301-5         AB   VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr301-6         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-7         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-8         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-1         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-2         AB   VERIFIER TEXT_IN_SCRIPT
-pr304-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-3         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr304-4         AB   PROFILE  # not emitted: t:insert inside <textarea> is not supported: a browser reads the content of <textarea> as text up to the first
 pr304-5         AB   PROFILE  # not emitted: t:insert inside <noscript> is not supported: a browser reads the content of <noscript> as text up to the first
 pr304-6         AB   VERIFIER TEXT_IN_SCRIPT
@@ -225,13 +225,13 @@ pr299-21        -    VERIFIER JSON_NOT_IN_SCRIPT
 pr300-3         -    ACCEPT
 pr300-4         -    ACCEPT
 pr300-5         -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
-pr300-6         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
-pr300-7         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
-pr300-8         -    ACCEPT
-pr300-9         -    ACCEPT
-pr300-10        -    ACCEPT
+pr300-6         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+pr300-7         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+pr300-8         -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+pr300-9         -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+pr300-10        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr300-11        -    ACCEPT
-pr300-12        -    ACCEPT
+pr300-12        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr300-13        -    ACCEPT
 pr301-9         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-10        AB   VERIFIER TEXT_IN_SCRIPT
@@ -278,19 +278,19 @@ review-pr338-1  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is no
 review-pr338-2  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
 review-pr338-3  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
 review-pr298-3  AB   PROFILE  # no tree: malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value
-review-pr301-1  AB   VERIFIER JSON_NOT_IN_SCRIPT
-review-pr305-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT CDATA_IN_INTEGRATION_POINT
+review-pr301-1  AB   VERIFIER CDATA_SECTION VALUE_IN_FOREIGN  # #678: any CDATA section is rejected
+review-pr305-1  AB   VERIFIER CDATA_SECTION SELECT_CONTENT VALUE_IN_FOREIGN  # #678: any CDATA section is rejected
 review-pr304-1  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
-review-pr296-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT
+review-pr296-1  AB   VERIFIER CDATA_SECTION SELECT_CONTENT VALUE_IN_FOREIGN  # #678: any CDATA section is rejected
 review-pr305-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr394-1  AB   VERIFIER FOREIGN_IN_TABLE PARSE_ERROR  # #398: a table inside svg in a cell; both vnu engines reset to 'in body', the spec returns to the cell. Exclusion (a) since #406
 ax-pos-1        -    ACCEPT
 ax-pos-2        -    ACCEPT
 ax-pos-3        -    ACCEPT
-ax-pos-4        -    ACCEPT
-ax-pos-5        -    ACCEPT
-ax-pos-6        -    ACCEPT
+ax-pos-4        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+ax-pos-5        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+ax-pos-6        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 ax-attr-1       -    ACCEPT
 ax-attr-2       -    ACCEPT
 ax-attr-3       -    ACCEPT
@@ -364,3 +364,25 @@ xss-lines-16    -    ACCEPT
 xss-lines-17    -    ACCEPT
 xss-lines-18    C    ACCEPT
 xss-lines-19    -    ACCEPT
+# #678: constructs rejected instead of modelled (oracle/seeds/reject-678.txt).
+r678-svg-text   -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
+r678-svg-attr   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-math       -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
+r678-cdata-html -    VERIFIER PARSE_ERROR  # #678: the profile rejects it too
+r678-cdata-svg  -    VERIFIER CDATA_SECTION  # #678: the profile rejects it too
+r678-xmp        -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-plaintext  -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-noembed    -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-noframes   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-frameset   -    VERIFIER FRAMESET PARSE_ERROR  # #678: the profile rejects it too
+r678-noscript   -    VERIFIER VALUE_IN_RAW_TEXT  # #678: the profile rejects it too
+r678-iframe     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-srcset     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-imagesrcset -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-ping       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-input-type -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-encoding   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-is         -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-xmlns      -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-font       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-meta       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
