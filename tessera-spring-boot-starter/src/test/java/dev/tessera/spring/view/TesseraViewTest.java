@@ -1,6 +1,7 @@
 package dev.tessera.spring.view;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.TemplateEntry;
@@ -88,6 +89,58 @@ class TesseraViewTest {
     assertThat(response.getContentLength()).isEqualTo(5);
     assertThat(response.getContentType()).isEqualTo(TesseraView.CONTENT_TYPE);
     assertThat(response.getContentAsString()).isEqualTo("caf" + (char) 0xE9);
+  }
+
+  /** The default policy names the nonce the page was stamped with (#757). */
+  @Test
+  void defaultPolicyCarriesTheContextNonce() throws Exception {
+    MockHttpServletResponse response = renderWithNonce("Ab+/9_-x==", true, null);
+    assertThat(response.getHeader(TesseraView.CSP_HEADER))
+        .isEqualTo(
+            "script-src 'nonce-Ab+/9_-x==' 'strict-dynamic'; object-src 'none'; base-uri 'none'");
+  }
+
+  @Test
+  void existingPolicyIsKept() throws Exception {
+    MockHttpServletResponse response = renderWithNonce("abc", true, "default-src 'self'");
+    assertThat(response.getHeaders(TesseraView.CSP_HEADER)).containsExactly("default-src 'self'");
+  }
+
+  @Test
+  void disabledOrNoNonceSendsNoPolicy() throws Exception {
+    assertThat(renderWithNonce("abc", false, null).containsHeader(TesseraView.CSP_HEADER)).isFalse();
+    assertThat(renderWithNonce(null, true, null).containsHeader(TesseraView.CSP_HEADER)).isFalse();
+  }
+
+  /** A nonce that is not a CSP base64-value would rewrite the policy; it fails the render. */
+  @Test
+  void nonceThatIsNotBase64IsAnError() {
+    for (String bad : Arrays.asList("a' 'unsafe-inline", "a; script-src *", "a b", "a\r\nX: y")) {
+      MockHttpServletResponse response = new MockHttpServletResponse();
+      assertThatThrownBy(() -> view(bad, true).render(null, new MockHttpServletRequest(), response))
+          .isInstanceOf(IllegalStateException.class);
+      assertThat(response.containsHeader(TesseraView.CSP_HEADER)).isFalse();
+      assertThat(response.getContentLength()).isEqualTo(0); // nothing was written
+    }
+  }
+
+  private static TesseraView view(String nonce, boolean csp) {
+    TemplateEntry entry =
+        new TemplateEntry(
+            "page", Collections.<TemplateEntry.Param>emptyList(), (m, ctx, out) -> out.write("x"));
+    return TesseraView.of(
+        entry, (request, r, m) -> RenderContext.defaults().withCspNonce(nonce), csp);
+  }
+
+  private static MockHttpServletResponse renderWithNonce(
+      String nonce, boolean csp, String existing) throws Exception {
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    if (existing != null) {
+      response.setHeader(TesseraView.CSP_HEADER, existing);
+    }
+    view(nonce, csp).render(null, new MockHttpServletRequest(), response);
+    assertThat(response.getContentAsString()).isEqualTo("x");
+    return response;
   }
 
   private static Map<String, ?> render(Map<String, Object> model) throws Exception {
