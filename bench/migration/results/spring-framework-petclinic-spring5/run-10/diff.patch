@@ -257,7 +257,7 @@ index cb1c98c..5eee897 100644
              </resource>
          </resources>
          <testResources>
-@@ -315,6 +324,38 @@
+@@ -315,6 +324,34 @@
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-compiler-plugin</artifactId>
                  <version>${maven-compiler-plugin.version}</version>
@@ -286,13 +286,9 @@ index cb1c98c..5eee897 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>
-+                <configuration>
-+                    <failOnUnchecked>true</failOnUnchecked>
-+                </configuration>
              </plugin>
  
              <plugin>

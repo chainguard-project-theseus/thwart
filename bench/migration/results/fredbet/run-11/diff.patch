@@ -570,7 +570,7 @@ index 63b1d038..f3865613 100644
          <dependency>
              <groupId>io.github.wimdeblauwe</groupId>
              <artifactId>htmx-spring-boot</artifactId>
-@@ -324,9 +319,39 @@
+@@ -324,9 +319,38 @@
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-compiler-plugin</artifactId>
                  <configuration>
@@ -603,7 +603,6 @@ index 63b1d038..f3865613 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>

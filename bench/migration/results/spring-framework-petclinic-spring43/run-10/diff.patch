@@ -228,7 +228,7 @@ index d242e6f..32e3db3 100644
              </resource>
          </resources>
          <testResources>
-@@ -266,17 +273,43 @@
+@@ -266,17 +273,42 @@
              <plugin>
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-compiler-plugin</artifactId>
@@ -265,7 +265,6 @@ index d242e6f..32e3db3 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>

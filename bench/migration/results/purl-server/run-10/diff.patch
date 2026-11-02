@@ -276,7 +276,7 @@ index ed1c616..bf96f3a 100644
      </dependency>
      <dependency>
        <groupId>org.springframework.boot</groupId>
-@@ -106,6 +105,38 @@
+@@ -106,6 +105,37 @@
    <build>
      <finalName>purl_server</finalName>
      <plugins>
@@ -307,7 +307,6 @@ index ed1c616..bf96f3a 100644
 +          <execution>
 +            <goals>
 +              <goal>check</goal>
-+              <goal>review</goal>
 +            </goals>
 +          </execution>
 +        </executions>

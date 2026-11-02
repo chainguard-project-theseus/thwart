@@ -295,7 +295,7 @@ final class ConversionRules {
 
   /**
    * {@code <script type>} values whose content is JavaScript or JSON, compared stripped and in lower
-   * case; the compiler's script context uses the same list. A {@code t:type} is not one of them.
+   * case; the compiler's script context uses the same list.
    */
   static final Set<String> SCRIPT_TYPES = Compat.setOf("", "text/javascript", "application/javascript",
       "text/ecmascript", "application/ecmascript", "module", "application/json", "application/ld+json");

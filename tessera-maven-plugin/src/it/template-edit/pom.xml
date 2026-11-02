@@ -54,7 +54,6 @@
           <execution>
             <goals>
               <goal>check</goal>
-              <goal>review</goal>
             </goals>
           </execution>
         </executions>

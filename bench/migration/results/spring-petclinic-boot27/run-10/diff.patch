@@ -149,7 +149,7 @@ index d29355c..0ba4d86 100644
      </dependency>
      <dependency>
        <groupId>org.springframework.boot</groupId>
-@@ -110,6 +115,37 @@
+@@ -110,6 +115,36 @@
  
    <build>
      <plugins>
@@ -179,7 +179,6 @@ index d29355c..0ba4d86 100644
 +          <execution>
 +            <goals>
 +              <goal>check</goal>
-+              <goal>review</goal>
 +            </goals>
 +          </execution>
 +        </executions>
@@ -187,7 +186,7 @@ index d29355c..0ba4d86 100644
        <plugin>
          <groupId>io.spring.javaformat</groupId>
          <artifactId>spring-javaformat-maven-plugin</artifactId>
-@@ -149,7 +185,7 @@
+@@ -149,7 +184,7 @@
                <encoding>UTF-8</encoding>
                <sourceDirectories>${basedir}</sourceDirectories>
                <includes>**/*</includes>

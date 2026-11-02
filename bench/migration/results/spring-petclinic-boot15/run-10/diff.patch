@@ -226,7 +226,7 @@ index 6fdc4d1..84a7345 100644
      </dependency>
      <dependency>
        <groupId>org.springframework.boot</groupId>
-@@ -119,6 +116,38 @@
+@@ -119,6 +116,37 @@
  
    <build>
      <plugins>
@@ -257,7 +257,6 @@ index 6fdc4d1..84a7345 100644
 +          <execution>
 +            <goals>
 +              <goal>check</goal>
-+              <goal>review</goal>
 +            </goals>
 +          </execution>
 +        </executions>

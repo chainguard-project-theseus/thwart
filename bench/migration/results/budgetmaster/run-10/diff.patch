@@ -32,7 +32,7 @@ index 04ed82eb..64868156 100644
          </dependency>
  
          <dependency>
-@@ -221,6 +224,48 @@
+@@ -221,6 +224,47 @@
  
      <build>
          <plugins>
@@ -73,7 +73,6 @@ index 04ed82eb..64868156 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>
