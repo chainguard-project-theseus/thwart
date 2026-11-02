@@ -36,6 +36,7 @@ class ErrorPagesTest {
     Response page = Response.get(environment, "/no-such-page");
     assertThat(page.status).isEqualTo(404);
     assertThat(page.body).contains("<h1>404</h1>").contains("Tessera error/404");
+    assertDefaultPolicy(page);
   }
 
   @Test
@@ -44,6 +45,7 @@ class ErrorPagesTest {
     Response page = Response.get(environment, "/boom");
     assertThat(page.status).isEqualTo(500);
     assertThat(page.body).contains("<h1>500</h1>").contains("Tessera error/5xx");
+    assertDefaultPolicy(page);
   }
 
   @Test
@@ -55,6 +57,13 @@ class ErrorPagesTest {
         .contains("<h1>409</h1>")
         .doesNotContain("Tessera error/404")
         .doesNotContain("Tessera error/5xx");
+    assertDefaultPolicy(page);
+  }
+
+  /** The ERROR dispatch, after {@code sendError} or an exception, gets the policy (#775). */
+  static void assertDefaultPolicy(Response page) {
+    assertThat(page.csp).hasSize(1);
+    assertThat(page.csp.get(0)).matches("script-src 'nonce-[A-Za-z0-9+/]+={0,2}' .*");
   }
 
   @Controller

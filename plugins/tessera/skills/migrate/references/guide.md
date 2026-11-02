@@ -959,11 +959,11 @@ took one becomes a fragment its callers pass `~{...}`.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
 writes gets the request's nonce, and the page is sent with `Content-Security-Policy: script-src
-'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'` unless the response already has one (a
-filter that runs before the view). Spring Security writes headers after the view, so under its
-`HeaderWriterFilter` the starter sends none: add a `HeaderWriter` that sets the policy with
-`CspNonce.get(request)`. `tessera.csp.enabled=false` turns the default off. Delete
-Thymeleaf's `th:nonce`; a nonce attribute in a template is an error.
+'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`, with or without Spring Security.
+A policy the application sets wins: Spring Security's `contentSecurityPolicy(...)` or your own
+filter's header (use `CspNonce.get(request)` for the nonce). The starter's filter runs first and
+adds the default only when the response commits without one. `tessera.csp.enabled=false` turns
+the default off. Delete Thymeleaf's `th:nonce`; a nonce attribute in a template is an error.
 
 ### 4.10 Notes for specific engines
 
