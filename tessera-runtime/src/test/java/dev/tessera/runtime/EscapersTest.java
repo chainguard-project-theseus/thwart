@@ -1136,4 +1136,68 @@ class EscapersTest {
     assertEquals("", text(null));
   }
 
+  /**
+   * The table escaper (#685) against the escaping rule written out, for every BMP char between
+   * runs that are copied in bulk, and for a pair from every plane, also at the ends of the value.
+   */
+  @Test
+  void htmlEscaperMatchesItsRuleForEveryChar() {
+    for (int c = 0; c <= 0xFFFF; c++) {
+      String s = String.valueOf((char) c);
+      String expected = expectedHtml(c);
+      assertEquals("ab" + expected + "cd" + expected, text("ab" + s + "cd" + s), "U+" + Integer.toHexString(c));
+      assertEquals(expected + "x", text(s + "x"), "U+" + Integer.toHexString(c));
+    }
+    for (int plane = 1; plane <= 16; plane++) {
+      for (int low : new int[] {0x0000, 0xFFFD, 0xFFFE, 0xFFFF}) {
+        int cp = plane << 16 | low;
+        String s = new String(Character.toChars(cp));
+        assertEquals("a" + expectedHtml(cp) + "&amp;", text("a" + s + "&"), "U+" + Integer.toHexString(cp));
+      }
+    }
+  }
+
+  private static String expectedHtml(int cp) {
+    switch (cp) {
+      case '&':
+        return "&amp;";
+      case '<':
+        return "&lt;";
+      case '>':
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case '\'':
+        return "&#39;";
+      default:
+        return parseError(cp) ? String.valueOf((char) 0xFFFD) : new String(Character.toChars(cp));
+    }
+  }
+
+  private enum Shouting {
+    LOUD {
+      @Override
+      public String toString() {
+        return "<b>";
+      }
+    }
+  }
+
+  /**
+   * The typed overloads (#685): an int, long or boolean is written as its text; a char is escaped
+   * rather than widened to the int overload; a boxed value and an enum, whose toString() can be
+   * overridden, take the Object overload and are escaped.
+   */
+  @Test
+  void typedTextOverloads() {
+    StringOutput out = new StringOutput();
+    Escapers.text(out, -42);
+    Escapers.text(out, Long.MIN_VALUE);
+    Escapers.text(out, true);
+    Escapers.text(out, '<');
+    Escapers.text(out, (short) 7);
+    Escapers.text(out, (Object) Integer.valueOf(1));
+    Escapers.text(out, Shouting.LOUD);
+    assertEquals("-42" + Long.MIN_VALUE + "true&lt;71&lt;b&gt;", out.toString());
+  }
 }

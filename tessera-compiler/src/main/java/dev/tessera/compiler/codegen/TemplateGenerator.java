@@ -54,7 +54,6 @@ import java.util.Set;
  */
 public final class TemplateGenerator implements CodegenContext {
   /** Static text is split into constants of at most this many chars (constant-pool limit). */
-  private static final int CHUNK = 8192;
 
   /** {@code t:} attributes that write HTML known only at runtime into the element. */
   private static final Set<String> RUNTIME_HTML = Backports.setOf("utext", "insert", "replace");
@@ -204,7 +203,7 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   private Emitted.Builder builder() {
-    return new Emitted.Builder(this::constant, CHUNK);
+    return new Emitted.Builder(this::constant);
   }
 
   // ---- CodegenContext ----
