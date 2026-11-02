@@ -23,7 +23,7 @@ class FragmentParsingContextTest {
           + "<a t:fragment=\"x(String s)\"><title><script>[[s]]</script></title></a>\n"
           + "<i t:fragment=\"plain\">plain</i>\n"
           + "<svg t:fragment=\"check\" viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg>\n"
-          + "<svg><g t:fragment=\"r(String s)\"><text>[[s]]</text></g>"
+          + "<svg><g t:fragment=\"r(String s)\"><text>r</text></g>"
           + "<t:block t:fragment=\"paths\"><path d=\"M0 0\"/></t:block></svg>\n"
           + "<math><mrow t:fragment=\"row\"><mi>x</mi></mrow></math>\n"
           + "<span t:fragment=\"sel(String s)\"><style><script></style>[[s]]</span>\n"
@@ -133,10 +133,10 @@ class FragmentParsingContextTest {
             + "<b t:fragment=\"y\">y</b><svg t:insert=\"~{:: z(v)}\"></svg>")
         .assertError("page.html:2:", "fragment 'frags :: x' is declared in HTML content but t:insert puts it in <svg>"
             + " content");
-    // The fragment still fits in <svg> content, where it was compiled.
-    page("<svg t:replace=\"~{:: y}\"><g t:fragment=\"r(String s)\"><text>[[s]]</text></g></svg>"
+    // A static fragment declared there still compiles; inserting it into an <svg> is a value inside it (#678).
+    page("<svg t:replace=\"~{:: y}\"><g t:fragment=\"r(String s)\"><text>r</text></g></svg>"
             + "<b t:fragment=\"y\">y</b><svg t:insert=\"~{:: r(v)}\"></svg>")
-        .assertSuccess();
+        .assertError("page.html:2:", "inside <svg> is not supported");
   }
 
   @Test
@@ -193,14 +193,8 @@ class FragmentParsingContextTest {
 
   @Test
   void rawHtmlInHtmlContentStillRenders() {
-    Compilation c =
-        // Not directly in MathML <mi>: the verifier takes HTML only where the current node is HTML (#367).
-        raw("<div t:utext=\"${h}\"></div><div>[(${h})]</div><svg><foreignObject><div t:utext=\"${h}\"></div></foreignObject>"
-                + "</svg><math><mi><span>[(${h})]</span></mi></math>")
-            .assertSuccess();
-    assertEquals(
-        "<div>\n<div><b>h</b></div><div><b>h</b></div><svg><foreignObject><div><b>h</b></div></foreignObject></svg>"
-            + "<math><mi><span><b>h</b></span></mi></math></div>",
+    Compilation c = raw("<div t:utext=\"${h}\"></div><div>[(${h})]</div>").assertSuccess();
+    assertEquals("<div>\n<div><b>h</b></div><div><b>h</b></div></div>",
         c.render("page", Map.of("h", SafeHtml.sanitize("<b>h</b>"))));
   }
 
@@ -337,31 +331,24 @@ class FragmentParsingContextTest {
   void fragmentsInTheContextTheyAreDeclaredInStillRender() {
     Compilation c =
         page("<svg t:replace=\"~{frags :: check}\"></svg>"
-                + "<svg t:insert=\"~{frags :: paths}\"></svg>"
-                + "<svg class=\"icon\" t:insert=\"~{frags :: check}\"><g>preview</g></svg>"
                 + "<select><option t:replace=\"~{frags :: opt(v)}\"></option></select><select t:insert=\"~{frags :: opts}\"></select>"
-                + "<svg><g t:replace=\"~{frags :: check}\"></g></svg>"
-                + "<svg><g t:replace=\"~{frags :: r(v)}\"></g></svg>"
-                + "<svg><t:block t:insert=\"~{frags :: paths}\"></t:block></svg>"
-                + "<svg><foreignObject><p t:insert=\"~{frags :: plain}\"></p></foreignObject></svg>"
-                + "<math><mi t:replace=\"~{frags :: row}\"></mi></math>"
                 + "<div t:replace=\"~{frags :: card(~{::b})}\"></div><template><b>[[${v}]]</b></template>"
                 + "<title t:replace=\"~{frags :: plain}\"></title>")
             .assertSuccess();
     assertEquals(
         "<div>\n"
             + "<svg viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg>"
-            + "<svg><path d=\"M0 0\"/></svg>"
-            + "<svg class=\"icon\"><svg viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg></svg>"
             + "<select><option>&lt;v&gt;</option></select><select><option>a</option></select>"
-            + "<svg><svg viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg></svg>"
-            + "<svg><g><text>&lt;v&gt;</text></g></svg>"
-            + "<svg><path d=\"M0 0\"/></svg>"
-            + "<svg><foreignObject><p><i>plain</i></p></foreignObject></svg>"
-            + "<math><mrow><mi>x</mi></mrow></math>"
             + "<section><b>&lt;v&gt;</b></section><template><b>&lt;v&gt;</b></template>"
             + "<i>plain</i>\n"
             + "</div>",
         c.render("page", Map.of("v", "<v>")));
+    // #678: a fragment inserted inside an <svg> or <math> is a value there.
+    for (String inside : new String[] {"<svg t:insert=\"~{frags :: paths}\"></svg>",
+        "<svg><g t:replace=\"~{frags :: check}\"></g></svg>", "<svg><t:block t:insert=\"~{frags :: paths}\"></t:block></svg>",
+        "<svg><foreignObject><p t:insert=\"~{frags :: plain}\"></p></foreignObject></svg>",
+        "<math><mi t:replace=\"~{frags :: row}\"></mi></math>"}) {
+      page(inside).assertError("page.html:2:", "is not supported", "as static markup");
+    }
   }
 }

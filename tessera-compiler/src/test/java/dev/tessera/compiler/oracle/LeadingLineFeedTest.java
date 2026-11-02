@@ -101,10 +101,8 @@ class LeadingLineFeedTest {
 
   @Test
   void htmlElementsInOtherPlacesGetTheLineFeed() {
-    // An HTML integration point and upper-case tag names. (A value inside <noscript> is a build
-    // error since #571.)
-    Compilation c = compile("<svg><foreignObject><textarea>[[${s}]]\nx</textarea></foreignObject></svg>"
-        + "<PRE>[[${s}]]\nx</PRE>");
+    // Upper-case tag names. (A value inside <noscript> is a build error since #571, inside <svg> since #678.)
+    Compilation c = compile("<TEXTAREA>[[${s}]]\nx</TEXTAREA><PRE>[[${s}]]\nx</PRE>");
     for (String s : VALUES) {
       String html = render(c, s);
       assertEquals(s + "\nx", dom(html, "textarea"), html);
@@ -124,12 +122,5 @@ class LeadingLineFeedTest {
         + "<textarea>\n[[${s}]]</textarea>");
     assertEquals("<div><pre>\nx a\n</pre><pre>y</pre><pre><b>a</b>\nx</pre><textarea></textarea>"
         + "<textarea>\na</textarea></div>", render(c, "a"));
-  }
-
-  @Test
-  void anSvgTextareaGetsNoLineFeed() {
-    // Inside <svg> a <textarea> is an SVG element, which drops nothing.
-    Compilation c = compile("<svg><textarea>[[${s}]]\nx</textarea></svg>");
-    assertEquals("<div><svg><textarea>\nz\nx</textarea></svg></div>", render(c, "\nz"));
   }
 }

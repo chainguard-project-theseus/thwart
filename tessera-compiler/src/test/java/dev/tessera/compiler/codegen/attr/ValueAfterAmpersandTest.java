@@ -52,7 +52,6 @@ class ValueAfterAmpersandTest {
         "<p>&lbr[[s]]</p>|10",
         "<title>&[[s]]</title>|11",
         "<textarea>&[[s]]</textarea>|14",
-        "<svg><text>&[[s]]</text></svg>|15",
         "<p>&<t:block>[[s]]</t:block></p>|16",
         "<p>&<span t:remove=\"tag\" t:text=\"s\">x</span></p>|34",
         "<p><t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>|46",

@@ -1,0 +1,110 @@
+# Constructs #678 rejects instead of modelling: values in SVG and MathML, CDATA sections, raw text
+# elements, URL lists and the attributes the tree builder reads. Added after the #306 experiment:
+# 'expect-0dda2f1' here is not a 0dda2f1 measurement but the verdict #678 requires (REJECTED), and
+# 'main' is the verdict on main once #678 landed. seed-expectations.txt says which layer rejects each.
+====
+# name: r678-svg-text
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><text>[[s]]</text></svg>
+====
+# name: r678-svg-attr
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+# note: the jobsearch shape (bench run-10 MIGRATION-REPORT item 12); the guide's recipe is a CSS variable on an HTML parent
+<svg><path d="M0 0" t:stroke-dasharray="|${s.length()}, 100|"/></svg>
+====
+# name: r678-math
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<math><mi t:text="s">x</mi></math>
+====
+# name: r678-cdata-html
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p><![CDATA[ x ]]></p>
+====
+# name: r678-cdata-svg
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><text><![CDATA[ x ]]></text></svg>
+====
+# name: r678-xmp
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<xmp>x</xmp>
+====
+# name: r678-plaintext
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p>x</p><plaintext>x
+====
+# name: r678-noembed
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<noembed>x</noembed>
+====
+# name: r678-noframes
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<noframes>x</noframes>
+====
+# name: r678-frameset
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<frameset></frameset>
+====
+# name: r678-noscript
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<noscript><b t:text="s">x</b></noscript>
+====
+# name: r678-iframe
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<iframe><p t:if="${s != null}">x</p></iframe>
+====
+# name: r678-srcset
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<img t:srcset="'/a.png 1x'">
+====
+# name: r678-imagesrcset
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<link rel="preload" as="image" t:imagesrcset="'/a.png 1x'">
+====
+# name: r678-ping
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<a href="/x" t:ping="'/p'">x</a>
+====
+# name: r678-input-type
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<input t:type="s">
+====
+# name: r678-encoding
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:encoding="s">x</p>
+====
+# name: r678-is
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:is="'my-p'">x</p>
+====
+# name: r678-xmlns
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:attr="xmlns:x=${s}">x</p>
+====
+# name: r678-font
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<font t:color="'red'" t:face="'serif'" t:size="'3'">x</font>
+====
+# name: r678-meta
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<meta t:charset="'utf-8'"><meta t:http-equiv="'refresh'" content="0">

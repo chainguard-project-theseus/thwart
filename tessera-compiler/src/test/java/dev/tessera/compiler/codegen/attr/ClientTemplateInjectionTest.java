@@ -39,7 +39,6 @@ class ClientTemplateInjectionTest {
     assertEquals("<p>a " + ESCAPED + " b</p>", render("<p>a [[s]] b</p>", PAYLOAD));
     assertEquals("<span>" + ESCAPED + "</span>", render("<span t:text=\"s\">x</span>", PAYLOAD));
     assertEquals("<p>{{ x }}}}</p>", render("<p>{{ x }}[[s]]</p>", "}}"));
-    assertEquals("<svg><title>{{x}}</title></svg>", render("<svg><title t:text=\"s\">t</title></svg>", "{{x}}"));
   }
 
   @Test
@@ -68,7 +67,6 @@ class ClientTemplateInjectionTest {
         "<title>{{ [[s]] }}</title>",
         "<textarea>{{</textarea>",
         "<p v-pre>{{ [[s]] }}</p>",
-        "<svg><text><![CDATA[{]]>[[a]]{ [[s]] }}</text></svg>",
         "<script>var v = [[s]]; var t = '{{';</script>",
       })
   void staticBracesCompile(String body) {
@@ -266,10 +264,5 @@ class ClientTemplateInjectionTest {
                 + "<tr><td t:insert=\"~{f :: box(s)}\"></td><td t:insert=\"~{f :: text(s)}\"></td></tr></table>"
                 + "<t:block t:replace=\"~{f :: layout(~{::p})}\"></t:block><p t:text=\"s\">x</p>")
         .assertSuccess();
-  }
-
-  @Test
-  void cdataWithoutBracesCompiles() {
-    compile("<svg><text><![CDATA[ x < y ]]>[[s]]</text></svg>").assertSuccess();
   }
 }

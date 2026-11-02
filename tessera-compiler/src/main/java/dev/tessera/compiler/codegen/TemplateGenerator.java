@@ -64,6 +64,14 @@ public final class TemplateGenerator implements CodegenContext {
    */
   private static final Set<String> LEADING_LINE_FEED = Backports.setOf("pre", "listing", "textarea");
 
+  /**
+   * Elements a browser parses by rules Tessera doesn't model (#678): raw text a browser never renders as
+   * markup ({@code xmp noembed noframes}) and {@code frameset} (applies only if no body content came
+   * before it). {@code plaintext} is rejected where it is parsed.
+   */
+  private static final Set<String> UNSUPPORTED_ELEMENTS =
+      Backports.setOf("xmp", "noembed", "noframes", "frameset");
+
   private final CompilerEnv env;
   private final TemplateIndex index;
   private final ExpressionParser parser;
@@ -453,8 +461,18 @@ public final class TemplateGenerator implements CodegenContext {
     boolean leadingLineFeed = outer == null && !e.foreign() && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
-    inForeign = outerForeign || HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
+    boolean svgOrMath = HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
         || HtmlParser.asciiEqualsIgnoreCase(e.name(), "math");
+    inForeign = outerForeign || svgOrMath;
+    // The outermost foreign element of this output: an <svg> or <math>, or a fragment's SVG or MathML root.
+    boolean foreignTop = !outerForeign && (svgOrMath || e.foreign());
+    if (UNSUPPORTED_ELEMENTS.contains(HtmlParser.asciiLower(e.name()))) {
+      String lower = HtmlParser.asciiLower(e.name());
+      diagnostics().error(e.pos(), "<" + lower + "> is not supported: a browser parses it by rules Tessera doesn't"
+          + " check; " + (lower.equals("frameset") ? "use an ordinary layout, or an <iframe>"
+              : lower.equals("xmp") ? "use <pre> with the text escaped (&lt; for <)"
+              : "use <noscript> or ordinary content"));
+    }
     jsonScript = Contexts.isJsonScript(e);
     if (!TextInlining.tagNotRendered(e)) {
       hostElement = HtmlParser.asciiLower(e.name());
@@ -495,7 +513,7 @@ public final class TemplateGenerator implements CodegenContext {
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }
-      emit(c, plan, leadingLineFeed);
+      emit(c, plan, leadingLineFeed, foreignTop);
     } finally {
       hostElement = outerHost;
       rawTextHost = outer;
@@ -523,7 +541,7 @@ public final class TemplateGenerator implements CodegenContext {
    * start tag: the browser drops it, and keeps a value's own leading line feed and a static line feed
    * after an empty value. Content that starts with static text is written as is, as Thymeleaf does.
    */
-  private void emit(Emitted.Builder c, ElementPlan plan, boolean leadingLineFeed) {
+  private void emit(Emitted.Builder c, ElementPlan plan, boolean leadingLineFeed, boolean foreignTop) {
     Element e = plan.element();
     List<ElementPlan.Wrapper> wrappers = plan.wrappers();
     for (ElementPlan.Wrapper w : wrappers) {
@@ -552,6 +570,9 @@ public final class TemplateGenerator implements CodegenContext {
           }
         }
         Emitted written = content.build();
+        if (foreignTop) {
+          foreignContent(e, plan, written);
+        }
         if (!plan.tagOmitted()) {
           if (Contexts.browserRawText(e.name()) && computed(written.nodes())) {
             // Raw text decodes no character reference, so no escaper fits: only static content there. The
@@ -611,12 +632,44 @@ public final class TemplateGenerator implements CodegenContext {
 
   /** Whether {@code nodes} write anything but static text. */
   private static boolean computed(List<Skeleton.Node> nodes) {
+    return firstComputed(nodes) != null;
+  }
+
+  /** Where the first node of {@code nodes} that isn't static text is, or null. */
+  private static SourcePos firstComputed(List<Skeleton.Node> nodes) {
     for (Skeleton.Node n : nodes) {
-      if (n instanceof Skeleton.Seq ? computed(((Skeleton.Seq) n).nodes()) : !(n instanceof Skeleton.Static)) {
-        return true;
+      SourcePos at = n instanceof Skeleton.Seq ? firstComputed(((Skeleton.Seq) n).nodes())
+          : n instanceof Skeleton.Static ? null : n.pos();
+      if (at != null) {
+        return at;
       }
     }
-    return false;
+    return null;
+  }
+
+  /**
+   * Reports the first computed value, condition, loop or fragment call in or on {@code e}, the outermost
+   * {@code <svg>} or {@code <math>} (#678): a browser parses foreign content by its own rules
+   * (integration points, CDATA, presentation attributes that are CSS), which Tessera doesn't model.
+   * Control flow on the element itself ({@code <svg t:if>}, {@code t:replace}) is outside it and allowed.
+   */
+  private void foreignContent(Element e, ElementPlan plan, Emitted written) {
+    SourcePos at = null;
+    for (ElementPlan.Attr a : plan.attributes()) {
+      if (at == null && a instanceof ElementPlan.DynamicAttr) {
+        at = ((ElementPlan.DynamicAttr) a).pos();
+      }
+    }
+    if (at == null) {
+      at = firstComputed(written.nodes());
+    }
+    if (at != null) {
+      diagnostics().error(at, "a value, condition, loop or fragment inside <" + HtmlParser.asciiLower(e.name())
+          + "> is not supported: a browser parses SVG and MathML by rules Tessera doesn't check; write the <"
+          + HtmlParser.asciiLower(e.name()) + "> as static markup and set what changes outside it: a t:class or"
+          + " t:style on an HTML parent with CSS (fill: currentColor, a CSS variable), or one static <svg> per"
+          + " case under t:if or t:switch");
+    }
   }
 
   private void startTag(Emitted.Builder c, ElementPlan plan) {
