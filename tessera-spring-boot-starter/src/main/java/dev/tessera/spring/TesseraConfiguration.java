@@ -4,9 +4,7 @@ import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.context.SpringRenderContexts;
 import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,11 +57,5 @@ public class TesseraConfiguration {
   @Bean
   public SmartInitializingSingleton tesseraOldEngineWarning() {
     return new OldEngineWarning();
-  }
-
-  @Bean
-  public static BeanPostProcessor tesseraReturnValueHandlerRegistrar(
-      ObjectProvider<RenderContextFactory> contexts) {
-    return new ReturnValueHandlerRegistrar(contexts);
   }
 }

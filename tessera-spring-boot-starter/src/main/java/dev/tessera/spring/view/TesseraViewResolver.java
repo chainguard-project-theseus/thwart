@@ -1,8 +1,11 @@
 package dev.tessera.spring.view;
 
+import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.core.Ordered;
@@ -38,6 +41,8 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
 
   private final TemplateRegistry registry;
   private final RenderContextFactory contexts;
+  /** One view per registry entry, built on first resolve (a view is stateless). */
+  private final ConcurrentMap<TemplateEntry, TesseraView> views = new ConcurrentHashMap<>();
 
   public TesseraViewResolver(TemplateRegistry registry, RenderContextFactory contexts) {
     this.registry = Objects.requireNonNull(registry, "registry");
@@ -59,7 +64,8 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
     if (viewName == null) {
       return null;
     }
-    return registry.find(lookupName(viewName)).map(e -> TesseraView.of(e, contexts)).orElse(null);
+    TemplateEntry entry = registry.find(lookupName(viewName)).orElse(null);
+    return entry == null ? null : views.computeIfAbsent(entry, e -> TesseraView.of(e, contexts));
   }
 
   /**

@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import dev.tessera.runtime.Output;
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.Template;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.runtime.TemplateRegistry;
@@ -83,14 +82,6 @@ class TesseraMvcTest {
   }
 
   @Test
-  void templateReturnValueRenders() throws Exception {
-    mvc.perform(get("/typed").param("name", "Grace"))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType("text/html;charset=UTF-8"))
-        .andExpect(content().string("<p>Hello Grace</p>"));
-  }
-
-  @Test
   void unknownNameFallsThroughToNextResolver() throws Exception {
     mvc.perform(get("/view").param("v", "nope"))
         .andExpect(status().isOk())
@@ -119,23 +110,7 @@ class TesseraMvcTest {
   }
 
   /** A hand-written stand-in for a generated template with {@code t:params="String name"}. */
-  static final class GreetingTemplate implements Template {
-    private final String name;
-
-    GreetingTemplate(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public String templateName() {
-      return "greeting";
-    }
-
-    @Override
-    public void render(RenderContext ctx, Output out) {
-      render(name, ctx, out);
-    }
-
+  static final class GreetingTemplate {
     static void render(String name, RenderContext ctx, Output out) {
       out.write("<p>Hello ");
       out.write(name); // test data only; real generated code escapes
@@ -212,11 +187,6 @@ class TesseraMvcTest {
     @GetMapping("/slash")
     String slash() {
       return "/owners/details"; // as Thymeleaf and FreeMarker accept (#131)
-    }
-
-    @GetMapping("/typed")
-    GreetingTemplate typed(@RequestParam("name") String name) {
-      return new GreetingTemplate(name);
     }
 
     @GetMapping("/mismatch")
