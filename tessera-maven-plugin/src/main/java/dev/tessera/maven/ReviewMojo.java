@@ -109,6 +109,8 @@ public final class ReviewMojo extends AbstractMojo {
     for (String line : Files.readAllLines(services, StandardCharsets.UTF_8)) {
       String name = line.trim();
       Path registry = classes.resolve(name.replace('.', '/') + ".class");
+      // Always qualified: javac passes an empty -Atessera.package= to the processor as null, and the
+      // processor stops with an internal error, so no module has a TesseraRegistry in the default package.
       if (name.endsWith(".TesseraRegistry") && Files.isRegularFile(registry)) {
         ClassScan s = scan(registry);
         generated.add(s.className());
