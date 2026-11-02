@@ -25,7 +25,11 @@ import java.util.stream.Stream;
  * an older record forces one recompile.
  */
 final class TemplateFingerprint {
+  /** Where the processor writes it, relative to the class output directory. */
   static final String RESOURCE = "META-INF/tessera/templates.fingerprint";
+
+  /** The first line; the processor bumps it when the format changes. */
+  static final String VERSION = "tessera-templates 2";
 
   private TemplateFingerprint() {}
 
@@ -35,7 +39,7 @@ final class TemplateFingerprint {
       // Decoding is strict UTF-8 (TemplateDiscovery), so this re-encoding is the file's bytes.
       byPath.put(s.path(), sha256(s.content().getBytes(StandardCharsets.UTF_8)));
     }
-    StringBuilder sb = new StringBuilder("tessera-templates 2\n");
+    StringBuilder sb = new StringBuilder(VERSION + "\n");
     for (Map.Entry<String, String> e : byPath.entrySet()) {
       sb.append(e.getValue()).append(' ').append(e.getKey()).append('\n');
     }

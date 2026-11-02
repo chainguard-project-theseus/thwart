@@ -246,7 +246,7 @@ class CheckMojoTest {
     Files.write(classes.resolve(TemplateFingerprint.RESOURCE), "tessera-templates 1\n".getBytes(StandardCharsets.UTF_8));
     assertEquals(
         "the template fingerprint is from another version of Tessera",
-        CheckMojo.staleReason(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true));
+        CheckMojo.stale(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true).reason);
     mojo.execute();
     assertDeleted(true);
   }
@@ -257,7 +257,7 @@ class CheckMojoTest {
     messages();
     compiled();
     mojo.messages = null;
-    String reason = CheckMojo.staleReason(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true);
+    String reason = CheckMojo.stale(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true).reason;
     assertTrue(reason.startsWith(CheckMojo.OTHER_MESSAGES) && reason.contains("[messages]"), reason);
     mojo.execute();
     assertDeleted(true);
