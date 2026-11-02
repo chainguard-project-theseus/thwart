@@ -51,7 +51,7 @@ ENGINES = {
     "tessera": {
         "ext": (".html",),
         "marker": re.compile(r"xmlns:t=\"https://tessera\.dev\""),
-        "constructs": [r"\bt:[\w-]+(?==)", r"<t:block", r"SafeHtml|TrustedUrl"],
+        "constructs": [r"\bt:[\w-]+(?==)", r"<t:block"],
     },
 }
 

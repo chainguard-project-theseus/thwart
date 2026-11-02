@@ -1,5 +1,8 @@
 package dev.tessera.migrate;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -7,8 +10,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Every Thymeleaf to Tessera conversion rule, as data. To support another construct, add a row
- * here; {@link Migrator} and {@link Expressions} only apply these tables.
+ * The Thymeleaf to Tessera lookup tables and every report message. Structural rewrites (scripts,
+ * natural-template comments, fragment signatures, layouts) are in {@link Migrator},
+ * {@link Expressions} and {@link Layouts}.
  */
 final class ConversionRules {
   private ConversionRules() {}
@@ -141,8 +145,19 @@ final class ConversionRules {
    * token outside {@code ${...}} is literal text ({@code th:class="nav-item"}) and is quoted.
    */
   static final Pattern NUMBER = Pattern.compile("\\d+\\.?\\d*|\\.\\d+");
-  static final Set<String> TOKEN_KEYWORDS = Compat.setOf("true", "false", "null", "_",
-      "and", "or", "not", "eq", "ne", "neq", "gt", "lt", "ge", "le", "div", "mod");
+  /** Keywords in both TOKEN_KEYWORDS and KEYWORDS; declared first for static init order. */
+  private static final List<String> WORD_OPERATORS =
+      Arrays.asList("and", "or", "not", "eq", "ne", "neq", "lt", "gt", "le", "ge", "div", "mod");
+  private static final List<String> LITERALS = Arrays.asList("true", "false", "null");
+  /** Plus {@code _}: the no-op token is a keyword in a token run, not text. */
+  static final Set<String> TOKEN_KEYWORDS = keywords("_");
+
+  private static Set<String> keywords(String extra) {
+    Set<String> set = new HashSet<>(WORD_OPERATORS);
+    set.addAll(LITERALS);
+    set.add(extra);
+    return Collections.unmodifiableSet(set);
+  }
 
   /**
    * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
@@ -293,10 +308,8 @@ final class ConversionRules {
     return String.format(AMBIENT_ROOTS.get(root), "`" + read + "`", name);
   }
 
-  /** Word operators and literals that are never variables. */
-  static final Set<String> KEYWORDS = Compat.setOf(
-      "and", "or", "not", "eq", "ne", "neq", "lt", "gt", "le", "ge", "div", "mod",
-      "true", "false", "null", "this");
+  /** Names that are never variables: plus {@code this}, SpEL's current object. */
+  static final Set<String> KEYWORDS = keywords("this");
 
   /**
    * {@code <script type>} values whose content is JavaScript or JSON, compared stripped and in lower
