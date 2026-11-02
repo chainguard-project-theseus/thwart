@@ -85,6 +85,26 @@ class FragmentsTest {
     assertEquals(1, c.errors().stream().filter(e -> e.contains("nope")).count(), c.errors().toString());
   }
 
+  /**
+   * Each caller's copy of a fragment writes a text hole with the escaper the verifier named for the
+   * fragment's hole: here RCDATA in a {@code <title>}, where a {@code {{} is not broken by a comment.
+   */
+  @Test
+  void copiesWriteTheEscaperTheVerifierNamed() {
+    String caller = "<div " + NS + " t:params=\"String v\"><t:block t:replace=\"~{lay :: lay(~{::i}, v)}\"/><i>i</i></div>";
+    Compilation c = Compilation.builder()
+        .template("lay.html", "<div " + NS + "><div t:fragment=\"lay(Fragment b, String s)\"><title t:text=\"${s}\">t</title>"
+            + "<t:block t:insert=\"${b}\"/></div></div>")
+        .template("a.html", caller)
+        .template("b.html", caller)
+        .compile()
+        .assertSuccess();
+    for (String page : List.of("a", "b")) {
+      assertEquals("<div><div><title v-pre>{{x}}&lt;/title&gt;</title><i>i</i></div><i>i</i></div>",
+          c.render(page, Map.of("v", "{{x}}</title>")));
+    }
+  }
+
   @Test
   void crossFilePositionalAndNamedArguments() {
     Compilation c =
