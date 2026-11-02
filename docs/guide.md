@@ -555,8 +555,11 @@ compiler rejects it inside an open `<p>`, heading, `<a>` or `<button>` (`RAW_CLO
 only (a bio with `<b>`, lines joined with `<br>`), return a `SafeInlineHtml` instead: it is
 accepted wherever an HTML message is. Its policy comes from `HtmlPolicy.inlineBuilder()`, which
 allows only names from `HtmlPolicy.INLINE_ELEMENTS` (`b i em strong small s u sub sup code kbd
-mark abbr cite q dfn time span br wbr img`), so no links and no blocks. Join lines with `concat`
-and `escape`:
+mark abbr cite q dfn time span br wbr img`), so no links and no blocks. Allowing `img` keeps its
+`src` without an `allowAttributes` call (`src` isn't in `HtmlPolicy.ATTRIBUTES`), but only a
+same-origin path starting with a single `/`: an image whose `src` is a relative path such as
+`../images/x.gif`, another host or a `data:` URL is dropped. `alt`, `title`, `width` and `height`
+still need `allowAttributes`. Join lines with `concat` and `escape`:
 
 <!-- compile: java -->
 ```java

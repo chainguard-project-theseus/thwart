@@ -235,6 +235,14 @@ class HtmlPolicyTest {
     assertEquals("x<b>y</b>z<q>q</q><wbr><time>t</time>", SafeInlineHtml.sanitize(
         "<p>x<b>y</b></p><div>z<a href=/x><q>q</q></a><wbr></div><time datetime=1>t</time>", inline).html());
     assertEquals("", SafeInlineHtml.sanitize(null, inline).html());
+    // img keeps a same-origin src with no allowAttributes call; other attributes need allowing
+    assertEquals("<img src=\"/a.png\">", SafeInlineHtml.sanitize("<img src=/a.png alt=x title=t width=1 height=2>", inline).html());
+    for (String src : new String[] {"../a.png", "a.png", "//evil.example/a.png", "/\\evil.example/a.png",
+        "https://evil.example/a.png", "data:image/png;base64,AA"}) {
+      assertEquals("", SafeInlineHtml.sanitize("<img src=\"" + src + "\">", inline).html(), src);
+    }
+    assertEquals("<img src=\"/a.png\" alt=\"x\">", SafeInlineHtml.sanitize("<img src=/a.png alt=x>",
+        HtmlPolicy.inlineBuilder().allowElements("img").allowAttributes("alt").build()).html());
     assertEquals("a<i>bc</i>", SafeInlineHtml.sanitize("a<i>b<b>c</b></i>", HtmlPolicy.inlineBuilder().allowElements("i").build()).html());
     for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, HtmlPolicy.MESSAGE_NO_LINKS,
         HtmlPolicy.builder().allowElements("b").build()}) {
