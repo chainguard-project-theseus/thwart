@@ -70,12 +70,18 @@ class ValueAfterLessThanTest {
   }
 
   @Test
-  void messageEndingInLessThanFailsToBuild() {
-    Compilation.builder()
+  void messageEndingInLessThanIsSanitizedToText() {
+    // The sanitizer writes a '<' that starts no markup as text (#677), so the value can't continue it.
+    Compilation c = Compilation.builder()
         .template("page.html", "<div t:params=\"String s\">\n<p>[(#{prefix})][[s]]></p>\n</div>")
         .messages("prefix=<\n")
         .compile()
-        .assertError("page.html:2:", "message 'prefix'", "a message may not end with '<'");
+        .assertSuccess();
+    dev.tessera.runtime.RenderContext ctx = new dev.tessera.runtime.RenderContext(
+        java.util.Locale.US, (k, a) -> "<", new dev.tessera.runtime.DefaultLinks(""), dev.tessera.runtime.Forms.NONE);
+    assertEquals(
+        "<div>\n<p>&lt;img src=x onerror=alert(1)></p>\n</div>",
+        c.render("page", Map.of("s", "img src=x onerror=alert(1)"), ctx));
   }
 
   @Test

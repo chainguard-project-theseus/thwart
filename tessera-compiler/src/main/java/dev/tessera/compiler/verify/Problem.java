@@ -63,12 +63,6 @@ public enum Problem {
    */
   RAW_CLOSES_ELEMENT,
   /**
-   * An HTML message whose markup leaves the parser in another state than it found it: it closes an
-   * element open around it (a {@code <p>} in a {@code <p>}, an {@code <a>} in an {@code <a>}), or
-   * leaves one of its own open (a {@code <p>} without {@code </p>}).
-   */
-  MESSAGE_CHANGES_STATE,
-  /**
    * The parser reports a parse error (#406): the markup parses only by error recovery (foster
    * parenting, misnested or stray tags, a second {@code <body>}, ...), where browsers may build
    * different trees. The missing-doctype messages are allowed ({@link Rules#allowedError}).

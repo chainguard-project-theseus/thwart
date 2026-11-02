@@ -73,11 +73,11 @@ class TextChokePointTest {
     paths.add(s -> SafeHtml.escape(s).html());
     paths.add(s -> SafeHtml.sanitize(s).html());
     paths.add(s -> SafeHtml.sanitize(s, HtmlPolicy.RICH).html());
-    paths.add(s -> Escapers.htmlMessage(ctx, "{", new Object[] {s}, new String[0]));
-    // Markup the build checked or the caller vouches for: only its edges are the runtime's job.
+    paths.add(s -> Escapers.htmlMessage(ctx, "{", new Object[] {s}, true).html());
+    paths.add(s -> Escapers.htmlMessage(ctx, s, new Object[0], false).html());
+    // Markup the caller vouches for: only its edges are the runtime's job.
     List<Function<String, String>> raw = new ArrayList<>();
     raw.add(s -> render(out -> Escapers.html(out, TestSafeHtml.of(s)), true));
-    raw.add(s -> Escapers.htmlMessage(ctx, s, new Object[0], new String[] {s}));
     String[] values = {"{", "{{", "a{", "{a", "{{x}}", "&#123;&#123;", "&lbrace;{", "<b>{</b>{", "{<b>x</b>{", "}}", "}", "a}", "{}"};
     String[] markup = {"{", "a{", "{a", "<b>{</b>{", "{<b>x</b>{", "}}"};
     check(paths, values, true);

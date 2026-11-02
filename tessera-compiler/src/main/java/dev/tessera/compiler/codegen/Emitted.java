@@ -152,12 +152,13 @@ public final class Emitted {
   }
 
   /**
-   * A bundle message checked as HTML: {@code out.write(<messageCode>);} ({@code Escapers.htmlMessage(...)}),
-   * which writes what {@code skeleton} describes ({@code MessageCompiler#htmlSkeleton}: the
-   * message's markup, known at build time, #329).
+   * A bundle message as HTML: {@code Escapers.html(out, <messageCode>);}, where {@code messageCode}
+   * ({@code Escapers.htmlMessage(...)}) sanitizes it by the message policy, with or without
+   * {@code links} (#677).
    */
-  public static Emitted htmlMessage(String messageCode, Skeleton.Node skeleton) {
-    return of("out.write(" + messageCode + ");", skeleton);
+  public static Emitted htmlMessage(SourcePos pos, String messageCode, boolean links) {
+    Skeleton.Source source = links ? Skeleton.Source.LINKED_HTML_MESSAGE : Skeleton.Source.HTML_MESSAGE;
+    return of(ESCAPERS + "html(out, " + messageCode + ");", new Skeleton.RawInsert(source, pos));
   }
 
   /**

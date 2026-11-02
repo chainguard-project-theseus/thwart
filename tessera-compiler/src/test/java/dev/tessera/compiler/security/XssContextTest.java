@@ -341,7 +341,6 @@ class XssContextTest {
           "<p t:utext=\"s\">x</p>",
           "<p>[(s)]</p>",
           "<p t:utext=\"'<b>' + s\">x</p>",
-          "<p t:utext=\"#{greet(s)}\">x</p>",
           "<script>var a = [(s)];</script>",
           "<script>var a = \"[[s]]\";</script>",
           "<script>var a = '[[s]]';</script>",

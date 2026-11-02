@@ -520,7 +520,7 @@ public final class SkeletonMatcher {
 
       @Override
       public BitSet visitRawInsert(Skeleton.RawInsert r) {
-        return r.content() != null ? seq(r.content(), offset, env) : anything(offset);
+        return anything(offset);
       }
 
       @Override

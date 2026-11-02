@@ -61,11 +61,11 @@ class TemplateFingerprintTest {
   void writesNothingWhenAMessageFails() {
     Compilation c =
         Compilation.builder()
-            .template("a.html", "<div>\n<p t:utext=\"#{greeting}\">x</p></div>")
+            .template("a.html", "<div>\n<p t:utext=\"#{nope}\">x</p></div>")
             .messages("greeting=<b>Hello</b>\n")
             .localeMessages("fr", "greeting=<b onclick=\"alert(1)\">Bonjour</b>\n")
             .compile();
-    c.assertError("a.html:2:", "messages_fr.properties");
+    c.assertError("a.html:2:", "unknown message key 'nope'");
     assertNull(c.generatedResource(TemplateFingerprint.RESOURCE));
   }
 }

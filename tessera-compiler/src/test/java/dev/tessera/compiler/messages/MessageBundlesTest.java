@@ -49,20 +49,29 @@ class MessageBundlesTest {
     Compilation c =
         compile(dir.resolve("i18n/messages_en").toString(), "<div><div t:utext=\"#{intro}\">x</div><h1 t:text=\"#{title}\">x</h1></div>")
             .assertSuccess();
-    // The German value was checked at build time, so it is printed as HTML, not escaped.
+    // The HTML message is sanitized by the message policy (phrasing only, #677).
     RenderContext de =
         new RenderContext(Locale.GERMAN, (k, a) -> "<p>Bitte <b>speichern</b></p>", new DefaultLinks(""), Forms.NONE);
     assertEquals(
-        "<div><div><p>Bitte <b>speichern</b></p></div><h1>&lt;p&gt;Bitte &lt;b&gt;speichern&lt;/b&gt;&lt;/p&gt;</h1></div>",
+        "<div><div>Bitte <b>speichern</b></div><h1>&lt;p&gt;Bitte &lt;b&gt;speichern&lt;/b&gt;&lt;/p&gt;</h1></div>",
         c.render("page", Map.of(), de));
   }
 
+  /**
+   * A template with the HTML message {@code key} inside a link: it compiles only if no loaded
+   * bundle file has a link in the key's value (#677), so it shows which files are loaded.
+   */
+  private static String inLink(String key) {
+    return "<div>\n<a href=\"/\"><span t:utext=\"#{" + key + "}\">x</span></a></div>";
+  }
+
   @Test
-  void badValueInAnotherLocaleOfALocaleSuffixedBaseFails() throws IOException {
+  void linkInAnotherLocaleOfALocaleSuffixedBaseCounts() throws IOException {
     espd();
-    write("i18n/messages_fr.properties", "intro=<p onclick=\"x()\">Salut</p>\n");
-    compile(dir.resolve("i18n/messages_en").toString(), "<div>\n<p t:utext=\"#{intro}\">x</p></div>")
-        .assertError("page.html:2:", "messages_fr.properties", "attribute onclick is not allowed");
+    compile(dir.resolve("i18n/messages_en").toString(), inLink("intro")).assertSuccess();
+    write("i18n/messages_fr.properties", "intro=<a href=\"/fr\">Salut</a>\n");
+    compile(dir.resolve("i18n/messages_en").toString(), inLink("intro"))
+        .assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
   }
 
   @Test
@@ -133,42 +142,39 @@ class MessageBundlesTest {
   @Test
   void warnsAboutFilesBesideTheBaseThatAreNotLoaded() throws IOException {
     espd();
-    write("i18n/messages_en-US.properties", "intro=<script>alert(1)</script>\n");
+    write("i18n/messages_en-US.properties", "intro=<a href=\"/us\">x</a><script>alert(1)</script>\n");
     write("i18n/other.properties", "x=y\n");
-    Compilation c =
-        compile(dir.resolve("i18n/messages_en").toString(), "<div t:utext=\"#{intro}\">x</div>").assertSuccess();
+    Compilation c = compile(dir.resolve("i18n/messages_en").toString(), inLink("intro")).assertSuccess();
     List<String> warnings =
         c.diagnostics().stream().filter(d -> d.startsWith("WARNING: Tessera: message file")).toList();
     assertEquals(1, warnings.size(), c.diagnostics().toString());
     assertTrue(warnings.get(0).contains("messages_en-US.properties is not loaded"), warnings.get(0));
-    // Spring may still serve the skipped file's value; the runtime check escapes it.
-    RenderContext us =
-        new RenderContext(Locale.US, (k, a) -> "<script>alert(1)</script>", new DefaultLinks(""), Forms.NONE);
-    assertEquals("<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>", c.render("page", Map.of(), us));
+    // Spring may still serve the skipped file's value; the message policy without links cleans it.
+    RenderContext us = new RenderContext(
+        Locale.US, (k, a) -> "<a href=\"/us\">x</a><script>alert(1)</script>", new DefaultLinks(""), Forms.NONE);
+    assertEquals("<div>\n<a href=\"/\"><span>x</span></a></div>", c.render("page", Map.of(), us));
   }
 
   @Test
-  void scriptLocaleFileIsChecked() throws IOException {
+  void scriptLocaleFileIsLoaded() throws IOException {
     espd();
-    write("i18n/messages_zh_Hant_TW.properties", "intro=<p onclick=\"x()\">Hi</p>\n");
-    compile(dir.resolve("i18n/messages_en").toString(), "<p t:utext=\"#{intro}\">x</p>")
-        .assertError("messages_zh_Hant_TW.properties", "attribute onclick is not allowed");
+    write("i18n/messages_zh_Hant_TW.properties", "intro=<a href=\"/zh\">Hi</a>\n");
+    compile(dir.resolve("i18n/messages_en").toString(), inLink("intro"))
+        .assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
   }
 
   @Test
-  void sameKeyInTwoBasenamesChecksBothValues() throws IOException {
+  void sameKeyInTwoBasenamesCountsBothValues() throws IOException {
     write("a/messages.properties", "k=<b>A</b>\n");
     write("b/labels.properties", "k=<b>B</b>\n");
-    Compilation c =
-        compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), "<p t:utext=\"#{k}\">x</p>")
-            .assertSuccess();
+    Compilation c = compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), inLink("k")).assertSuccess();
     for (String v : List.of("<b>A</b>", "<b>B</b>")) {
       RenderContext ctx = new RenderContext(Locale.ENGLISH, (k, a) -> v, new DefaultLinks(""), Forms.NONE);
-      assertEquals("<p>" + v + "</p>", c.render("page", Map.of(), ctx));
+      assertEquals("<div>\n<a href=\"/\"><span>" + v + "</span></a></div>", c.render("page", Map.of(), ctx));
     }
-    write("b/labels_fr.properties", "k=<img src=x onerror=alert(1)>\n");
-    compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), "<p t:utext=\"#{k}\">x</p>")
-        .assertError("labels_fr.properties");
+    write("b/labels_fr.properties", "k=<a href=\"/fr\">B</a>\n");
+    compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), inLink("k"))
+        .assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
   }
 
   @Test
@@ -186,29 +192,28 @@ class MessageBundlesTest {
   @Test
   void suffixWithoutALanguageIsNotALocale() throws IOException {
     write("messages.properties", "k=<b>Hi</b>\n");
-    write("messages_faq.properties", "k=<script>alert(1)</script>\n");
-    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>").assertSuccess();
+    write("messages_faq.properties", "k=<a href=\"/faq\">Hi</a>\n");
+    Compilation c = compile(dir.resolve("messages").toString(), inLink("k")).assertSuccess();
     List<String> skipped = warnings(c, "Tessera: message file");
     assertEquals(1, skipped.size(), c.diagnostics().toString());
     assertTrue(skipped.get(0).contains("messages_faq.properties is not loaded"), skipped.get(0));
   }
 
-  /** #271: a three-letter language the JDK knows (Filipino) is still a locale, and is checked. */
+  /** #271: a three-letter language the JDK knows (Filipino) is still a locale, and is loaded. */
   @Test
   void threeLetterLanguageIsALocale() throws IOException {
     write("messages.properties", "k=<b>Hi</b>\n");
-    write("messages_fil.properties", "k=<b onclick=\"x()\">Kumusta</b>\n");
-    compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>")
-        .assertError("messages_fil.properties", "attribute onclick is not allowed");
+    write("messages_fil.properties", "k=<a href=\"/fil\">Kumusta</a>\n");
+    compile(dir.resolve("messages").toString(), inLink("k")).assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
   }
 
-  /** #271: Spring names a variant without a country {@code _en__POSIX}; that file is loaded and checked. */
+  /** #271: Spring names a variant without a country {@code _en__POSIX}; that file is loaded. */
   @Test
   void variantAfterAnEmptyCountryIsALocale() throws IOException {
     write("messages.properties", "k=<b>Hi</b>\n");
-    write("messages_en__POSIX.properties", "k=<b onclick=\"x()\">Hi</b>\n");
-    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>");
-    c.assertError("messages_en__POSIX.properties", "attribute onclick is not allowed");
+    write("messages_en__POSIX.properties", "k=<a href=\"/posix\">Hi</a>\n");
+    Compilation c = compile(dir.resolve("messages").toString(), inLink("k"));
+    c.assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
     assertEquals(List.of(), warnings(c, "Tessera: message file"));
   }
 
@@ -216,9 +221,9 @@ class MessageBundlesTest {
   @Test
   void variantWithoutACountrySeparatorIsNotALocale() throws IOException {
     write("messages.properties", "k=<b>Hi</b>\n");
-    write("messages_de_formal.properties", "k=<script>alert(1)</script>\n");
+    write("messages_de_formal.properties", "k=<a href=\"/formal\">Hi</a>\n");
     write("messages_en_US_POSIX.properties", "k=<b>Hi</b>\n");
-    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>").assertSuccess();
+    Compilation c = compile(dir.resolve("messages").toString(), inLink("k")).assertSuccess();
     List<String> skipped = warnings(c, "Tessera: message file");
     assertEquals(1, skipped.size(), c.diagnostics().toString());
     assertTrue(skipped.get(0).contains("messages_de_formal.properties is not loaded"), skipped.get(0));
