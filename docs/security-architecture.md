@@ -618,9 +618,8 @@ document parses identically, and the value is in the node the parser reported.
    check can't see them. The argument assumes their exit state equals their entry state. That
    holds only if the producer emits balanced content that implies no end tags in that state.
    Content kinds are therefore predicates on the insertion state (`FLOW`, including
-   `ContentKinds.closer`), plus a check on producers (#329). A hand-written `Template`
-   vouching for its output stays the caller's responsibility, and `tessera:review` fails the
-   build on one (#602).
+   `ContentKinds.closer`), plus a check on producers (#329). Java can't build a `Fragment`
+   or wrap a template's output as `SafeHtml` (#676).
 3. **One parser.** The guarantee is relative to the WHATWG algorithm as the pinned engine
    implements it, on error-free parses, outside the exclusions. The supported browsers are tested
    to agree there, not proved to. The nightly detector (#399, not yet on `main`) is to compare the

@@ -3,7 +3,6 @@ package dev.tessera.compiler.verify;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
-import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
@@ -30,11 +29,8 @@ import java.util.Set;
  * balanced flow content: every element it opens it closes; it has no {@code form} element; and
  * its top-level elements are not list items ({@code li}, {@code dd}, {@code dt}), table parts,
  * {@code head}, {@code body}, {@code html} or {@code frameset}. Producers: every {@code
- * html.sanitize} policy (the producer test checks them), {@code SafeHtml.escape} and {@code
- * concat} of FLOW values, and a rendered template ({@code SafeHtml.of}, {@code Fragment.of}) that
- * the compiler proved a FLOW partial ({@link #PARTIAL_PROBES}, #396): the runtime refuses any
- * other template. (A hand-written {@code Template} whose {@code verifiedFlowPartial()} returns true
- * remains the caller's promise; {@code tessera:review} fails the build on one, #602.)
+ * html.sanitize} policy (the producer test checks them), and {@code SafeHtml.escape} and {@code
+ * concat} of FLOW values. A {@code Fragment} argument is verified where it lands (#676).
  */
 public final class ContentKinds {
   private ContentKinds() {}
@@ -96,71 +92,6 @@ public final class ContentKinds {
    * closes nothing.
    */
   public static final String REPRESENTATIVE = "<span></span>";
-
-  /**
-   * The insertion points at which the compiler checks that a template is a FLOW partial (#396),
-   * as markup fed after the start of an HTML fragment parsed in a {@code <body>}. Each is a state
-   * the {@link #problem predicate} accepts, and the template must leave each as it found it (in
-   * {@code <template>}, or in the "in body" state a flow start tag switches to there), with no
-   * verifier finding, in every parser. Between them they break every clause of the producer
-   * promise (FLOW, above) a template can break:
-   *
-   * <ul>
-   *   <li>{@code ""}: content that isn't balanced. Stray end tags, a top-level table part and page
-   *       elements ({@code head}, {@code body}, {@code html}, {@code frameset}) are parse errors
-   *       here. The one clause that isn't is checked at every element inserted here ({@link
-   *       #promiseBreach}): a {@code form}.
-   *   <li>{@code <ul><li>} and {@code <dl><dd>}: an {@code li}, {@code dd} or {@code dt} outside
-   *       its own list, which closes the open one, even inside a {@code div}.
-   *   <li>{@code <table><tr><td>} and {@code <template>}: a top-level table part, which closes
-   *       the cell or switches the template's mode.
-   * </ul>
-   */
-  public static final List<String> PARTIAL_PROBES =
-      Backports.listOf("", "<ul><li>", "<dl><dd>", "<table><tr><td>", "<template>");
-
-  /**
-   * How an element just inserted ({@code s}) breaks the FLOW producer promise, in words, or null:
-   * a {@code form} outside a {@code template}. It isn't a parse error, but inserted where a {@code
-   * form} is open around the content, it is ignored and its end tag closes the open form. {@code s}
-   * is from the {@code ""} {@link #PARTIAL_PROBES probe}.
-   *
-   * <p>Not here: a formatting element inside one of its own name (#448). Inserted where more of that
-   * name are open, it can make the Noah's Ark clause drop the oldest entry from the list of active
-   * formatting elements, but that element stays open, and in an error-free parse the list changes
-   * the tree only through entries that are no longer open (the argument that retired {@link
-   * Problem#NOAHS_ARK}, #444). The page and the partial are each verified error-free, and {@link
-   * #closer} keeps the partial from closing anything around it, so the composed parse is error-free
-   * too.
-   */
-  static String promiseBreach(Parser.Stack s) {
-    if (!OpenElement.HTML.equals(s.insertedNamespace()) || !s.insertedName().equals("form")) {
-      return null;
-    }
-    for (int i = s.insertedOnStack() ? s.size() - 2 : s.size() - 1; i >= 0; i--) {
-      if (OpenElement.HTML.equals(s.namespace(i)) && s.localName(i).equals("template")) {
-        return null;
-      }
-    }
-    return "it has a <form>";
-  }
-
-  /**
-   * The signature of {@code s} as a producer's exit state is compared with its entry state: without
-   * the original insertion mode, unless it is live. The parser sets it on entering the "text" mode
-   * (and validator.nu's held-back table text) and reads it only there; validator.nu keeps the last
-   * value afterwards, so a {@code <textarea>}, {@code <script>} or {@code <template>} in the
-   * content would otherwise look like a change.
-   */
-  static String flowSignature(ParserState s) {
-    String sig = s.signature();
-    if (s.mode() == InsertionMode.TEXT || s.pendingTableText()) {
-      return sig;
-    }
-    int at = sig.indexOf(" original=");
-    int end = at < 0 ? -1 : sig.indexOf(' ', at + 1);
-    return at < 0 || end < 0 ? sig : sig.substring(0, at) + sig.substring(end);
-  }
 
   /**
    * The open element (in words) that a start tag of flow content would close, reopen or adopt in

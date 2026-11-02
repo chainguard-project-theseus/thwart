@@ -800,7 +800,7 @@ public final class Compilation {
         return false;
       }
       try {
-        for (dev.tessera.compiler.GeneratedFile f : result.files(Set.of(), unverifiedEscapers(result.skeletons()))) {
+        for (dev.tessera.compiler.GeneratedFile f : result.files(unverifiedEscapers(result.skeletons()))) {
           FileObject fo = f.kind() == dev.tessera.compiler.GeneratedFile.Kind.JAVA
               ? processingEnv.getFiler().createSourceFile(f.name())
               : processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());

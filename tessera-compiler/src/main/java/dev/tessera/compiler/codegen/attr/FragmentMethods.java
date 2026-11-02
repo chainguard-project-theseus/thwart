@@ -1,7 +1,5 @@
 package dev.tessera.compiler.codegen.attr;
 
-import static dev.tessera.compiler.JavaStrings.literal;
-
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.TemplateGenerator;
@@ -71,27 +69,5 @@ public final class FragmentMethods {
       }
     }
     return false;
-  }
-
-  /**
-   * Statements that refuse, at render time, a {@code Fragment} in {@code params} that Java built
-   * without {@code Fragment.of} ({@code Fragment.requireVerified}, #581); empty if none is a
-   * {@code Fragment}. For a page's {@code t:params}, the only place Java hands a template a
-   * {@code Fragment}; {@code where} names the template in the message.
-   */
-  public static String requireVerified(String where, List<TemplateIndex.Param> params) {
-    StringBuilder sb = new StringBuilder();
-    for (TemplateIndex.Param p : params) {
-      if (ExpressionCompiler.isDeclared(p.type(), Fragment.class.getName())) {
-        sb.append("    dev.tessera.runtime.Fragment.requireVerified(")
-            .append(TemplateGenerator.javaName(p.name()))
-            .append(", ")
-            .append(literal(where))
-            .append(", ")
-            .append(literal(p.name()))
-            .append(");\n");
-      }
-    }
-    return sb.toString();
   }
 }

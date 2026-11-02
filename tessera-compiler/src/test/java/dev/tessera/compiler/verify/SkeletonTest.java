@@ -210,15 +210,13 @@ class SkeletonTest {
             .java("com.example.Item", "package com.example; public record Item(String name, int n) {}")
             .template(
                 "j.html",
-                "<div " + NS + " t:import=\"com.example.Item, dev.tessera.runtime.SafeHtml, dev.tessera.runtime.Fragment\""
-                    + " t:params=\"SafeHtml h, Item item, String s, Fragment f\"><div t:utext=\"h\">u</div>[(${h})]"
-                    + "<div t:insert=\"f\">f</div>"
+                "<div " + NS + " t:import=\"com.example.Item, dev.tessera.runtime.SafeHtml\""
+                    + " t:params=\"SafeHtml h, Item item, String s\"><div t:utext=\"h\">u</div>[(${h})]"
                     + "<script>var a = [[${item}]]; var b = [[${s}]];</script></div>")
             .compile()
             .assertSuccess();
     String skeleton = c.skeleton("j").body().toString();
     assertTrue(skeleton.contains("$raw{SAFE_HTML"), skeleton);
-    assertTrue(skeleton.contains("$raw{FRAGMENT_VALUE"), skeleton);
     assertTrue(skeleton.contains("\"var a = \" ${JAVASCRIPT @j.html:1:"), skeleton);
     String out =
         c.render(
@@ -226,10 +224,9 @@ class SkeletonTest {
             model(
                 "h", TestFragments.safeHtml("<b>B</b>"),
                 "item", c.newInstance("com.example.Item", "</script>", 3),
-                "s", "x'y",
-                "f", TestFragments.markup("<hr>")));
+                "s", "x'y"));
     assertEquals(
-        "<div><div><b>B</b></div><b>B</b><div><hr></div><script>var a = ({\"name\":\"\\u003c\\/script\\u003e\",\"n\":3});"
+        "<div><div><b>B</b></div><b>B</b><script>var a = ({\"name\":\"\\u003c\\/script\\u003e\",\"n\":3});"
             + " var b = (\"x\\u0027y\");</script></div>",
         out);
   }

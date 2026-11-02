@@ -63,20 +63,17 @@ script. `<style>` can't contain holes. A `style` attribute takes only literals, 
 
 ## Where the guarantees end: escape hatches
 
-Raw output always needs a typed value built in Java, never a flag on a string:
+Raw output always needs a typed value, never a flag on a string:
 
 - **`SafeHtml`** for `t:utext` and `[(...)]`. It comes only from `SafeHtml.escape`, `sanitize`,
-  `concat`, or a compiled `Template` that the compiler proved safe to insert; nothing wraps a
-  string unchecked.
-- **`Fragment`**, from `Fragment.of` of a compiled partial.
+  or `concat`; nothing wraps a string or a template's output unchecked.
+- **`Fragment`**, which exists only between compiled templates and is checked where it lands
+  (#676): Java can't build one, and no page or function takes one.
 
 No type skips the URL checks (#668): every computed URL is scheme-checked, and a computed
-resource URL or form action must be a link. A hand-written `Template` whose
-`verifiedFlowPartial()` returns true vouches for its own output.
-Whatever such a door lets through is the caller's responsibility, not a Tessera bug.
-`mvn tessera:review` fails the build on every door outside generated code (a
-`verifiedFlowPartial()` override, and a call of `Fragment.unverifiedForGeneratedCode`), and lists
-every registered `@TemplateFunction`.
+resource URL or form action must be a link. A hand-written `Template` writes what its own
+Java writes, like any other response code: that is the caller's responsibility, not a Tessera
+bug. `mvn tessera:review` lists every registered `@TemplateFunction`: code the compiler trusts.
 
 ## Out of scope
 

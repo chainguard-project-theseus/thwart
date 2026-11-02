@@ -139,25 +139,15 @@ class ContentKindsTest {
         .assertError("page.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
   }
 
-  /**
-   * A partial whose markup closes an element it didn't open, or writes a list item outside its
-   * own list, isn't FLOW content: the first is a parse error in the partial's fragment context,
-   * and the second closes the open list item of the {@code <ul><li>} probe (#410).
-   */
+  /** A partial whose markup closes an element it didn't open is a parse error in its fragment context. */
   @Test
-  void strayEndTagsAndListItemsOutsideTheirListAreNotFlow() {
+  void strayEndTagsAreParseErrors() {
     Seq stray = seq(st("<span>"), text(), st("</span></div>"));
     assertEquals(List.of(Problem.PARSE_ERROR), problems(check(Map.of(), stray)));
-    assertTrue(whyNot(stray).contains("PARSE_ERROR"), whyNot(stray));
     Seq li = seq(st("<span>x</span><li>"), text(), st("</li>"));
     assertEquals(List.of(), problems(check(Map.of(), li)));
-    assertTrue(whyNot(li).contains("after <ul><li>"), whyNot(li));
     Seq form = seq(st("<div><form>"), text(), st("</form></div>"));
     assertEquals(List.of(), problems(check(Map.of(), form)));
-    assertTrue(whyNot(form).contains("<form>"), whyNot(form));
-    // A formatting element inside one of its own name is FLOW content (#448, FlowPartialTest).
-    assertNull(whyNot(seq(st("<i><em><i>"), text(), st("</i></em></i>"))));
-    assertNull(whyNot(seq(st("<i><em>"), text(), st("</em></i><i>x</i><template><form></form></template>"))));
   }
 
   @Test
@@ -283,13 +273,6 @@ class ContentKindsTest {
     Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
     all.put("t", t);
     return new ContextVerifier(all).check(t);
-  }
-
-  private static String whyNot(Seq body) {
-    Skeleton.TemplateSkeleton t = new Skeleton.TemplateSkeleton("t", body, Map.of());
-    Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
-    all.put("t", t);
-    return new ContextVerifier(all).whyNotFlowPartial(t);
   }
 
   private static List<Problem> problems(List<Finding> f) {
