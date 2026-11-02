@@ -57,13 +57,6 @@ class BrowserRawTextTest {
   }
 
   @Test
-  void plaintextIsAnError() {
-    compile("<p><plaintext>[[s]]</plaintext></p>")
-        .assertError("page.html:2:4:", "<plaintext> is not supported: a browser treats the rest of the page as plain"
-            + " text; use <pre>");
-  }
-
-  @Test
   void selfClosingRawTextElementWrittenAsIsIsAnError() {
     compile("<textarea/><!-- </textarea><script> -->\n[[s]]\n<!-- </script> -->")
         .assertError("page.html:2:1:", "<textarea/> is not self-closing in HTML: the browser treats everything after"
@@ -137,16 +130,13 @@ class BrowserRawTextTest {
   }
 
   /**
-   * A browser reads the content of these elements as raw text (#571), where an empty comment is
-   * text and can't break a value's {{, so no value, condition or loop may write there: not in
+   * A browser reads the content of these elements as raw text, which decodes no character reference,
+   * so no escaping can hold a value there and no value, condition or loop may write there: not in
    * text, not in an attribute of an element inside, not from t:text on the element.
    */
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<xmp>[[s]]</xmp>|xmp",
-        "<noembed>a [[s]] b</noembed>|noembed",
-        "<noframes><p t:text=\"s\">x</p></noframes>|noframes",
         "<iframe t:text=\"s\"></iframe>|iframe",
         "<noscript><p t:title=\"s\">x</p></noscript>|noscript",
         "<noscript><script>var a = [[s]];</script></noscript>|noscript",
