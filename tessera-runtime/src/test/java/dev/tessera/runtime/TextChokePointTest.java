@@ -37,7 +37,7 @@ class TextChokePointTest {
   /** The arguments {@code new SafeHtml(...)} may be built from. */
   private static final Set<String> SAFE_HTML_SOURCES =
       Set.of(
-          "\"\"", "html", "Escapers.escapeText(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
+          "\"\"", "Escapers.escapeText(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
           "sb.toString()", "requireFlowPartial(template, \"SafeHtml.of\").renderToString(ctx)");
 
   @Test
