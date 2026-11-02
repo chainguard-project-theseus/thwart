@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 final class BuiltinNamespaces {
   private BuiltinNamespaces() {}
 
-  private static final String RUNTIME_FN = "dev.tessera.runtime.fn.";
+  private static final String RUNTIME_FN = "dev.tessera.runtime.internal.fn.";
 
   static final List<String> CLASSES =
       Backports.listOf(
@@ -25,7 +25,7 @@ final class BuiltinNamespaces {
           "dev.tessera.spring.fn.Auth");
 
   /**
-   * The namespaces of the {@code dev.tessera.runtime.fn} classes above, for messages ({@code auth}
+   * The namespaces of the {@code dev.tessera.runtime.internal.fn} classes above, for messages ({@code auth}
    * needs the starter): each class's {@code @TemplateFunctions} value is its lower-cased simple name.
    */
   static final List<String> NAMES =

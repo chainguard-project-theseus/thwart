@@ -1,4 +1,4 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -8,7 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.runtime.internal.Checks;
+import dev.tessera.runtime.DefaultLinks;
+import dev.tessera.runtime.Forms;
+import dev.tessera.runtime.Messages;
+import dev.tessera.runtime.RenderContext;
+import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.SafeInlineHtml;
+import dev.tessera.runtime.TestSafeHtml;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DayOfWeek;
@@ -952,7 +958,6 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), List.of("value"), 64));
   }
 
-
   @Test
   void messageArgsKeepNumbersThatFormatToABoundedLength() {
     Object[] args = {
@@ -1097,7 +1102,6 @@ class EscapersTest {
         "1,234 on " + day,
         htmlMessage(format("{0,number} on {1,date,short}"), new Object[] {1234, date}, false));
   }
-
 
   // One text escaper: element text, RCDATA and attribute values are escaped alike (#679).
 

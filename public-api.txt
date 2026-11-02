@@ -1,7 +1,4 @@
-dev.tessera.runtime.Attributes: public final class dev.tessera.runtime.Attributes
-dev.tessera.runtime.Attributes: public static java.lang.String appendClass(java.lang.Object,java.lang.Object)
-dev.tessera.runtime.Conditions: public final class dev.tessera.runtime.Conditions
-dev.tessera.runtime.Conditions: public static boolean isTrue(java.lang.Object)
+# Public API: the types apps and templates use.
 dev.tessera.runtime.CssValue: public boolean equals(java.lang.Object)
 dev.tessera.runtime.CssValue: public final class dev.tessera.runtime.CssValue
 dev.tessera.runtime.CssValue: public int hashCode()
@@ -16,29 +13,6 @@ dev.tessera.runtime.DefaultLinks: public dev.tessera.runtime.DefaultLinks(java.l
 dev.tessera.runtime.DefaultLinks: public final class dev.tessera.runtime.DefaultLinks implements dev.tessera.runtime.Links
 dev.tessera.runtime.DefaultLinks: public java.lang.String contextPath()
 dev.tessera.runtime.DefaultLinks: public java.lang.String encode(java.lang.String)
-dev.tessera.runtime.Escapers: public final class dev.tessera.runtime.Escapers
-dev.tessera.runtime.Escapers: public static dev.tessera.runtime.SafeHtml linkedHtmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
-dev.tessera.runtime.Escapers: public static dev.tessera.runtime.SafeInlineHtml htmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
-dev.tessera.runtime.Escapers: public static java.lang.Object[] messageArgs(java.lang.Object[])
-dev.tessera.runtime.Escapers: public static java.lang.String neutralNumber(java.lang.Object)
-dev.tessera.runtime.Escapers: public static java.lang.String neutralPath(java.lang.String)
-dev.tessera.runtime.Escapers: public static java.lang.String sameOriginLink(java.lang.String)
-dev.tessera.runtime.Escapers: public static java.lang.String styleNumber(java.lang.Number)
-dev.tessera.runtime.Escapers: public static java.lang.String toText(java.lang.Object)
-dev.tessera.runtime.Escapers: public static void appendJson(java.lang.StringBuilder,java.lang.Object,int)
-dev.tessera.runtime.Escapers: public static void attr(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void html(dev.tessera.runtime.Output,dev.tessera.runtime.SafeHtml)
-dev.tessera.runtime.Escapers: public static void html(dev.tessera.runtime.Output,dev.tessera.runtime.SafeInlineHtml)
-dev.tessera.runtime.Escapers: public static void javaScript(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void json(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void refresh(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void resourceUrl(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void text(dev.tessera.runtime.Output,boolean)
-dev.tessera.runtime.Escapers: public static void text(dev.tessera.runtime.Output,char)
-dev.tessera.runtime.Escapers: public static void text(dev.tessera.runtime.Output,int)
-dev.tessera.runtime.Escapers: public static void text(dev.tessera.runtime.Output,java.lang.Object)
-dev.tessera.runtime.Escapers: public static void text(dev.tessera.runtime.Output,long)
-dev.tessera.runtime.Escapers: public static void url(dev.tessera.runtime.Output,java.lang.Object)
 dev.tessera.runtime.Field: public T value()
 dev.tessera.runtime.Field: public dev.tessera.runtime.Field(java.lang.String,java.lang.String,T)
 dev.tessera.runtime.Field: public final class dev.tessera.runtime.Field<T>
@@ -64,7 +38,7 @@ dev.tessera.runtime.Forms: public static boolean isPathKey(java.lang.String)
 dev.tessera.runtime.Forms: public static final dev.tessera.runtime.Forms NONE
 dev.tessera.runtime.Forms: public static java.lang.String pathKey(java.lang.String)
 dev.tessera.runtime.Fragment$Body: public abstract static interface dev.tessera.runtime.Fragment$Body
-dev.tessera.runtime.Fragment$Body: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.Output)
+dev.tessera.runtime.Fragment$Body: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
 dev.tessera.runtime.Fragment: public final class dev.tessera.runtime.Fragment
 dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy build()
 dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder allowAttributes(java.lang.String...)
@@ -100,9 +74,6 @@ dev.tessera.runtime.Messages: public abstract interface dev.tessera.runtime.Mess
 dev.tessera.runtime.Messages: public abstract java.lang.String get(java.lang.String,java.lang.Object...)
 dev.tessera.runtime.Messages: public static final dev.tessera.runtime.Messages NONE
 dev.tessera.runtime.Messages: public static final java.lang.Object[] NO_ARGS
-dev.tessera.runtime.Output: public abstract interface dev.tessera.runtime.Output
-dev.tessera.runtime.Output: public abstract void write(char)
-dev.tessera.runtime.Output: public abstract void write(java.lang.String)
 dev.tessera.runtime.RenderContext: public boolean equals(java.lang.Object)
 dev.tessera.runtime.RenderContext: public dev.tessera.runtime.Forms forms()
 dev.tessera.runtime.RenderContext: public dev.tessera.runtime.Links links()
@@ -140,107 +111,23 @@ dev.tessera.runtime.SafeInlineHtml: public java.lang.String toString()
 dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml concat(dev.tessera.runtime.SafeInlineHtml...)
 dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml escape(java.lang.String)
 dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml sanitize(java.lang.String,dev.tessera.runtime.HtmlPolicy)
-dev.tessera.runtime.StringOutput: public dev.tessera.runtime.StringOutput()
-dev.tessera.runtime.StringOutput: public dev.tessera.runtime.StringOutput(int)
-dev.tessera.runtime.StringOutput: public final class dev.tessera.runtime.StringOutput implements dev.tessera.runtime.Output
-dev.tessera.runtime.StringOutput: public java.lang.String toString()
-dev.tessera.runtime.StringOutput: public void write(char)
-dev.tessera.runtime.StringOutput: public void write(java.lang.String)
 dev.tessera.runtime.Template: public abstract interface dev.tessera.runtime.Template
 dev.tessera.runtime.Template: public abstract java.lang.String templateName()
-dev.tessera.runtime.Template: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.Output)
+dev.tessera.runtime.Template: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
 dev.tessera.runtime.Template: public default java.lang.String renderToString(dev.tessera.runtime.RenderContext)
-dev.tessera.runtime.TemplateEntry$ModelRenderer: public abstract static interface dev.tessera.runtime.TemplateEntry$ModelRenderer
-dev.tessera.runtime.TemplateEntry$ModelRenderer: public abstract void render(java.util.Map<java.lang.String, ?>,dev.tessera.runtime.RenderContext,dev.tessera.runtime.Output)
-dev.tessera.runtime.TemplateEntry$Param: public boolean equals(java.lang.Object)
-dev.tessera.runtime.TemplateEntry$Param: public dev.tessera.runtime.TemplateEntry$Param(java.lang.String,java.lang.String)
-dev.tessera.runtime.TemplateEntry$Param: public int hashCode()
-dev.tessera.runtime.TemplateEntry$Param: public java.lang.String name()
-dev.tessera.runtime.TemplateEntry$Param: public java.lang.String toString()
-dev.tessera.runtime.TemplateEntry$Param: public java.lang.String type()
-dev.tessera.runtime.TemplateEntry$Param: public static final class dev.tessera.runtime.TemplateEntry$Param
-dev.tessera.runtime.TemplateEntry: public boolean equals(java.lang.Object)
-dev.tessera.runtime.TemplateEntry: public dev.tessera.runtime.TemplateEntry$ModelRenderer renderer()
-dev.tessera.runtime.TemplateEntry: public dev.tessera.runtime.TemplateEntry(java.lang.String,java.util.List<dev.tessera.runtime.TemplateEntry$Param>,dev.tessera.runtime.TemplateEntry$ModelRenderer)
-dev.tessera.runtime.TemplateEntry: public final class dev.tessera.runtime.TemplateEntry
-dev.tessera.runtime.TemplateEntry: public int hashCode()
-dev.tessera.runtime.TemplateEntry: public java.lang.String name()
-dev.tessera.runtime.TemplateEntry: public java.lang.String toString()
-dev.tessera.runtime.TemplateEntry: public java.util.List<dev.tessera.runtime.TemplateEntry$Param> params()
 dev.tessera.runtime.TemplateFunction: public abstract @interface dev.tessera.runtime.TemplateFunction extends java.lang.annotation.Annotation
 dev.tessera.runtime.TemplateFunctions: public abstract @interface dev.tessera.runtime.TemplateFunctions extends java.lang.annotation.Annotation
 dev.tessera.runtime.TemplateFunctions: public abstract java.lang.String value()
 dev.tessera.runtime.TemplateModelException: public dev.tessera.runtime.TemplateModelException(java.lang.String)
 dev.tessera.runtime.TemplateModelException: public final class dev.tessera.runtime.TemplateModelException extends java.lang.RuntimeException
 dev.tessera.runtime.TemplateRegistry: public abstract interface dev.tessera.runtime.TemplateRegistry
-dev.tessera.runtime.TemplateRegistry: public abstract java.util.Collection<dev.tessera.runtime.TemplateEntry> all()
-dev.tessera.runtime.TemplateRegistry: public abstract java.util.Optional<dev.tessera.runtime.TemplateEntry> find(java.lang.String)
-dev.tessera.runtime.TemplateRegistry: public default java.util.Collection<dev.tessera.runtime.TemplateEntry> fragments()
+dev.tessera.runtime.TemplateRegistry: public abstract java.util.Collection<dev.tessera.runtime.internal.TemplateEntry> all()
+dev.tessera.runtime.TemplateRegistry: public abstract java.util.Optional<dev.tessera.runtime.internal.TemplateEntry> find(java.lang.String)
+dev.tessera.runtime.TemplateRegistry: public default java.util.Collection<dev.tessera.runtime.internal.TemplateEntry> fragments()
 dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry load(java.lang.ClassLoader)
-dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.TemplateEntry>)
-dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.TemplateEntry>,java.util.List<dev.tessera.runtime.TemplateEntry>)
+dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.internal.TemplateEntry>)
+dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.internal.TemplateEntry>,java.util.List<dev.tessera.runtime.internal.TemplateEntry>)
 dev.tessera.runtime.TemplateView: public abstract @interface dev.tessera.runtime.TemplateView extends java.lang.annotation.Annotation
-dev.tessera.runtime.UrlEncoding: public final class dev.tessera.runtime.UrlEncoding
-dev.tessera.runtime.UrlEncoding: public static java.lang.String firstQuery(java.lang.String)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String pathSegment(java.lang.String)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String pathVariable(java.lang.String,java.lang.Object)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String pathVariables(java.lang.String,java.lang.Object)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String queryParam(java.lang.String)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String queryValue(java.lang.Object)
-dev.tessera.runtime.UrlEncoding: public static java.lang.String queryValues(java.lang.String,java.lang.Object)
-dev.tessera.runtime.Values: public final class dev.tessera.runtime.Values
-dev.tessera.runtime.Values: public static <T,R> R nav(T,java.util.function.Function<? super T, ? extends R>)
-dev.tessera.runtime.Values: public static <T> T elvis(T,T)
-dev.tessera.runtime.Values: public static <T> T first(java.util.List<T>)
-dev.tessera.runtime.Values: public static <T> T last(java.util.List<T>)
-dev.tessera.runtime.Values: public static boolean numEquals(java.lang.Number,java.lang.Number)
-dev.tessera.runtime.Values: public static java.lang.String enumName(java.lang.Enum<?>)
-dev.tessera.runtime.fn.Css: public final class dev.tessera.runtime.fn.Css
-dev.tessera.runtime.fn.Css: public static dev.tessera.runtime.CssValue color(java.lang.String)
-dev.tessera.runtime.fn.Css: public static dev.tessera.runtime.CssValue length(java.lang.String)
-dev.tessera.runtime.fn.Css: public static dev.tessera.runtime.CssValue url(java.lang.String)
-dev.tessera.runtime.fn.Css: public static dev.tessera.runtime.CssValue var(java.lang.String)
-dev.tessera.runtime.fn.Html: public final class dev.tessera.runtime.fn.Html
-dev.tessera.runtime.fn.Html: public static dev.tessera.runtime.SafeHtml sanitize(java.lang.Object)
-dev.tessera.runtime.fn.Html: public static dev.tessera.runtime.SafeHtml sanitizeRich(java.lang.Object)
-dev.tessera.runtime.fn.Lists: public final class dev.tessera.runtime.fn.Lists
-dev.tessera.runtime.fn.Lists: public static boolean contains(java.lang.Object,java.lang.Object)
-dev.tessera.runtime.fn.Lists: public static boolean isEmpty(java.lang.Object)
-dev.tessera.runtime.fn.Lists: public static int size(java.lang.Object)
-dev.tessera.runtime.fn.Numbers: public final class dev.tessera.runtime.fn.Numbers
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatCurrency(java.util.Locale,java.lang.Object)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int,java.lang.String)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,java.lang.String,int,java.lang.String)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int,java.lang.String)
-dev.tessera.runtime.fn.Numbers: public static java.lang.String formatPercent(java.util.Locale,java.lang.Object,int,int)
-dev.tessera.runtime.fn.Numbers: public static java.util.List<java.lang.Integer> sequence(int,int)
-dev.tessera.runtime.fn.Strings: public final class dev.tessera.runtime.fn.Strings
-dev.tessera.runtime.fn.Strings: public static boolean contains(java.lang.Object,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static boolean endsWith(java.lang.Object,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static boolean isBlank(java.lang.Object)
-dev.tessera.runtime.fn.Strings: public static boolean isEmpty(java.lang.Object)
-dev.tessera.runtime.fn.Strings: public static boolean startsWith(java.lang.Object,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static java.lang.String abbreviate(java.lang.Object,int)
-dev.tessera.runtime.fn.Strings: public static java.lang.String capitalize(java.lang.Object)
-dev.tessera.runtime.fn.Strings: public static java.lang.String defaultString(java.lang.Object,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static java.lang.String join(java.lang.Object,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static java.lang.String replace(java.lang.Object,java.lang.String,java.lang.String)
-dev.tessera.runtime.fn.Strings: public static java.lang.String substring(java.lang.Object,int)
-dev.tessera.runtime.fn.Strings: public static java.lang.String substring(java.lang.Object,int,int)
-dev.tessera.runtime.fn.Strings: public static java.lang.String toLowerCase(java.lang.Object)
-dev.tessera.runtime.fn.Strings: public static java.lang.String toUpperCase(java.lang.Object)
-dev.tessera.runtime.fn.Strings: public static java.lang.String trim(java.lang.Object)
-dev.tessera.runtime.fn.Temporals: public final class dev.tessera.runtime.fn.Temporals
-dev.tessera.runtime.fn.Temporals: public static java.lang.String format(java.util.Locale,java.time.temporal.TemporalAccessor,java.lang.String)
-dev.tessera.runtime.fn.Temporals: public static java.lang.String formatIso(java.time.temporal.TemporalAccessor)
-dev.tessera.runtime.internal.Checks: public final class dev.tessera.runtime.internal.Checks
-dev.tessera.runtime.internal.Checks: public static boolean isAllowedUrl(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static boolean isSameOriginPath(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static boolean isSameOriginUrl(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static final int MAX_NUMBER_DIGITS
-dev.tessera.runtime.internal.Checks: public static java.math.BigDecimal requireBoundedMagnitude(java.math.BigDecimal,java.lang.String)
 dev.tessera.spring.CspNonce: public final class dev.tessera.spring.CspNonce
 dev.tessera.spring.CspNonce: public static final java.lang.String ATTRIBUTE
 dev.tessera.spring.CspNonce: public static java.lang.String get(jakarta.servlet.ServletRequest)
@@ -282,7 +169,7 @@ dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public dev.tessera.
 dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public final class dev.tessera.spring.view.TesseraTemplateAvailabilityProvider implements org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider
 dev.tessera.spring.view.TesseraView: public final class dev.tessera.spring.view.TesseraView implements org.springframework.web.servlet.View
 dev.tessera.spring.view.TesseraView: public java.lang.String getContentType()
-dev.tessera.spring.view.TesseraView: public static dev.tessera.spring.view.TesseraView of(dev.tessera.runtime.TemplateEntry,dev.tessera.spring.view.RenderContextFactory)
+dev.tessera.spring.view.TesseraView: public static dev.tessera.spring.view.TesseraView of(dev.tessera.runtime.internal.TemplateEntry,dev.tessera.spring.view.RenderContextFactory)
 dev.tessera.spring.view.TesseraView: public static final java.lang.String CONTENT_TYPE
 dev.tessera.spring.view.TesseraView: public void render(java.util.Map<java.lang.String, ?>,jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse) throws java.lang.Exception
 dev.tessera.spring.view.TesseraViewResolver: public dev.tessera.spring.view.TesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
@@ -291,3 +178,133 @@ dev.tessera.spring.view.TesseraViewResolver: public int getOrder()
 dev.tessera.spring.view.TesseraViewResolver: public org.springframework.web.servlet.View resolveViewName(java.lang.String,java.util.Locale)
 dev.tessera.spring.view.TesseraViewResolver: public static final int ORDER
 dev.tessera.spring.view.TesseraViewResolver: public void setEnvironment(org.springframework.core.env.Environment)
+
+# Internal (dev.tessera.runtime.internal): called by generated code only; not API.
+dev.tessera.runtime.internal.Ascii: public final class dev.tessera.runtime.internal.Ascii
+dev.tessera.runtime.internal.Ascii: public static boolean isClassChar(char)
+dev.tessera.runtime.internal.Ascii: public static boolean isHexDigit(int)
+dev.tessera.runtime.internal.Ascii: public static boolean isLetter(char)
+dev.tessera.runtime.internal.Ascii: public static boolean isWhitespace(char)
+dev.tessera.runtime.internal.Ascii: public static int hexValue(int)
+dev.tessera.runtime.internal.Ascii: public static java.lang.String lower(java.lang.String)
+dev.tessera.runtime.internal.Ascii: public static java.lang.String stripWhitespace(java.lang.String)
+dev.tessera.runtime.internal.Ascii: public static java.util.Set<java.lang.String> set(java.lang.String...)
+dev.tessera.runtime.internal.Attributes: public final class dev.tessera.runtime.internal.Attributes
+dev.tessera.runtime.internal.Attributes: public static java.lang.String appendClass(java.lang.Object,java.lang.Object)
+dev.tessera.runtime.internal.Checks: public final class dev.tessera.runtime.internal.Checks
+dev.tessera.runtime.internal.Checks: public static boolean isAllowedUrl(java.lang.String)
+dev.tessera.runtime.internal.Checks: public static boolean isSameOriginPath(java.lang.String)
+dev.tessera.runtime.internal.Checks: public static boolean isSameOriginUrl(java.lang.String)
+dev.tessera.runtime.internal.Checks: public static final int MAX_NUMBER_DIGITS
+dev.tessera.runtime.internal.Checks: public static java.math.BigDecimal requireBoundedMagnitude(java.math.BigDecimal,java.lang.String)
+dev.tessera.runtime.internal.Conditions: public final class dev.tessera.runtime.internal.Conditions
+dev.tessera.runtime.internal.Conditions: public static boolean isTrue(java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public final class dev.tessera.runtime.internal.Escapers
+dev.tessera.runtime.internal.Escapers: public static dev.tessera.runtime.SafeHtml linkedHtmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
+dev.tessera.runtime.internal.Escapers: public static dev.tessera.runtime.SafeInlineHtml htmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
+dev.tessera.runtime.internal.Escapers: public static final dev.tessera.runtime.HtmlPolicy MESSAGE_POLICY
+dev.tessera.runtime.internal.Escapers: public static final dev.tessera.runtime.HtmlPolicy MESSAGE_POLICY_NO_LINKS
+dev.tessera.runtime.internal.Escapers: public static java.lang.Object[] messageArgs(java.lang.Object[])
+dev.tessera.runtime.internal.Escapers: public static java.lang.String escapeHtml(java.lang.String)
+dev.tessera.runtime.internal.Escapers: public static java.lang.String neutralNumber(java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static java.lang.String neutralPath(java.lang.String)
+dev.tessera.runtime.internal.Escapers: public static java.lang.String sameOriginLink(java.lang.String)
+dev.tessera.runtime.internal.Escapers: public static java.lang.String styleNumber(java.lang.Number)
+dev.tessera.runtime.internal.Escapers: public static java.lang.String toText(java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void appendHtml(java.lang.StringBuilder,java.lang.String)
+dev.tessera.runtime.internal.Escapers: public static void appendJson(java.lang.StringBuilder,java.lang.Object,int)
+dev.tessera.runtime.internal.Escapers: public static void attr(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void html(dev.tessera.runtime.internal.Output,dev.tessera.runtime.SafeHtml)
+dev.tessera.runtime.internal.Escapers: public static void html(dev.tessera.runtime.internal.Output,dev.tessera.runtime.SafeInlineHtml)
+dev.tessera.runtime.internal.Escapers: public static void javaScript(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void json(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void refresh(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void resourceUrl(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,boolean)
+dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,char)
+dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,int)
+dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,long)
+dev.tessera.runtime.internal.Escapers: public static void url(dev.tessera.runtime.internal.Output,java.lang.Object)
+dev.tessera.runtime.internal.Output: public abstract interface dev.tessera.runtime.internal.Output
+dev.tessera.runtime.internal.Output: public abstract void write(char)
+dev.tessera.runtime.internal.Output: public abstract void write(java.lang.String)
+dev.tessera.runtime.internal.StringOutput: public dev.tessera.runtime.internal.StringOutput()
+dev.tessera.runtime.internal.StringOutput: public dev.tessera.runtime.internal.StringOutput(int)
+dev.tessera.runtime.internal.StringOutput: public final class dev.tessera.runtime.internal.StringOutput implements dev.tessera.runtime.internal.Output
+dev.tessera.runtime.internal.StringOutput: public java.lang.String toString()
+dev.tessera.runtime.internal.StringOutput: public void write(char)
+dev.tessera.runtime.internal.StringOutput: public void write(java.lang.String)
+dev.tessera.runtime.internal.TemplateEntry$ModelRenderer: public abstract static interface dev.tessera.runtime.internal.TemplateEntry$ModelRenderer
+dev.tessera.runtime.internal.TemplateEntry$ModelRenderer: public abstract void render(java.util.Map<java.lang.String, ?>,dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
+dev.tessera.runtime.internal.TemplateEntry$Param: public boolean equals(java.lang.Object)
+dev.tessera.runtime.internal.TemplateEntry$Param: public dev.tessera.runtime.internal.TemplateEntry$Param(java.lang.String,java.lang.String)
+dev.tessera.runtime.internal.TemplateEntry$Param: public int hashCode()
+dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String name()
+dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String toString()
+dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String type()
+dev.tessera.runtime.internal.TemplateEntry$Param: public static final class dev.tessera.runtime.internal.TemplateEntry$Param
+dev.tessera.runtime.internal.TemplateEntry: public boolean equals(java.lang.Object)
+dev.tessera.runtime.internal.TemplateEntry: public dev.tessera.runtime.internal.TemplateEntry$ModelRenderer renderer()
+dev.tessera.runtime.internal.TemplateEntry: public dev.tessera.runtime.internal.TemplateEntry(java.lang.String,java.util.List<dev.tessera.runtime.internal.TemplateEntry$Param>,dev.tessera.runtime.internal.TemplateEntry$ModelRenderer)
+dev.tessera.runtime.internal.TemplateEntry: public final class dev.tessera.runtime.internal.TemplateEntry
+dev.tessera.runtime.internal.TemplateEntry: public int hashCode()
+dev.tessera.runtime.internal.TemplateEntry: public java.lang.String name()
+dev.tessera.runtime.internal.TemplateEntry: public java.lang.String toString()
+dev.tessera.runtime.internal.TemplateEntry: public java.util.List<dev.tessera.runtime.internal.TemplateEntry$Param> params()
+dev.tessera.runtime.internal.UrlEncoding: public final class dev.tessera.runtime.internal.UrlEncoding
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String firstQuery(java.lang.String)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathSegment(java.lang.String)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathVariable(java.lang.String,java.lang.Object)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathVariables(java.lang.String,java.lang.Object)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryParam(java.lang.String)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryValue(java.lang.Object)
+dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryValues(java.lang.String,java.lang.Object)
+dev.tessera.runtime.internal.UrlEncoding: public static void percent(java.lang.StringBuilder,int)
+dev.tessera.runtime.internal.Values: public final class dev.tessera.runtime.internal.Values
+dev.tessera.runtime.internal.Values: public static <T,R> R nav(T,java.util.function.Function<? super T, ? extends R>)
+dev.tessera.runtime.internal.Values: public static <T> T elvis(T,T)
+dev.tessera.runtime.internal.Values: public static <T> T first(java.util.List<T>)
+dev.tessera.runtime.internal.Values: public static <T> T last(java.util.List<T>)
+dev.tessera.runtime.internal.Values: public static boolean numEquals(java.lang.Number,java.lang.Number)
+dev.tessera.runtime.internal.Values: public static java.lang.String enumName(java.lang.Enum<?>)
+dev.tessera.runtime.internal.fn.Css: public final class dev.tessera.runtime.internal.fn.Css
+dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue color(java.lang.String)
+dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue length(java.lang.String)
+dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue url(java.lang.String)
+dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue var(java.lang.String)
+dev.tessera.runtime.internal.fn.Html: public final class dev.tessera.runtime.internal.fn.Html
+dev.tessera.runtime.internal.fn.Html: public static dev.tessera.runtime.SafeHtml sanitize(java.lang.Object)
+dev.tessera.runtime.internal.fn.Html: public static dev.tessera.runtime.SafeHtml sanitizeRich(java.lang.Object)
+dev.tessera.runtime.internal.fn.Lists: public final class dev.tessera.runtime.internal.fn.Lists
+dev.tessera.runtime.internal.fn.Lists: public static boolean contains(java.lang.Object,java.lang.Object)
+dev.tessera.runtime.internal.fn.Lists: public static boolean isEmpty(java.lang.Object)
+dev.tessera.runtime.internal.fn.Lists: public static int size(java.lang.Object)
+dev.tessera.runtime.internal.fn.Numbers: public final class dev.tessera.runtime.internal.fn.Numbers
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatCurrency(java.util.Locale,java.lang.Object)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int,java.lang.String)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,java.lang.String,int,java.lang.String)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int,java.lang.String)
+dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatPercent(java.util.Locale,java.lang.Object,int,int)
+dev.tessera.runtime.internal.fn.Numbers: public static java.util.List<java.lang.Integer> sequence(int,int)
+dev.tessera.runtime.internal.fn.Strings: public final class dev.tessera.runtime.internal.fn.Strings
+dev.tessera.runtime.internal.fn.Strings: public static boolean contains(java.lang.Object,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static boolean endsWith(java.lang.Object,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static boolean isBlank(java.lang.Object)
+dev.tessera.runtime.internal.fn.Strings: public static boolean isEmpty(java.lang.Object)
+dev.tessera.runtime.internal.fn.Strings: public static boolean startsWith(java.lang.Object,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String abbreviate(java.lang.Object,int)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String capitalize(java.lang.Object)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String defaultString(java.lang.Object,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String join(java.lang.Object,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String replace(java.lang.Object,java.lang.String,java.lang.String)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int,int)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String toLowerCase(java.lang.Object)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String toUpperCase(java.lang.Object)
+dev.tessera.runtime.internal.fn.Strings: public static java.lang.String trim(java.lang.Object)
+dev.tessera.runtime.internal.fn.Temporals: public final class dev.tessera.runtime.internal.fn.Temporals
+dev.tessera.runtime.internal.fn.Temporals: public static java.lang.String format(java.util.Locale,java.time.temporal.TemporalAccessor,java.lang.String)
+dev.tessera.runtime.internal.fn.Temporals: public static java.lang.String formatIso(java.time.temporal.TemporalAccessor)

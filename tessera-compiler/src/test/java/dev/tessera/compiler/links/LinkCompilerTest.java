@@ -36,8 +36,8 @@ class LinkCompilerTest {
     ExprRunner r = owners("\"a/b?c#d\"", "\"x & y=z\"");
     assertEquals(
         "ctx.links().encode(ctx.links().contextPath() + \"/owners/\""
-            + " + dev.tessera.runtime.UrlEncoding.pathVariable(\"id\", o.id()) + \"?q=\""
-            + " + dev.tessera.runtime.UrlEncoding.queryValue(term))",
+            + " + dev.tessera.runtime.internal.UrlEncoding.pathVariable(\"id\", o.id()) + \"?q=\""
+            + " + dev.tessera.runtime.internal.UrlEncoding.queryValue(term))",
         r.compile("@{/owners/{id}(id=o.id, q=term)}").code());
     assertEquals("/owners/a%2Fb%3Fc%23d?q=x%20%26%20y%3Dz", r.eval("@{/owners/{id}(id=o.id, q=term)}", CTX));
   }
@@ -60,7 +60,7 @@ class LinkCompilerTest {
     ExprRunner r = owners("\"a&b\"", "null");
     assertEquals(
         "ctx.links().encode(ctx.links().contextPath() + \"/cart?add&itemId=\""
-            + " + dev.tessera.runtime.UrlEncoding.queryValue(o.id()))",
+            + " + dev.tessera.runtime.internal.UrlEncoding.queryValue(o.id()))",
         r.compile("@{/cart(add,itemId=o.id)}").code());
     assertEquals("/cart?add&itemId=a%26b", r.eval("@{/cart(add,itemId=o.id)}", CTX));
     assertEquals("/app/accounts/create?form", r.eval("@{/accounts/create(form)}", CTX_PATH));
@@ -82,7 +82,7 @@ class LinkCompilerTest {
     assertEquals("/s?tag=a&tag&tag=b%26c&x=1#top", r.eval("@{/s#top(tag=t.all, x=1)}", CTX));
     assertEquals("/s", r.eval("@{/s(tag=t.none)}", CTX));
     assertEquals("/s?a=1&tag=a&tag&tag=b%26c", r.eval("@{/s?a=1(tag=t.all)}", CTX));
-    assertTrue(r.compile("@{/s(tag=t.all)}").code().contains("UrlEncoding.firstQuery(dev.tessera.runtime"
+    assertTrue(r.compile("@{/s(tag=t.all)}").code().contains("UrlEncoding.firstQuery(dev.tessera.runtime.internal"
         + ".UrlEncoding.queryValues(\"tag\", t.all()))"));
   }
 

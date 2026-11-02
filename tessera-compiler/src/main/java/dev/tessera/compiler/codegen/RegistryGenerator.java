@@ -88,7 +88,7 @@ public final class RegistryGenerator {
         }
       }
     }
-    String entry = RT + "TemplateEntry";
+    String entry = RT + "internal.TemplateEntry";
     StringBuilder sb = new StringBuilder();
     if (!env.basePackage().isEmpty()) {
       sb.append("package ").append(env.basePackage()).append(";\n\n");
@@ -123,7 +123,7 @@ public final class RegistryGenerator {
 
   /** The initializer of an unmodifiable list of {@code entries}, whose adapters are {@code prefix<i>}. */
   private static void entries(StringBuilder sb, List<Entry> entries, String prefix) {
-    String entry = RT + "TemplateEntry";
+    String entry = RT + "internal.TemplateEntry";
     if (entries.isEmpty()) {
       sb.append("      java.util.Collections.emptyList();\n");
       return;
@@ -171,7 +171,7 @@ public final class RegistryGenerator {
         .append(RT)
         .append("RenderContext ctx, ")
         .append(RT)
-        .append("Output out) {\n");
+        .append("internal.Output out) {\n");
     List<String> args = new ArrayList<>();
     List<TemplateIndex.Param> params = t.params;
     for (int j = 0; j < params.size(); j++) {

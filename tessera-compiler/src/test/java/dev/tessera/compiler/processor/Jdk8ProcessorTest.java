@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -96,7 +96,7 @@ class Jdk8ProcessorTest {
         """
         package app;
         import dev.tessera.runtime.RenderContext;
-        import dev.tessera.runtime.StringOutput;
+        import dev.tessera.runtime.internal.StringOutput;
         import dev.tessera.runtime.TemplateRegistry;
         import java.util.Arrays;
         import java.util.HashMap;
@@ -221,7 +221,7 @@ class Jdk8ProcessorTest {
         """
         package app;
         import dev.tessera.runtime.RenderContext;
-        import dev.tessera.runtime.StringOutput;
+        import dev.tessera.runtime.internal.StringOutput;
         import dev.tessera.runtime.TemplateRegistry;
         import java.util.Arrays;
         import java.util.Collections;

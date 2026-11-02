@@ -2,7 +2,7 @@ package dev.tessera.benchmarks;
 
 import dev.tessera.benchmarks.templates.JsonTemplate;
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

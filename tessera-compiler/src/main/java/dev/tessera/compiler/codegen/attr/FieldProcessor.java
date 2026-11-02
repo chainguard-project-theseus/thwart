@@ -21,7 +21,7 @@ import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.compiler.verify.Skeleton;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;

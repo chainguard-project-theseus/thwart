@@ -2,6 +2,7 @@ package dev.tessera.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import dev.tessera.runtime.internal.Escapers;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

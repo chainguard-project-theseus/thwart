@@ -1,4 +1,4 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
 /** An {@link Output} that buffers into a {@link StringBuilder}. */
 public final class StringOutput implements Output {

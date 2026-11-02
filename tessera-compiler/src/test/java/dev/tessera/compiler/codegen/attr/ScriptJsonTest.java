@@ -316,7 +316,7 @@ class ScriptJsonTest {
   }
 
   private static void assertFailsBeforeJson(Compilation c, Map<String, ?> model) {
-    dev.tessera.runtime.StringOutput out = new dev.tessera.runtime.StringOutput();
+    dev.tessera.runtime.internal.StringOutput out = new dev.tessera.runtime.internal.StringOutput();
     assertThrows(IllegalArgumentException.class,
         () -> c.registry().find("page").orElseThrow().renderer()
             .render(model, dev.tessera.runtime.RenderContext.defaults(), out));

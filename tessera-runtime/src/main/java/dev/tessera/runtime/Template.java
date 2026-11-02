@@ -1,5 +1,8 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Output;
+import dev.tessera.runtime.internal.StringOutput;
+
 /**
  * A compiled template bound to its arguments. Generated classes implement this; there is no
  * way to construct a Template from template source at runtime.

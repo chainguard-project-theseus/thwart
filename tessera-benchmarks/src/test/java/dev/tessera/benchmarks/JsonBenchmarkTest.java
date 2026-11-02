@@ -2,8 +2,8 @@ package dev.tessera.benchmarks;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.Escapers;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Escapers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;

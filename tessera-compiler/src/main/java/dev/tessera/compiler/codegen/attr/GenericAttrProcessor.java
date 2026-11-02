@@ -17,7 +17,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import dev.tessera.runtime.internal.Checks;
 import java.util.List;
 import java.util.Set;
@@ -222,7 +222,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       String fallback = neutralCode(ctx, el.fallback(), plan, label, name);
       return value == null || fallback == null
           ? null
-          : "dev.tessera.runtime.Values.<java.lang.Object>elvis((java.lang.Object) " + value + ", (java.lang.Object) "
+          : "dev.tessera.runtime.internal.Values.<java.lang.Object>elvis((java.lang.Object) " + value + ", (java.lang.Object) "
               + fallback + ")";
     }
     if (e instanceof Expr.Link) {
@@ -496,7 +496,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       if (t.getKind() == TypeKind.NULL) {
         return fallback;
       }
-      return "dev.tessera.runtime.Values.<java.lang.Object>elvis((java.lang.Object) " + value
+      return "dev.tessera.runtime.internal.Values.<java.lang.Object>elvis((java.lang.Object) " + value
           + ", (java.lang.Object) " + fallback + ")";
     }
     CompiledExpr c = ctx.expressions().compile(e, plan.scope());

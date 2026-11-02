@@ -189,7 +189,7 @@ class FunctionRegistryTest {
               String all = String.join("\n", f.errors());
               assertTrue(all.contains("duplicate function namespace 'dup': declared by com.example.DupA and com.example.DupB"), all);
               assertTrue(
-                  all.contains("duplicate function namespace 'strings': declared by com.example.MyStrings and dev.tessera.runtime.fn.Strings"),
+                  all.contains("duplicate function namespace 'strings': declared by com.example.MyStrings and dev.tessera.runtime.internal.fn.Strings"),
                   all);
               assertTrue(all.contains("function namespace 'fields' on com.example.Fields is reserved for form fields"), all);
               assertTrue(all.contains("@TemplateFunctions class com.example.Hidden must be public"), all);
