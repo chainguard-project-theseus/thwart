@@ -32,7 +32,8 @@
 // deliberately wrong normal form (the self-check's negative).
 //
 // Ratchet: a finding with no known-holes line fails ("new hole"); a line for an engine this job ran
-// (parse5, chromium, firefox, webkit) or `*` that matched nothing fails ("delete its line"). An
+// (parse5, chromium, firefox, webkit), or a `*` line when all four ran, that matched nothing fails
+// ("delete its line"). An
 // ENGINE_DRIFT line names one of these four engines, never `*`.
 
 import fs from 'node:fs';
@@ -351,7 +352,8 @@ export function ratchet(findings, entries, enginesRun, file) {
         `\`${f.caseId} ${f.kind} ${f.engine} #<issue>\` to ${file}`);
   }
   for (const e of entries) {
-    if (!e.used && (e.engine === '*' || enginesRun.includes(e.engine))) {
+    const ran = e.engine === '*' ? NODE_ENGINES.every((n) => enginesRun.includes(n)) : enginesRun.includes(e.engine);
+    if (!e.used && ran) {
       failures.push(`known hole ${e.caseId} ${e.kind} ${e.engine} (${file}:${e.line}) is fixed (or now rejected): delete its line`);
     }
   }
