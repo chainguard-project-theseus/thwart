@@ -312,7 +312,7 @@ class LinkCompilerTest {
         "<iframe t:src=\"@{HTTP://h/}\"></iframe>",
         "<link rel=\"stylesheet\" t:href=\"@{//h/a.css}\">",
         "<object t:data=\"@{https://h/{p}(p=${s})}\"></object>",
-        "<script t:attr=\"src=@{//h/x.js}\"></script>"
+        "<script t:src=\"@{//h/x.js}\"></script>"
       })
   void resourceUrlFromAnotherOriginIsAnError(String markup) {
     Compilation c = page(markup);
@@ -327,7 +327,7 @@ class LinkCompilerTest {
         "<script t:src=\"@{/x(cb=${s})}\"></script>",
         "<script t:src=\"@{/x/{p}(p=${s}, cb=${s})}\"></script>",
         "<embed t:src=\"@{/x(cb)}\">",
-        "<script t:attr=\"src=@{/x(cb=${s})}\"></script>"
+        "<script t:src=\"@{/x(cb=${s})}\"></script>"
       })
   void resourceUrlQueryParameterIsAnError(String markup) {
     Compilation c = page(markup);

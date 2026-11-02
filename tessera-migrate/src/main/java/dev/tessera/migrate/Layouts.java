@@ -249,7 +249,7 @@ final class Layouts {
     if (into == null) {
       return false;
     }
-    if (into.t("remove") != null || into.t("attr") != null) {
+    if (into.t("remove") != null) {
       return false;
     }
     Map<String, String> theirs = into.htmlAttrs();

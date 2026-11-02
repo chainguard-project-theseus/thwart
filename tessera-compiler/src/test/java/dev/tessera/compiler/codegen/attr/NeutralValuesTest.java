@@ -69,7 +69,6 @@ class NeutralValuesTest {
   void computedStringIsABuildError(String name) {
     compile("<p t:" + name + "=\"${s}\">x</p>")
         .assertError("t.html:1:", "t:" + name + " is not allowed", "framework-neutral", "not a java.lang.String");
-    compile("<p t:attr=\"" + name + "=${s}\">x</p>").assertError("t.html:1:", "framework-neutral");
   }
 
   /**
@@ -82,7 +81,6 @@ class NeutralValuesTest {
   void namesOffTheListTakeNoValue(String name) {
     compile("<p t:" + name + "=\"${i.id}\">x</p>")
         .assertError("t.html:1:", "t:" + name + " is not allowed", "is not on Tessera's list", "t:data-");
-    compile("<p t:attr=\"" + name + "=${flag}\">x</p>").assertError("t.html:1:", "is not on Tessera's list");
   }
 
   /**
@@ -92,7 +90,6 @@ class NeutralValuesTest {
   @ParameterizedTest
   @ValueSource(strings = {":title", "@click", "#default", ".prop"})
   void namesOutsideThePlainGrammarTakeNoValue(String name) {
-    compile("<p t:attr=\"" + name + "=${i.id}\">x</p>").assertError("t.html:1:");
     compile("<p t:" + name + "=\"${i.id}\">x</p>").assertError("t.html:1:");
   }
 
@@ -120,7 +117,6 @@ class NeutralValuesTest {
   @ValueSource(strings = {"data-tip", "data-hx-vals", "data-x-data", "data-v-html", "data-bind"})
   void messageIsNotANeutralValue(String name) {
     compileWithMessages("<p t:" + name + "=\"#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
-    compileWithMessages("<p t:attr=\"" + name + "=#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
     compileWithMessages("<p t:" + name + "=\"${flag} ? #{tip} : 'x'\">x</p>").assertError("t.html:1:", "neutral");
     compileWithMessages("<p t:" + name + "=\"${flag} ? #{tip} : #{other}\">x</p>").assertError("t.html:1:", "neutral");
   }
@@ -235,16 +231,16 @@ class NeutralValuesTest {
   }
 
   /**
-   * A neutral value goes into any data-* name, on a custom element and under t:attr too; it writes
+   * A neutral value goes into any data-* name, on a custom element too; it writes
    * no JSON (#599 deleted jsonAttr), and a null leaves the attribute out.
    */
   @Test
   void neutralValuesInAnyDataName() {
-    Compilation c = compile("<x-widget t:data-hx-vals=\"${i.id}\" t:attr=\"data-x-show=${flag},data-count=${i.id}\""
+    Compilation c = compile("<x-widget t:data-hx-vals=\"${i.id}\" t:data-x-show=\"${flag}\" t:data-count=\"${i.id}\""
         + " t:aria-foo=\"${big}\"></x-widget>").assertSuccess();
-    assertEquals("<div><x-widget data-x-show=\"true\" data-count=\"7\" data-hx-vals=\"7\" aria-foo=\"1.5\"></x-widget>"
+    assertEquals("<div><x-widget data-hx-vals=\"7\" data-x-show=\"true\" data-count=\"7\" aria-foo=\"1.5\"></x-widget>"
         + "</div>", render(c, "big", new BigDecimal("1.5")));
-    assertEquals("<div><x-widget data-x-show=\"true\" data-count=\"7\" data-hx-vals=\"7\"></x-widget></div>",
+    assertEquals("<div><x-widget data-hx-vals=\"7\" data-x-show=\"true\" data-count=\"7\"></x-widget></div>",
         render(c, "big", null));
   }
 

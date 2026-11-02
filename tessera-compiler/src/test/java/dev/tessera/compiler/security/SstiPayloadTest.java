@@ -122,7 +122,7 @@ class SstiPayloadTest {
           e -> "<p>[[" + e + "]]</p>",
           e -> "<a t:href=\"" + attr(e) + "\">x</a>",
           e -> "<i t:title=\"" + attr(e) + "\">x</i>",
-          e -> "<i t:attr=\"title=" + attr(e) + "\">x</i>",
+          e -> "<i t:title=\"" + attr(e) + "\">x</i>",
           e -> "<i t:if=\"" + attr(e) + "\">x</i>",
           e -> "<i t:unless=\"" + attr(e) + "\">x</i>",
           e -> "<i t:each=\"v : " + attr(e) + "\">x</i>",

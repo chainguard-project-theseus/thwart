@@ -101,12 +101,12 @@ class CsrfActionOriginTest {
   @ValueSource(
       strings = {
         "t:action=\"u\"",
-        "t:attr=\"action=u\"",
-        "t:attr=\"title=u, ACTION=u\"",
+        "t:action=\"u\"",
+        "t:title=\"u\" t:ACTION=\"u\"",
         "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{//evil.example/x}\"",
         "t:action=\"@{/\\evil.example/x}\"",
-        "t:attr=\"action=@{https://evil.example/x}\"",
+        "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{x}\"",
         "t:action=\"@{?page=2}\"",
       })
@@ -155,7 +155,7 @@ class CsrfActionOriginTest {
     model.put("admin", false);
     assertEquals("<div><form method=\"post\" action=\"/cfp?sourcePage=\">" + INPUT + "x</form></div>",
         render(c, model));
-    Compilation attr = compile(CHOICE_PARAMS, "method=\"post\" t:attr=\"action=${admin} ? @{/a} : @{/b/{id}(id=${id})}\"");
+    Compilation attr = compile(CHOICE_PARAMS, "method=\"post\" t:action=\"${admin} ? @{/a} : @{/b/{id}(id=${id})}\"");
     assertEquals("<div><form method=\"post\" action=\"/b/7\">" + INPUT + "x</form></div>", render(attr, model));
   }
 
@@ -188,7 +188,7 @@ class CsrfActionOriginTest {
         "t:action=\"b ? s : @{/a}\"",
         "t:action=\"b ? @{/a} : s\"",
         "t:action=\"b ? ${s}\"",
-        "t:attr=\"action=${b} ? @{/a} : ${s}\"",
+        "t:action=\"${b} ? @{/a} : ${s}\"",
         "t:action=\"b ? @{/a} : '/b'\"",
         "t:action=\"b ? '/a' : @{/b}\"",
         "t:action=\"b ? @{/a} : '/b/' + ${s}\"",
@@ -284,7 +284,7 @@ class CsrfActionOriginTest {
                 "form.html",
                 "<div xmlns:t=\"https://tessera.dev\"><section hx-boost=\"true\">"
                     + "<form method=\"post\" t:action=\"@{/o/{id}(id=1)}\">x</form></section>"
-                    + "<form hx-boost=\"true\" method=\"post\" t:attr=\"action=@{/x}\">y</form></div>")
+                    + "<form hx-boost=\"true\" method=\"post\" t:action=\"@{/x}\">y</form></div>")
             .compile()
             .assertSuccess();
     assertEquals(

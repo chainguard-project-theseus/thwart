@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** t:attr, generic t:&lt;attr&gt;, boolean attributes and t:classappend through the real processor. */
+/** Generic t:&lt;attr&gt;, boolean attributes and t:classappend through the real processor. */
 class AttributesEndToEndTest {
 
   private static final String HEADER =
@@ -44,7 +44,7 @@ class AttributesEndToEndTest {
         render("<q t:cite=\"s\"></q>", model("s", "data:text/html,<script>")));
     assertEquals(
         "<a href=\"about:invalid#tessera\">x</a>",
-        render("<a t:attr=\"href=s\">x</a>", model("s", "vbscript:x")));
+        render("<a t:href=\"s\">x</a>", model("s", "vbscript:x")));
   }
 
   /** Negative (#668): no type vouches for a URL, so nothing skips the scheme or origin checks. */
@@ -108,7 +108,7 @@ class AttributesEndToEndTest {
             + " @{/js/app.js}, not a java.lang.String");
     compile("<iframe t:src=\"'/x'\"></iframe>").assertError("t:src on <iframe>", "literal-path link");
     compile("<link t:href=\"s\">").assertError("t:href on <link>");
-    compile("<script t:attr=\"src=s\"></script>").assertError("t:attr src on <script>");
+    compile("<script t:src=\"s\"></script>").assertError("t:src on <script>");
     compile("<object t:data=\"s + 'x'\"></object>").assertError("t:data on <object>");
   }
 
@@ -119,8 +119,8 @@ class AttributesEndToEndTest {
   @Test
   void urlListsCannotBeComputed() {
     for (String t : new String[] {"<img t:srcset=\"s\">", "<img t:srcset=\"'/a.png 1x'\">", "<img t:srcset=\"@{/a.png}\">",
-        "<source t:attr=\"srcset=s\">", "<link t:imagesrcset=\"s\">", "<img t:SrcSet=\"s\">", "<a t:ping=\"'/a'\">x</a>",
-        "<area t:attr=\"ping=s\">", "<a t:PING=\"${b} ? '/a' : '/b'\">x</a>"}) {
+        "<source t:srcset=\"s\">", "<link t:imagesrcset=\"s\">", "<img t:SrcSet=\"s\">", "<a t:ping=\"'/a'\">x</a>",
+        "<area t:ping=\"s\">", "<a t:PING=\"${b} ? '/a' : '/b'\">x</a>"}) {
       compile(t).assertError("t.html:1:", "is not allowed: it holds a list of URLs", "compute a single src or href");
     }
   }
@@ -149,8 +149,8 @@ class AttributesEndToEndTest {
   void eventHandlerAttributesAreBuildErrors() {
     compile("<p t:onclick=\"s\">x</p>").assertError("t.html:1:", "t:onclick is not allowed", "data-*");
     compile("<p t:ONMOUSEOVER=\"s\">x</p>").assertError("not allowed", "event-handler");
-    compile("<p t:attr=\"onclick=s\">x</p>").assertError("t:attr onclick is not allowed", "data-*");
-    compile("<p t:attr=\"title=s, onload=s\">x</p>").assertError("t:attr onload is not allowed");
+    compile("<p t:onclick=\"s\">x</p>").assertError("t:onclick is not allowed", "data-*");
+    compile("<p t:title=\"s\" t:onload=\"s\">x</p>").assertError("t:onload is not allowed");
   }
 
   /**
@@ -189,9 +189,9 @@ class AttributesEndToEndTest {
   @Test
   void styleAndSrcdocAreBuildErrors() {
     compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed", "t:class");
-    compile("<p t:attr=\"style=s\">x</p>").assertError("t:attr style is not allowed");
+    compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed");
     compile("<iframe t:srcdoc=\"s\"></iframe>").assertError("t:srcdoc is not allowed", "use src");
-    compile("<iframe t:attr=\"srcdoc=s\"></iframe>").assertError("t:attr srcdoc is not allowed");
+    compile("<iframe t:srcdoc=\"s\"></iframe>").assertError("t:srcdoc is not allowed");
   }
 
   @Test
@@ -200,7 +200,7 @@ class AttributesEndToEndTest {
     // same-origin link are allowed (#237).
     compile("<meta http-equiv=\"refresh\" t:content=\"s\">")
         .assertError("t:content is not allowed", "refresh", "'3;url=' + @{", "controller");
-    compile("<meta http-equiv=\"Refresh\" t:attr=\"content=s\">").assertError("t:attr content is not allowed");
+    compile("<meta http-equiv=\"Refresh\" t:content=\"s\">").assertError("t:content is not allowed");
     compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + s\">").assertError("t:content is not allowed");
     compile("<meta http-equiv=\"refresh\" t:content=\"@{/x}\">").assertError("t:content is not allowed");
     compile("<meta http-equiv=\"refresh\" t:content=\"s + ';url=' + @{/x}\">").assertError("t:content is not allowed");
@@ -214,10 +214,10 @@ class AttributesEndToEndTest {
       compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{" + path + "}\">")
           .assertError("t:content is not allowed", "same-origin path");
     }
-    compile("<meta http-equiv=\"refresh\" t:attr=\"content='1;url=' + @{//evil.example}\">")
-        .assertError("t:attr content is not allowed", "same-origin path");
+    compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{//evil.example}\">")
+        .assertError("t:content is not allowed", "same-origin path");
     compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv is not allowed: the http-equiv of a <meta>", "static http-equiv");
-    compile("<meta t:attr=\"http-equiv=s\" content=\"0;url=/x\">").assertError("t:attr http-equiv", "<meta>");
+    compile("<meta t:http-equiv=\"s\" content=\"0;url=/x\">").assertError("t:http-equiv", "<meta>");
     // A literal refresh written by the author is fine; other computed meta content is off the list (#761).
     assertEquals(
         "<meta http-equiv=\"refresh\" content=\"5\">",
@@ -229,7 +229,7 @@ class AttributesEndToEndTest {
   void attributesTheTreeBuilderReadsAreABuildError() {
     // A browser reads these values while it builds the page, before any escaping applies.
     compile("\n<p t:is=\"s\">x</p>").assertError("t.html:2:4", "t:is is not allowed", "custom element");
-    compile("\n<p t:attr=\"is=s\">x</p>").assertError("t.html:2:", "t:attr is is not allowed", "custom element");
+    compile("\n<p t:is=\"s\">x</p>").assertError("t.html:2:", "t:is is not allowed", "custom element");
     compile("\n<p t:xmlns=\"s\">x</p>").assertError("t.html:2:", "t:xmlns is not allowed", "namespace");
     compile("\n<p t:xmlns:xlink=\"s\">x</p>").assertError("t.html:2:", "t:xmlns:xlink is not allowed", "namespace");
     compile("\n<template t:shadowrootmode=\"s\"><p>x</p></template>")
@@ -241,7 +241,7 @@ class AttributesEndToEndTest {
     compile("\n<meta http-equiv=\"Content-Type\" t:content=\"s\">")
         .assertError("t.html:2:", "t:content is not allowed", "encoding", "Content-Type response header");
     compile("\n<meta t:content=\"s\" http-equiv=\"content-type\">").assertError("t.html:2:", "t:content is not allowed");
-    compile("\n<meta http-equiv=\"Content-Type\" t:attr=\"content=s\">").assertError("t.html:2:", "t:attr content is not allowed");
+    compile("\n<meta http-equiv=\"Content-Type\" t:content=\"s\">").assertError("t.html:2:", "t:content is not allowed");
     // The same values written statically, and the same names where no tree builder reads them, compile.
     assertEquals(
         "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><meta charset=\"utf-8\">",
@@ -263,7 +263,7 @@ class AttributesEndToEndTest {
         render("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{/admin/update(vid=${n})}\">", model("n", 7)));
     assertEquals(
         "<meta http-equiv=\"REFRESH\" content=\"3;url=/blog/7\">",
-        render("<meta http-equiv=\"REFRESH\" t:attr=\"content=' 3 , URL = ' + @{/blog/{n}(n=${n})}\">", model("n", 7)));
+        render("<meta http-equiv=\"REFRESH\" t:content=\"' 3 , URL = ' + @{/blog/{n}(n=${n})}\">", model("n", 7)));
     // A path variable cannot add a second url=, leave the path or the origin.
     assertEquals(
         "<meta http-equiv=\"refresh\" content=\"0;url=/p/x%3Burl%3D%2F%2Fevil%20%27%22%2C\">",
@@ -279,8 +279,8 @@ class AttributesEndToEndTest {
   @Test
   void scriptTypeCannotBeComputed() {
     compile("<script t:type=\"s\"></script>").assertError("t:type is not allowed: the type of a <script>", "static type attribute");
-    compile("<script t:attr=\"type=s\"></script>").assertError("t:attr type", "<script>");
-    compile("<script type=\"application/json\" t:attr=\"type=s\"></script>").assertError("t:attr type");
+    compile("<script t:type=\"s\"></script>").assertError("t:type", "<script>");
+    compile("<script type=\"application/json\" t:type=\"s\"></script>").assertError("t:type");
     // #678: on an <input> too; on other elements type is off the list (#761), with no per-element exception.
     compile("<input t:type=\"s\">").assertError("t:type is not allowed: the type of an <input>", "static type attribute");
     compile("<ol t:type=\"${b} ? 'a' : 'i'\"></ol>").assertError("t:type is not allowed", "not on");
@@ -288,8 +288,9 @@ class AttributesEndToEndTest {
   }
 
   @Test
-  void tPrefixedNamesInAttrAreRejected() {
-    compile("<p t:attr=\"t:text=s\">x</p>").assertError("t:attr cannot set t:text");
+  void attrIsRemoved() {
+    compile("\n<p t:attr=\"title=s\">x</p>").assertError("t.html:2:", "t:attr is not supported; write one t:<name> per"
+        + " attribute: t:attr=\"title=a, href=b\" becomes t:title=\"a\" t:href=\"b\"");
   }
 
   @Test
@@ -304,7 +305,7 @@ class AttributesEndToEndTest {
     assertEquals("<p>x</p>", render("<p t:title=\"s\">x</p>", model()));
     assertEquals("<a>x</a>", render("<a t:href=\"s\">x</a>", model()));
     assertEquals("<p>x</p>", render("<p title=\"static\" t:title=\"s\">x</p>", model()));
-    assertEquals("<p>x</p>", render("<p t:attr=\"title=s, id=n\">x</p>", model()));
+    assertEquals("<p>x</p>", render("<p t:title=\"s\" t:id=\"n\">x</p>", model()));
   }
 
   @Test
@@ -323,7 +324,7 @@ class AttributesEndToEndTest {
   void attrSetsSeveralAttributes() {
     assertEquals(
         "<input value=\"v\" id=\"i-3\" data-n=\"3\">",
-        render("<input t:attr=\"value=s, id=|i-${n}|, data-n=n\">", model("s", "v", "n", 3)));
+        render("<input t:value=\"s\" t:id=\"|i-${n}|\" t:data-n=\"n\">", model("s", "v", "n", 3)));
   }
 
   @Test
@@ -345,10 +346,9 @@ class AttributesEndToEndTest {
 
   @Test
   void booleanAttributes() {
-    String t = "<input type=\"checkbox\" t:checked=\"b\" t:disabled=\"nb\" t:attr=\"required=s\">";
-    // t:attr runs before generic t:<attr> (AttributeProcessors.ORDER).
+    String t = "<input type=\"checkbox\" t:checked=\"b\" t:disabled=\"nb\" t:required=\"s\">";
     assertEquals(
-        "<input type=\"checkbox\" required=\"required\" checked=\"checked\" disabled=\"disabled\">",
+        "<input type=\"checkbox\" checked=\"checked\" disabled=\"disabled\" required=\"required\">",
         render(t, model("b", true, "nb", Boolean.TRUE, "s", "yes")));
     assertEquals("<input type=\"checkbox\">", render(t, model("b", false)));
     assertEquals(

@@ -3,7 +3,7 @@
 <body>
   <!-- Computed names outside HTML are converted as they are: the compiler checks their values (#587). -->
   <button t:hx-get="@{/owners}" t:hx-target="'#owner-' + owner.id" t:hx-swap="swap">load</button>
-  <div t:attr="hx-select=selector,title=owner.lastName">attr</div>
+  <div t:hx-select="selector" t:title="owner.lastName">attr</div>
   <div t:up-on-loaded="callback">unpoly</div>
   <div t:data-hx-target="selector" t:aria-label="owner.lastName">known names</div>
   <!-- A missing space between attributes is added. -->

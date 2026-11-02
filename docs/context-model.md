@@ -221,7 +221,7 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 |---|---|
 | Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes (`Escapers.attr`); nothing when the context has no nonce | `CspNonceTest` |
 | Not inside `<svg>`/`<math>` or an element a browser reads as text; a mistake here only removes a nonce, never adds one | `CspNonceTest` |
-| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | `CspNonceTest` |
+| A `nonce` on `<script>` or `<style>` in the template (static or `t:nonce`) is an error | `CspNonceTest` |
 | Markup the compiler did not write gets no nonce: the sanitizer drops `script` and `style` with their content | `CspNonceTest`, `HtmlSanitizerTest` |
 
 ## 7. Profile decisions

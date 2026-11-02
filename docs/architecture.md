@@ -124,7 +124,7 @@ selector    = ident { "-" ident } | "t:block" ;
 fargs       = expr { "," expr } | ident "=" expr { "," ident "=" expr } ;  (* all positional or all named *)
 literal     = "'" chars "'" | int [ "L" ] | decimal | "true" | "false" | "null" ;
 each        = ident [ "," ident ] ":" expr ;
-assignments = name "=" expr { "," name "=" expr } ;        (* t:with, t:attr *)
+assignments = name "=" expr { "," name "=" expr } ;        (* t:with *)
 params      = [ type ident { "," type ident } ] ;
 type        = qname [ "<" type { "," type } ">" ] { "[]" } ;
 ```

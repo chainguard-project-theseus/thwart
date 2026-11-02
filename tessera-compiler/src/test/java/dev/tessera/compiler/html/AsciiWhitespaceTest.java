@@ -79,15 +79,6 @@ class AsciiWhitespaceTest {
   }
 
   @Test
-  void attrSettingFormIsFoundAsTheExpressionParserReadsIt() {
-    // t:attr skips Java whitespace before a name, so U+2000form= sets form: the button submits the token
-    // form, and its formaction is checked. hasFormAttribute now reads the parsed names, not a regex.
-    compile("<form method=\"post\" id=\"f\" action=\"/a\"><input name=\"q\"></form>"
-            + "<button t:attr=\"\u2000form=${s}\" formaction=\"https://other.example/\">b</button>")
-        .assertError("formaction=\"https://other.example/\" is not allowed here");
-  }
-
-  @Test
   void linkHostVariableFoundThroughAnySpace() {
     // U+2000 is already a whitespace error in a link path; NBSP reaches the host check.
     compile("<a t:href=\"@{https:\u00a0//{s}/x(s=${s})}\">x</a>").assertError("path variable in its host");

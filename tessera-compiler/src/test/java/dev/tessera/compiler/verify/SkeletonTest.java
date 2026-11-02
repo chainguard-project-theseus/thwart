@@ -180,13 +180,11 @@ class SkeletonTest {
         Compilation.builder()
             .template(
                 "r.html",
-                "<div " + NS + " t:params=\"String s\"><p t:remove=\"all\">a[[${s}]]</p><p t:remove=\"body\">b[[${s}]]</p>"
-                    + "<p t:remove=\"tag\">c[[${s}]]</p><p t:remove=\"all-but-first\"> <i>[[${s}]]</i><i>2</i> </p>"
-                    + "<p t:remove=\"none\">e[[${s}]]</p></div>")
+                "<div " + NS + " t:params=\"String s\"><p t:remove=\"all\">a[[${s}]]</p>"
+                    + "<p t:remove=\"tag\">c[[${s}]]</p></div>")
             .compile()
             .assertSuccess();
-    assertEquals(
-        "<div><p></p>cv<p> <i>v</i> </p><p>ev</p></div>", c.render("r", model("s", "v")));
+    assertEquals("<div>cv</div>", c.render("r", model("s", "v")));
   }
 
   @Test

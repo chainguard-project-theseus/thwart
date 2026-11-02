@@ -4,20 +4,17 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.Emitted;
-import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * {@code t:remove="all|body|tag|all-but-first|none"} (literal values only). {@code all-but-first}
- * keeps the first child element and every non-element child (whitespace, comments), as
- * Thymeleaf does. {@code tag} is rejected on {@code <svg>}, {@code <math>} and every element
- * inside them, and on raw-text elements ({@link HtmlParser#isRawText}).
+ * {@code t:remove="all|tag"} (literal values only). Thymeleaf's {@code body}, {@code all-but-first}
+ * and {@code none} are build errors that name the static edit with the same result. {@code tag} is
+ * rejected on {@code <svg>}, {@code <math>} and every element inside them, and on raw-text elements
+ * ({@link HtmlParser#isRawText}).
  */
 public final class RemoveProcessor implements AttributeProcessor {
 
@@ -27,9 +24,6 @@ public final class RemoveProcessor implements AttributeProcessor {
     switch (v) {
       case "all":
         plan.remove();
-        break;
-      case "body":
-        plan.replaceBody(Emitted.EMPTY, Contexts.text(plan.element()));
         break;
       case "tag":
         String tag = plan.element().name();
@@ -56,16 +50,23 @@ public final class RemoveProcessor implements AttributeProcessor {
         // asks for, for the verifier's own check.
         plan.omitTag();
         break;
-      case "all-but-first":
-        plan.replaceBody(firstElementOnly(ctx, plan), Contexts.text(plan.element()));
-        break;
-      case "none":
-        break;
       default:
-        ctx.diagnostics()
-            .error(
-                attr.valuePos() != null ? attr.valuePos() : attr.pos(),
-                "t:remove must be one of all, body, tag, all-but-first, none (got '" + v + "')");
+        ctx.diagnostics().error(attr.valuePos() != null ? attr.valuePos() : attr.pos(), unsupported(v));
+    }
+  }
+
+  /** The error for a value other than all and tag, with the static edit that gives the same page. */
+  private static String unsupported(String v) {
+    switch (v) {
+      case "body":
+        return "t:remove=\"body\" is not supported; delete the element's content in the template instead";
+      case "all-but-first":
+        return "t:remove=\"all-but-first\" is not supported; delete every child element but the first in the"
+            + " template instead";
+      case "none":
+        return "t:remove=\"none\" is not supported; delete the attribute";
+      default:
+        return "t:remove must be all or tag (got '" + v + "')";
     }
   }
 
@@ -90,21 +91,5 @@ public final class RemoveProcessor implements AttributeProcessor {
       }
     }
     return null;
-  }
-
-  private static Emitted firstElementOnly(CodegenContext ctx, ElementPlan plan) {
-    Element e = plan.element();
-    List<Emitted> sb = new ArrayList<>();
-    boolean seenElement = false;
-    for (Node n : e.children()) {
-      if (n instanceof Element) {
-        if (seenElement) {
-          continue;
-        }
-        seenElement = true;
-      }
-      sb.add(ctx.renderNode(n, plan.scope()));
-    }
-    return Emitted.concat(sb.toArray(new Emitted[0]));
   }
 }

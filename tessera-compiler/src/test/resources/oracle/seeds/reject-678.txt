@@ -62,7 +62,7 @@
 <p t:is="'my-p'">x</p>
 ====
 # name: r678-xmlns
-<p t:attr="xmlns:x=${s}">x</p>
+<p t:xmlns:x="${s}">x</p>
 ====
 # name: r678-font
 <font t:color="'red'" t:face="'serif'" t:size="'3'">x</font>

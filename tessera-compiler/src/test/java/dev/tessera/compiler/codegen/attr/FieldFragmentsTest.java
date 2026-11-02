@@ -24,7 +24,7 @@ class FieldFragmentsTest {
           + "<t:block t:fragment=\"input(String label, Field name, String type)\">"
           + "<div t:with=\"valid=!fields.hasErrors(name)\" t:class=\"'group' + (valid ? '' : ' has-error')\">"
           + "<label t:for=\"name\" t:text=\"label\">L</label>"
-          + "<input t:if=\"type == 'text'\" type=\"text\" t:field=\"name\" t:errorclass=\"bad\" />"
+          + "<input t:if=\"type == 'text'\" type=\"text\" t:field=\"name\" t:classappend=\"fields.hasErrors(name) ? 'bad'\" />"
           + "<input t:if=\"type == 'date'\" type=\"date\" t:field=\"name\" />"
           + "<span t:errors=\"name\">E</span></div></t:block>"
           + "<t:block t:fragment=\"select(Field name, List<String> items)\"><select t:field=\"${name}\">"

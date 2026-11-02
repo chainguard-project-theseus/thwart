@@ -59,9 +59,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   /**
    * Sets output attribute {@code name} on {@code plan} from {@code value}, or reports why it
-   * cannot. Shared with {@code t:attr}; {@code label} names the source construct in errors.
+   * cannot; {@code label} names the source construct in errors.
    */
-  static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
+  private static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     String element = plan.element().name();
     String lower = HtmlParser.asciiLower(name);
     OutputContext context = Contexts.attribute(plan.element(), name);

@@ -1,10 +1,8 @@
 package dev.tessera.compiler.codegen;
 
 import dev.tessera.compiler.Backports;
-import dev.tessera.compiler.codegen.attr.AttrProcessor;
 import dev.tessera.compiler.codegen.attr.ClassAppendProcessor;
 import dev.tessera.compiler.codegen.attr.EachProcessor;
-import dev.tessera.compiler.codegen.attr.ErrorClassProcessor;
 import dev.tessera.compiler.codegen.attr.ErrorsProcessor;
 import dev.tessera.compiler.codegen.attr.FieldProcessor;
 import dev.tessera.compiler.codegen.attr.FragmentProcessor;
@@ -13,6 +11,7 @@ import dev.tessera.compiler.codegen.attr.IfProcessor;
 import dev.tessera.compiler.codegen.attr.InsertReplaceProcessor;
 import dev.tessera.compiler.codegen.attr.ObjectProcessor;
 import dev.tessera.compiler.codegen.attr.RemoveProcessor;
+import dev.tessera.compiler.codegen.attr.RemovedProcessor;
 import dev.tessera.compiler.codegen.attr.SwitchProcessor;
 import dev.tessera.compiler.codegen.attr.TextProcessor;
 import dev.tessera.compiler.codegen.attr.UtextProcessor;
@@ -59,6 +58,7 @@ public final class AttributeProcessors {
   private static final InsertReplaceProcessor INSERT_REPLACE = new InsertReplaceProcessor();
   private static final IfProcessor IF = new IfProcessor();
   private static final SwitchProcessor SWITCH = new SwitchProcessor();
+  private static final RemovedProcessor REMOVED = new RemovedProcessor();
 
   private static final List<Entry> ORDER =
       Backports.listOf(
@@ -72,11 +72,11 @@ public final class AttributeProcessors {
           new Entry("case", SWITCH),
           new Entry("object", new ObjectProcessor()),
           new Entry("with", new WithProcessor()),
-          new Entry("attr", new AttrProcessor()),
+          new Entry("attr", REMOVED),
           new Entry(GENERIC, new GenericAttrProcessor()),
           new Entry("field", new FieldProcessor()),
           new Entry("classappend", new ClassAppendProcessor()),
-          new Entry("errorclass", new ErrorClassProcessor()),
+          new Entry("errorclass", REMOVED),
           new Entry("text", new TextProcessor()),
           new Entry("utext", new UtextProcessor()),
           new Entry("errors", new ErrorsProcessor()),
