@@ -112,8 +112,8 @@ class LeadingLineFeedTest {
 
   @Test
   void anOmittedTagGetsNoLineFeed() {
-    Compilation c = compile("<span><pre t:remove=\"tag\">[[${s}]]</pre></span><pre t:remove=\"body\">[[${s}]]</pre>");
-    assertEquals("<div><span>a</span><pre></pre></div>", render(c, "a"));
+    Compilation c = compile("<span><pre t:remove=\"tag\">[[${s}]]</pre></span>");
+    assertEquals("<div><span>a</span></div>", render(c, "a"));
   }
 
   @Test

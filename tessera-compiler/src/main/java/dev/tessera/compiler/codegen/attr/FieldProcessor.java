@@ -200,7 +200,7 @@ public final class FieldProcessor implements AttributeProcessor {
    * Thymeleaf's checkbox and select field processors write them. A select gets one only if it is
    * {@code multiple}. Like Thymeleaf, none for a disabled element (it is not submitted, so the
    * marker would reset the value): Thymeleaf checks for a {@code multiple} or {@code disabled}
-   * attribute of any value after t:multiple/t:disabled/t:attr ran, as here (they precede t:field).
+   * attribute of any value after t:multiple/t:disabled ran, as here (they precede t:field).
    */
   private static void marker(CodegenContext ctx, Attribute attr, ElementPlan plan, String name, boolean select) {
     List<String> conditions = new ArrayList<>();

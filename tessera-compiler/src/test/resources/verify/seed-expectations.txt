@@ -259,7 +259,7 @@ pr305-6         AB   VERIFIER SELECT_CONTENT
 pr305-7         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
 pr305-8         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), <template> unwrapped into a <select>
 pr305-9         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), t:remove unwrapped into a <select>
-pr305-10        -    ACCEPT  # #758: builds; t:remove="all-but-first" drops the static <title>, so the page holds <option>s only
+pr305-10        -    VERIFIER SELECT_CONTENT  # #766: t:remove="all-but-first" is a build error, and the skeleton keeps the <title>
 pr340-1         E    ACCEPT  # hole not emitted
 pr340-2         -    ACCEPT  # hole not emitted
 pr340-3         -    ACCEPT  # hole not emitted
@@ -301,7 +301,7 @@ ax-attr-4       -    ACCEPT
 ax-attr-5       -    ACCEPT
 ax-attr-6       -    ACCEPT
 ax-attr-7       -    ACCEPT
-ax-attr-8       -    PROFILE  # t:attr "id ${s}" does not parse: expected '=' after 'id'
+ax-attr-8       -    PROFILE  # #766: t:attr is not supported
 ax-enc-1        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
 ax-enc-2        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE; hole not emitted
 ax-enc-3        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
@@ -313,25 +313,21 @@ ax-enc-8        AB   PROFILE  # #539: a String in a computed encoding is not ine
 ax-enc-9        -    PROFILE  # t:attrappend is not supported: assignment (=) is not supported in its value
 ax-enc-10       -    PROFILE  # t:attrprepend is not supported: assignment (=) is not supported in its value
 xss-rejected-1  -    ACCEPT  # hole not emitted
-xss-rejected-2  -    ACCEPT  # hole not emitted
 xss-rejected-3  -    ACCEPT  # hole not emitted
 xss-rejected-4  -    ACCEPT  # hole not emitted
 xss-rejected-5  -    ACCEPT  # hole not emitted
 xss-rejected-6  -    ACCEPT  # hole not emitted
 xss-rejected-7  -    ACCEPT  # hole not emitted
 xss-rejected-8  -    ACCEPT  # hole not emitted
-xss-rejected-9  -    ACCEPT  # hole not emitted
 xss-rejected-10 -    ACCEPT  # hole not emitted
 xss-rejected-11 -    ACCEPT  # hole not emitted
 xss-rejected-12 -    VERIFIER PARSE_ERROR  # #406: a second <body>
 xss-rejected-13 -    ACCEPT  # hole not emitted
-xss-rejected-14 -    ACCEPT  # hole not emitted
 xss-rejected-15 -    ACCEPT  # hole not emitted
-xss-rejected-16 -    ACCEPT
+xss-rejected-16 -    ACCEPT  # hole not emitted
 xss-rejected-17 -    ACCEPT  # hole not emitted
 xss-rejected-18 -    ACCEPT  # hole not emitted
 xss-rejected-19 -    ACCEPT  # hole not emitted
-xss-rejected-20 -    ACCEPT  # hole not emitted
 xss-rejected-21 -    ACCEPT  # hole not emitted
 xss-rejected-22 -    ACCEPT  # hole not emitted
 xss-rejected-23 -    ACCEPT  # hole not emitted

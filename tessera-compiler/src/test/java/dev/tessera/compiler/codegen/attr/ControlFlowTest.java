@@ -411,11 +411,20 @@ class ControlFlowTest {
     Compilation c =
         compile(
             "",
-            "<p t:remove=\"all\">a<b>b</b></p>|<p t:remove=\"body\">a<b>b</b></p>|"
-                + "<p t:remove=\"tag\">a<b>b</b></p>|<p t:remove=\"none\">a<b>b</b></p>|"
-                + "<ul t:remove=\"all-but-first\">\n  <li>1</li>\n  <li>2</li>\n  <li>3</li>\n</ul>");
-    assertEquals(
-        "|<p></p>|a<b>b</b>|<p>a<b>b</b></p>|<ul>\n  <li>1</li>\n  \n  \n</ul>", render(c, model()));
+            "<p t:remove=\"all\">a<b>b</b></p>|<p t:remove=\"tag\">a<b>b</b></p>");
+    assertEquals("|a<b>b</b>", render(c, model()));
+  }
+
+  /** #766: Thymeleaf's other values are build errors that name the static edit. */
+  @Test
+  void otherRemoveValuesAreRejected() {
+    compile("", "\n<p t:remove=\"body\">a</p>")
+        .assertError("page.html:2:", "t:remove=\"body\" is not supported; delete the element's content in the template"
+            + " instead");
+    compile("", "<ul t:remove=\"all-but-first\"><li>1</li><li>2</li></ul>")
+        .assertError("t:remove=\"all-but-first\" is not supported; delete every child element but the first in the"
+            + " template instead");
+    compile("", "<p t:remove=\"none\">a</p>").assertError("t:remove=\"none\" is not supported; delete the attribute");
   }
 
   @Test
@@ -429,8 +438,8 @@ class ControlFlowTest {
 
   @Test
   void removeNeedsALiteral() {
-    compile("String x", "<p t:remove=\"${x}\">a</p>").assertError("page.html:1:", "t:remove must be one of");
-    compile("", "<p t:remove=\"everything\">a</p>").assertError("t:remove must be one of");
+    compile("String x", "<p t:remove=\"${x}\">a</p>").assertError("page.html:1:", "t:remove must be all or tag");
+    compile("", "<p t:remove=\"everything\">a</p>").assertError("t:remove must be all or tag (got 'everything')");
   }
 
   @Test
@@ -486,9 +495,9 @@ class ControlFlowTest {
     Compilation c =
         compile(
             "String s",
-            "<svg t:remove=\"body\"><g></g></svg>|<svg t:remove=\"all\"><g></g></svg>|<svg></svg><i t:remove=\"tag\">[[s]]</i>");
+            "<svg t:remove=\"all\"><g></g></svg>|<svg></svg><i t:remove=\"tag\">[[s]]</i>");
     assertEquals(
-        "<svg></svg>||<svg></svg>&lt;x&gt;",
+        "|<svg></svg>&lt;x&gt;",
         render(c, model("s", "<x>")));
   }
 
@@ -497,12 +506,10 @@ class ControlFlowTest {
     Compilation c =
         compile(
             "String s",
-            "<title t:remove=\"body\">a</title>|<title t:remove=\"all-but-first\"><b>[[s]]</b></title>|"
-                + "<textarea t:remove=\"all\">x</textarea>|<textarea t:remove=\"none\"><b></textarea>|"
+            "<textarea t:remove=\"all\">x</textarea>|"
                 + "<t:block t:remove=\"tag\"><title>[[s]]</title></t:block>|<i t:remove=\"tag\"><title>[[s]]</title></i>");
     assertEquals(
-        "<title></title>|<title><b>&lt;x&gt;</b></title>||<textarea><b></textarea>|<title>&lt;x&gt;</title>|"
-            + "<title>&lt;x&gt;</title>",
+        "|<title>&lt;x&gt;</title>|<title>&lt;x&gt;</title>",
         render(c, model("s", "<x>")));
   }
 }

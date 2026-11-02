@@ -123,6 +123,5 @@ class ValueAfterAmpersandTest {
     String encoded = "<a href=\"&amp;#106;avascript:alert(1)\">x</a>";
     assertEquals(encoded, render("<a t:href=\"|&${s}|\">x</a>", s));
     assertEquals(encoded, render("<a t:href=\"'&' + s\">x</a>", s));
-    assertEquals(encoded, render("<a t:attr=\"href=|&${s}|\">x</a>", s));
   }
 }

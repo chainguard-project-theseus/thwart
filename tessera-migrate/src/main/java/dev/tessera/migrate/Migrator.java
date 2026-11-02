@@ -353,8 +353,8 @@ final class Migrator {
       if (!convertible) {
         return original; // left in place for the compiler to reject; roots would be guesses
       }
-      if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
-        return assignmentsValue(local, value, thymeleaf, line);
+      if (local.equals(ConversionRules.WITH)) {
+        return assignmentsValue(value, thymeleaf, line);
       }
       boolean selection = ConversionRules.SELECTION_VALUES.contains(local);
       boolean fragmentReference = ConversionRules.FRAGMENT_REFERENCES.contains(local);
@@ -396,8 +396,8 @@ final class Migrator {
       return value.substring(0, colon + 1) + rewritten;
     }
 
-    /** {@code name=expr, ...}: each expression is rewritten, and {@code with} names become locals. */
-    private String assignmentsValue(String local, String value, boolean thymeleaf, int line) {
+    /** {@code t:with="name=expr, ..."}: each expression is rewritten, and the names become locals. */
+    private String assignmentsValue(String value, boolean thymeleaf, int line) {
       List<String> parts = new ArrayList<>();
       for (String part : Expressions.splitTopLevel(value, false)) {
         int eq = Expressions.indexOfTopLevel(part, '=');
@@ -406,9 +406,7 @@ final class Migrator {
           continue;
         }
         String head = part.substring(0, eq + 1);
-        if (local.equals(ConversionRules.WITH)) {
-          locals.add(Compat.strip(part.substring(0, eq)));
-        }
+        locals.add(Compat.strip(part.substring(0, eq)));
         String expr = part.substring(eq + 1);
         String rewritten = selections(line,
             Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr));

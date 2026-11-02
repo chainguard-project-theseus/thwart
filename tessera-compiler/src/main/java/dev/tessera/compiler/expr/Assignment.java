@@ -4,7 +4,7 @@ import dev.tessera.compiler.SourcePos;
 import java.util.Objects;
 
 /**
- * {@code name=expr} in {@code t:with}, {@code t:attr} or link parameters. Attribute names may
+ * {@code name=expr} in {@code t:with} or link parameters. Attribute names may
  * contain {@code - : .}; link parameter names are plain identifiers. A link parameter written
  * without a value ({@code add} in {@code @{/cart(add, id=x)}}) has a {@code null} {@link #value()}.
  */

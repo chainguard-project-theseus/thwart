@@ -187,7 +187,7 @@ class ErrorFreeTest {
         .assertError("t.html:1:", "[verifier:SELECT_CONTENT]");
     Compilation.builder()
         .template("t.html", "<div " + NS + " t:params=\"String s\"><math><annotation-xml encoding=\"text/html\"><svg><foreignObject>"
-            + "<table t:fragment=\"frag(String s)\">&lt;<span t:attr=\"x=${s}\">x</span></table></foreignObject></svg>"
+            + "<table t:fragment=\"frag(String s)\">&lt;<span t:x=\"${s}\">x</span></table></foreignObject></svg>"
             + "</annotation-xml></math><select t:insert=\"~{:: frag(s)}\"></select></div>")
         .verifierOnly()
         .compile()
@@ -203,7 +203,7 @@ class ErrorFreeTest {
   @Test
   void crlfLineBreaksBeforeAnAttributeHoleLoseNothing() {
     String crlf = "\r\n\r\n\r\n\r\n";
-    verify("<table><tr><td><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></td></tr></table>")
+    verify("<table><tr><td><svg class=\"" + crlf + "y\" t:width=\"${s.length()}\"><rect></rect></svg></td></tr></table>")
         .assertError("t.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
     verify("<a href=\"/1\">x<a title=\"" + crlf + "y\" t:href=\"@{/x(q=${s})}\">z</a></a>")
         .assertError("t.html:1:", "Start tag \u201Ca\u201D seen but an element of the same type was already open",
@@ -211,7 +211,7 @@ class ErrorFreeTest {
     verify("<select><option>a</option><span title=\"" + crlf + "y\" t:text=\"s\">z</span></select>")
         .assertError("t.html:1:", "[verifier:SELECT_CONTENT]");
     // Without the error, the same shapes compile.
-    build("<div><span class=\"" + crlf + "y\" t:attr=\"title=${s}\"><b></b></span></div>").assertSuccess();
+    build("<div><span class=\"" + crlf + "y\" t:title=\"${s}\"><b></b></span></div>").assertSuccess();
   }
 
   /** Partials that parse only by error recovery are build errors (#406). */

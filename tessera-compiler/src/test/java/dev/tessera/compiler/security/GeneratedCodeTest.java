@@ -55,7 +55,7 @@ class GeneratedCodeTest {
                     + "<p>[[fmt.up(owner.name)]] [[#strings.isEmpty(q)]]</p>"
                     + "<a t:href=\"@{/owners/{id}(id=owner.name, q=q)}\" t:title=\"|Owner ${owner.name}|\">x</a>"
                     + "<ul t:unless=\"owner.pets.isEmpty()\"><li t:each=\"pet, st : owner.pets\" t:classappend=\"st.odd ? 'odd'\""
-                    + " t:attr=\"data-age=pet.age, data-idx=st.index\">"
+                    + " t:data-age=\"pet.age\" t:data-idx=\"st.index\">"
                     + "<span t:if=\"pet.age > 1 and pet.kind == 'CAT'\" t:text=\"pet.name\">p</span>"
                     + "<b t:switch=\"pet.kind\"><i t:case=\"'DOG'\">dog</i><i t:case=\"*\">other</i></b>"
                     + "<i t:with=\"n=pet.name ?: 'none'\" t:text=\"n\">n</i>"

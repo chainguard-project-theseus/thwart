@@ -243,7 +243,7 @@ class CspNonceTest {
 
   /** Negative: a computed nonce is off the computed-attribute list (#761), on any element. */
   @ParameterizedTest
-  @ValueSource(strings = {"<script t:nonce=\"${n}\">x();</script>", "<script t:attr=\"nonce=${n}\">x();</script>",
+  @ValueSource(strings = {"<script t:nonce=\"${n}\">x();</script>",
       "<link rel=\"preload\" t:nonce=\"${n}\">"})
   void computedNonceIsRejected(String element) {
     Compilation c =

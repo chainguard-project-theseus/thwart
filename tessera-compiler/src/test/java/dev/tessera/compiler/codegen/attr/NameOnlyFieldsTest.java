@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Fields whose type is never view-safe, such as a {@code MultipartFile}, can be bound by name where
  * the value is never read (#129): {@code t:field} on a file or password input, {@code t:errors},
- * {@code t:errorclass} and {@code fields.*}. Anything that would read the value is still rejected.
+ * {@code t:classappend} and {@code fields.*}. Anything that would read the value is still rejected.
  */
 class NameOnlyFieldsTest {
   private static final String HEAD =
@@ -73,7 +73,7 @@ class NameOnlyFieldsTest {
   void fileInputErrorsAndFieldsCompileWithoutReadingTheValue() {
     Compilation c =
         compile(
-            "<input type=\"file\" class=\"in\" t:errorclass=\"bad\" t:field=\"*{file}\">"
+            "<input type=\"file\" class=\"in\" t:classappend=\"fields.hasErrors(*{file}) ? 'bad'\" t:field=\"*{file}\">"
                 + "<span t:errors=\"*{file}\"></span>"
                 + "<input type=\"FILE\" t:field=\"*{attachments[0]}\">"
                 + "<p t:if=\"${fields.hasErrors('attachments')}\" t:text=\"${fields.errors('attachments')}\"></p>"

@@ -859,7 +859,7 @@ class HtmlParserTest {
         div.children().stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
     parseOk("<math><mtext><textarea><b>x</b></textarea></mtext><mi><title><i>t</i></title></mi></math>");
     parseOk("<svg><desc><b>x</b></desc></svg>");
-    parseOk("<svg><t:block><foreignObject t:remove=\"none\"><t:block><title><b>t</b></title></t:block>"
+    parseOk("<svg><t:block><foreignObject t:remove=\"all\"><t:block><title><b>t</b></title></t:block>"
         + "</foreignObject></t:block></svg>");
     parseOk("<math><annotation-xml><svg><title>t</title></svg></annotation-xml></math><title><b>html</b></title>");
   }

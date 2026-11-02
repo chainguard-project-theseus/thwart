@@ -21,7 +21,7 @@ class FieldSubPathsTest {
       "<div " + NS + " t:import=\"com.example.Criterion\">"
           + "<div t:fragment=\"criterion(Field<Criterion> c)\" t:classappend=\"fields.hasErrors(c.answer) ? 'bad'\">"
           + "<input type=\"checkbox\" t:field=\"c.answer\" />"
-          + "<input type=\"text\" t:field=\"c.description\" t:errorclass=\"err\" />"
+          + "<input type=\"text\" t:field=\"c.description\" t:classappend=\"fields.hasErrors(c.description) ? 'err'\" />"
           + "<span t:errors=\"c.description\">E</span>"
           + "<t:block t:replace=\"~{:: area(c.description)}\"></t:block></div>"
           + "<textarea t:fragment=\"area(Field<String> f)\" t:field=\"f\"></textarea>"

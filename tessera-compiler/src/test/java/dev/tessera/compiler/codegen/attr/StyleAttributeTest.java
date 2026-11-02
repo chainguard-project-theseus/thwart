@@ -99,8 +99,8 @@ class StyleAttributeTest {
     assertEquals(
         "<p style=\"color: #000\">x</p>", render("<p t:style=\"|color: ${css.color(s) ?: css.color('#000')}|\">x</p>", "s", "bad"));
     assertEquals(
-        "<p style=\"display:none\">x</p>", render("<p t:attr=\"style=${b} ? 'display:none' : null\">x</p>", "b", true));
-    assertEquals("<p>x</p>", render("<p t:attr=\"style=${b} ? 'display:none' : null\">x</p>", "b", false));
+        "<p style=\"display:none\">x</p>", render("<p t:style=\"${b} ? 'display:none' : null\">x</p>", "b", true));
+    assertEquals("<p>x</p>", render("<p t:style=\"${b} ? 'display:none' : null\">x</p>", "b", false));
     // No else branch: the attribute is omitted when the condition is false.
     assertEquals("<p style=\"display:none\">x</p>", render("<p t:style=\"${b} ? 'display:none'\">x</p>", "b", true));
     assertEquals("<p>x</p>", render("<p t:style=\"${b} ? 'display:none'\">x</p>", "b", false));
@@ -132,8 +132,8 @@ class StyleAttributeTest {
         "<p t:style=\"b ? s\">x</p>",
         "<p t:style=\"|a: ${|${s}|}|\">x</p>",
         "<p t:STYLE=\"s\">x</p>",
-        "<p t:attr=\"style=s\">x</p>",
-        "<p t:attr=\"style='color:' + s\">x</p>",
+        "<p t:style=\"s\">x</p>",
+        "<p t:style=\"'color:' + s\">x</p>",
       })
   void stringValuesAreBuildErrors(String body) {
     compile(body).assertError("t.html:1:", "is not allowed", "style value", "t:class");

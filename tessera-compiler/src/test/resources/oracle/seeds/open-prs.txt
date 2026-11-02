@@ -1002,7 +1002,7 @@ var y = "<script>";
 # expect-0dda2f1: CLEAN
 # main: CLEAN
 # note: rejected by #301; no finding on 0dda2f1 with the #306 values
-<div t:params="String x"><svg><font t:attr="size=${x}">x</font></svg></div>
+<div t:params="String x"><svg><font t:size="${x}">x</font></svg></div>
 ====
 # name: pr301-16
 # expect-0dda2f1: CLEAN
@@ -1310,7 +1310,7 @@ var t = "${" + "[[x]]";</script></div>
 ====
 # <annotation-xml> encoding (#364). Tessera's parser (HtmlParser.htmlAnnotation, #301, #454) reads
 # an annotation-xml as an HTML integration point only for a static text/html or
-# application/xhtml+xml encoding that no t:encoding, no t:attr naming encoding, and no other t:attr*
+# application/xhtml+xml encoding that no t:encoding
 # can change; a browser reads the encoding it receives. The verifier (#390) rejects a
 # computed encoding (ATTRIBUTE_VALUE_CHANGES_PARSE). Each note ends with the seed's verdict on
 # main from the gate's checks (ProfileOracleTest.check: renders with tqm0001, Fingerprint.value(1)
@@ -1350,42 +1350,42 @@ var t = "${" + "[[x]]";</script></div>
 ====
 # name: ax-attr-1
 # expect-0dda2f1: CLEAN
-# note: a t:attr that sets only id keeps the static text/html (#454): Tessera and vnu-26 read <mi> as HTML. Accepted, clean
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><mi>[[s]]</mi></annotation-xml></math>
+# note: a t:id keeps the static text/html (#454): Tessera and vnu-26 read <mi> as HTML. Accepted, clean
+<math><annotation-xml encoding="text/html" t:id="${s}"><mi>[[s]]</mi></annotation-xml></math>
 ====
 # name: ax-attr-2
 # expect-0dda2f1: CLEAN
 # note: as ax-attr-1 with <p>: Tessera reads it as HTML, not a foreign-content breakout. Accepted, clean since #454; REJECTED on 977929f, before it
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><p>[[s]]</p></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:id="${s}"><p>[[s]]</p></annotation-xml></math>
 ====
 # name: ax-attr-3
 # expect-0dda2f1: CLEAN
 # note: as ax-attr-1: <style>p{}</style> is HTML raw text and the hole is text in <mi>. Accepted, clean
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><style>p{}</style><mi>[[s]]</mi></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:id="${s}"><style>p{}</style><mi>[[s]]</mi></annotation-xml></math>
 ====
 # name: ax-attr-4
 # expect-0dda2f1: CLEAN
 # note: as ax-attr-1 with <title>: Tessera escapes it as HTML RCDATA ({{ stays {{). Accepted, clean since #454; CONTEXT_MISMATCH on 977929f, before it, where Tessera read the <title> as MathML and wrote {<!---->{
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><title>[[s]]</title></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:id="${s}"><title>[[s]]</title></annotation-xml></math>
 ====
 # name: ax-attr-5
 # expect-0dda2f1: CLEAN
-# note: control for ax-attr-4: t:id is not t:attr*, so Tessera keeps the static encoding and escapes the title as RCDATA. Accepted, clean
+# note: control for ax-attr-4: t:id cannot change the encoding, so Tessera keeps the static encoding and escapes the title as RCDATA. Accepted, clean
 <math><annotation-xml encoding="text/html" t:id="s"><title>[[s]]</title></annotation-xml></math>
 ====
 # name: ax-attr-6
 # expect-0dda2f1: CLEAN
 # note: as ax-attr-4 with <textarea>, escaped as HTML RCDATA. Accepted, clean since #454; CONTEXT_MISMATCH on 977929f, before it
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><textarea>[[s]]</textarea></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:id="${s}"><textarea>[[s]]</textarea></annotation-xml></math>
 ====
 # name: ax-attr-7
 # expect-0dda2f1: CLEAN
 # note: as ax-attr-1 with <script>: an HTML script for Tessera and vnu-26; the JSON value is one literal. Accepted, clean
-<math><annotation-xml encoding="text/html" t:attr="id=${s}"><script>var a = [[s]];</script></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:id="${s}"><script>var a = [[s]];</script></annotation-xml></math>
 ====
 # name: ax-attr-8
 # expect-0dda2f1: REJECTED
-# note: a t:attr that does not parse may set anything, so Tessera reads the children as MathML; the profile rejects it ("expected '=' after 'id'"). Rejected by the profile
+# note: t:attr is rejected since #766 ("t:attr is not supported"); before it a t:attr that did not parse could set anything, so Tessera read the children as MathML. Rejected by the profile
 <math><annotation-xml encoding="text/html" t:attr="id ${s}"><title>[[s]]</title></annotation-xml></math>
 ====
 # name: ax-enc-1
@@ -1396,13 +1396,13 @@ var t = "${" + "[[x]]";</script></div>
 ====
 # name: ax-enc-2
 # expect-0dda2f1: CLEAN
-# note: rejected by the verifier (#390, ATTRIBUTE_VALUE_CHANGES_PARSE): t:attr sets the encoding; <style> is MathML for s=tqm0001 and HTML raw text for s=text/html
-<math><annotation-xml t:attr="encoding=${s}"><style>p{}</style></annotation-xml></math>
+# note: rejected by the verifier (#390, ATTRIBUTE_VALUE_CHANGES_PARSE): t:encoding sets the encoding; <style> is MathML for s=tqm0001 and HTML raw text for s=text/html
+<math><annotation-xml t:encoding="${s}"><style>p{}</style></annotation-xml></math>
 ====
 # name: ax-enc-3
 # expect-0dda2f1: CLEAN
 # note: rejected by the verifier (#390, ATTRIBUTE_VALUE_CHANGES_PARSE): the computed ENCODING replaces the static one in the render; <mi> is MathML for s=tqm0001 and HTML for s=text/html
-<math><annotation-xml encoding="text/html" t:attr="ENCODING=${s}"><mi>[[s]]</mi></annotation-xml></math>
+<math><annotation-xml encoding="text/html" t:ENCODING="${s}"><mi>[[s]]</mi></annotation-xml></math>
 ====
 # name: ax-enc-4
 # expect-0dda2f1: CLEAN
@@ -1417,7 +1417,7 @@ var t = "${" + "[[x]]";</script></div>
 # name: ax-enc-6
 # expect-0dda2f1: CLEAN
 # note: rejected by the verifier (#390, ATTRIBUTE_VALUE_CHANGES_PARSE): the encoding is the only hole; <title>x</title> is MathML for s=tqm0001 and HTML RCDATA for s=text/html
-<math><annotation-xml t:attr="encoding=${s}"><title>x</title></annotation-xml></math>
+<math><annotation-xml t:encoding="${s}"><title>x</title></annotation-xml></math>
 ====
 # name: ax-enc-7
 # expect-0dda2f1: CONTEXT_MISMATCH CSTI
