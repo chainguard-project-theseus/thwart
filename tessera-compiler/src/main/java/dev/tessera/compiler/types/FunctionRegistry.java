@@ -41,8 +41,9 @@ import javax.lang.model.util.Types;
  * argument: the compiler passes the render locale ({@code ctx.locale()}) to it ({@link
  * #takesLocale}).
  */
-final class FunctionRegistry {
-  static final String RESERVED = "fields";
+public final class FunctionRegistry {
+  /** The reserved {@code fields} namespace (form fields and errors, Thymeleaf's {@code #fields}). */
+  static final String FIELDS = "fields";
   /** The reserved {@code ids} namespace ({@code IdsCompiler}, Thymeleaf's {@code #ids}). */
   static final String IDS = "ids";
   private static final String FUNCTIONS = TemplateFunctions.class.getName();
@@ -139,12 +140,12 @@ final class FunctionRegistry {
     looked.add(ns); // the index never overrides a class seen here, even a rejected one
     SourcePos pos = positionOf(te);
     String className = te.getQualifiedName().toString();
-    if (!SourceVersion.isIdentifier(ns) || SourceVersion.isKeyword(ns)) {
+    if (!isValidNamespace(ns)) {
       env.diagnostics().error(pos, "invalid function namespace '" + ns + "' on " + className + ": must be a Java identifier");
       return;
     }
-    if (ns.equals(RESERVED)) {
-      env.diagnostics().error(pos, "function namespace '" + RESERVED + "' on " + className + " is reserved for form errors");
+    if (ns.equals(FIELDS)) {
+      env.diagnostics().error(pos, "function namespace '" + FIELDS + "' on " + className + " is reserved for form fields");
       return;
     }
     if (ns.equals(IDS)) {
@@ -310,7 +311,13 @@ final class FunctionRegistry {
     return out;
   }
 
-  private static String namespaceOf(TypeElement te) {
+  /** Whether {@code ns} can name a function namespace: a Java identifier that is not a keyword. */
+  public static boolean isValidNamespace(String ns) {
+    return SourceVersion.isIdentifier(ns) && !SourceVersion.isKeyword(ns);
+  }
+
+  /** The {@code @TemplateFunctions} value on {@code te}, or null when it has none. */
+  public static String namespaceOf(TypeElement te) {
     AnnotationMirror am = ViewSafety.annotation(te, FUNCTIONS);
     if (am == null) {
       return null;

@@ -19,4 +19,7 @@ final class BuiltinNamespaces {
           "dev.tessera.runtime.fn.Css",
           "dev.tessera.runtime.fn.Html",
           "dev.tessera.spring.fn.Auth");
+
+  /** The namespaces of the {@code dev.tessera.runtime.fn} classes above, for messages ({@code auth} needs the starter). */
+  static final List<String> NAMES = Backports.listOf("strings", "numbers", "temporals", "lists", "css", "html");
 }

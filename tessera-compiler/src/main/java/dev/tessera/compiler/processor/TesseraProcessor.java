@@ -9,6 +9,7 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.TemplateCompiler;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
+import dev.tessera.compiler.types.FunctionRegistry;
 import dev.tessera.compiler.verify.ContextVerifier;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.TemplateFunctions;
@@ -28,10 +29,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
@@ -265,8 +263,8 @@ public final class TesseraProcessor extends AbstractProcessor {
   private static List<GeneratedFile> functionIndex(List<TypeElement> classes) {
     Map<String, GeneratedFile> out = new LinkedHashMap<>();
     for (TypeElement te : classes) {
-      String ns = namespaceOf(te);
-      if (ns != null && SourceVersion.isIdentifier(ns) && !SourceVersion.isKeyword(ns)) {
+      String ns = FunctionRegistry.namespaceOf(te);
+      if (ns != null && FunctionRegistry.isValidNamespace(ns)) {
         // Duplicates are reported by the function registry when templates use functions.
         out.putIfAbsent(ns, new GeneratedFile(GeneratedFile.Kind.RESOURCE, FUNCTION_INDEX + ns, te.getQualifiedName() + "\n"));
       }
@@ -274,22 +272,9 @@ public final class TesseraProcessor extends AbstractProcessor {
     return new ArrayList<>(out.values());
   }
 
-  private static String namespaceOf(TypeElement te) {
-    for (AnnotationMirror am : te.getAnnotationMirrors()) {
-      if (((TypeElement) am.getAnnotationType().asElement()).getQualifiedName().contentEquals(FUNCTIONS_ANNOTATION)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String) {
-            return (String) e.getValue().getValue();
-          }
-        }
-      }
-    }
-    return null;
-  }
-
   /** The class an earlier compilation indexed for {@code ns}, read from the classpath, or null. */
   private String indexedFunctionClass(String ns) {
-    if (!SourceVersion.isIdentifier(ns) || SourceVersion.isKeyword(ns)) {
+    if (!FunctionRegistry.isValidNamespace(ns)) {
       return null;
     }
     try {
