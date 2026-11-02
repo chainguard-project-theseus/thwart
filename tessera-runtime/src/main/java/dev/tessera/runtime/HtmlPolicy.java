@@ -189,6 +189,10 @@ public final class HtmlPolicy {
   /**
    * A builder for an inline policy, the only kind {@link SafeInlineHtml#sanitize} takes: as
    * {@link #builder()}, but {@link Builder#allowElements} accepts only {@link #INLINE_ELEMENTS}.
+   * As with any policy, allowing {@code img} keeps its {@code src} without
+   * {@link Builder#allowAttributes} ({@code src} is not in {@link #ATTRIBUTES}), but only a
+   * same-origin path starting with a single {@code /}; an image with any other {@code src} (a
+   * relative path such as {@code ../x.gif}, another host, {@code data:}) is dropped.
    */
   public static Builder inlineBuilder() {
     return new Builder(true);
