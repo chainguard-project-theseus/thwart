@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
  */
 class VnuTreesTest {
 
-  private static String tree(String engine, String html, boolean scripting) {
-    return VnuTrees.tree(SpecParsers.named(engine), html, scripting);
+  private static String tree(String html, boolean scripting) {
+    return VnuTrees.tree(html, scripting);
   }
 
   private static String body(String html) {
-    String t = tree(SpecParsers.VNU_26, "<body>" + html, true);
+    String t = tree("<body>" + html, true);
     String prefix = "[[\"html\",\"html\",[],[[\"head\",\"html\",[],[]],[\"body\",\"html\",[],";
     assertTrue(t.startsWith(prefix), t);
     return t.substring(prefix.length(), t.length() - "]]]]".length());
@@ -55,11 +55,11 @@ class VnuTreesTest {
   @Test
   void scriptingIsKeptApart() {
     String html = "<body><noscript><b>n</b></noscript>";
-    assertTrue(tree(SpecParsers.VNU_26, html, true).contains("[\"noscript\",\"html\",[],[\"<b>n</b>\"]]"));
-    assertTrue(tree(SpecParsers.VNU_26, html, false).contains("[\"noscript\",\"html\",[],[[\"b\",\"html\",[],[\"n\"]]]]"));
+    assertTrue(tree(html, true).contains("[\"noscript\",\"html\",[],[\"<b>n</b>\"]]"));
+    assertTrue(tree(html, false).contains("[\"noscript\",\"html\",[],[[\"b\",\"html\",[],[\"n\"]]]]"));
     String json = VnuTrees.json(html);
-    assertEquals("{\"scripting-on\":" + tree(SpecParsers.VNU_26, html, true) + ",\"scripting-off\":"
-        + tree(SpecParsers.VNU_26, html, false) + "}", json);
+    assertEquals("{\"scripting-on\":" + tree(html, true) + ",\"scripting-off\":"
+        + tree(html, false) + "}", json);
   }
 
   private static final Pattern RECORD = Pattern.compile(

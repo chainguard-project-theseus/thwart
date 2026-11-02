@@ -45,7 +45,7 @@ class LeadingLineFeedTest {
 
   /** The text content of the first {@code element} in {@code html}, as the spec parser builds it. */
   private static String dom(String html, String element) {
-    Document d = SpecParsers.named(SpecParsers.VNU_26).parse(html, true);
+    Document d = SpecParser.parse(html, true);
     return ((Element) d.getElementsByTagName(element).item(0)).getTextContent();
   }
 

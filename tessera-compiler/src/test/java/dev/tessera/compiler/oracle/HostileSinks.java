@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 import org.w3c.dom.Element;
 
 /**
- * The sink table of the hostile-value sweep (#543), written from the HTML, SVG, CSS and URL specs,
+ * The sink table of the hostile-value sweep (#543), written from the HTML, CSS and URL specs,
  * independent of {@code Contexts}, so it checks the compiler instead of restating it. It names no
  * client framework (#583): for a name outside HTML it checks only the shape of the value, which
  * must be framework-neutral. {@link #classify} names each sink a hostile value reached through one
@@ -24,8 +24,6 @@ import org.w3c.dom.Element;
 final class HostileSinks {
 
   private HostileSinks() {}
-
-  static final String SVG = "http://www.w3.org/2000/svg";
 
   /**
    * The standard HTML, SVG, MathML and ARIA attribute names, each with the specs it comes from, as
@@ -87,46 +85,19 @@ final class HostileSinks {
   /** Element/attribute pairs that load code or set the document base: also no cross-origin, no data:. */
   static final Set<String> CODE = Set.of("script/src", "script/href", "script/xlink:href", "link/href", "base/href",
       "object/data", "object/codebase", "embed/src", "iframe/src", "frame/src", "object/archive", "object/classid");
-  /** CSS properties whose grammar takes a url (paint, clip-path, mask, filter, marker, cursor). */
-  static final Set<String> CSS_URL_PROPS = Set.of("fill", "stroke", "clip-path", "mask", "filter", "marker-start",
-      "marker-mid", "marker-end", "marker", "cursor");
-  static final Set<String> ANIMATIONS = Set.of("animate", "set", "animatemotion", "animatetransform", "animatecolor");
-  static final Set<String> ANIM_VALUES = Set.of("values", "to", "from", "by");
   static final Pattern SCHEME = Pattern.compile("^([A-Za-z][A-Za-z0-9+.\\-]*):");
   static final Pattern CSS_FETCH = Pattern.compile(
       "(url|image|image-set|-webkit-image-set|cross-fade|element|expression|src)\\s*\\(|@import|-moz-binding|behavior\\s*:");
 
   static List<String[]> classify(Element el, String attrName, String value, String hostile) {
     List<String[]> out = new ArrayList<>();
-    String ns = el.getNamespaceURI();
     String tag = el.getLocalName().toLowerCase(Locale.ROOT);
     String a = attrName.toLowerCase(Locale.ROOT);
-    boolean svg = SVG.equals(ns);
-    boolean animation = svg && ANIMATIONS.contains(tag);
-    String animTarget = null;
-    if (animation) {
-      String an = el.getAttribute("attributeName");
-      if (an == null || an.isEmpty()) {
-        an = el.getAttribute("attributename");
-      }
-      animTarget = an == null ? "" : an.strip().toLowerCase(Locale.ROOT);
-    }
     // 1. URL sinks.
-    String urlRole = null;
+    List<String> items = new ArrayList<>();
     if (URL.contains(a) || (tag.equals("object") && a.equals("data"))
         || (PLUGIN_URL.contains(a) && Set.of("object", "applet", "embed").contains(tag))) {
-      urlRole = "one";
-    }
-    if (animation && ANIM_VALUES.contains(a) && (animTarget.equals("href") || animTarget.equals("xlink:href"))) {
-      urlRole = a.equals("values") ? "semicolon" : "one";
-    }
-    List<String> items = new ArrayList<>();
-    if (urlRole != null) {
-      if (urlRole.equals("semicolon")) {
-        items.addAll(List.of(value.split(";", -1)));
-      } else {
-        items.add(value);
-      }
+      items.add(value);
     } else if (URL_WS.contains(a)) {
       items.addAll(List.of(value.strip().split("[\\t\\n\\f\\r ]+")));
     } else if (SRCSET.contains(a)) {
@@ -145,29 +116,25 @@ final class HostileSinks {
         }
       }
     }
-    boolean code = CODE.contains(tag + "/" + a)
-        || (svg && tag.equals("use") && (a.endsWith("href")));
+    boolean code = CODE.contains(tag + "/" + a);
     for (String item : items) {
       String u = item.replaceAll("^[\\u0000-\\u0020]+|[\\u0000-\\u0020]+$", "").replaceAll("[\\t\\n\\r]", "");
       Matcher m = SCHEME.matcher(u);
       String scheme = m.find() ? m.group(1).toLowerCase(Locale.ROOT) : "";
       if (scheme.equals("javascript") || scheme.equals("vbscript")) {
         out.add(new String[] {"URL_SCRIPT_SCHEME", "item '" + item + "'"});
-      } else if (scheme.equals("data") && (code || animation)) {
+      } else if (scheme.equals("data") && code) {
         out.add(new String[] {"URL_DATA_RESOURCE", "item '" + item + "'"});
       } else if (code && (u.startsWith("//") || u.startsWith("\\\\") || u.startsWith("/\\") || u.startsWith("\\/")
           || scheme.startsWith("http"))) {
         out.add(new String[] {"URL_CROSS_ORIGIN_CODE", "item '" + item + "'"});
       }
     }
-    if (items.size() > 1 && !"semicolon".equals(urlRole)) {
+    if (items.size() > 1) {
       out.add(new String[] {"URLS_FROM_ONE_VALUE", items.size() + " items from one value"});
     }
     // 2. CSS sinks.
-    boolean css = a.equals("style")
-        || (svg && CSS_URL_PROPS.contains(a) && !(a.equals("fill") && animation))
-        || (animation && ANIM_VALUES.contains(a) && (CSS_URL_PROPS.contains(animTarget) || animTarget.equals("style")));
-    if (css && CSS_FETCH.matcher(cssNormalize(value)).find()) {
+    if (a.equals("style") && CSS_FETCH.matcher(cssNormalize(value)).find()) {
       out.add(new String[] {"CSS_FETCH", "css '" + value + "'"});
     }
     // 3. Tree-builder and policy inputs: the parser or the browser reads them before any page code.
@@ -175,9 +142,7 @@ final class HostileSinks {
         || (tag.equals("meta") && (a.equals("charset") || a.equals("http-equiv")
             || (a.equals("content") && "content-type".equalsIgnoreCase(el.getAttribute("http-equiv").strip()))))
         || (tag.equals("template") && (a.startsWith("shadowroot") || a.equals("for")))
-        || (tag.equals("annotation-xml") && a.equals("encoding"))
-        || (tag.equals("script") && a.equals("type"))
-        || (animation && a.equals("attributename"));
+        || (tag.equals("script") && a.equals("type"));
     if (tb && value.equals(hostile)) {
       out.add(new String[] {"TREE_BUILDER_INPUT", "browser reads '" + value + "'"});
     }

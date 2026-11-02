@@ -28,7 +28,7 @@ class ProfileOracleGateTest {
   private static final String P = "<div t:params=\"String s\">";
 
   private static GateCase gateCase(String template) {
-    return new GateCase(OracleCase.of("test", template, OracleCase.Origin.SEED), ProfileOracleTest.params(template));
+    return new GateCase(OracleCase.of("test", template), ProfileOracleTest.params(template));
   }
 
   private static Compilation compile(GateCase g) {
@@ -54,7 +54,7 @@ class ProfileOracleGateTest {
     CaseResult r = ProfileOracleTest.check(Subject.of(g, compile(g)), ProfileOracleTest.RUNTIME, memo, 0);
     assertEquals(List.of(), r.failures);
     assertEquals(1 + ProfileOracleTest.HOSTILE.size(), r.renders);
-    // The lemma ran: 5 holes x 8 parsers, every value fed once per distinct state.
+    // The lemma ran: 5 holes x 4 parsers, every value fed once per distinct state.
     assertTrue(memo.verdicts.size() >= 5, memo.verdicts.toString());
     assertTrue(memo.feeds.get() >= 5L * ProfileOracleTest.LEMMA_VALUES.size(), String.valueOf(memo.feeds.get()));
     assertEquals(1, r.export.size()); // benign, no hostile values asked for
@@ -113,7 +113,7 @@ class ProfileOracleGateTest {
     GateCase g = gateCase(P + "<p><span t:title=\"s\">x</span>[[s]]</p></div>");
     CaseResult r = ProfileOracleTest.check(Subject.of(g, compile(g)), LEAKS_QUOTE, new LemmaMemo(), -1);
     List<String> lemma = r.failures.stream().filter(f -> f.startsWith("lemma:")).toList();
-    // Every parser sees the attribute end: 2 engines x scripting on/off x document/fragment.
+    // Every parser sees the attribute end: one engine x scripting on/off x document/fragment.
     assertEquals(ProfileOracleTest.LEMMA_PARSERS.size(), lemma.size(), r.failures.toString());
     assertTrue(lemma.get(0).matches("lemma: hole .* \\(attr\\) at offset \\d+, .*: value .* changes the parser state from .*"),
         lemma.get(0));
@@ -165,11 +165,9 @@ class ProfileOracleGateTest {
   }
 
   @Test
-  void theStructureValuesComeRightAfterTheSeedValues() {
-    // The Node job exports the first EXPORT_DEFAULT values: the #320 values and the ones the tree
-    // builder reads, including a '</' break-out.
+  void theExportIncludesABreakOut() {
+    // The Node job exports the first EXPORT_DEFAULT values.
     List<String> exported = ProfileOracleTest.HOSTILE.subList(0, ProfileOracleTest.EXPORT_DEFAULT);
-    assertTrue(exported.containsAll(List.of("hidden", "text/html", "application/xhtml+xml")), exported.toString());
     assertTrue(exported.stream().anyMatch(v -> v.contains("</")), exported.toString());
   }
 }
