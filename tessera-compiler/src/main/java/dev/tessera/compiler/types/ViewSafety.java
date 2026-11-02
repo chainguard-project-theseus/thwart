@@ -6,6 +6,7 @@ import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.runtime.LoopStatus;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.SafeInlineHtml;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
@@ -103,6 +104,7 @@ public final class ViewSafety {
       Backports.setOf(
           LoopStatus.class.getName(),
           SafeHtml.class.getName(),
+          SafeInlineHtml.class.getName(),
           CssValue.class.getName());
 
   /**

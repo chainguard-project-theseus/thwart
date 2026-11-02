@@ -549,6 +549,46 @@ Don't parse stored HTML in Java into records and
 rebuild it with a fragment that inserts itself: the compiler rejects it, because the page's
 structure would depend on data.
 
+**Inline HTML in a paragraph, heading, link or button.** A `SafeHtml` may hold blocks, so the
+compiler rejects it inside an open `<p>`, heading, `<a>` or `<button>` (`RAW_CLOSES_ELEMENT`): a
+`<p>` or `<div>` in the value would close the element around it. For a value with inline markup
+only (a bio with `<b>`, lines joined with `<br>`), return a `SafeInlineHtml` instead: it is
+accepted wherever an HTML message is. Its policy comes from `HtmlPolicy.inlineBuilder()`, which
+allows only names from `HtmlPolicy.INLINE_ELEMENTS` (`b i em strong small s u sub sup code kbd
+mark abbr cite q dfn time span br wbr img`), so no links and no blocks. Join lines with `concat`
+and `escape`:
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import dev.tessera.runtime.HtmlPolicy;
+import dev.tessera.runtime.SafeInlineHtml;
+import dev.tessera.runtime.TemplateFunction;
+import dev.tessera.runtime.TemplateFunctions;
+
+@TemplateFunctions("inline")
+public final class InlineFunctions {
+  private static final HtmlPolicy POLICY = HtmlPolicy.inlineBuilder().allowElements("b", "i", "span", "br").build();
+  private static final SafeInlineHtml BR = SafeInlineHtml.sanitize("<br>", POLICY);
+
+  private InlineFunctions() {}
+
+  @TemplateFunction
+  public static SafeInlineHtml bio(Object text) {
+    return SafeInlineHtml.sanitize(text == null ? null : text.toString(), POLICY);
+  }
+
+  @TemplateFunction
+  public static SafeInlineHtml twoLines(Object first, Object second) {
+    return SafeInlineHtml.concat(SafeInlineHtml.escape(String.valueOf(first)), BR, SafeInlineHtml.escape(String.valueOf(second)));
+  }
+}
+```
+
+Then `<p t:utext="inline.bio(speaker.bio)">bio</p>` compiles, and so does an `<a>` or `<h3>` around
+it. Content with links or blocks stays a `SafeHtml`, inserted in a `<div>`.
+
 In Java, `SafeHtml.escape`, `SafeHtml.concat` and `SafeHtml.sanitize` build markup from checked
 parts. Nothing wraps a string or a template's output unchecked: insert the other template with
 `t:insert` instead.
@@ -929,7 +969,7 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
   with `| raw`, Mustache with `{{{x}}}`. Treat each raw output as a review point and replace it by
   where the value comes from: plain data becomes an escaped `t:text` (if the page now shows
   `&lt;b&gt;`, the old page was injectable, and that difference is the fix); stored rich text goes
-  through a sanitizer (section 4.4, Rich text); markup built in Java becomes records the template
+  through a sanitizer (section 4.4, Rich text; in a `<p>`, heading or link, Inline HTML); markup built in Java becomes records the template
   renders; a bundle message with markup is `t:utext="#{key}"` (section 4.5); JSON for a script is
   `[[...]]` (section 4.4).
 - **Scripts.** `[[...]]` writes JSON with `/` as `\/`, and `<`, `>`, `&`, `'`, backtick, `$`, `{`,
@@ -1070,7 +1110,7 @@ Gaps in Tessera today, with what to do instead.
 | `TEXT_IN_SCRIPT`, `JSON_NOT_IN_SCRIPT` | A value in a script or style position the compiler doesn't accept | A prelude declaration or a JSON block (4.4, Scripts); no expressions in `<style>` (4.4, CSS) |
 | `TEXT_NOT_IN_TEXT` | A value inside a comment, a tag, or right after `&` or `<` | Move it into element text or a `t:` attribute; finish the character reference |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | Static markup around a computed attribute changes which attribute it lands in (an unclosed quote, a duplicate) | Fix the static tag; one attribute per name |
-| `RAW_NOT_FLOW`, `RAW_CLOSES_ELEMENT` | A `SafeHtml`, HTML message or `Fragment` where its markup would leave its place: in a table part, in a `<p>` or heading, inside a link (for a message with links), in a `<select>` | Insert it into a `<div>` or a cell; split the message (4.5) |
+| `RAW_NOT_FLOW`, `RAW_CLOSES_ELEMENT` | A `SafeHtml`, HTML message or `Fragment` where its markup would leave its place: in a table part, in a `<p>` or heading, inside a link (for a message with links), in a `<select>` | Inline-only HTML in a `<p>`, heading, link or button: a `SafeInlineHtml` (4.4, Inline HTML); otherwise a `<div>` or a cell; split the message (4.5) |
 | `VALUE_IN_FOREIGN` | A value, condition, loop or fragment inside `<svg>` or `<math>` | Static SVG; set what changes outside it with a `t:class` or a CSS variable, one `<svg>` per case, or an `<img>` (4.4) |
 | `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
 | `VALUE_IN_RAW_TEXT` | A value inside `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` | Static content; move the value outside the element |

@@ -20,6 +20,7 @@ import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.HtmlPolicy;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.SafeInlineHtml;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -176,6 +177,71 @@ class FlowProducerTest {
     // An open link is the one place the linked message is rejected.
     for (Parser p : entries("<!DOCTYPE html><a href=\"/x\">")) {
       assertNotNull(ContentKinds.problem(p.state(), Skeleton.Source.LINKED_HTML_MESSAGE));
+    }
+  }
+
+  /**
+   * The producer side of {@code SafeInlineHtml} (#397), PHRASING without links: a hostile sweep over
+   * the whole inline allow-list, every element with every attribute, nested, misnested and mixed
+   * with blocks and links, sanitized by the widest inline policy, and escaped text and {@code
+   * concat}, leave the parser as it was at every FLOW insertion point and in an open paragraph,
+   * heading, link, button, nobr or ruby. The verifier accepts each of these.
+   */
+  @Test
+  void safeInlineHtmlLeavesTheStateAsItWas() throws EngineException {
+    HtmlPolicy widest =
+        HtmlPolicy.inlineBuilder()
+            .allowElements(HtmlPolicy.INLINE_ELEMENTS.toArray(new String[0]))
+            .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
+            .allowClasses(SanitizerBalanceTest.EVERY_CLASS)
+            .build();
+    List<String> inputs = new ArrayList<>(List.of(SanitizerBalanceTest.HOSTILE));
+    inputs.addAll(List.of(SanitizerBalanceTest.FORBIDDEN_CODE_POINTS));
+    inputs.addAll(fuzz(200));
+    List<String> tags = new ArrayList<>(List.of("<p>", "<div>", "<a href=/x>", "</a>", "<h2>", "<button>", "<li>", "<nobr>",
+        "<rt>", "<table>", "<td>", "<select>", "text", "&amp;", "<"));
+    for (String name : HtmlPolicy.INLINE_ELEMENTS) {
+      tags.add("<" + name + " id=x class=c title='t\"' alt=a src=/i.png width=1 datetime=2020>");
+      tags.add("</" + name + ">");
+    }
+    Random random = new Random(397);
+    for (int i = 0; i < 300; i++) {
+      StringBuilder sb = new StringBuilder();
+      for (int j = 1 + random.nextInt(30); j > 0; j--) {
+        sb.append(tags.get(random.nextInt(tags.size())));
+      }
+      inputs.add(sb.toString());
+    }
+    List<String> contexts = new ArrayList<>(List.of(CONTEXTS));
+    contexts.addAll(List.of(PHRASING_CONTEXTS));
+    contexts.add("<!DOCTYPE html><a href=\"/x\">");
+    contexts.add("<!DOCTYPE html><h1><a href=\"/x\"><b>");
+    for (String context : contexts) {
+      for (Parser p : entries(context)) {
+        assertNull(ContentKinds.problem(p.state(), Skeleton.Source.SAFE_INLINE_HTML), () -> "SafeInlineHtml in " + context);
+        if (List.of(PHRASING_CONTEXTS).contains(context)) {
+          assertNotNull(ContentKinds.problem(p.state(), Skeleton.Source.SAFE_HTML), () -> "SafeHtml in " + context);
+        }
+      }
+    }
+    // Still rejected where PHRASING can't go: a select (RAW_CLOSES_ELEMENT), a table part, raw text
+    // or foreign content (RAW_NOT_FLOW).
+    for (String context : new String[] {"<!DOCTYPE html><select>", "<!DOCTYPE html><select><option>",
+        "<!DOCTYPE html><select><optgroup>", "<!DOCTYPE html><table>", "<!DOCTYPE html><table><tr>",
+        "<!DOCTYPE html><textarea>", "<!DOCTYPE html><svg>", "<!DOCTYPE html><p><math>"}) {
+      for (Parser p : entries(context)) {
+        assertNotNull(ContentKinds.problem(p.state(), Skeleton.Source.SAFE_INLINE_HTML), () -> "SafeInlineHtml in " + context);
+      }
+    }
+    String[] all = contexts.toArray(new String[0]);
+    for (String input : inputs) {
+      String html = SafeInlineHtml.sanitize(input, widest).html();
+      java.util.regex.Matcher tag = java.util.regex.Pattern.compile("</?([a-z0-9]+)").matcher(html);
+      while (tag.find()) {
+        assertTrue(HtmlPolicy.INLINE_ELEMENTS.contains(tag.group(1)), () -> "not inline: " + html);
+      }
+      assertSameState("SafeInlineHtml of " + input, html, all);
+      assertSameState("escaped " + input, SafeInlineHtml.concat(SafeInlineHtml.escape(input), null, SafeInlineHtml.sanitize(input, widest)).html(), all);
     }
   }
 
