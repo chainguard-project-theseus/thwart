@@ -92,6 +92,8 @@ public final class TemplateGenerator implements CodegenContext {
    * See {@link ParsingContexts#rawTextElement}.
    */
   private String rawTextHost;
+  /** The {@link #rawTextHost} around the element being generated, not counting the element itself. */
+  private String rawTextParent;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
   /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
@@ -284,6 +286,11 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
+  public boolean insideRawText() {
+    return rawTextParent != null;
+  }
+
+  @Override
   public Emitted renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
     // Rendered standalone (fragment method, ~{::selector} helper): no preceding sibling text.
     String ws = whitespaceBefore.remove(element);
@@ -431,6 +438,8 @@ public final class TemplateGenerator implements CodegenContext {
 
   private void element(Emitted.Builder c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
+    String outerParent = rawTextParent;
+    rawTextParent = outer;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
     String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
@@ -490,6 +499,7 @@ public final class TemplateGenerator implements CodegenContext {
       emit(c, plan, leadingLineFeed, foreignTop);
     } finally {
       rawTextHost = outer;
+      rawTextParent = outerParent;
       inForeign = outerForeign;
       jsonScript = outerJson;
     }
@@ -684,9 +694,9 @@ public final class TemplateGenerator implements CodegenContext {
    * <svg>} or {@code <math>} (whose content a browser parses differently, decoding character
    * references) or inside a raw text element such as {@code <noscript>} (where it
    * is text) gets none. A fragment is rendered with the caller's {@code ctx}: its own start tags
-   * decide, as a fragment cannot be put where a browser parses it differently from where it is
-   * declared (a build error). If the tracking is wrong, a script loses its nonce and does not run under
-   * the policy; it never gains one. Markup written at runtime ({@code SafeHtml}) never gets one.
+   * decide, as nothing is inserted inside raw text, {@code <svg>} or {@code <math>} (build errors),
+   * so a fragment never lands in one. If the tracking is wrong, a script loses its nonce and does not
+   * run under the policy; it never gains one. Markup written at runtime ({@code SafeHtml}) never gets one.
    * A nonce in the template itself is an error: it would be the same on every response, or a
    * second, conflicting nonce attribute (the browser keeps the first).
    */

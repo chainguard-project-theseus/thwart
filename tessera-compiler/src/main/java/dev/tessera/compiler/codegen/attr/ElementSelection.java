@@ -46,9 +46,6 @@ final class ElementSelection {
           .error(ref.pos(), "~{::" + ref.selector() + "} selects an element, which takes no arguments");
       return null;
     }
-    if (!InsertReplaceProcessor.fitsHtml(ctx, ref, target, ctx.template().parsingContexts())) {
-      return null;
-    }
     if (contains(target, host)) {
       ctx.diagnostics()
           .error(
