@@ -1,4 +1,4 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
 /**
  * Attribute helpers called by generated template code. Not intended for application code. The

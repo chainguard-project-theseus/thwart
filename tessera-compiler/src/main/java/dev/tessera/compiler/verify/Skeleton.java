@@ -30,7 +30,7 @@ public final class Skeleton {
     SourcePos pos();
   }
 
-  /** The runtime escaper a hole is written with: exactly one {@code dev.tessera.runtime.Escapers} method. */
+  /** The runtime escaper a hole is written with: exactly one {@code dev.tessera.runtime.internal.Escapers} method. */
   public enum Escaper {
     TEXT("text"),
     ATTR("attr"),

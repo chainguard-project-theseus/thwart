@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.internal.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.testing.SpringTestContext;
 import dev.tessera.spring.view.FallbackResolver;

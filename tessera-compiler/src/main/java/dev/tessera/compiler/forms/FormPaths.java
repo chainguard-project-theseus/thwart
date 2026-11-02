@@ -10,7 +10,7 @@ import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.runtime.Field;
 import dev.tessera.runtime.Forms;
-import dev.tessera.runtime.Values;
+import dev.tessera.runtime.internal.Values;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

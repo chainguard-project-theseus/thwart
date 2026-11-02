@@ -27,7 +27,7 @@ public final class FragmentMethods {
   private FragmentMethods() {}
 
   /** The trailing {@code RenderContext ctx, Output out} parameters of every render method. */
-  public static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out";
+  public static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.internal.Output out";
 
   /** Returns the skeleton of each fragment method, by fragment name. */
   public static Map<String, Skeleton.Seq> generate(CodegenContext ctx) {

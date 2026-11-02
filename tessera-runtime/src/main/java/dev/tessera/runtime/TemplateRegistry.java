@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.TemplateEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;

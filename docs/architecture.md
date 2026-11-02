@@ -16,9 +16,9 @@ JDK 21+. The table names the main classes only. The public API of the runtime an
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`/`HtmlSanitizer`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`, annotations | none |
-| | `dev.tessera.runtime.fn` | built-in function namespaces | |
-| | `dev.tessera.runtime.internal` | `Checks`: URL and number checks shared with the compiler; public but not API | |
+| `tessera-runtime` | `dev.tessera.runtime` | the API apps and templates name: `Template`, `RenderContext`, `SafeHtml`/`HtmlSanitizer`/`HtmlPolicy`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `TemplateRegistry`, `TemplateModelException`, `LoopStatus`, `TemplateView`, `TemplateFunction(s)` | none |
+| | `dev.tessera.runtime.internal` | what only generated code and Tessera's modules call: `Output`/`StringOutput`, `Escapers`, `Attributes`, `Conditions`, `Values`, `UrlEncoding`, `TemplateEntry`, `Ascii`, `Checks`; public but not API | |
+| | `dev.tessera.runtime.internal.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |
 | | `.html` | `HtmlParser`, `MarkupTokenizer` (its own tokenizer for Tessera's tree), `Contexts` (escaping-context table) | |
@@ -201,13 +201,13 @@ public final class OwnerDetailsTemplate implements dev.tessera.runtime.Template 
   private OwnerDetailsTemplate(com.example.OwnerView owner) { this.owner = owner; }
   public static OwnerDetailsTemplate of(com.example.OwnerView owner) { return new OwnerDetailsTemplate(owner); }
   @Override public String templateName() { return "owners/ownerDetails"; }
-  @Override public void render(dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) { render(owner, ctx, out); }
-  public static void render(com.example.OwnerView owner, dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) {
+  @Override public void render(dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.internal.Output out) { render(owner, ctx, out); }
+  public static void render(com.example.OwnerView owner, dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.internal.Output out) {
     out.write(S$0);
-    dev.tessera.runtime.Escapers.text(out, owner.getFirstName());
+    dev.tessera.runtime.internal.Escapers.text(out, owner.getFirstName());
     ...
   }
-  public static void fragment_card(..., dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) { ... }
+  public static void fragment_card(..., dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.internal.Output out) { ... }
 }
 ```
 

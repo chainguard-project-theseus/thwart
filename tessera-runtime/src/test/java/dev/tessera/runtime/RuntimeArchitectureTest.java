@@ -3,6 +3,7 @@ package dev.tessera.runtime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import dev.tessera.runtime.internal.Escapers;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;

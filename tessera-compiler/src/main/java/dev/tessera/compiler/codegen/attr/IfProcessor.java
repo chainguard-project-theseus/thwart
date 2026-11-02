@@ -11,7 +11,7 @@ import dev.tessera.compiler.verify.Skeleton;
 /**
  * {@code t:if="cond"} / {@code t:unless="cond"}: wraps the element in {@code if} using
  * {@code ExpressionCompiler.compileCondition}. Truthiness follows Thymeleaf
- * ({@code dev.tessera.runtime.Conditions}).
+ * ({@code dev.tessera.runtime.internal.Conditions}).
  */
 public final class IfProcessor implements AttributeProcessor {
 

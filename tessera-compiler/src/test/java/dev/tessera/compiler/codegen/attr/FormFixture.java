@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.Messages;
 import dev.tessera.runtime.RenderContext;

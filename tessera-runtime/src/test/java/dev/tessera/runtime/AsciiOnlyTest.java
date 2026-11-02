@@ -44,7 +44,7 @@ class AsciiOnlyTest {
   /** File under src/main/java, to the number of lines with a use and why they are not HTML names. */
   private static final Map<String, Allowed> ALLOWED =
       Map.of(
-          "dev/tessera/runtime/fn/Strings.java",
+          "dev/tessera/runtime/internal/fn/Strings.java",
           new Allowed(
               5,
               "#strings.toUpperCase, toLowerCase, capitalize, trim and isEmpty: Thymeleaf text functions on the"

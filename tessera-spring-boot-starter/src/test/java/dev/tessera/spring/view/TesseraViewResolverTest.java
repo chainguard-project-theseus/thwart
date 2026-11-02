@@ -3,7 +3,7 @@ package dev.tessera.spring.view;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.internal.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;

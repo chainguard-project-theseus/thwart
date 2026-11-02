@@ -7,7 +7,7 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.StringOutput;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.MessageFormat;

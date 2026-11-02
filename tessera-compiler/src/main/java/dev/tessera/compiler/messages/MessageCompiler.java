@@ -27,7 +27,7 @@ public final class MessageCompiler {
     // An explicit array: a lone null or array argument must not be taken as the varargs array.
     // Arguments go through Escapers.messageArgs, which bounds how long a formatted number can be.
     String code = "ctx.messages().get(" + JavaStrings.literal(message.key()) + ", "
-        + (message.args().isEmpty() ? args : "dev.tessera.runtime.Escapers.messageArgs(" + args + ")") + ")";
+        + (message.args().isEmpty() ? args : "dev.tessera.runtime.internal.Escapers.messageArgs(" + args + ")") + ")";
     CompilerEnv env = expressions.env();
     return new CompiledExpr(code, env.elements().getTypeElement("java.lang.String").asType(), message.pos());
   }
@@ -50,7 +50,7 @@ public final class MessageCompiler {
     for (String value : bundle.values(message.key()).values()) {
       links |= HtmlParser.asciiLower(value).contains("<a");
     }
-    String code = "dev.tessera.runtime.Escapers." + (links ? "linkedHtmlMessage" : "htmlMessage") + "(ctx, "
+    String code = "dev.tessera.runtime.internal.Escapers." + (links ? "linkedHtmlMessage" : "htmlMessage") + "(ctx, "
         + JavaStrings.literal(message.key()) + ", " + args + ")";
     return Emitted.htmlMessage(message.pos(), code, links);
   }

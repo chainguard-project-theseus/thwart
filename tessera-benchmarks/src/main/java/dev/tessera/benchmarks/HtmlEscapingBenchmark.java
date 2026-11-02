@@ -1,7 +1,7 @@
 package dev.tessera.benchmarks;
 
-import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.Escapers;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;

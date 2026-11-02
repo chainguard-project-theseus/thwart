@@ -8,7 +8,7 @@ import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
-import dev.tessera.runtime.UrlEncoding;
+import dev.tessera.runtime.internal.UrlEncoding;
 import dev.tessera.runtime.internal.Checks;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
