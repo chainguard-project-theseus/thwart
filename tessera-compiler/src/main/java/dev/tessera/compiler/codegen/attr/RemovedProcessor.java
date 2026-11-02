@@ -10,7 +10,8 @@ import java.util.regex.Pattern;
 
 /**
  * {@code t:attr} and {@code t:errorclass} (#766): Thymeleaf attributes Tessera dropped, each a build
- * error that names its recipe. Without it the generic processor would render {@code errorclass="err"}.
+ * error that names its recipe. Not a safety check: without it the generic processor still rejects
+ * both names (they are off the computed-attribute allow-list), only with a less useful message.
  */
 public final class RemovedProcessor implements AttributeProcessor {
 

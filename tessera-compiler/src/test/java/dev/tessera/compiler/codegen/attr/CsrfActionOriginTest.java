@@ -101,12 +101,10 @@ class CsrfActionOriginTest {
   @ValueSource(
       strings = {
         "t:action=\"u\"",
-        "t:action=\"u\"",
         "t:title=\"u\" t:ACTION=\"u\"",
         "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{//evil.example/x}\"",
         "t:action=\"@{/\\evil.example/x}\"",
-        "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{x}\"",
         "t:action=\"@{?page=2}\"",
       })

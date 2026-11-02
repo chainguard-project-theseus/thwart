@@ -54,7 +54,7 @@ class XssContextTest {
           new Line("<i t:title=\"s\" t:id=\"s\">x</i>", Kind.HTML, Kind.HTML),
           // A computed class drops ng-like tokens (#542), so the value is the whole class: static
           // class text next to it could lose its separator (FrameworkDirectivesTest covers classappend).
-          new Line("<i t:class=\"s\">x</i><i t:class=\"s\">y</i>", Kind.HTML, Kind.HTML),
+          new Line("<i t:class=\"s\">x</i><i t:CLASS=\"s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
           new Line("<a t:href=\"s\">x</a><a t:HREF=\"s\">y</a>", Kind.URL, Kind.URL),
           // A form's action and every formaction take only a same-origin link (#585, CSRF).
@@ -291,24 +291,20 @@ class XssContextTest {
   static final List<String> REJECTED =
       List.of(
           "<i t:style=\"s\">x</i>",
-          "<i t:style=\"s\">x</i>",
           "<i t:STYLE=\"s\">x</i>",
           "<style>p { color: [[s]]; }</style>",
           "<STYLE>[[s]]</STYLE>",
           "<style t:text=\"s\"></style>",
           "<i t:onclick=\"s\">x</i>",
           "<i t:OnClick=\"s\">x</i>",
-          "<i t:onclick=\"s\">x</i>",
           "<i t:ONMOUSEOVER=\"s\">x</i>",
           "<svg><a t:onbegin=\"s\"></a></svg>",
           "<body t:onload=\"s\"></body>",
-          "<iframe t:srcdoc=\"s\"></iframe>",
           "<iframe t:srcdoc=\"s\"></iframe>",
           "<script t:type=\"s\">var a = 1;</script>",
           "<script t:type=\"s\">var a = [[s]];</script>",
           "<script type=\"text/template\">[[s]]</script>",
           "<script type=\"text/x-handlebars\" t:text=\"s\"></script>",
-          "<script t:src=\"s\"></script>",
           "<script t:src=\"s\"></script>",
           "<script t:src=\"'/js/' + s\"></script>",
           "<script t:src=\"@{${s}}\"></script>",

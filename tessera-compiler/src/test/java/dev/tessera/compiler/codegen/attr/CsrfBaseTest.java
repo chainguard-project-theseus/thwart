@@ -80,7 +80,6 @@ class CsrfBaseTest {
         "<base t:href=\"@{/\\evil.example/}\">",
         "<base t:href=\"${u}\">",
         "<base t:HREF=\"${u}\">",
-        "<base t:href=\"${u}\">",
         "<base t:target=\"${u}\" t:href=\"@{//evil.example/}\">",
         "<base t:href=\"${u} != null ? @{/a/} : @{//evil.example/}\">",
       })

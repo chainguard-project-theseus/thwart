@@ -52,7 +52,6 @@ class CsrfFormactionTest {
       strings = {
         "<button t:formaction=\"${u}\">Go</button>",
         "<button t:formaction=\"u\">Go</button>",
-        "<button t:formaction=\"${u}\">Go</button>",
         "<button t:title=\"${u}\" t:FormAction=\"${u}\">Go</button>",
         "<button t:FORMACTION=\"${u}\">Go</button>",
         "<button t:formaction=\"@{//evil.example/x}\">Go</button>",
@@ -87,7 +86,6 @@ class CsrfFormactionTest {
   @ValueSource(
       strings = {
         "<form t:method=\"${m}\"><button t:formaction=\"${u}\">Go</button></form>",
-        "<form t:method=\"${m}\"><button t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"post\" t:action=\"${u}\"><button t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"POST\"><button t:formaction=\"${u}\">Go</button></form>",
       })
@@ -101,7 +99,6 @@ class CsrfFormactionTest {
       strings = {
         "<form id=\"f\" method=\"post\"></form><button form=\"f\" t:formaction=\"${u}\">Go</button>",
         "<form id=\"f\" method=\"post\"></form><form><button form=\"f\" t:formaction=\"${u}\">Go</button></form>",
-        "<form method=\"get\"><button t:form=\"'f'\" t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"get\"><button t:form=\"'f'\" t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"get\"><button form=\"f\" formaction=\"https://evil.example/x\">Go</button></form>",
       })

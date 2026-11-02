@@ -149,7 +149,6 @@ class AttributesEndToEndTest {
   void eventHandlerAttributesAreBuildErrors() {
     compile("<p t:onclick=\"s\">x</p>").assertError("t.html:1:", "t:onclick is not allowed", "data-*");
     compile("<p t:ONMOUSEOVER=\"s\">x</p>").assertError("not allowed", "event-handler");
-    compile("<p t:onclick=\"s\">x</p>").assertError("t:onclick is not allowed", "data-*");
     compile("<p t:title=\"s\" t:onload=\"s\">x</p>").assertError("t:onload is not allowed");
   }
 
@@ -189,9 +188,7 @@ class AttributesEndToEndTest {
   @Test
   void styleAndSrcdocAreBuildErrors() {
     compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed", "t:class");
-    compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed");
     compile("<iframe t:srcdoc=\"s\"></iframe>").assertError("t:srcdoc is not allowed", "use src");
-    compile("<iframe t:srcdoc=\"s\"></iframe>").assertError("t:srcdoc is not allowed");
   }
 
   @Test
@@ -241,7 +238,6 @@ class AttributesEndToEndTest {
     compile("\n<meta http-equiv=\"Content-Type\" t:content=\"s\">")
         .assertError("t.html:2:", "t:content is not allowed", "encoding", "Content-Type response header");
     compile("\n<meta t:content=\"s\" http-equiv=\"content-type\">").assertError("t.html:2:", "t:content is not allowed");
-    compile("\n<meta http-equiv=\"Content-Type\" t:content=\"s\">").assertError("t.html:2:", "t:content is not allowed");
     // The same values written statically, and the same names where no tree builder reads them, compile.
     assertEquals(
         "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><meta charset=\"utf-8\">",
@@ -279,7 +275,6 @@ class AttributesEndToEndTest {
   @Test
   void scriptTypeCannotBeComputed() {
     compile("<script t:type=\"s\"></script>").assertError("t:type is not allowed: the type of a <script>", "static type attribute");
-    compile("<script t:type=\"s\"></script>").assertError("t:type", "<script>");
     compile("<script type=\"application/json\" t:type=\"s\"></script>").assertError("t:type");
     // #678: on an <input> too; on other elements type is off the list (#761), with no per-element exception.
     compile("<input t:type=\"s\">").assertError("t:type is not allowed: the type of an <input>", "static type attribute");
