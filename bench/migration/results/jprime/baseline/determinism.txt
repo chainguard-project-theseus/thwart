@@ -18,26 +18,7 @@
 018 same      GET /venue
 019 same      GET /privacy-policy
 020 same      GET /privacy-policy?bg
-021 reordered GET /cfp
---- recorded 021.html
-+++ now
-@@ -167,12 +167,12 @@
-                     – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
-                   <dd>
-                     <select id="type" name="type">
--                      <option value="DEEP_DIVE">
--                        Deep Dive
--                      <option selected value="CONFERENCE_SESSION">
--                        Conference session
-                       <option value="WORKSHOP">
-                         Workshop
-+                      <option selected value="CONFERENCE_SESSION">
-+                        Conference session
-+                      <option value="DEEP_DIVE">
-+                        Deep Dive
-                 <dl>
-                   <dt>
-                     Speaker
+021 same      GET /cfp
 022 same      GET /cfp-thank-you
 023 same      GET /cfp-problem
 024 same      GET /tickets
@@ -110,46 +91,8 @@
 091 same      GET /admin/submission/view/status/CONFIRMED
 092 same      GET /admin/submission/view/2020
 093 same      GET /admin/submission/view/id/1
-094 reordered GET /admin/submission/add
---- recorded 094.html
-+++ now
-@@ -133,12 +133,12 @@
-               – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
-             <dd>
-               <select id="type" name="type">
--                <option value="DEEP_DIVE">
--                  Deep Dive
--                <option selected value="CONFERENCE_SESSION">
--                  Conference session
-                 <option value="WORKSHOP">
-                   Workshop
-+                <option selected value="CONFERENCE_SESSION">
-+                  Conference session
-+                <option value="DEEP_DIVE">
-+                  Deep Dive
-           <dl>
-             <dt>
-               Speaker
-095 reordered GET /admin/submission/edit/2
---- recorded 095.html
-+++ now
-@@ -134,12 +134,12 @@
-               – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
-             <dd>
-               <select id="type" name="type">
--                <option value="DEEP_DIVE">
--                  Deep Dive
--                <option value="CONFERENCE_SESSION">
--                  Conference session
-                 <option selected value="WORKSHOP">
-                   Workshop
-+                <option value="CONFERENCE_SESSION">
-+                  Conference session
-+                <option value="DEEP_DIVE">
-+                  Deep Dive
-           <dl>
-             <dt>
-               Speaker
+094 same      GET /admin/submission/add
+095 same      GET /admin/submission/edit/2
 096 same      GET /admin/registrant/view
 097 same      GET /admin/registrant/view?year=2020
 098 same      GET /admin/registrant/add
@@ -205,4 +148,4 @@
 148 same      GET /
 149 same      GET /logout
 150 same      GET /admin
-tessera-migrate compare: 150 page(s): 147 same, 3 reordered, 0 differ
+tessera-migrate compare: 150 page(s): 150 same, 0 reordered, 0 differ

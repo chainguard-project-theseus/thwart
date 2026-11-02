@@ -23,8 +23,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [Post-#583 round](#post-583-round-run-10) (run 10) | 17 | every app, one run each | `tessera-migrate compare` | **8/17** (13/17 counting acceptable differences) |
 | [Quick round after the guide slimming](#quick-round-after-the-guide-slimming-run-11) (run 11) | 3 | spring-petclinic, fredbet, espd | `tessera-migrate compare` | **1/3** (1/3 counting acceptable differences) |
 | [Post-rewrite round](#post-rewrite-round-run-k) (run K: 11, or 12-13) | 18 | every app, one run each (fredbet re-run after an incident) | `tessera-migrate compare` | **9/17** (15/17 counting acceptable differences) |
+| [#397 quick round](#397-quick-round-run-12) (run 12) | 3 | budgetmaster, jprime, jpetstore | `tessera-migrate compare` | **0/3** (2/3 counting acceptable differences) |
 
-Across all 97 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 100 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Two
 runs left legacy templates behind: budgetmaster run 4, which stopped early, and espd run 2, whose
 session ended before its last step.
@@ -1200,6 +1201,65 @@ Tooling and harness:
 - compare cuts long diffs short (budgetmaster 075, 076, 086).
 - `compare --ignore` is under-documented, and `record` rejects it (jobsearch).
 - `num_turns` is 1 for agents that wait on subagents, so it says nothing.
+
+## #397 quick round (run 12)
+
+Run on Nov 2 from `34e3980`, which adds `SafeInlineHtml` (#748, issue #397): sanitized HTML from an
+inline-only policy (`HtmlPolicy.inlineBuilder()`) that the verifier accepts inside an open `<p>`,
+heading, `<a>` or `<button>`. The round checks whether the change removes the `RAW_CLOSES_ELEMENT`
+friction that run K hit in budgetmaster, jpetstore and jprime. The image was rebuilt from that
+commit and the three baselines were re-recorded. Every `determinism.txt` is `same`. One run each,
+in one `chainctl develop` session with 3 parallel jobs. Every agent listed and invoked the skill.
+
+| App | Pass | Tests | Pages same + reordered | Run K | Acceptable only | `RAW_CLOSES_ELEMENT` (run K) | `SafeInlineHtml` | Minutes (run K) | Cost $ (run K) |
+|---|---|---|---|---|---|---|---|---|---|
+| budgetmaster | no | 269/269 | 13+0/121 | 13+0 | ~118/121 | 1 (19) | yes, `loc.html(...)` for `<br>`/`<b>` bundle texts | 37.3 (34.8) | 26.50 (33.88) |
+| jprime | no | 208/208 | 140+6/150 | 140+6 | 150/150 | 0 (0, avoided by escaping) | yes, talk descriptions, bios, inline article text | 30.5 (33.8) | 23.15 (26.67) |
+| jpetstore | no | 9/6 | 58+0/59 | 58+0 | 59/59 | 0 (1) | yes, stored product and banner HTML | 10.4 (11.7) | 3.78 (3.79) |
+
+The counts are compiler errors in the agents' tool results. Mentions in the guide the agents read
+and in their own prose are left out. The round cost **$53.44**, against $64.34 for the same apps
+in run K.
+
+**#748 removed the friction.** All three apps reached for `SafeInlineHtml` straight from the
+guide's "Inline HTML in a paragraph" paragraph, and none hit `RAW_CLOSES_ELEMENT` for a sanitized
+value. budgetmaster's one hit was a converted FreeMarker macro, a `Fragment` inside a `<p>`, in a
+fragment no page used; the agent deleted it. budgetmaster now splits bundle texts three ways:
+`loc.get` (text), `loc.html` (`SafeInlineHtml`, `b i br span`) and `loc.block` (`SafeHtml` with
+links, used only outside paragraphs). jprime's bios are sanitized instead of escaped, so pages 007 and
+079 now compare `same`. Run K counted them as acceptable differences.
+
+### Triage
+
+| Run | Pages | Cause | Class |
+|---|---|---|---|
+| budgetmaster 12 | ~108 | Bare global assignments become prelude declarations (`var x = ...`), as in run K | Acceptable (forced by #540; harness) |
+| budgetmaster 12 | many | Materialize `data-tooltip` text moved to `aria-label` (help tooltips) or `title`, then into `M.Tooltip.init` through `titleTooltips.js`. Validation messages moved to a `<script type="application/json" id="validationMessages">` block that `validation.js` reads. Run K used `title` throughout | Acceptable (§4.4) |
+| budgetmaster 12 | many | `data-id` prefixes, Tessera's `_csrf` input, hostile seed names escaped, sanitizer `rel`, the hidden amount, as in run K | Acceptable |
+| jprime 12 | 2 (110, 111) | The raffle script's `var visitors = [[...]]` moved above `var shuffling = false;` (a value must be the script's first declaration). Run K kept these pages `same` | Acceptable (script-position rule) |
+| jprime 12 | 2 (116, 117) | `The <first> speakers` in a plain-text field is escaped | Acceptable, as runs 9-11 |
+| jpetstore 12 | 1 (`/catalog`) | A hostile first name is escaped; `sec:authentication` printed it raw | Acceptable, as runs 4-11 |
+
+### Security review
+
+No diff adds `permitAll`, disables CSRF or adds `@Disabled`/`@Ignore`. `SafeHtml.unchecked`,
+`TrustedUrl`, `internalUnverified$` and `failOnError=false` appear nowhere. Every `t:utext` takes
+a value from a sanitizing function:
+- budgetmaster: inline `b i br span`, and a block policy that adds `a` with `linkRel`. Message
+  arguments are escaped before formatting. The tooltip rework stops Materialize from reading
+  tooltip text as HTML, which closes an injection path the original had.
+- jprime: inline policies without links. Article text goes through the inline policy only when it
+  has no other tags, and through `html.sanitize` after an empty `<p>` otherwise.
+- jpetstore: inline elements plus same-origin `<img>`, after rewriting `<image` to `<img`.
+
+### New friction
+
+- `SafeInlineHtml` policies can't allow `<a>`, so raw HTML with links inside a `<p>` still has no
+  faithful port (jprime). budgetmaster moved such texts outside the `<p>` as `SafeHtml`.
+- The sanitizer drops `<image>` even with `img` allowed. Browsers rename it to `<img>`
+  (jpetstore, as in run K).
+- `HtmlPolicy.inlineBuilder()` keeps `img src` implicitly (same-origin only), and
+  `HtmlPolicy.ATTRIBUTES` doesn't list it (jpetstore).
 
 ## Limitations
 
