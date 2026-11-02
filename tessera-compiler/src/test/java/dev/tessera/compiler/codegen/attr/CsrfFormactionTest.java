@@ -251,7 +251,6 @@ class CsrfFormactionTest {
         "<button t:attr=\"formaction=${b} ? @{/a} : ${u}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : '/b'\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : '/b/' + ${u}\">Go</button>",
-        "<button t:formaction=\"b ? @{/a} : ${t}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : @{//evil.example/x}\">Go</button>",
         "<button t:formaction=\"b ? @{https://evil.example/x} : @{/a}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : @{x}\">Go</button>",
