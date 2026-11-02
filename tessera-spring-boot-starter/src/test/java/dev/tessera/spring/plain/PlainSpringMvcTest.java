@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.tessera.spring.CspNonce;
 import dev.tessera.spring.TesseraConfiguration;
 import dev.tessera.spring.e2e.SmokeController;
+import dev.tessera.spring.view.CspFilter;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -56,7 +57,11 @@ class PlainSpringMvcTest {
     context.setServletContext(new MockServletContext());
     context.register(App.class);
     context.refresh();
-    mvc = MockMvcBuilders.webAppContextSetup(context).build();
+    // A servlet container registers CspFilter itself (WebApplicationInitializer); MockMvc not.
+    mvc =
+        MockMvcBuilders.webAppContextSetup(context)
+            .addFilters(context.getBean(CspFilter.class))
+            .build();
   }
 
   @AfterEach
@@ -127,7 +132,10 @@ class PlainSpringMvcTest {
           @Override
           public void destroy() {}
         };
-    MockMvc withPolicy = MockMvcBuilders.webAppContextSetup(context).addFilters(policy).build();
+    MockMvc withPolicy =
+        MockMvcBuilders.webAppContextSetup(context)
+            .addFilters(context.getBean(CspFilter.class), policy)
+            .build();
     MvcResult first = withPolicy.perform(get("/csp")).andExpect(status().isOk()).andReturn();
     String nonce = CspPages.assertStamped(first);
     // The application's policy is kept, and the view adds none (#757).
@@ -159,6 +167,7 @@ class PlainSpringMvcTest {
       off.refresh();
       MvcResult result =
           MockMvcBuilders.webAppContextSetup(off)
+              .addFilters(off.getBean(CspFilter.class))
               .build()
               .perform(get("/csp"))
               .andExpect(status().isOk())

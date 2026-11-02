@@ -250,9 +250,10 @@ The registry also has `fragments()` (#131): an entry named `page :: name` per fr
   locale (`LocaleResolver`), `MessageSource` messages, `DefaultLinks(contextPath)` +
   `response.encodeURL`, `Forms` over `BindingResult`/`BindStatus`, CSRF token from the request
   attribute `_csrf`, and a per-request CSP nonce (`CspNonce.get(request)`, 128 bits from
-  `SecureRandom`). Content type `text/html;charset=UTF-8`. Unless the response already has a
-  `Content-Security-Policy` or Spring Security writes its headers on commit, the view sends
-  `script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`; the one switch is
+  `SecureRandom`). Content type `text/html;charset=UTF-8`. The view stamps the request with the
+  nonce; `CspFilter`, first in the filter chain, sends `script-src 'nonce-N' 'strict-dynamic';
+  object-src 'none'; base-uri 'none'` when a stamped response commits with no
+  `Content-Security-Policy` (so Spring Security's and the application's win); the one switch is
   `tessera.csp.enabled=false`.
 - `auth` namespace (`dev.tessera.spring.fn.Auth`): `isAuthenticated()`, `hasRole(String)`,
   `hasAnyRole(String...)`, `hasAuthority(String)`, `hasAnyAuthority(String...)`, `name()`, via

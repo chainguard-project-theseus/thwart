@@ -25,9 +25,8 @@ output in attribute names outside HTML, a framework-neutral value (context-model
 `NEUTRAL`). Computed text is plain-escaped, so client frameworks that compile the server's DOM as
 a template are unsupported. Past that boundary, the defence in depth is a strict CSP: Tessera puts
 the request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
-starter's view sends a strict nonce policy unless the response already has one. Under Spring
-Security's `HeaderWriterFilter`, which writes headers on commit, it sends none and the application
-adds the policy with a `HeaderWriter` (guide §4.9).
+starter sends a strict nonce policy for a Tessera page that commits without one, so a policy from
+Spring Security or the application wins (guide §4.9).
 
 The build-time verifier makes the first point hold for every template the compiler accepts:
 
@@ -62,7 +61,7 @@ This is the one trust table; SECURITY.md links here.
 | **Other `SafeHtml` sources** (`escape`, `sanitize`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. | The verifier: `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). |
 | **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (`tessera-html5/pom.xml`) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`, CDATA) | At build time, the verifier runs the pinned htmlparser and accepts only error-free parses outside the exclusions. In tests, parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (on Chainguard Checks after every merge and on request) |
-| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; `TesseraViewTest`, `SmokeTest`: the starter's default policy header, never replacing one already set) |
+| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; `CspFilterTest`, `CspTest`: the starter's default policy header, never replacing one already set) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
 | **The CSP nonce** (`RenderContext.cspNonce`) | Trusted, but escaped | The application (or the starter, from `SecureRandom`) supplies a fresh, unguessable value per response, used in the policy | Written only on compiler-written `<script>` and `<style>` start tags a browser reads as HTML (not in SVG, MathML or raw text), with `Escapers.attr`; a nonce in the template is a build error; the starter's default policy header takes only a base64 nonce |
 
