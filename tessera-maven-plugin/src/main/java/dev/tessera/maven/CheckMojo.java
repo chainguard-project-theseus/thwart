@@ -36,6 +36,12 @@ import org.apache.maven.plugins.annotations.Parameter;
  */
 @Mojo(name = "check", defaultPhase = LifecyclePhase.PROCESS_SOURCES, threadSafe = true)
 public final class CheckMojo extends AbstractMojo {
+  static final String OTHER_MESSAGES = "the last compile read other message bundles";
+
+  /** The processor's resources in a class output directory, besides the class files. */
+  static final String PROCESSOR_RESOURCES = "META-INF/tessera/";
+  static final String SERVICES_FILE = "META-INF/services/dev.tessera.runtime.TemplateRegistry";
+
   /** The templates root: the same directory as {@code -Atessera.templates}. */
   @Parameter(defaultValue = "${project.basedir}/src/main/resources/templates", required = true)
   File templates;
@@ -63,19 +69,19 @@ public final class CheckMojo extends AbstractMojo {
   public void execute() throws MojoExecutionException {
     try {
       byte[] current = templates.isDirectory() ? TemplateFingerprint.of(templates.toPath(), messagePaths()) : null;
-      String reason = staleReason(outputDirectory.toPath(), current, true);
-      if (reason == null) {
+      Stale stale = stale(outputDirectory.toPath(), current, true);
+      if (stale == null) {
         // The processor also runs in test compilation, which writes its own record.
-        reason = staleReason(testOutputDirectory.toPath(), current, false);
+        stale = stale(testOutputDirectory.toPath(), current, false);
       }
-      if (reason == null) {
+      if (stale == null) {
         getLog().debug("Tessera: templates and messages unchanged since the last compile");
         return;
       }
-      if (reason.startsWith(OTHER_MESSAGES)) {
-        getLog().warn("Tessera: " + reason);
+      if (stale.misconfigured) {
+        getLog().warn("Tessera: " + stale.reason);
       } else {
-        getLog().info("Tessera: " + reason + "; deleting the compile output so the templates are compiled again");
+        getLog().info("Tessera: " + stale.reason + "; deleting the compile output so the templates are compiled again");
       }
       Path build = buildDirectory.toPath();
       deleteCompilerOutput(outputDirectory.toPath());
@@ -103,19 +109,13 @@ public final class CheckMojo extends AbstractMojo {
     return out;
   }
 
-  static final String OTHER_MESSAGES = "the last compile read other message bundles";
-
-  /** The processor's resources in a class output directory, besides the class files. */
-  static final String PROCESSOR_RESOURCES = "META-INF/tessera/";
-  static final String SERVICES_FILE = "META-INF/services/dev.tessera.runtime.TemplateRegistry";
-
   /**
    * Why the output in {@code classes} is stale, or null. Main output with class files but without
    * a record is stale (a failed or pre-#425 compile); without class files it is a first build that
    * other plugins may have written to (#626); test output without one is not (its compile may not
    * run the processor).
    */
-  static String staleReason(Path classes, byte[] current, boolean main) throws IOException {
+  static Stale stale(Path classes, byte[] current, boolean main) throws IOException {
     Path recorded = classes.resolve(TemplateFingerprint.RESOURCE);
     if (Files.isRegularFile(recorded)) {
       byte[] last = Files.readAllBytes(recorded);
@@ -124,20 +124,31 @@ public final class CheckMojo extends AbstractMojo {
       }
       String[] was = new String(last, StandardCharsets.UTF_8).split("\n", -1);
       if (!was[0].equals(TemplateFingerprint.VERSION)) {
-        return "the template fingerprint is from another version of Tessera";
+        return new Stale("the template fingerprint is from another version of Tessera", false);
       }
       if (current != null) {
         List<String> now = bundles(new String(current, StandardCharsets.UTF_8).split("\n", -1));
         if (!now.equals(bundles(was))) {
           // Every build would recompile: the processor and this goal disagree on the bundles.
-          return OTHER_MESSAGES + " (-Atessera.messages: " + bundles(was) + ") than the tessera-maven-plugin"
+          return new Stale(OTHER_MESSAGES + " (-Atessera.messages: " + bundles(was) + ") than the tessera-maven-plugin"
               + " messages parameter (" + now + "); set it to the same value, for example with the property"
-              + " tessera.messages, or every build recompiles the module";
+              + " tessera.messages, or every build recompiles the module", true);
         }
       }
-      return "templates or messages changed since the last compile";
+      return new Stale("templates or messages changed since the last compile", false);
     }
-    return main && hasClassFiles(classes) ? "no template fingerprint in " + classes : null;
+    return main && hasClassFiles(classes) ? new Stale("no template fingerprint in " + classes, false) : null;
+  }
+
+  /** Why a class output is stale; misconfigured when the build's settings, not an edit, make it so. */
+  static final class Stale {
+    final String reason;
+    final boolean misconfigured;
+
+    Stale(String reason, boolean misconfigured) {
+      this.reason = reason;
+      this.misconfigured = misconfigured;
+    }
   }
 
   /** The {@code messages <name>} lines of a fingerprint. */

@@ -5,12 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.testing.SpringTestContext;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -38,25 +33,9 @@ class UserRegistryErrorPagesTest {
 
   @Test
   void notFoundFollowsTheUserRegistry() throws IOException {
-    URL url =
-        new URL("http://localhost:" + environment.getProperty("local.server.port") + "/missing");
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-    connection.setRequestProperty("Accept", "text/html");
-    try {
-      assertThat(connection.getResponseCode()).isEqualTo(404);
-      InputStream in = connection.getErrorStream();
-      ByteArrayOutputStream body = new ByteArrayOutputStream();
-      byte[] buffer = new byte[4096];
-      for (int n; (n = in.read(buffer)) != -1; ) {
-        body.write(buffer, 0, n);
-      }
-      in.close();
-      assertThat(new String(body.toByteArray(), StandardCharsets.UTF_8))
-          .contains("<h1>404</h1>")
-          .doesNotContain("Tessera error/404");
-    } finally {
-      connection.disconnect();
-    }
+    Response page = Response.get(environment, "/missing");
+    assertThat(page.status).isEqualTo(404);
+    assertThat(page.body).contains("<h1>404</h1>").doesNotContain("Tessera error/404");
   }
 
   @SpringBootConfiguration

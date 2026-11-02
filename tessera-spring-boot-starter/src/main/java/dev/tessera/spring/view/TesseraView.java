@@ -11,9 +11,11 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.web.servlet.View;
 
 /**
@@ -43,33 +45,37 @@ public final class TesseraView implements View {
    * java.time.ZonedDateTime} in the JVM's default zone (the zone {@code Date.toString()} uses).
    */
   public static TesseraView of(TemplateEntry entry, RenderContextFactory contexts) {
-    final Map<String, Boolean> dates = new HashMap<String, Boolean>(); // param name -> zoned
+    Set<String> instantParams = new HashSet<>();
+    Set<String> zonedParams = new HashSet<>();
     for (TemplateEntry.Param p : entry.params()) {
       if ("java.time.Instant".equals(p.type())) {
-        dates.put(p.name(), Boolean.FALSE);
+        instantParams.add(p.name());
       } else if ("java.time.ZonedDateTime".equals(p.type())) {
-        dates.put(p.name(), Boolean.TRUE);
+        zonedParams.add(p.name());
       }
     }
-    final TemplateEntry.ModelRenderer renderer = entry.renderer();
-    if (dates.isEmpty()) {
+    TemplateEntry.ModelRenderer renderer = entry.renderer();
+    if (instantParams.isEmpty() && zonedParams.isEmpty()) {
       return new TesseraView(renderer, contexts);
     }
     return new TesseraView(
-        (model, ctx, out) -> renderer.render(convertDates(model, dates), ctx, out), contexts);
+        (model, ctx, out) ->
+            renderer.render(convertDates(model, instantParams, zonedParams), ctx, out),
+        contexts);
   }
 
-  private static Map<String, ?> convertDates(Map<String, ?> model, Map<String, Boolean> dates) {
+  private static Map<String, ?> convertDates(
+      Map<String, ?> model, Set<String> instantParams, Set<String> zonedParams) {
     Map<String, Object> converted = null;
-    for (Map.Entry<String, Boolean> d : dates.entrySet()) {
-      Object v = model.get(d.getKey());
-      if (v instanceof Date) {
+    for (Map.Entry<String, ?> e : model.entrySet()) {
+      boolean zoned = zonedParams.contains(e.getKey());
+      if ((zoned || instantParams.contains(e.getKey())) && e.getValue() instanceof Date) {
         if (converted == null) {
-          converted = new HashMap<String, Object>(model);
+          converted = new HashMap<>(model);
         }
         // Not Date.toInstant(): java.sql.Date throws from it.
-        Instant instant = Instant.ofEpochMilli(((Date) v).getTime());
-        converted.put(d.getKey(), d.getValue() ? instant.atZone(ZoneId.systemDefault()) : instant);
+        Instant instant = Instant.ofEpochMilli(((Date) e.getValue()).getTime());
+        converted.put(e.getKey(), zoned ? instant.atZone(ZoneId.systemDefault()) : instant);
       }
     }
     return converted == null ? model : converted;
@@ -102,9 +108,9 @@ public final class TesseraView implements View {
   static Map<String, ?> withPathVariables(Map<String, ?> model, HttpServletRequest request) {
     Object vars = request.getAttribute(View.PATH_VARIABLES);
     if (!(vars instanceof Map) || ((Map<?, ?>) vars).isEmpty()) {
-      return model == null ? Collections.<String, Object>emptyMap() : model;
+      return model == null ? Collections.emptyMap() : model;
     }
-    Map<String, Object> merged = new LinkedHashMap<String, Object>();
+    Map<String, Object> merged = new LinkedHashMap<>();
     for (Map.Entry<?, ?> e : ((Map<?, ?>) vars).entrySet()) {
       if (e.getKey() instanceof String) {
         merged.put((String) e.getKey(), e.getValue());

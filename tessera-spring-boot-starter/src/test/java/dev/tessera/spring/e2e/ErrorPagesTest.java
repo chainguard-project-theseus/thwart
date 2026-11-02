@@ -4,12 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.tessera.spring.testing.SpringTestContext;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +33,7 @@ class ErrorPagesTest {
 
   @Test
   void notFoundRendersErrorStatusTemplate() throws IOException {
-    Response page = get("/no-such-page");
+    Response page = Response.get(environment, "/no-such-page");
     assertThat(page.status).isEqualTo(404);
     assertThat(page.body).contains("<h1>404</h1>").contains("Tessera error/404");
   }
@@ -46,7 +41,7 @@ class ErrorPagesTest {
   @Test
   void serverErrorRendersErrorSeriesTemplate() throws IOException {
     // No error/500.html: Boot falls back to error/5xx.html.
-    Response page = get("/boom");
+    Response page = Response.get(environment, "/boom");
     assertThat(page.status).isEqualTo(500);
     assertThat(page.body).contains("<h1>500</h1>").contains("Tessera error/5xx");
   }
@@ -54,41 +49,12 @@ class ErrorPagesTest {
   @Test
   void statusWithoutTemplateGetsDefaultErrorView() throws IOException {
     // No error/409.html or error/4xx.html: Boot's default "error" view, not a failure.
-    Response page = get("/conflict");
+    Response page = Response.get(environment, "/conflict");
     assertThat(page.status).isEqualTo(409);
     assertThat(page.body)
         .contains("<h1>409</h1>")
         .doesNotContain("Tessera error/404")
         .doesNotContain("Tessera error/5xx");
-  }
-
-  private Response get(String path) throws IOException {
-    URL url = new URL("http://localhost:" + environment.getProperty("local.server.port") + path);
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-    connection.setRequestProperty("Accept", "text/html");
-    try {
-      int status = connection.getResponseCode();
-      InputStream in = status < 400 ? connection.getInputStream() : connection.getErrorStream();
-      ByteArrayOutputStream body = new ByteArrayOutputStream();
-      byte[] buffer = new byte[4096];
-      for (int n; (n = in.read(buffer)) != -1; ) {
-        body.write(buffer, 0, n);
-      }
-      in.close();
-      return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
-    } finally {
-      connection.disconnect();
-    }
-  }
-
-  static final class Response {
-    final int status;
-    final String body;
-
-    Response(int status, String body) {
-      this.status = status;
-      this.body = body;
-    }
   }
 
   @Controller

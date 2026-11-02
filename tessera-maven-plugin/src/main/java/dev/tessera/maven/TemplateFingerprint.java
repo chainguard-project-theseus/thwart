@@ -51,8 +51,8 @@ final class TemplateFingerprint {
   /**
    * Each basename and the files of its family: {@code <p>.properties} and {@code
    * <p>_*.properties}, where {@code <p>} is the basename's file name up to its first {@code _}. That
-   * is every file the processor's {@code MessageBundle} can read for it (the base file, a named
-   * default locale and every locale file) and a few more.
+   * is every file {@code MessageBundle} can read for it (the base file, a named default locale and
+   * every locale file) and a few more, so it holds whatever locale suffixes the bundle accepts.
    */
   private static void appendMessages(StringBuilder sb, List<Path> messages) throws IOException {
     for (Path entry : messages) {
