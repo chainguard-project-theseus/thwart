@@ -43,7 +43,7 @@
   <br />
   <h2 t:text="#{petsAndVisits}">Pets and Visits</h2>
 
-  <table class="table table-striped">
+  <table class="table table-striped"><tbody>
 
     <tr t:each="pet : owner.pets">
       <td valign="top">
@@ -63,7 +63,7 @@
               <th t:text="#{visitDate}">Visit Date</th>
               <th t:text="#{description}">Description</th>
             </tr>
-          </thead>
+          </thead><tbody>
           <tr t:each="visit : pet.visits">
             <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
             <td t:text="visit?.description"></td>
@@ -72,11 +72,11 @@
             <td><a t:href="@{{ownerId}/pets/{petId}/edit(ownerId=owner.id, petId=pet.id)}" t:text="#{editPet}">Edit Pet</a></td>
             <td><a t:href="@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id, petId=pet.id)}" t:text="#{addVisit}">Add Visit</a></td>
           </tr>
-        </table>
+        </tbody></table>
       </td>
     </tr>
 
-  </table>
+  </tbody></table>
   <script>
     // Function to hide the success and error messages after 3 seconds
     function hideMessages() {

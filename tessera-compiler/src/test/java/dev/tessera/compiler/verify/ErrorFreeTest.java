@@ -120,16 +120,17 @@ class ErrorFreeTest {
 
   @Test
   void anErrorOnlyInABranchALoopRoundOrACallSite() {
-    // Only when the t:if holds.
+    // Only when the t:if holds: its <ul> closes the <p>, so the t:if body is not state-neutral (#682).
     verify("\n<p>a<t:block t:if=\"s == null\"><ul><li>x</li></ul></t:block></p><span t:text=\"s\">x</span>")
-        .assertError("t.html:2:", "[verifier:PARSE_ERROR]");
-    // Only in a loop's second round: a <button> the first round left open, then a second one.
+        .assertError("t.html:2:", "closes an open <p>", "[verifier:UNBALANCED]");
+    // Only in a loop's second round: a <button> the first round left open, so the body is not
+    // state-neutral (#682).
     Compilation.builder()
         .template("t.html", "<div " + NS + " t:params=\"java.util.List<String> xs\">\n"
             + "<t:block t:each=\"x : xs\"><button>[[${x}]]</t:block></div>")
         .verifierOnly()
         .compile()
-        .assertError("t.html:2:", "[verifier:PARSE_ERROR]");
+        .assertError("t.html:2:", "leaves <button> open", "[verifier:UNBALANCED]");
     // Only at one call site of a static fragment: a cell is fine in a row, not in a <div>.
     String frag = "<table><tr><td t:fragment=\"cell(String v)\" t:text=\"v\">c</td></tr></table>";
     verify(frag + "<table><tr><td t:replace=\"~{:: cell(s)}\"></td></tr></table>").assertSuccess();

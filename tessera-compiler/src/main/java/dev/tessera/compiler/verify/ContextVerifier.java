@@ -4,6 +4,7 @@ import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.compiler.verify.engine.Engines;
+import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
@@ -27,31 +28,33 @@ import java.util.TreeMap;
  * output is inert in the parser state there in both ({@link Rules}). A template it doesn't
  * accept is a build error at the hole's file, line and column.
  *
- * <p>It is an abstract interpretation with the parsers as the transfer function. A path holds the
- * two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they are. A
- * hole is checked and leaves the state as it was (that is what "inert" means); an attribute hole
- * writes nothing into the value. Paths are merged by their parser states' signatures
- * at every join: an optional part ({@code t:if}, {@code t:case}, a computed attribute) is the
- * union of skipping it and writing it, a loop runs to a fixed point, and a static fragment call is
- * analysed at each call site, memoised per (fragment, entry state, bound fragment arguments), with
- * recursion as a fixed point too.
+ * <p>It follows one path through the template, with the parsers as the transfer function. A path
+ * holds the two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they
+ * are. A hole is checked and leaves the state as it was (that is what "inert" means); an attribute
+ * hole writes nothing into the value. Control flow is state-neutral (#682): the body of a {@code
+ * t:if}, {@code t:case}, {@code t:each} and every fragment insertion must leave the parsers in the
+ * state it found them in ({@link #balanced}), and a partial must end in the state it starts in, so
+ * every way through the template is in the same state at each point and one path is exact. A
+ * static fragment call is analysed at each call site, memoised per (fragment, entry state, bound
+ * fragment arguments); a recursive call in the state its call in progress started in is neutral by
+ * induction.
  *
  * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error the
- * engine finds on any path, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static
- * that holds it, except the allow-list ({@link Rules#allowedError}); a partial counts them only in
- * its fragment contexts. And it checks
+ * engine finds, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static that holds
+ * it, except the allow-list ({@link Rules#allowedError}); a partial counts them, and its balance,
+ * only in its fragment contexts. And it checks
  * the coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts, and at
  * rejects every CDATA section it starts ({@link Problem#CDATA_SECTION}).
  *
- * <p>It fails closed: an engine failure, too many states, a loop or recursion without a fixed
- * point and a node it can't interpret are build errors.
+ * <p>It fails closed: an engine failure, a recursion into ever new states and a node it can't
+ * interpret are build errors.
  */
 public final class ContextVerifier {
-  /** At most this many distinct parser states at a join. */
-  static final int MAX_STATES = 24;
+  /** A fragment may be on the call stack at most this many times (each in a new state). */
+  static final int MAX_DEPTH = 4;
 
-  /** A loop or a recursion must reach its fixed point within this many rounds. */
-  static final int MAX_ROUNDS = 4;
+  /** A fragment that calls itself may be entered in at most this many states while it recurses. */
+  static final int MAX_RECURSIVE_ENTRIES = 24;
 
   /** Fragment parsing contexts a partial's root element implies (memo §3.4.6); anything else: body. */
   private static final Map<String, String> PARTIAL_CONTEXTS = new HashMap<>();
@@ -69,15 +72,16 @@ public final class ContextVerifier {
   /** The parsing context each fragment is declared in ({@link Skeleton.TemplateSkeleton#fragmentContext}). */
   private final Map<Skeleton.FragmentId, String> fragmentContexts = new HashMap<>();
   private final Map<String, Memo> memo = new HashMap<>();
-  private final Map<String, InProgress> inProgress = new HashMap<>();
+  /** The calls in progress, by memo key: their depth on the call stack. */
+  private final Map<String, Integer> inProgress = new HashMap<>();
   private final List<Skeleton.FragmentId> callStack = new ArrayList<>();
   /** The position of each call on {@link #callStack}, for a recursion's cycle in messages (#393). */
   private final List<SourcePos> callSites = new ArrayList<>();
   /** Per fragment that is on the call stack: how many states it was entered in by recursion. */
   private final Map<Skeleton.FragmentId, Integer> recursiveEntries = new HashMap<>();
   private final Map<Skeleton.Seq, Integer> seqIds = new IdentityHashMap<>();
-  /** The lowest call-stack depth whose approximation the current analysis read. */
-  private int approxDepth = Integer.MAX_VALUE;
+  /** The lowest call-stack depth of a call in progress the current analysis assumed neutral. */
+  private int assumedDepth = Integer.MAX_VALUE;
   /** Where findings go: the analysis of the innermost call in progress, or the entry. */
   private List<Finding> sink = new ArrayList<>();
   /** How many parsers a path of the current template holds. */
@@ -212,7 +216,7 @@ public final class ContextVerifier {
       return Collections.singletonList(new Finding(Problem.UNCALLED_FRAGMENT_FITS_NOWHERE, at, null, null, null, null,
           null, Collections.<ParserState>emptyList(), 1, id.toString(), false));
     }
-    return check(t, contexts);
+    return check(t, contexts, "fragment " + id);
   }
 
   /**
@@ -242,11 +246,14 @@ public final class ContextVerifier {
     for (String e : entries(template)) {
       contexts.add(e == null ? null : new OpenElement(OpenElement.HTML, e, false));
     }
-    return check(template, contexts);
+    return check(template, contexts, "this partial");
   }
 
-  /** What the verifier rejects in {@code template} parsed in each of {@code entries} (null: as a document). */
-  private List<Finding> check(Skeleton.TemplateSkeleton template, List<OpenElement> entries) {
+  /**
+   * What the verifier rejects in {@code template} parsed in each of {@code entries} (null: as a
+   * document). Parsed as a fragment, it must end in the state it starts in: {@code what} names it.
+   */
+  private List<Finding> check(Skeleton.TemplateSkeleton template, List<OpenElement> entries, String what) {
     Map<String, Finding> out = new LinkedHashMap<>();
     SourcePos start = firstPos(template);
     // The scripting flag changes only how a <noscript> tag parses: without one, the parsers with
@@ -258,16 +265,21 @@ public final class ContextVerifier {
       sink = found;
       near = start;
       try {
-        List<Path> paths = Collections.singletonList(start(context, scriptingOff));
-        seq(template.body(), paths, Env.EMPTY);
+        Path entry = start(context, scriptingOff);
+        Path exit = seq(template.body(), entry.fork(), Env.EMPTY);
+        if (context != null) {
+          balanced(entry, exit, start, what, false);
+        }
       } catch (EngineException e) {
         found.add(new Finding(Problem.ENGINE_FAILURE, near, null, null, null, null, null,
             Collections.<ParserState>emptyList(), parserCount, e.getMessage(), false));
       }
       for (Finding f : found) {
-        if (f.problem == Problem.PARSE_ERROR && context == null && entries.size() > 1) {
-          // A partial counts parse errors only in the fragment contexts its root implies (#406):
-          // as a document, a <tr> partial is a stray start tag.
+        if ((f.problem == Problem.PARSE_ERROR || f.problem == Problem.UNBALANCED) && context == null
+            && entries.size() > 1) {
+          // A partial counts parse errors and balance only in the fragment contexts its root
+          // implies (#406, #682): as a document, a <tr> partial is a stray start tag, and the
+          // first element of any partial opens <html> and <body>.
           continue;
         }
         // Data-dependent structure is one error per place, not one per hole it reaches.
@@ -370,7 +382,7 @@ public final class ContextVerifier {
           firstElementsThen(b.nodes(), nodes, i, out, depth);
         }
         return;
-      } else if (n instanceof Skeleton.Call && depth < MAX_ROUNDS) {
+      } else if (n instanceof Skeleton.Call && depth < MAX_DEPTH) {
         Skeleton.Seq target = fragments.get(((Skeleton.Call) n).target());
         if (target != null) {
           firstElementsThen(target.nodes(), nodes, i, out, depth + 1);
@@ -458,9 +470,9 @@ public final class ContextVerifier {
 
   // ---- the analysis ----
 
-  /** The exit paths of {@code seq} from {@code in}. May consume the paths in {@code in}. */
-  private List<Path> seq(Skeleton.Seq seq, List<Path> in, Env env) throws EngineException {
-    List<Path> cur = in;
+  /** The exit path of {@code seq} from {@code p}. May consume {@code p}. */
+  private Path seq(Skeleton.Seq seq, Path p, Env env) throws EngineException {
+    Path cur = p;
     Located.Builder statics = new Located.Builder();
     SourcePos staticPos = null;
     for (Skeleton.Node n : seq.nodes()) {
@@ -474,14 +486,14 @@ public final class ContextVerifier {
         continue;
       }
       if (!statics.isEmpty()) {
-        cur = statics(cur, statics.build(), staticPos);
+        statics(cur, statics.build(), staticPos);
         statics = new Located.Builder();
         staticPos = null;
       }
       cur = node(n, cur, env);
     }
     if (!statics.isEmpty()) {
-      cur = statics(cur, statics.build(), staticPos);
+      statics(cur, statics.build(), staticPos);
     }
     return cur;
   }
@@ -493,78 +505,147 @@ public final class ContextVerifier {
     return near;
   }
 
-  private List<Path> node(Skeleton.Node n, List<Path> in, Env env) throws EngineException {
+  private Path node(Skeleton.Node n, Path p, Env env) throws EngineException {
     SourcePos pos = at(n);
-    if (in.isEmpty()) {
-      return in;
-    }
     if (n instanceof Skeleton.Hole) {
-      Skeleton.Hole h = (Skeleton.Hole) n;
-      for (Path p : in) {
-        hole(h, p, pos);
-      }
-      return in;
+      hole((Skeleton.Hole) n, p, pos);
+      return p;
     }
     if (n instanceof Skeleton.RawInsert) {
-      return raw(((Skeleton.RawInsert) n).source(), in, pos);
+      return raw(((Skeleton.RawInsert) n).source(), p, pos);
     }
     if (n instanceof Skeleton.ParamInsert) {
       Binding b = env.bindings.get(((Skeleton.ParamInsert) n).param());
       if (b == null) {
-        return raw(Skeleton.Source.FRAGMENT_VALUE, in, pos);
+        return raw(Skeleton.Source.FRAGMENT_VALUE, p, pos);
       }
       // The bound fragment, or nothing for a null value.
-      List<Path> all = new ArrayList<>(in);
-      all.addAll(seq(b.seq, forks(in), b.env));
-      return dedupe(all, pos);
+      return optional(b.seq, p, b.env, pos, "the Fragment argument inserted here", true);
     }
     if (n instanceof Skeleton.Call) {
-      List<Path> all = new ArrayList<>();
-      for (Path p : in) {
-        all.addAll(call((Skeleton.Call) n, p, env, pos));
-      }
-      return dedupe(all, pos);
+      return call((Skeleton.Call) n, p, env, pos);
     }
     if (n instanceof Skeleton.Seq) {
-      return seq((Skeleton.Seq) n, in, env);
+      return seq((Skeleton.Seq) n, p, env);
     }
     if (n instanceof Skeleton.Opt
         && (((Skeleton.Opt) n).kind() == Skeleton.OptKind.ATTRIBUTE || ((Skeleton.Opt) n).kind() == Skeleton.OptKind.CSP_NONCE)) {
-      return attribute((Skeleton.Opt) n, in, env, pos);
+      return attribute((Skeleton.Opt) n, p, env, pos);
     }
     if (n instanceof Skeleton.Opt) {
-      List<Path> all = new ArrayList<>(in);
-      all.addAll(seq(((Skeleton.Opt) n).body(), forks(in), env));
-      return dedupe(all, pos);
+      return optional(((Skeleton.Opt) n).body(), p, env, pos, what(((Skeleton.Opt) n).kind()), false);
     }
     if (n instanceof Skeleton.Alt) {
-      List<Path> all = new ArrayList<>();
+      // One of the fragments, always: each is checked like a call. The path goes on after a
+      // balanced one (one that switched template mode, if any: the stricter), else after the first.
+      Path out = null;
+      boolean outBalanced = false;
       for (Skeleton.Seq b : ((Skeleton.Alt) n).branches()) {
-        all.addAll(seq(b, forks(in), env));
+        Path exit = seq(b, p.fork(), env);
+        boolean balanced = balanced(p, exit, pos, "the fragment inserted here", true);
+        if (out == null || balanced && (!outBalanced || !flowKey(exit).equals(flowKey(p)))) {
+          out = exit;
+          outBalanced = balanced;
+        }
       }
-      return dedupe(all, pos);
+      return out == null ? p : out;
     }
     if (n instanceof Skeleton.Rep) {
-      return rep((Skeleton.Rep) n, in, env, pos);
+      return rep((Skeleton.Rep) n, p, env, pos);
     }
     add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(), n.getClass().getSimpleName());
-    return Collections.emptyList();
+    return p;
+  }
+
+  private static String what(Skeleton.OptKind kind) {
+    switch (kind) {
+      case CONDITION:
+        return "this t:if or t:unless";
+      case CASE:
+        return "this t:case";
+      case ERRORS:
+        return "this t:errors";
+      default:
+        return "the hidden input written here";
+    }
+  }
+
+  /**
+   * State-neutral control flow (#682): {@code body} run from {@code entry} (on a fork) must leave
+   * the parsers as it found them ({@link #balanced}), so a body written or not, once or many times,
+   * leaves one state and one path stands for all. Returns the body's exit, which parses what follows
+   * as the entry does or (template mode) at least as strictly; if it is unbalanced, the entry.
+   */
+  private Path optional(Skeleton.Seq body, Path entry, Env env, SourcePos pos, String what, boolean insertion)
+      throws EngineException {
+    Path exit = seq(body, entry.fork(), env);
+    return balanced(entry, exit, pos, what, insertion) ? exit : entry;
+  }
+
+  /**
+   * Whether every parser of {@code exit} parses every continuation as it does in {@code entry}
+   * (else it reports {@link Problem#UNBALANCED} at {@code pos}): the same state but for a stale original
+   * insertion mode ({@link ContentKinds#flowSignature}); in template mode, also the "in body"
+   * state a flow start tag switches to ({@link ContentKinds#switchesMode}, which is stricter); and
+   * for a fragment {@code insertion} at the start of a document, the end of the document (a layout
+   * on {@code <html>}: after it, anything but whitespace and comments is a parse error).
+   */
+  private boolean balanced(Path entry, Path exit, SourcePos pos, String what, boolean insertion) throws EngineException {
+    ParserState[] before = entry.states();
+    ParserState[] after = exit.states();
+    Path switched = null;
+    for (int i = 0; i < after.length; i++) {
+      if (ContentKinds.flowSignature(before[i]).equals(ContentKinds.flowSignature(after[i]))
+          || insertion && documentStart(before[i]) && after[i].mode() == InsertionMode.AFTER_AFTER_BODY) {
+        continue;
+      }
+      if (ContentKinds.switchesMode(before[i])) {
+        if (switched == null) {
+          switched = entry.fork();
+          switched.feed(ContentKinds.REPRESENTATIVE, pos);
+        }
+        if (ContentKinds.flowSignature(switched.states()[i]).equals(ContentKinds.flowSignature(after[i]))) {
+          continue;
+        }
+      }
+      add(Problem.UNBALANCED, pos, null, null, null, Collections.singletonList(after[i]),
+          VerifierMessages.unbalanced(what, before[i], after[i]));
+      return false;
+    }
+    return true;
+  }
+
+  /** A document parser that has seen at most a doctype. */
+  private static boolean documentStart(ParserState s) {
+    return s.fragmentContext() == null && s.stack().isEmpty()
+        && (s.mode() == InsertionMode.INITIAL || s.mode() == InsertionMode.BEFORE_HTML);
+  }
+
+  private static String flowKey(Path p) throws EngineException {
+    StringBuilder sb = new StringBuilder();
+    for (ParserState s : p.states()) {
+      sb.append(ContentKinds.flowSignature(s)).append('\u0000');
+    }
+    return sb.toString();
   }
 
   /**
    * An attribute written only if its value isn't null: {@code [ name="<hole>"]}. Inside a start
    * tag, writing a whole attribute or not leaves the tokenizer in states that parse every
-   * continuation alike (before an attribute name, after a quoted value; after the tag name, when
-   * the next character is whitespace, '/' or '>', which {@link Path#tagBoundary} checks), so the
-   * two differ only in the element's attribute list. That list matters to the tree builder only
-   * through {@link #PRESENCE_MATTERS}, through duplicate names, and where the attribute makes a
-   * parse error ({@code <font color>} in SVG), where the written attribute is the stricter case
-   * (a later duplicate is dropped). An {@code <input>} in a table is a parse error with any
-   * {@code type}. So the written path alone stands
-   * for both, and a tag with many computed attributes doesn't multiply the states. Otherwise both
-   * are kept, as for any optional part.
+   * continuation alike (before an attribute name, after a quoted value; after the tag name or a
+   * static attribute's name, when the next character is whitespace, '/' or '>', which {@link
+   * Path#tagBoundary} checks), or that parse it more strictly when written: after an attribute's
+   * name (a boolean attribute such as {@code disabled}), a '=' or a name right after the written
+   * value is a parse error, where without it they would give that attribute a value or start the
+   * next one. So the two differ only in the element's attribute list. That list matters to the
+   * tree builder only through {@link #PRESENCE_MATTERS}, through duplicate names, and where the
+   * attribute makes a parse error ({@code <font color>} in SVG), where the written attribute is
+   * the stricter case (a later duplicate is dropped). An {@code <input>} in a table is a parse
+   * error with any {@code type}. So the written path alone stands for both, and a tag with many
+   * computed attributes doesn't multiply the states. Otherwise both must be one state ({@link
+   * #balanced}).
    */
-  private List<Path> attribute(Skeleton.Opt o, List<Path> in, Env env, SourcePos pos) throws EngineException {
+  private Path attribute(Skeleton.Opt o, Path p, Env env, SourcePos pos) throws EngineException {
     String name = null;
     for (Skeleton.Node b : o.body().nodes()) {
       if (b instanceof Skeleton.Hole && ((Skeleton.Hole) b).attribute() != null) {
@@ -572,35 +653,28 @@ public final class ContextVerifier {
         break;
       }
     }
-    List<Path> all = new ArrayList<>();
-    for (Path p : in) {
-      ParserState[] entry = p.states();
-      boolean pendingBoundary = p.tagBoundary;
-      List<Path> written = seq(o.body(), Collections.singletonList(p.fork()), env);
-      boolean merge = name != null && !PRESENCE_MATTERS.equals(name) && !written.isEmpty();
-      boolean afterTagName = false;
-      for (ParserState s : entry) {
-        TokenizerState t = s.tokenizer();
-        merge &= t == TokenizerState.BEFORE_ATTRIBUTE_NAME || t == TokenizerState.AFTER_ATTRIBUTE_VALUE_QUOTED
-            || t == TokenizerState.TAG_NAME;
-        afterTagName |= t == TokenizerState.TAG_NAME;
-      }
-      for (Path w : written) {
-        for (ParserState s : w.states()) {
-          merge &= s.tokenizer() == TokenizerState.AFTER_ATTRIBUTE_VALUE_QUOTED;
-        }
-      }
-      if (merge) {
-        for (Path w : written) {
-          w.tagBoundary |= afterTagName || pendingBoundary;
-          w.key = null;
-        }
-      } else {
-        all.add(p);
-      }
-      all.addAll(written);
+    ParserState[] entry = p.states();
+    boolean pendingBoundary = p.tagBoundary;
+    Path written = seq(o.body(), p.fork(), env);
+    boolean merge = name != null && !PRESENCE_MATTERS.equals(name);
+    boolean inName = false;
+    for (ParserState s : entry) {
+      TokenizerState t = s.tokenizer();
+      merge &= t == TokenizerState.BEFORE_ATTRIBUTE_NAME || t == TokenizerState.AFTER_ATTRIBUTE_VALUE_QUOTED
+          || t == TokenizerState.TAG_NAME || t == TokenizerState.ATTRIBUTE_NAME
+          || t == TokenizerState.AFTER_ATTRIBUTE_NAME;
+      inName |= t == TokenizerState.TAG_NAME || t == TokenizerState.ATTRIBUTE_NAME;
     }
-    return dedupe(all, pos);
+    for (ParserState s : written.states()) {
+      merge &= s.tokenizer() == TokenizerState.AFTER_ATTRIBUTE_VALUE_QUOTED;
+    }
+    if (merge) {
+      written.tagBoundary |= inName || pendingBoundary;
+      written.key = null;
+    } else {
+      balanced(p, written, pos, "this computed attribute", false);
+    }
+    return written;
   }
 
   /**
@@ -609,92 +683,46 @@ public final class ContextVerifier {
    */
   private static final String PRESENCE_MATTERS = "encoding";
 
-  /** Zero or more {@code body}, separated: iterate until no new state appears. */
-  private List<Path> rep(Skeleton.Rep r, List<Path> in, Env env, SourcePos pos) throws EngineException {
-    List<Path> all = dedupe(in, pos);
-    // States after at least one iteration, kept apart from the entry states: an iteration that
-    // returns to an entry state is still followed by separator + body.
-    Set<String> seen = new HashSet<>();
-    List<Path> fresh = all;
-    for (int round = 0; ; round++) {
-      List<Path> next = forks(fresh);
-      if (round > 0) {
-        next = seq(r.separator(), next, env);
-      }
-      next = dedupe(seq(r.body(), next, env), pos);
-      fresh = new ArrayList<>();
-      for (Path p : next) {
-        if (seen.add(p.key())) {
-          fresh.add(p);
-        }
-      }
-      if (fresh.isEmpty()) {
-        break;
-      }
-      all.addAll(fresh);
-      if (round + 1 >= MAX_ROUNDS) {
-        add(Problem.LOOP_NO_FIXED_POINT, pos, null, null, null, Collections.<ParserState>emptyList(), null);
-        break;
-      }
+  /**
+   * Zero or more {@code body}, separated. One pass of the body and the separator must each be
+   * state-neutral ({@link #optional}); then every number of passes leaves the entry state. In
+   * template mode the first pass may switch the mode, and the next passes are checked from there.
+   */
+  private Path rep(Skeleton.Rep r, Path p, Env env, SourcePos pos) throws EngineException {
+    String what = r.kind() == Skeleton.RepKind.EACH ? "this t:each" : "the messages of this t:errors";
+    Path once = optional(r.body(), p, env, pos, what, false);
+    Path next = optional(r.separator(), once, env, pos, what, false);
+    if (!flowKey(once).equals(flowKey(p))) {
+      return optional(r.body(), next, env, pos, what, false);
     }
-    return dedupe(all, pos);
+    return once;
   }
 
-  /** Merges paths with the same state; more than {@link #MAX_STATES} is an error. */
-  private List<Path> dedupe(List<Path> paths, SourcePos pos) throws EngineException {
-    if (paths.size() <= 1) {
-      return new ArrayList<>(paths);
-    }
-    Map<String, Path> byKey = new LinkedHashMap<>();
-    for (Path p : paths) {
-      if (!byKey.containsKey(p.key())) {
-        byKey.put(p.key(), p);
-      }
-    }
-    List<Path> out = new ArrayList<>(byKey.values());
-    if (out.size() > MAX_STATES) {
-      add(Problem.TOO_MANY_STATES, pos, null, null, null, Collections.<ParserState>emptyList(), null);
-      return new ArrayList<>(out.subList(0, MAX_STATES));
-    }
-    return out;
-  }
-
-  private static List<Path> forks(List<Path> in) throws EngineException {
-    List<Path> out = new ArrayList<>(in.size());
-    for (Path p : in) {
-      out.add(p.fork());
-    }
-    return out;
-  }
-
-  private List<Path> statics(List<Path> in, Located located, SourcePos pos) throws EngineException {
+  private void statics(Path p, Located located, SourcePos pos) throws EngineException {
     if (pos != null) {
       near = pos;
     }
     pos = near;
     String text = located.text;
-    for (Path p : in) {
-      if (p.tagBoundary) {
-        char c = text.charAt(0);
-        if (!isSpace(c) && c != '/' && c != '>') {
-          add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(),
-              "markup right after a computed attribute that isn't whitespace, '/' or '>'");
-        }
-        p.tagBoundary = false;
-        p.key = null;
+    if (p.tagBoundary) {
+      char c = text.charAt(0);
+      if (!isSpace(c) && c != '/' && c != '>') {
+        add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(),
+            "markup right after a computed attribute that isn't whitespace, '/' or '>'");
       }
-      int lt = text.lastIndexOf('<');
-      if (lt > 0 && text.indexOf('>', lt) < 0) {
-        // A tag that goes on past this static: feed the text before it on its own, so the state
-        // inside the tag is described by the state before it plus only the tag's own input
-        // (VnuParser), and paths that differ only before the tag still merge.
-        p.feed(located.sub(0, lt));
-        p.defer(located.sub(lt, text.length()));
-      } else {
-        p.feed(located);
-      }
+      p.tagBoundary = false;
+      p.key = null;
     }
-    return in;
+    int lt = text.lastIndexOf('<');
+    if (lt > 0 && text.indexOf('>', lt) < 0) {
+      // A tag that goes on past this static: feed the text before it on its own, so the state
+      // inside the tag is described by the state before it plus only the tag's own input
+      // (VnuParser), and fragment calls in the same state share their analysis.
+      p.feed(located.sub(0, lt));
+      p.defer(located.sub(lt, text.length()));
+    } else {
+      p.feed(located);
+    }
   }
 
   private void hole(Skeleton.Hole h, Path p, SourcePos pos) throws EngineException {
@@ -723,35 +751,31 @@ public final class ContextVerifier {
 
   /**
    * HTML known only at render time: its {@link ContentKinds kind}'s predicate must hold in every
-   * parser state, and then the value leaves the parser where it was (in template mode, also where a
-   * flow start tag switches it to).
+   * parser state, and then the value leaves the parser where it was. In template mode a flow start
+   * tag switches the mode: the path goes on from there, which parses what follows at least as
+   * strictly as the state before an empty value ({@link #balanced}).
    */
-  private List<Path> raw(Skeleton.Source source, List<Path> in, SourcePos pos) throws EngineException {
-    List<Path> out = new ArrayList<>(in);
-    for (Path p : in) {
-      boundary(p, pos);
-      Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
-      boolean switches = false;
-      for (ParserState s : p.states()) {
-        Problem problem = ContentKinds.problem(s, source);
-        if (problem != null) {
-          problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
-        } else {
-          switches |= ContentKinds.switchesMode(s);
-        }
-      }
-      for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
-        String detail =
-            e.getKey() == Problem.RAW_CLOSES_ELEMENT ? ContentKinds.closer(e.getValue().get(0), source) : null;
-        add(p, e.getKey(), pos, null, source, null, e.getValue(), detail);
-      }
-      if (switches) {
-        Path written = p.fork();
-        written.feed(ContentKinds.REPRESENTATIVE, pos);
-        out.add(written);
+  private Path raw(Skeleton.Source source, Path p, SourcePos pos) throws EngineException {
+    boundary(p, pos);
+    Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
+    boolean switches = false;
+    for (ParserState s : p.states()) {
+      Problem problem = ContentKinds.problem(s, source);
+      if (problem != null) {
+        problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
+      } else {
+        switches |= ContentKinds.switchesMode(s);
       }
     }
-    return out.size() == in.size() ? out : dedupe(out, pos);
+    for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
+      String detail =
+          e.getKey() == Problem.RAW_CLOSES_ELEMENT ? ContentKinds.closer(e.getValue().get(0), source) : null;
+      add(p, e.getKey(), pos, null, source, null, e.getValue(), detail);
+    }
+    if (switches) {
+      p.feed(ContentKinds.REPRESENTATIVE, pos);
+    }
+    return p;
   }
 
   /** A value right after a computed attribute that stands for its absence too: not interpretable. */
@@ -830,49 +854,42 @@ public final class ContextVerifier {
   // ---- fragment calls ----
 
   private static final class Memo {
-    final List<Path> exits;
+    final Path exit;
     final List<Finding> findings;
 
-    Memo(List<Path> exits, List<Finding> findings) {
-      this.exits = exits;
+    Memo(Path exit, List<Finding> findings) {
+      this.exit = exit;
       this.findings = findings;
     }
   }
 
-  private static final class InProgress {
-    final int depth;
-    List<Path> approx = Collections.emptyList();
-    boolean used;
-    /** The calls by which the analysis first came back to this one ({@link #cycle}), or null. */
-    List<Finding.Step> cycle;
-
-    InProgress(int depth) {
-      this.depth = depth;
-    }
-  }
-
-  private List<Path> call(Skeleton.Call c, Path p, Env env, SourcePos pos) throws EngineException {
+  /**
+   * A fragment call, analysed in the caller's state, memoised per (fragment, bound fragment
+   * arguments, entry state). The fragment must leave the state as it found it ({@link #balanced}).
+   * A recursive call in the state its call in progress was entered in is taken to do so: that call
+   * checks it, so by induction on the depth every depth does. A recursion into ever new states
+   * (deeper nesting each time) is {@link Problem#STRUCTURE_DEPENDS_ON_DATA}.
+   */
+  private Path call(Skeleton.Call c, Path p, Env env, SourcePos pos) throws EngineException {
     Skeleton.Seq target = fragments.get(c.target());
     if (target == null) {
       add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(), "fragment " + c.target());
-      return Collections.emptyList();
+      return p;
     }
+    String what = "fragment " + c.target() + ", inserted here,";
     Env callee = env.bind(c.fragmentArgs());
     String key = c.target() + "\n" + callee.key(seqIds) + "\n" + p.key();
     Memo m = memo.get(key);
     if (m != null) {
       emit(m.findings, pos, c.target());
-      return forks(m.exits);
+      Path exit = m.exit.fork();
+      balanced(p, exit, pos, what, true);
+      return exit;
     }
-    InProgress running = inProgress.get(key);
+    Integer running = inProgress.get(key);
     if (running != null) {
-      // Recursion into the same state: use the approximation so far, and iterate to a fixed point.
-      running.used = true;
-      if (running.cycle == null) {
-        running.cycle = cycle(running.depth, c.target(), pos);
-      }
-      approxDepth = Math.min(approxDepth, running.depth);
-      return forks(running.approx);
+      assumedDepth = Math.min(assumedDepth, running);
+      return p;
     }
     int same = 0;
     for (Skeleton.FragmentId f : callStack) {
@@ -886,49 +903,30 @@ public final class ContextVerifier {
     if (same > 0) {
       recursiveEntries.put(c.target(), entries);
     }
-    if (same >= MAX_ROUNDS || entries > MAX_STATES) {
-      // Recursion into ever new states (deeper nesting each time): the structure depends on data.
+    if (same >= MAX_DEPTH || entries > MAX_RECURSIVE_ENTRIES) {
       sink.add(new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
           Collections.<ParserState>emptyList(), parserCount, null, true)
           .withCycle(cycle(callStack.lastIndexOf(c.target()), c.target(), pos)));
-      return Collections.emptyList();
+      return p;
     }
     int depth = callStack.size();
-    running = new InProgress(depth);
-    inProgress.put(key, running);
+    inProgress.put(key, depth);
     callStack.add(c.target());
     callSites.add(pos);
-    int outerApprox = approxDepth;
-    int readApprox = Integer.MAX_VALUE;
+    int outerAssumed = assumedDepth;
+    assumedDepth = Integer.MAX_VALUE;
     List<Finding> outer = sink;
-    List<Path> exits;
-    List<Finding> found;
+    List<Finding> found = new ArrayList<>();
+    sink = found;
     SourcePos outerNear = near;
+    Path exit;
+    int read;
     try {
-      for (int round = 0; ; round++) {
-        approxDepth = Integer.MAX_VALUE;
-        found = new ArrayList<>();
-        sink = found;
-        running.used = false;
-        exits = seq(target, Collections.singletonList(p.fork()), callee);
-        for (Path e : exits) {
-          // Input the fragment deferred is the fragment's: its errors belong to this call.
-          e.flush();
-        }
-        exits = dedupe(exits, pos);
-        readApprox = Math.min(readApprox, approxDepth);
-        if (!running.used || keys(exits).equals(keys(running.approx))) {
-          break;
-        }
-        if (round + 1 >= MAX_ROUNDS) {
-          Finding f = new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
-              Collections.<ParserState>emptyList(), parserCount, null, true);
-          found.add(running.cycle == null ? f : f.withCycle(running.cycle));
-          break;
-        }
-        running.approx = exits;
-      }
+      exit = seq(target, p.fork(), callee);
+      // Input the fragment deferred is the fragment's: its errors belong to this call.
+      exit.flush();
     } finally {
+      read = assumedDepth;
       sink = outer;
       near = outerNear;
       callStack.remove(callStack.size() - 1);
@@ -938,14 +936,14 @@ public final class ContextVerifier {
         recursiveEntries.remove(c.target());
       }
     }
-    // A result that read an outer call's approximation isn't final: don't memoise it.
-    approxDepth = Math.min(outerApprox, readApprox < depth ? readApprox : Integer.MAX_VALUE);
-    if (readApprox >= depth) {
-      memo.put(key, new Memo(exits, found));
-      exits = forks(exits);
+    // A result that assumed an outer call in progress is neutral isn't final: don't memoise it.
+    assumedDepth = Math.min(outerAssumed, read < depth ? read : Integer.MAX_VALUE);
+    if (read >= depth) {
+      memo.put(key, new Memo(exit.fork(), found));
     }
     emit(found, pos, c.target());
-    return exits;
+    balanced(p, exit, pos, what, true);
+    return exit;
   }
 
   /**
@@ -965,14 +963,6 @@ public final class ContextVerifier {
     for (Finding f : found) {
       sink.add(f.via(callSite, target));
     }
-  }
-
-  private static Set<String> keys(List<Path> paths) throws EngineException {
-    Set<String> out = new HashSet<>();
-    for (Path p : paths) {
-      out.add(p.key());
-    }
-    return out;
   }
 
   // ---- fragment arguments ----
@@ -1269,10 +1259,6 @@ public final class ContextVerifier {
       List<Opened> o = opened.get(parser);
       Opened x = index >= 0 && index < o.size() ? o.get(index) : null;
       return x != null && x.name.equals(e.localName()) && x.namespace.equals(e.namespace()) ? x.at : null;
-    }
-
-    int size() {
-      return parsers.length;
     }
 
     Path fork() throws EngineException {

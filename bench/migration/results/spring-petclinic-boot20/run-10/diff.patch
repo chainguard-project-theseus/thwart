@@ -197,7 +197,7 @@ index 0000000..6dd75d7
 +GET /owners/1/pets/999/edit
 +GET /vets
 diff --git a/pom.xml b/pom.xml
-index 0469cea..afaefc9 100644
+index 0469cea..88d928d 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -29,6 +29,10 @@
@@ -748,7 +748,7 @@ index 982be5e..15e329d 100644
  </body>
  </html>
 diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
-index ed89462..9b15e48 100644
+index ed89462..dd5a780 100644
 --- a/src/main/resources/templates/owners/ownerDetails.html
 +++ b/src/main/resources/templates/owners/ownerDetails.html
 @@ -1,36 +1,36 @@
@@ -798,9 +798,12 @@ index ed89462..9b15e48 100644
        New Pet</a>
    
      <br />
-@@ -40,16 +40,16 @@
+@@ -38,18 +38,18 @@
+     <br />
+     <h2>Pets and Visits</h2>
    
-     <table class="table table-striped">
+-    <table class="table table-striped">
++    <table class="table table-striped"><tbody>
    
 -      <tr th:each="pet : ${owner.pets}">
 +      <tr t:each="pet : owner.pets">
@@ -819,13 +822,15 @@ index ed89462..9b15e48 100644
            </dl>
          </td>
          <td valign="top">
-@@ -60,16 +60,16 @@
+@@ -59,24 +59,24 @@
+                 <th>Visit Date</th>
                  <th>Description</th>
                </tr>
-             </thead>
+-            </thead>
 -            <tr th:each="visit : ${pet.visits}">
 -              <td th:text="${#temporals.format(visit.date, 'yyyy-MM-dd')}"></td>
 -              <td th:text="${visit?.description}"></td>
++            </thead><tbody>
 +            <tr t:each="visit : pet.visits">
 +              <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
 +              <td t:text="visit?.description"></td>
@@ -840,7 +845,16 @@ index ed89462..9b15e48 100644
 +                t:href="@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}">Add
                    Visit</a></td>
              </tr>
-           </table>
+-          </table>
++          </tbody></table>
+         </td>
+       </tr>
+   
+-    </table>
++    </tbody></table>
+   
+   </body>
+ 
 diff --git a/src/main/resources/templates/owners/ownersList.html b/src/main/resources/templates/owners/ownersList.html
 index 478b37e..eb5c73b 100644
 --- a/src/main/resources/templates/owners/ownersList.html

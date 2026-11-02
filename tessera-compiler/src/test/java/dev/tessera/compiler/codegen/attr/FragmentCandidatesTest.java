@@ -110,7 +110,8 @@ class FragmentCandidatesTest {
   /** A {@code ~{::li}} inserted in an {@code <li>} closes it: the value after it lands in the list. */
   @Test
   void listItemThroughATernaryIsVerifiedWhereItLands() {
-    listItem("~{::li}", "<ul><li>x</li></ul>").assertError(PARSE_ERROR);
+    // The <li> closes the <li> open around it: the inserted fragment isn't state-neutral (#682).
+    listItem("~{::li}", "<ul><li>x</li></ul>").assertError("[verifier:UNBALANCED]");
     Compilation c = listItem("~{::b}", "<b>x</b>").assertSuccess();
     assertEquals("<div>\n<ul><li><b>x</b>&lt;i&gt;</li></ul><b>x</b></div>", c.render("page", Map.of("s", "<i>")));
   }

@@ -8,7 +8,7 @@ index 4718012c..fb64e229 100644
  BudgetMasterServer/src/main/resources/BudgetMasterDatabaseMigrator.jar
 +.tessera/
 diff --git a/BudgetMasterServer/pom.xml b/BudgetMasterServer/pom.xml
-index 04ed82eb..64868156 100644
+index 04ed82eb..98b6524c 100644
 --- a/BudgetMasterServer/pom.xml
 +++ b/BudgetMasterServer/pom.xml
 @@ -43,6 +43,8 @@
@@ -2785,7 +2785,7 @@ index 67c14225..00000000
 -</html>
 diff --git a/BudgetMasterServer/src/main/resources/templates/accounts/accounts.html b/BudgetMasterServer/src/main/resources/templates/accounts/accounts.html
 new file mode 100644
-index 00000000..dd1576d0
+index 00000000..b874d67b
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/accounts/accounts.html
 @@ -0,0 +1,151 @@
@@ -2870,7 +2870,7 @@ index 00000000..dd1576d0
 +                                            </button>
 +                                        </th>
 +                                    </tr>
-+                                </thead>
++                                </thead><tbody>
 +
 +                                <t:block t:each="account : accounts">
 +                                    <tr t:if="account.getType() == 'CUSTOM'" class="account-overview-row">
@@ -2910,7 +2910,7 @@ index 00000000..dd1576d0
 +                                        </td>
 +                                    </tr>
 +                                </t:block>
-+                            </table>
++                            </tbody></table>
 +                        </form>
 +                        <div t:if="accounts.isEmpty()" class="headline center-align" t:text="locale.getString('placeholder')"></div>
 +                    </div>
@@ -3334,7 +3334,7 @@ index 3101d388..00000000
 -</html>
 diff --git a/BudgetMasterServer/src/main/resources/templates/categories/categories.html b/BudgetMasterServer/src/main/resources/templates/categories/categories.html
 new file mode 100644
-index 00000000..508078a4
+index 00000000..765f0556
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/categories/categories.html
 @@ -0,0 +1,65 @@
@@ -3371,7 +3371,7 @@ index 00000000..508078a4
 +                                <th t:text="locale.getString('categories.usages')"></th>
 +                                <th t:text="locale.getString('categories.actions')"></th>
 +                            </tr>
-+                        </thead>
++                        </thead><tbody>
 +                        <tr t:each="category : categories" t:with="categoryName=helpers.categoryName(category), usageCount=helpers.getUsageCountForCategory(category)">
 +                            <td><t:block t:replace="~{categories/categoriesFunctions :: categoryCircle(category, '', false, true)}"></t:block></td>
 +                            <td>[[${categoryName}]] </td>
@@ -3384,7 +3384,7 @@ index 00000000..508078a4
 +                                </a>
 +                            </td>
 +                        </tr>
-+                    </table>
++                    </tbody></table>
 +                    <div t:if="categories.isEmpty()" class="headline center-align" t:text="locale.getString('placeholder')"></div>
 +                </div>
 +                </categories-content>
@@ -3865,11 +3865,11 @@ index faa89974..00000000
 -</#macro>
 diff --git a/BudgetMasterServer/src/main/resources/templates/charts/chartFunctions.html b/BudgetMasterServer/src/main/resources/templates/charts/chartFunctions.html
 new file mode 100644
-index 00000000..e12da0e3
+index 00000000..510464f9
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/charts/chartFunctions.html
 @@ -0,0 +1,49 @@
-+<html xmlns:t="https://tessera.dev">
++<t:block xmlns:t="https://tessera.dev">
 +<!--/* Fragments of the old charts/chartFunctions.ftl; getChartName(chart) is chartViews.chartName(chart) */-->
 +
 +<!--/* infoMessage text: the text (a bundle message, one with a link) is passed as content */-->
@@ -3917,7 +3917,7 @@ index 00000000..e12da0e3
 +    <t:block t:if="fontAwesome"><i t:class="|${icon} left|"></i> [[${locale.getString(localizationKey)}]]</t:block>
 +    <t:block t:unless="fontAwesome"><i class="material-icons left" t:text="icon"></i> [[${locale.getString(localizationKey)}]]</t:block>
 +</t:block>
-+</html>
++</t:block>
 diff --git a/BudgetMasterServer/src/main/resources/templates/charts/charts.ftl b/BudgetMasterServer/src/main/resources/templates/charts/charts.ftl
 deleted file mode 100644
 index 152d1cc8..00000000
@@ -4531,7 +4531,7 @@ index 4147e3eb..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/charts/manage.html b/BudgetMasterServer/src/main/resources/templates/charts/manage.html
 new file mode 100644
-index 00000000..5a1a9e56
+index 00000000..6bb66f43
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/charts/manage.html
 @@ -0,0 +1,83 @@
@@ -4568,7 +4568,7 @@ index 00000000..5a1a9e56
 +                                    <th t:text="locale.getString('chart.new.label.name')"></th>
 +                                    <th t:text="locale.getString('chart.actions')"></th>
 +                                </tr>
-+                            </thead>
++                            </thead><tbody>
 +                            <tr t:each="chart : customCharts">
 +                                <td t:text="chartViews.chartName(chart)"></td>
 +                                <td>
@@ -4578,7 +4578,7 @@ index 00000000..5a1a9e56
 +                                    </a>
 +                                </td>
 +                            </tr>
-+                        </table>
++                        </tbody></table>
 +                        <t:block t:if="customCharts.isEmpty()">
 +                            <div class="center-align charts-default-margin" t:text="locale.getString('placeholder')"></div>
 +                            <br>
@@ -4596,7 +4596,7 @@ index 00000000..5a1a9e56
 +                                    <th t:text="locale.getString('chart.group.type')"></th>
 +                                    <th t:text="locale.getString('chart.actions')"></th>
 +                                </tr>
-+                            </thead>
++                            </thead><tbody>
 +                            <tr t:each="chart : defaultCharts">
 +                                <td t:text="chartViews.chartName(chart)"></td>
 +                                <td><t:block t:replace="~{charts/chartFunctions :: iconForItem(chart.getDisplayType().getIcon(), chartViews.hasFontAwesomeIcon(chart.getDisplayType()), chart.getDisplayType().getLocalizationKey())}"></t:block></td>
@@ -4605,7 +4605,7 @@ index 00000000..5a1a9e56
 +                                    <a t:replace="~{helpers/header :: buttonFlat(url='/charts/' + chart.getID() + '/edit', icon='visibility', localizationKey='', id='', classes='no-padding text-default', noUrl=false, iconClasses='', target='', datasetIndex=null)}"></a>
 +                                </td>
 +                            </tr>
-+                        </table>
++                        </tbody></table>
 +                    </div>
 +                </manage-content>
 +                </t:block>
@@ -6435,11 +6435,11 @@ index 240a4e53..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/helpers/globalDatePicker.html b/BudgetMasterServer/src/main/resources/templates/helpers/globalDatePicker.html
 new file mode 100644
-index 00000000..90c199b7
+index 00000000..7f93251f
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/helpers/globalDatePicker.html
 @@ -0,0 +1,77 @@
-+<html xmlns:t="https://tessera.dev">
++<t:block xmlns:t="https://tessera.dev">
 +<!--/* Fragments of the old helpers/globalDatePicker.ftl.
 +     datePicker: the old macro read the currentDate model attribute besides fullDate; every caller passes currentDate as fullDate, so fullDate is used. */-->
 +<t:block t:fragment="datePicker(LocalDate fullDate, String target)">
@@ -6486,11 +6486,11 @@ index 00000000..90c199b7
 +    <t:block t:replace="~{helpers/globalDatePicker :: datepickerGrid(itemViews.years(startYear), '' + currentYear)}"></t:block>
 +</t:block>
 +
-+<table t:fragment="datepickerGrid(List<String> items, String currentItem)" class="no-border-table global-datepicker-table">
++<table t:fragment="datepickerGrid(List<String> items, String currentItem)" class="no-border-table global-datepicker-table"><tbody>
 +    <tr t:each="row : itemViews.rows(items, 3)">
 +        <td t:each="item : row" t:class="|global-datepicker-item ${item == currentItem ? 'global-datepicker-selected' : ''}|" t:text="item"></td>
 +    </tr>
-+</table>
++</tbody></table>
 +
 +<!--/* localization for scripts */-->
 +<!--/* The localized names as literals per language (as base_*.properties have them): a computed value in a script
@@ -6515,7 +6515,7 @@ index 00000000..90c199b7
 +        buttonClose = 'OK';
 +    </script>
 +</t:block>
-+</html>
++</t:block>
 diff --git a/BudgetMasterServer/src/main/resources/templates/helpers/header.ftl b/BudgetMasterServer/src/main/resources/templates/helpers/header.ftl
 deleted file mode 100644
 index c64bba42..00000000
@@ -10026,7 +10026,7 @@ index 2b6dd3e4..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/settings/importResult.html b/BudgetMasterServer/src/main/resources/templates/settings/importResult.html
 new file mode 100644
-index 00000000..4e7f3bf9
+index 00000000..b91f6935
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/settings/importResult.html
 @@ -0,0 +1,77 @@
@@ -10056,7 +10056,7 @@ index 00000000..4e7f3bf9
 +                <div class="container">
 +                    <div class="row">
 +                        <div class="col s10 offset-s1 m8 offset-m2 l6 offset-l3">
-+                            <table class="bordered">
++                            <table class="bordered"><tbody>
 +                                <tr t:each="item : importResultItems">
 +                                    <td><i class="material-icons left" t:text="item.getEntityType().getIcon()"></i>
 +                                        <div class="import-entity-name" t:text="locale.getString(item.getEntityType().getLocalizationKey())"></div>
@@ -10064,7 +10064,7 @@ index 00000000..4e7f3bf9
 +                                    <td><i t:if="item.getNumberOfImportedItems() != item.getNumberOfAvailableItems()" class="fas fa-exclamation-triangle text-red"></i></td>
 +                                    <td>[[${fmt.number(item.getNumberOfImportedItems())}]]/[[${fmt.number(item.getNumberOfAvailableItems())}]]</td>
 +                                </tr>
-+                            </table>
++                            </tbody></table>
 +                        </div>
 +                    </div>
 +                </div>
@@ -10079,12 +10079,12 @@ index 00000000..4e7f3bf9
 +                                        [[${locale.getString('info.database.import.result.errors')}]]
 +                                    </div>
 +                                    <div class="collapsible-body">
-+                                        <table class="bordered">
++                                        <table class="bordered"><tbody>
 +                                            <tr t:each="error : errorMessages">
 +                                                <td><i class="fas fa-exclamation-triangle text-red"></i></td>
 +                                                <td t:text="error"></td>
 +                                            </tr>
-+                                        </table>
++                                        </tbody></table>
 +                                    </div>
 +                                </li>
 +                            </ul>
@@ -10200,7 +10200,7 @@ index 3ca3d642..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/settings/importStepOne.html b/BudgetMasterServer/src/main/resources/templates/settings/importStepOne.html
 new file mode 100644
-index 00000000..a3c56ded
+index 00000000..31f83524
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/settings/importStepOne.html
 @@ -0,0 +1,76 @@
@@ -10230,7 +10230,7 @@ index 00000000..a3c56ded
 +                    <form name="Import" t:action="@{/settings/database/import/step1}" method="post">
 +                        <div class="row">
 +                            <div class="col s12 m10 offset-m1 l10 offset-l1 xl8 offset-xl2">
-+                                <table class="bordered">
++                                <table class="bordered"><tbody>
 +                                    <tr t:each="entry : database.getNumberOfEntitiesByType()">
 +                                        <td>
 +                                            <label>
@@ -10247,7 +10247,7 @@ index 00000000..a3c56ded
 +                                        <td><a class="btn btn-flat text-default import-entity-help-button"><i class="material-icons">help_outline</i><span t:if="entry.key == 'CATEGORY'" class="hide import-entity-help-text" t:utext="#{import.entity.category}"></span><span t:if="entry.key == 'ACCOUNT'" class="hide import-entity-help-text" t:utext="#{import.entity.account}"></span><span t:if="entry.key == 'TRANSACTION'" class="hide import-entity-help-text" t:utext="#{import.entity.transaction}"></span><span t:if="entry.key == 'TEMPLATE'" class="hide import-entity-help-text" t:utext="#{import.entity.template}"></span><span t:if="entry.key == 'TEMPLATE_GROUP'" class="hide import-entity-help-text" t:utext="#{import.entity.template_group}"></span><span t:if="entry.key == 'IMAGE'" class="hide import-entity-help-text" t:utext="#{import.entity.image}"></span><span t:if="entry.key == 'CHART'" class="hide import-entity-help-text" t:utext="#{import.entity.chart}"></span></a>
 +                                        </td>
 +                                    </tr>
-+                                </table>
++                                </tbody></table>
 +                            </div>
 +                        </div>
 +
@@ -11304,7 +11304,7 @@ index 68f56c66..00000000
 -</html>
 diff --git a/BudgetMasterServer/src/main/resources/templates/tags/tags.html b/BudgetMasterServer/src/main/resources/templates/tags/tags.html
 new file mode 100644
-index 00000000..aac51061
+index 00000000..30e956fd
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/tags/tags.html
 @@ -0,0 +1,48 @@
@@ -11335,7 +11335,7 @@ index 00000000..aac51061
 +                                    <th t:text="locale.getString('categories.usages')"></th>
 +                                    <th t:text="locale.getString('categories.actions')"></th>
 +                                </tr>
-+                            </thead>
++                            </thead><tbody>
 +                            <tr t:each="tagUsage : tagUsages">
 +                                <td>[[${tagUsage.key}]] </td>
 +                                <td>
@@ -11345,7 +11345,7 @@ index 00000000..aac51061
 +                                    <a t:replace="~{helpers/header :: buttonFlat(url='/search?searchTags=true&searchText=' + tagUsage.key, icon='search', localizationKey='', id='', classes='no-padding text-default', noUrl=false, iconClasses='', target='', datasetIndex=null)}"></a>
 +                                </td>
 +                            </tr>
-+                        </table>
++                        </tbody></table>
 +                    </div>
 +                </tags-content>
 +                </t:block>
@@ -11586,11 +11586,11 @@ index bbe72af2..00000000
 -</#macro>
 diff --git a/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroupFunctions.html b/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroupFunctions.html
 new file mode 100644
-index 00000000..63988218
+index 00000000..035d93f7
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroupFunctions.html
 @@ -0,0 +1,30 @@
-+<html xmlns:t="https://tessera.dev">
++<t:block xmlns:t="https://tessera.dev">
 +<!--/* Macros of the old templateGroups/templateGroupFunctions.ftl */-->
 +<a t:fragment="buttonNew" t:replace="~{helpers/header :: buttonLink(url='/templateGroups/newTemplateGroup', icon='add', localizationKey='title.template.group.button.new', id='', color='background-blue', classes='', noUrl=false, disabled=false, target='')}"></a>
 +
@@ -11619,7 +11619,7 @@ index 00000000..63988218
 +        </div>
 +    </div>
 +</t:block>
-+</html>
++</t:block>
 diff --git a/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroups.ftl b/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroups.ftl
 deleted file mode 100644
 index 0ca68798..00000000
@@ -11683,7 +11683,7 @@ index 0ca68798..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroups.html b/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroups.html
 new file mode 100644
-index 00000000..b6b10899
+index 00000000..586786cd
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/templateGroups/templateGroups.html
 @@ -0,0 +1,50 @@
@@ -11712,7 +11712,7 @@ index 00000000..b6b10899
 +                    <br>
 +
 +                    <div class="container">
-+                        <table class="bordered">
++                        <table class="bordered"><tbody>
 +                            <tr t:each="group : templateGroups">
 +                                <td>[[${group.getName()}]] </td>
 +                                <td>
@@ -11723,7 +11723,7 @@ index 00000000..b6b10899
 +                                    </a>
 +                                </td>
 +                            </tr>
-+                        </table>
++                        </tbody></table>
 +                        <div t:if="templateGroups.isEmpty()" class="headline center-align" t:text="locale.getString('placeholder')"></div>
 +                    </div>
 +                </template-groups-content>
@@ -12293,11 +12293,11 @@ index 06b3b71f..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/templates/templateFunctions.html b/BudgetMasterServer/src/main/resources/templates/templates/templateFunctions.html
 new file mode 100644
-index 00000000..e86605c0
+index 00000000..675564a2
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/templates/templateFunctions.html
 @@ -0,0 +1,131 @@
-+<html xmlns:t="https://tessera.dev" t:import="de.deadlocker8.budgetmaster.templates.Template, de.deadlocker8.budgetmaster.templategroup.TemplateGroup">
++<t:block xmlns:t="https://tessera.dev" t:import="de.deadlocker8.budgetmaster.templates.Template, de.deadlocker8.budgetmaster.templategroup.TemplateGroup">
 +<!--/* Fragments of the old templates/templateFunctions.ftl */-->
 +
 +<a t:fragment="buttonNew" t:replace="~{helpers/header :: buttonLink(url='/templates/newTemplate', icon='add', localizationKey='title.template.new', id='', color='background-blue', classes='', noUrl=false, disabled=false, target='')}"></a>
@@ -12360,7 +12360,7 @@ index 00000000..e86605c0
 +    </div>
 +    <div class="collapsible-body">
 +        <div class="row no-margin-bottom">
-+            <table class="table-template-content text-default">
++            <table class="table-template-content text-default"><tbody>
 +                <tr t:if="fmt.hasContent(template.getName())">
 +                    <td class="template-content-label" t:text="locale.getString('transaction.new.label.name')"></td>
 +                    <td t:text="template.getName()"></td>
@@ -12391,7 +12391,7 @@ index 00000000..e86605c0
 +                    <td class="template-content-label" t:text="locale.getString('transaction.new.label.transfer.account')"></td>
 +                    <td t:text="template.getTransferAccount().getName()"></td>
 +                </tr>
-+            </table>
++            </tbody></table>
 +        </div>
 +    </div>
 +</li>
@@ -12427,7 +12427,7 @@ index 00000000..e86605c0
 +        </label>
 +    </div>
 +</div>
-+</html>
++</t:block>
 diff --git a/BudgetMasterServer/src/main/resources/templates/templates/templates.ftl b/BudgetMasterServer/src/main/resources/templates/templates/templates.ftl
 deleted file mode 100644
 index 88ce5b63..00000000
@@ -14412,7 +14412,7 @@ index da4773f6..00000000
 \ No newline at end of file
 diff --git a/BudgetMasterServer/src/main/resources/templates/transactions/transactionImportMacros.html b/BudgetMasterServer/src/main/resources/templates/transactions/transactionImportMacros.html
 new file mode 100644
-index 00000000..8cc3091d
+index 00000000..c6886f67
 --- /dev/null
 +++ b/BudgetMasterServer/src/main/resources/templates/transactions/transactionImportMacros.html
 @@ -0,0 +1,301 @@
@@ -14700,12 +14700,12 @@ index 00000000..8cc3091d
 +                        [[${locale.getString('info.database.import.result.errors')}]]
 +                    </div>
 +                    <div class="collapsible-body">
-+                        <table class="bordered">
++                        <table class="bordered"><tbody>
 +                            <tr t:each="error : errorsColumnSettings">
 +                                <td><i class="fas fa-exclamation-triangle text-red"></i></td>
 +                                <td t:text="error"></td>
 +                            </tr>
-+                        </table>
++                        </tbody></table>
 +                    </div>
 +                </li>
 +            </ul>

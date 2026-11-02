@@ -252,7 +252,7 @@ class ClientTemplateInjectionTest {
                 HEADER + "\n<t:block t:replace=\"~{f :: slot(~{::tr}, true, ${s})}\"></t:block>"
                     + "<table><tr><td>x</td></tr></table></div>")
             .compile();
-    c.assertError(PARSE_ERROR);
+    c.assertError("closes the <tr> open around it", "[verifier:UNBALANCED]");
     assertNull(c.generatedSource("tessera.generated.TTemplate"), insert);
   }
 

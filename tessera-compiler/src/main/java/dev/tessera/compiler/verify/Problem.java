@@ -43,11 +43,11 @@ public enum Problem {
    * tree, and misnested they are a {@link #PARSE_ERROR}.
    */
   NOAHS_ARK,
-  /** A loop whose parser states don't reach a fixed point. */
+  /** Retired (#682), no longer reported: control flow is state-neutral ({@link #UNBALANCED}), so a loop has no fixed point to reach. */
   LOOP_NO_FIXED_POINT,
-  /** A fragment that recurses into states that don't reach a fixed point, or reach a bad state only through recursion. */
+  /** A fragment that calls itself in ever new parser states (deeper nesting each time), or reaches a bad state only through recursion. */
   STRUCTURE_DEPENDS_ON_DATA,
-  /** More distinct parser states at a join than the verifier tracks. */
+  /** Retired (#682), no longer reported: control flow is state-neutral ({@link #UNBALANCED}), so there are no joins. */
   TOO_MANY_STATES,
   /** A parser engine failed. */
   ENGINE_FAILURE,
@@ -97,5 +97,13 @@ public enum Problem {
    * A CDATA section anywhere (#678, exclusion (d)): a browser reads one only in SVG and MathML, and
    * some read it as a comment that ends at the first {@code >} in an integration point.
    */
-  CDATA_SECTION
+  CDATA_SECTION,
+  /**
+   * Control flow that isn't state-neutral (#682): a {@code t:if}, {@code t:unless}, {@code t:case},
+   * {@code t:each}, computed attribute or fragment insertion whose body, or a partial (or fragment
+   * checked on its own) that as a whole, leaves the parser in another state than it found it in
+   * (an element left open or closed, inside a tag or comment, an implied {@code <tbody>}), so what
+   * follows would parse differently depending on whether, or how often, it is written.
+   */
+  UNBALANCED
 }
