@@ -112,8 +112,8 @@ fragment's declared parameters are visible (no ambient caller context, principle
 element, or `t:insert` + `t:replace`, is a build error. Unknown `t:` names are generic attributes.
 
 **Fragments.** `t:fragment="card(OwnerView owner, Fragment body)"` generates
-`internalUnverified$card(OwnerView, Fragment, RenderContext, Output)`, which only templates call;
-a fragment without a `Fragment` parameter gets a Java-facing `fragment_<name>` (#600).
+a `private static` method `fragment_card$<n>(OwnerView, Fragment, RenderContext, Output)` in its
+class and a copy in every class that calls it, so only templates call it; a fragment without a `Fragment` parameter gets a Java-facing `fragment_<name>` (#600).
 `t:insert`/`t:replace` take
 `~{tpl :: name(args)}`, `tpl :: name(args)`, `~{:: name}` (same file), or an expression of type
 `Fragment`. Arguments are positional or all named, type-checked against the signature.

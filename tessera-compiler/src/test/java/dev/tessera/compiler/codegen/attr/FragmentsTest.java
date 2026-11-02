@@ -70,7 +70,19 @@ class FragmentsTest {
   void parameterizedFragmentInPlaceDoesNotCompileItsAttributesInTheTemplateScope() {
     // `content` is only a fragment parameter; compiled in the page scope it would be unknown.
     Compilation c = base().compile().assertSuccess();
-    assertTrue(c.generatedSource("tessera.generated.fragments.CardsTemplate").contains("internalUnverified$card("));
+    assertTrue(c.generatedSource("tessera.generated.fragments.CardsTemplate").contains("private static void fragment_card$"));
+  }
+
+  /** An error in a fragment with a {@code Fragment} parameter is reported once, not again for each caller's copy. */
+  @Test
+  void errorInACopiedFragmentIsReportedOnce() {
+    Compilation c = Compilation.builder()
+        .template("lay.html", "<div " + NS + "><p t:fragment=\"lay(Fragment b)\"><b t:text=\"${nope}\">x</b>"
+            + "<t:block t:insert=\"${b}\"/></p></div>")
+        .template("a.html", "<div " + NS + "><t:block t:replace=\"~{lay :: lay(~{::i})}\"/><i>a</i></div>")
+        .template("b.html", "<div " + NS + "><t:block t:replace=\"~{lay :: lay(~{::i})}\"/><i>b</i></div>")
+        .compile();
+    assertEquals(1, c.errors().stream().filter(e -> e.contains("nope")).count(), c.errors().toString());
   }
 
   @Test
