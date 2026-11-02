@@ -12,12 +12,13 @@ One Maven reactor, `groupId dev.tessera`, JUnit Jupiter 6. What the application 
 the application's javac) and `tessera-migrate` are built with `--release 8` and the generated
 template code compiles at `--release 8`, so the app builds with JDK 8+ and runs on Java 8+.
 Everything else (benchmarks, examples, most tests) is `--release 21`, so building this repo needs
-JDK 21+. The table names the main classes only.
+JDK 21+. The table names the main classes only. The public API of the runtime and the starter is the sorted `public-api.txt`; `PublicApiTest` fails until a change to it is copied there.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`/`HtmlSanitizer`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
+| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`/`HtmlSanitizer`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
+| | `dev.tessera.runtime.internal` | `Checks`: URL and number checks shared with the compiler; public but not API | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |
 | | `.html` | `HtmlParser`, `MarkupTokenizer` (its own tokenizer for Tessera's tree), `Contexts` (escaping-context table) | |

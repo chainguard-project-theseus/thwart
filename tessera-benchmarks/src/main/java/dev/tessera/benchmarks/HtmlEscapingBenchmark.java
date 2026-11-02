@@ -2,8 +2,6 @@ package dev.tessera.benchmarks;
 
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
-import dev.tessera.runtime.WriterOutput;
-import java.io.StringWriter;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -55,12 +53,5 @@ public class HtmlEscapingBenchmark {
     StringOutput out = new StringOutput();
     Escapers.text(out, value);
     return out.toString();
-  }
-
-  @Benchmark
-  public String writerOutput() {
-    StringWriter writer = new StringWriter(256);
-    Escapers.text(new WriterOutput(writer), value);
-    return writer.toString();
   }
 }

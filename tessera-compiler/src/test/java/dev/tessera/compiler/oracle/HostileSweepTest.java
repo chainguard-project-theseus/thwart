@@ -319,7 +319,7 @@ class HostileSweepTest {
         .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
         .allowClasses(SanitizerBalanceTest.EVERY_CLASS)
         .allowLinkTarget()
-        .linkRel(HtmlPolicy.REL_TOKENS.toArray(new String[0]))
+        .linkRel("nofollow", "noopener", "noreferrer", "ugc")
         .build());
   }
 
