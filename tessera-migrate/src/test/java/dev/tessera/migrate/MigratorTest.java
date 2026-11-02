@@ -614,6 +614,20 @@ class MigratorTest {
   }
 
   @Test
+  void unsupportedThymeleafAttributesAreNotRenamed() throws Exception {
+    // Renamed to t:, these compiled as ordinary attributes and the check or merge was lost (#711).
+    String src = "<p th:assert=\"${b}\" th:attrappend=\"class=${s}\" th:attrprepend=\"class=${s}\"\n"
+        + " th:alt-title=\"${t}\" th:lang-xmllang=\"${l}\">x</p>";
+    assertEquals(src, convert(src));
+    assertMessages(src,
+        "1: `th:assert` is not supported; check it in the controller (or guard the element with `t:if`)",
+        "1: `th:attrappend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
+        "1: `th:attrprepend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
+        "2: `th:alt-title` is not supported; write `t:alt` and `t:title`",
+        "2: `th:lang-xmllang` is not supported; write `t:lang`");
+  }
+
+  @Test
   void unsupportedConstructsInInlinedTextAreReported() throws Exception {
     String src = "<p>[[${T(System).getenv()}]]</p>";
     assertEquals(src, convert(src));
