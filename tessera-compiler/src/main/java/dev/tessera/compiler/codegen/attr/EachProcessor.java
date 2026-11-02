@@ -15,7 +15,6 @@ import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.LoopStatus;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * {@code t:each="o, stat : items"}: wraps the element in a loop over an Iterable, array or Map
@@ -75,13 +74,13 @@ public final class EachProcessor implements AttributeProcessor {
       open.append("final ").append(elementType).append(' ').append(var).append(" = ").append(src).append('[')
           .append(index).append("]; ");
     } else {
-      if (isSubtype(ctx, source, "java.util.Map")) {
+      if (ctx.expressions().isSubtypeOf(source, "java.util.Map")) {
         // For Map<K, ? extends V> the entries are Entry<K, capture>, which Java cannot name. Templates only
         // read entries (no setValue), so viewing them as Entry<K, V> is sound.
         String entries = "java.util.Collection<" + elementType + ">";
         open.append("@java.lang.SuppressWarnings(\"unchecked\") final ").append(entries).append(' ').append(items)
             .append(" = (").append(entries).append(") (java.util.Collection<?>) ").append(src).append(".entrySet(); ");
-      } else if (isSubtype(ctx, source, "java.util.Collection")) {
+      } else if (ctx.expressions().isSubtypeOf(source, "java.util.Collection")) {
         open.append("final java.util.Collection<? extends ").append(elementType).append("> ").append(items)
             .append(" = ").append(src).append("; ");
       } else if (!needsStatus) {
@@ -155,10 +154,5 @@ public final class EachProcessor implements AttributeProcessor {
       }
     }
     return false;
-  }
-
-  private static boolean isSubtype(CodegenContext ctx, TypeMirror t, String name) {
-    Types types = ctx.env().types();
-    return types.isSubtype(types.erasure(t), types.erasure(ctx.env().elements().getTypeElement(name).asType()));
   }
 }
