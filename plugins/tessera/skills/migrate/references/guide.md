@@ -406,12 +406,12 @@ each one accepts:
 | Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
 | Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
-| Resource URL | `script[src]`, `iframe[src]`, `link[href]`, `object[data]`, `base[href]` | A literal-path `@{...}` link. |
+| Resource URL | `script[src]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A literal-path `@{...}` link. |
 | Neutral | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, `ng-*`, custom elements' attributes | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
-| Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
+| Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`, `css.var(name)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
-| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `encoding`, `is`, `xmlns*`, `<font color/face/size>` | Nothing computed. |
+| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<meta content>` under a static `http-equiv="Content-Type"`, `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`) | Nothing computed. |
 
 **SVG, MathML and markup Tessera doesn't model.** An `<svg>` or `<math>` must be static: no
 `t:*` attribute, `[[...]]` or fragment inside it, and no computed attribute on it (control flow on the
@@ -551,11 +551,12 @@ structure would depend on data.
 
 In Java, `SafeHtml.escape`, `SafeHtml.concat` and `SafeHtml.sanitize` build markup from checked
 parts. Nothing wraps a string or a template's output unchecked: insert the other template with
-`t:insert` instead (#676).
+`t:insert` instead.
 
 **CSS.** A `style` value is built from literals, numbers and `CssValue`s:
-`t:style="|background-color: ${css.color(category.color)}|"`. `css.color`, `css.length` and
-`css.url` return `null` for anything they don't accept. Otherwise use `t:class`/`t:classappend`.
+`t:style="|background-color: ${css.color(category.color)}|"`; `css.var('--brand')` writes
+`var(--brand)`. `css.color`, `css.length`, `css.url` and `css.var` return `null` for anything they
+don't accept. Otherwise use `t:class`/`t:classappend`.
 
 ### 4.5 Messages and links
 
@@ -608,7 +609,7 @@ null-tolerant.
 | `numbers` | `formatInteger(n, minDigits[, thousandsPoint])`, `formatDecimal(n, minIntDigits, decimals[, decimalPoint])`, `formatDecimal(n, minIntDigits, thousandsPoint, decimals, decimalPoint)`, `formatPercent(n, minIntDigits, decimals)`, `formatCurrency(n)`, `sequence(from, to)` |
 | `temporals` | `format(temporal, pattern)`, `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
-| `css` | `color(s)`, `length(s)`, `url(s)` |
+| `css` | `color(s)`, `length(s)`, `url(s)`, `var(name)` |
 | `html` | `sanitize(s)`, `sanitizeRich(s)` |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole(...)`, `hasAuthority('PERM_X')`, `hasAnyAuthority(...)`, `name()` |
 | `fields` (inside `t:object`) | section 4.7 |
@@ -908,8 +909,8 @@ model attribute and renders a view name derived from the URL. Return the view na
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
 `ResourceBundleMessages`, `DefaultLinks(contextPath)`), or in a controller with
-`SpringRenderContexts.create(request, response, model)`. `Fragment` exists only between templates
-(#676): Java can't build one, and a page (`t:params`) or a function can't take one. A page that
+`SpringRenderContexts.create(request, response, model)`. `Fragment` exists only between
+templates: Java can't build one, and a page (`t:params`) or a function can't take one. A page that
 took one becomes a fragment its callers pass `~{...}`.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
@@ -928,25 +929,18 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
   with `| raw`, Mustache with `{{{x}}}`. Treat each raw output as a review point and replace it by
   where the value comes from: plain data becomes an escaped `t:text` (if the page now shows
   `&lt;b&gt;`, the old page was injectable, and that difference is the fix); stored rich text goes
-  through a sanitizer (Rich text, below); markup built in Java becomes records the template
+  through a sanitizer (section 4.4, Rich text); markup built in Java becomes records the template
   renders; a bundle message with markup is `t:utext="#{key}"` (section 4.5); JSON for a script is
   `[[...]]` (section 4.4).
-- **Scripts.** `[[...]]` writes JSON with `/`, `&`, `<`, `'` and `{` escaped as `\/`, `&`,
-  `<`, `'` and `{`; the JavaScript value is the same, so that difference in compare
-  is expected.
+- **Scripts.** `[[...]]` writes JSON with `/` as `\/`, and `<`, `>`, `&`, `'`, backtick, `$`, `{`,
+  U+2028 and U+2029 as `\uXXXX` (`&` is `\u0026`); the JavaScript value is the same, so that
+  difference in compare is expected.
 - **Spring Security tags.** `sec:authorize="hasRole('A')"` and
   `<sec:authorize access="hasRole('A')">` become `t:if="auth.hasRole('A')"`, and
   `sec:authentication="name"` is `t:text="auth.name()"`. Any other expression is computed in the
   controller.
 - **Whitespace and comments.** Write template-only comments (`{{! }}`, `<%-- --%>`, `<#-- -->`,
   `##`, `{# #}`) as `<!--/* ... */-->`. Whitespace between `t:case` siblings is output.
-
-**Rich text.** Stored HTML goes through `html.sanitize`, `html.sanitizeRich` or the application's
-own `HtmlPolicy` into a `SafeHtml` (section 4.4). Delete any Java parser, node records and
-recursive fragment that rebuild it. If trusted markup needs more than any policy allows, build that
-piece in Java with `SafeHtml.concat` and `SafeHtml.escape`. Content whose structure a policy drops
-(tables, inline styles) loses it: map what you need to classes in Java before sanitizing, or accept
-the loss.
 
 **Thymeleaf.** Run `tessera-migrate` first (section 3). Natural-template script comments
 (`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]`; move each value that
@@ -1087,6 +1081,3 @@ Gaps in Tessera today, with what to do instead.
 | `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` (4.4, Rich text) |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | A fragment declared in raw text or `t:remove="tag"` content that no template calls | Move it out, or delete it |
 | `UNKNOWN_NODE`, `ENGINE_FAILURE` | A fragment the compiler can't resolve, static markup right after a computed attribute that isn't whitespace, `/` or `>`, or an internal failure | Fix the reference, or put a space after the attribute; report an `ENGINE_FAILURE` as a bug |
-
-Never reported, names reserved: `TEXT_RECONSTRUCTS`, `NOAHS_ARK`, `ATTRIBUTE_VALUE_CHANGES_PARSE`,
-`CDATA_IN_INTEGRATION_POINT`, `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES`.
