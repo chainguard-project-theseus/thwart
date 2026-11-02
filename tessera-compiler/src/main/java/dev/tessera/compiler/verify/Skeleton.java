@@ -55,16 +55,6 @@ public final class Skeleton {
     public boolean inAttribute() {
       return this != TEXT && this != JSON && this != JAVASCRIPT;
     }
-
-    /** The escaper whose {@code Escapers} method is {@code method}. */
-    public static Escaper forMethod(String method) {
-      for (Escaper e : values()) {
-        if (e.method.equals(method)) {
-          return e;
-        }
-      }
-      throw new IllegalArgumentException("no escaper " + method);
-    }
   }
 
   /** Where the HTML of a {@link RawInsert} comes from. */

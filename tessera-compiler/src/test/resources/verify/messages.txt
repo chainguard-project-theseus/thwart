@@ -191,7 +191,7 @@ m=See <a href="/docs">the docs</a>.
 == UNCALLED_FRAGMENT_FITS_NOWHERE: a fragment declared in a <noscript> that no template inserts
 -- t.html
 <noscript><p t:fragment="g(String v)" t:text="v">x</p></noscript>
-=> t.html:1:66: error: no template inserts fragment t :: g, and it is declared where no fragment fits (in raw text or under t:remove="tag"), so Tessera can't check what it writes on its own; declare it in HTML, <svg> or <math> content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]
+=> t.html:1:66: error: no template inserts fragment t :: g, and it is declared where no fragment fits (in raw text or under t:remove="tag"), so Tessera can't check what it writes on its own; declare it in HTML content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]
 == VALUE_IN_RAW_TEXT: a value in <xmp>
 -- t.html
 <xmp>[[${s}]]</xmp>

@@ -90,7 +90,7 @@ public final class FieldProcessor implements AttributeProcessor {
         nameAndId(plan, attr, name, id);
         OutputContext content = Contexts.text(plan.element());
         plan.replaceBody(
-            Emitted.hole(Skeleton.Escaper.forMethod(content.escaper()), null, attr.pos(), display),
+            Emitted.hole(content.escaper(), null, attr.pos(), display),
             content);
         break;
       case "select":

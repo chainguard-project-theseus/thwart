@@ -5,7 +5,7 @@
 # literals and numbers (#565).
 # Names that are not standard (data-*, a custom element's own attributes, framework names such as
 # hx-*) are not listed: Contexts.attribute makes every one NEUTRAL. A listed name that is also a
-# tree-builder input on some element (type on <input> and <script>, Contexts.isTreeBuilderInput)
+# tree-builder input on some element (type on <input> and <script>, Contexts.forbidden)
 # is FORBIDDEN there before this file is asked.
 #
 # Format: one lower-case name per line, sorted, then its group, and, optionally, the only HTML
