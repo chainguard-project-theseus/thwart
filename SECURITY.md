@@ -73,7 +73,7 @@ Raw output always needs a typed value, never a flag on a string:
 No type skips the URL checks (#668): every computed URL is scheme-checked, and a computed
 resource URL or form action must be a link. A hand-written `Template` writes what its own
 Java writes, like any other response code: that is the caller's responsibility, not a Tessera
-bug. `mvn tessera:review` lists every registered `@TemplateFunction`: code the compiler trusts.
+bug.
 
 ## Out of scope
 

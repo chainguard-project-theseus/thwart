@@ -111,7 +111,7 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   <groupId>dev.tessera</groupId>
   <artifactId>tessera-maven-plugin</artifactId>
   <version>${tessera.version}</version>
-  <executions><execution><goals><goal>check</goal><goal>review</goal></goals></execution></executions>
+  <executions><execution><goals><goal>check</goal></goals></execution></executions>
   <!-- if tessera.templates is not the default:
   <configuration><templates>${project.basedir}/src/main/webapp/templates</templates></configuration> -->
 </plugin>
@@ -137,8 +137,6 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   goal an edited template or message keeps its old generated class and the build stays green. It
   reads `tessera.messages` from the property of that name, so set the property. The plugin needs
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
-- The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
-  `@TemplateFunction`, for a security review.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.

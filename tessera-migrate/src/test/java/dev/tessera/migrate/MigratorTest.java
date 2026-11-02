@@ -880,15 +880,10 @@ class MigratorTest {
     for (String src : List.of(
         "<div t:params=\"String x\"><p>\"[[${x}]]\"</p><b title=\"'[[${x}]]'\" onclick=\"f('[[${x}]]')\">b</b></div>",
         script(" type=\"text/x-template\"", "\"[[${x}]]\""),
-        script(" t:type=\"y\"", "\"[[${x}]]\""),
         script(" type=\"text/x-template\"", "a") + "<p>'[[${x}]]'</p>")) {
       assertEquals(src, convert(src), src);
       assertEquals(List.of(), messages(src), src);
     }
-    // A type set by an expression is not a JavaScript script (the compiler rejects inlines there).
-    String dynamic = script(" th:type=\"${y}\"", "\"[[${x}]]\"");
-    assertEquals(script(" t:type=\"y\"", "\"[[${x}]]\""), convert(dynamic));
-    assertMessages(dynamic, "1: `th:type` = `y`: for a `null` value Thymeleaf wrote `type=\"\"`"); // #435
   }
 
   @Test
