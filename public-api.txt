@@ -1,4 +1,5 @@
-# Public API: the types apps and templates use.
+# Public API: the types apps and templates use. Signatures that name an internal type
+# (Output, StringOutput, TemplateEntry) are for generated code and the starter.
 dev.tessera.runtime.CssValue: public boolean equals(java.lang.Object)
 dev.tessera.runtime.CssValue: public final class dev.tessera.runtime.CssValue
 dev.tessera.runtime.CssValue: public int hashCode()

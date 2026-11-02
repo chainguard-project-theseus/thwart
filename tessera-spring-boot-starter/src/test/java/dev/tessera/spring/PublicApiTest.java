@@ -50,7 +50,8 @@ class PublicApiTest {
     Collections.sort(api);
     Collections.sort(internal);
     String actual =
-        "# Public API: the types apps and templates use.\n"
+        "# Public API: the types apps and templates use. Signatures that name an internal type\n"
+            + "# (Output, StringOutput, TemplateEntry) are for generated code and the starter.\n"
             + String.join("\n", api)
             + "\n\n# Internal (dev.tessera.runtime.internal): called by generated code only; not API.\n"
             + String.join("\n", internal)
