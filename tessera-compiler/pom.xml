@@ -183,6 +183,7 @@
               <goal>test</goal>
             </goals>
             <configuration>
+              <skip>${tessera.skipRelease8}</skip>
               <systemPropertyVariables>
                 <tessera.test.release>8</tessera.test.release>
               </systemPropertyVariables>
