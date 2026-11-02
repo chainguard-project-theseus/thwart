@@ -421,6 +421,11 @@ class ContextVerifierRulesTest {
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(">"));
     reject(Problem.UNKNOWN_NODE, st("<input disabled"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st("=x>"));
+    // Skipped, these give the boolean attribute a value; only the written path's parse error rejects them.
+    reject(Problem.PARSE_ERROR, st("<input disabled "),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st("=x>"));
+    reject(Problem.PARSE_ERROR, st("<input disabled"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(" =x>"));
     // An <input> in a table is a parse error with or without its computed type (#410).
     onlyParseErrors(st("<table><input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" type=\""), attr("type"), st("\"")), pos()), st(">"));
