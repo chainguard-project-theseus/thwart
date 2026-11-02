@@ -100,8 +100,7 @@ final class Layouts {
     final String template;
     final String source;
     final List<El> all = new ArrayList<>();
-    final List<int[]> edits = new ArrayList<>();
-    final List<String> replacements = new ArrayList<>();
+    final SourceEdits edits = new SourceEdits();
 
     Tree(String file, String source, El root) {
       this.file = file;
@@ -124,31 +123,6 @@ final class Layouts {
         }
       }
       return null;
-    }
-
-    void edit(int from, int to, String replacement) {
-      for (int[] e : edits) {
-        if (from < e[1] && e[0] < to || from == to && from == e[0] && e[0] == e[1]) {
-          return; // overlaps an earlier edit; that one wins
-        }
-      }
-      edits.add(new int[] {from, to});
-      replacements.add(replacement);
-    }
-
-    String apply() {
-      List<Integer> order = new ArrayList<>();
-      for (int i = 0; i < edits.size(); i++) {
-        order.add(i);
-      }
-      order.sort(Comparator.comparingInt(i -> edits.get(i)[0]));
-      StringBuilder out = new StringBuilder(source.length());
-      int pos = 0;
-      for (int i : order) {
-        out.append(source, pos, edits.get(i)[0]).append(replacements.get(i));
-        pos = edits.get(i)[1];
-      }
-      return out.append(source, pos, source.length()).toString();
     }
   }
 
@@ -214,7 +188,7 @@ final class Layouts {
         continue; // t:remove="tag" passes the content; other values are the author's choice
       }
       if (attributesMerge(selected, p.getValue())) {
-        c.tree.edit(selected.nameEnd, selected.nameEnd, " t:remove=\"tag\"");
+        c.tree.edits.add(selected.nameEnd, selected.nameEnd, " t:remove=\"tag\"");
         items.add(new Report.Item(c.tree.file, selected.line, String.format(
             ConversionRules.LAYOUT_REMOVE_TAG_MESSAGE, selected.name, display(c.target), selected.name)));
       } else {
@@ -227,7 +201,7 @@ final class Layouts {
 
     Map<String, String> out = new LinkedHashMap<>(templates);
     for (Tree t : trees) {
-      out.put(t.file, t.apply());
+      out.put(t.file, t.edits.apply(t.source));
     }
     items.sort(Comparator.comparing(Report.Item::file).thenComparingInt(Report.Item::line));
     return new Result(out, Collections.unmodifiableList(items));
