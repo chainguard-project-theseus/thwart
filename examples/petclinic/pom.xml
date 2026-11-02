@@ -144,7 +144,7 @@
 
   <build>
     <plugins>
-      <!-- This is the configuration every Tessera application uses (see docs/mvp-design.md). -->
+      <!-- This is the configuration every Tessera application uses (see docs/architecture.md). -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Expression AST (grammar in docs/mvp-design.md). Purely syntactic: the parser does not know
+ * Expression AST (grammar in docs/architecture.md). Purely syntactic: the parser does not know
  * which identifiers are variables or function namespaces; the {@code ExpressionCompiler}
  * decides. Every node carries the template position of its first token. Infix and postfix nodes
  * ({@code Binary}, {@code Conditional}, {@code Elvis}, {@code Index}, {@code Property},
