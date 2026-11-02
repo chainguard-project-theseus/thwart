@@ -66,17 +66,54 @@ public final class Contexts {
   private static final Set<String> JSON_SCRIPT_TYPES = Backports.setOf("application/json", "application/ld+json");
 
   /**
+   * The closed allow-list of computed attribute names (#761), besides {@code data-*}, {@code aria-*},
+   * {@code <object data>} and the {@code content} of a {@code <meta http-equiv="refresh">}: the names
+   * the migration corpus computes (#760) and their obvious form, table and accessibility siblings.
+   * Each has one fixed context ({@link #attribute}). Every other computed name is a build error
+   * ({@link #forbidden}); static attributes are not checked against it.
+   */
+  private static final Set<String> COMPUTED =
+      Backports.setOf(
+          // URL, or RESOURCE_URL where isResourceUrl says so; STYLE; TYPED_ATTRIBUTE
+          "href", "src", "action", "formaction", "cite", "poster", "style", "target",
+          // ATTRIBUTE. Text:
+          "abbr", "alt", "download", "id", "label", "name", "pattern", "placeholder", "title", "value",
+          // keywords:
+          "autocomplete", "dir", "enterkeyhint", "formmethod", "hidden", "inputmode", "method", "scope", "spellcheck",
+          "translate",
+          // numbers, dates and times:
+          "cols", "colspan", "datetime", "height", "high", "low", "max", "maxlength", "min", "minlength", "optimum",
+          "rows", "rowspan", "size", "span", "start", "step", "tabindex", "width",
+          // booleans:
+          "async", "autofocus", "checked", "defer", "disabled", "formnovalidate", "multiple", "novalidate", "open",
+          "readonly", "required", "reversed", "selected",
+          // ID references, tokens and language tags:
+          "for", "form", "headers", "list", "accept", "class", "hreflang", "lang",
+          // ARIA (WAI-ARIA 1.2): role and every state and property; another aria-* name is NEUTRAL.
+          "role", "aria-activedescendant", "aria-atomic", "aria-autocomplete", "aria-busy", "aria-checked",
+          "aria-colcount", "aria-colindex", "aria-colspan", "aria-controls", "aria-current", "aria-describedby",
+          "aria-details", "aria-disabled", "aria-dropeffect", "aria-errormessage", "aria-expanded", "aria-flowto",
+          "aria-grabbed", "aria-haspopup", "aria-hidden", "aria-invalid", "aria-keyshortcuts", "aria-label",
+          "aria-labelledby", "aria-level", "aria-live", "aria-modal", "aria-multiline", "aria-multiselectable",
+          "aria-orientation", "aria-owns", "aria-placeholder", "aria-posinset", "aria-pressed", "aria-readonly",
+          "aria-relevant", "aria-required", "aria-roledescription", "aria-rowcount", "aria-rowindex", "aria-rowspan",
+          "aria-selected", "aria-setsize", "aria-sort", "aria-valuemax", "aria-valuemin", "aria-valuenow",
+          "aria-valuetext");
+
+  /** The elements a computed {@code value} is plain text on; elsewhere ({@code <param>}) TYPED_ATTRIBUTE. */
+  private static final Set<String> VALUE_TEXT_ELEMENTS =
+      Backports.setOf("button", "data", "input", "li", "meter", "option", "progress", "select");
+
+  /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element} (the table is docs/context-model.md section 6.1). In order: what
-   * {@link #forbidden} gives a reason for FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} STYLE;
-   * a refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@link #isResourceUrl
-   * resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL; other standard names that are not
-   * inert ({@code inert-attributes.txt}) and a {@code content} of a {@code <meta>} that does not
-   * {@link #isNamedMetaContent name plain metadata} TYPED_ATTRIBUTE; the other
-   * {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and every other plain name NEUTRAL
-   * (client frameworks may run any non-standard attribute as code): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own
-   * attributes, any other name outside HTML. {@code :x} and {@code @x} are not plain names, so they
-   * are FORBIDDEN.
+   * {@link #forbidden} gives a reason for (every name off the {@link #COMPUTED allow-list} among
+   * them) FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} STYLE; a refresh {@code content}
+   * REFRESH; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
+   * {@code target}, a {@code value} off {@link #VALUE_TEXT_ELEMENTS} and a {@code for} off
+   * {@code <label>} and {@code <output>} TYPED_ATTRIBUTE; {@code data-*} and an {@code aria-*} name
+   * outside WAI-ARIA 1.2 NEUTRAL (client frameworks may run them as code); every other listed name
+   * ATTRIBUTE.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (forbidden(element, attributeName) != null) {
@@ -99,19 +136,42 @@ public final class Contexts {
     if (URL_ATTRIBUTES.contains(attr)) {
       return OutputContext.URL;
     }
-    if (KnownAttributes.needsSafeValue(element, attr)
-        || (el.equals("meta") && attr.equals("content") && !isNamedMetaContent(element))) {
+    if (attr.equals("target")
+        || (attr.equals("value") && !VALUE_TEXT_ELEMENTS.contains(el))
+        || (attr.equals("for") && !el.equals("label") && !el.equals("output"))) {
       return OutputContext.TYPED_ATTRIBUTE;
     }
-    return KnownAttributes.isStandard(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
+    return COMPUTED.contains(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
+  }
+
+  /**
+   * Whether a computed {@code attr} (A-Z folded) on {@code element} is on the closed allow-list:
+   * {@link #COMPUTED}, {@code data-*}, {@code aria-*}, {@code <object data>} and the {@code content}
+   * of a {@code <meta http-equiv="refresh">}. {@code on*} names are left to EVENT_HANDLER, which
+   * rejects them with their own fix-it.
+   */
+  private static boolean allowed(Element element, String attr) {
+    String el = HtmlParser.asciiLower(element.name());
+    return COMPUTED.contains(attr) || attr.startsWith("data-") || attr.startsWith("aria-") || attr.startsWith("on")
+        || (el.equals("object") && attr.equals("data")) || isRefreshContent(element, el, attr);
+  }
+
+  /** Why a computed {@code name} ({@code attr} A-Z folded) off the allow-list is rejected, with the fix-it. */
+  private static String offList(String name, String attr) {
+    if (attr.equals("nonce")) {
+      return "Tessera stamps the CSP nonce itself; delete this attribute";
+    }
+    return "'" + name + "' is not on Tessera's list of computed attributes (docs/guide.md section 4.4); write it as"
+        + " a static value, or one element per value under t:if, or put data your script reads in a data-* attribute"
+        + " such as t:data-" + attr;
   }
 
   /**
    * Why a computed attribute {@code attributeName} on {@code element} is FORBIDDEN, with the fix-it,
    * or null if it is not: every attribute of an SVG or MathML element; a name that is not
    * {@code [A-Za-z_][A-Za-z0-9_.:-]*}; {@code srcdoc}; a {@link #URL_LIST_ATTRIBUTES URL list};
-   * and a {@link #treeBuilderInput tree-builder input}. The only place that decides
-   * an attribute is FORBIDDEN.
+   * a {@link #treeBuilderInput tree-builder input}; and a name off the {@link #allowed allow-list}.
+   * The only place that decides an attribute is FORBIDDEN.
    */
   public static String forbidden(Element element, String attributeName) {
     if (element.foreign()) {
@@ -128,7 +188,8 @@ public final class Contexts {
       return "it holds a list of URLs, which Tessera doesn't check; write it as a static value, or compute a single"
           + " src or href instead";
     }
-    return treeBuilderInput(element, attributeName, attr);
+    String tree = treeBuilderInput(element, attributeName, attr);
+    return tree != null || allowed(element, attr) ? tree : offList(attributeName, attr);
   }
 
   /**
@@ -180,53 +241,6 @@ public final class Contexts {
    */
   private static boolean isRefreshContent(Element element, String el, String attr) {
     return attr.equals("content") && el.equals("meta") && hasHttpEquiv(element, "refresh");
-  }
-
-  /**
-   * The {@code <meta name>} values whose {@code content} is display text no browser, OS or crawler
-   * acts on: a computed content is plain ATTRIBUTE only under one of these.
-   */
-  private static final Set<String> INERT_META_NAMES = Backports.setOf(
-      "description", "keywords", "author", "application-name", "generator", "color-scheme", "theme-color");
-
-  /**
-   * The {@code <meta>} attributes that say what its {@code content} means: {@code name}, a pragma
-   * ({@code http-equiv}), and {@code property} (Open Graph, App Links) and {@code itemprop}
-   * (microdata), which crawlers read whatever the {@code name} says.
-   */
-  private static final Set<String> META_KEYS = Backports.setOf("name", "http-equiv", "property", "itemprop");
-
-  /**
-   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text:
-   * every static {@code name} is on {@link #INERT_META_NAMES the allow-list} and there is at
-   * least one, and no other {@link #META_KEYS key} is static, computed or {@link HtmlParser#attrMaySet
-   * may be set} by a {@code t:attr*}. Any other content (a policy such as {@code referrer} or
-   * {@code viewport}, an unknown name, Open Graph) takes literals only. Names and values fold A-Z only,
-   * as in a browser.
-   */
-  private static boolean isNamedMetaContent(Element element) {
-    boolean named = false;
-    for (Attribute a : element.attributes()) {
-      if (a.isTessera()) {
-        for (String key : META_KEYS) {
-          if (HtmlParser.asciiLower(a.localName()).equals(key) || HtmlParser.attrMaySet(a, key)) {
-            return false; // a computed key may replace or override the static name
-          }
-        }
-        continue;
-      }
-      String n = HtmlParser.asciiLower(a.name());
-      if (n.equals("name")) {
-        String v = a.value() == null ? "" : HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
-        if (!INERT_META_NAMES.contains(v)) {
-          return false;
-        }
-        named = true;
-      } else if (META_KEYS.contains(n)) {
-        return false;
-      }
-    }
-    return named;
   }
 
   /**

@@ -10,8 +10,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * #539: a plain computed value goes only into an inert-text attribute
- * ({@code inert-attributes.txt}); any other standard attribute without a more specific context
+ * #539, #761: a plain computed value goes only into an inert-text attribute on the closed allow-list
+ * ({@code Contexts}); a listed attribute without a more specific context
  * (TYPED_ATTRIBUTE) takes only literals and numbers (#565).
  */
 class InertAttributesTest {
@@ -44,20 +44,15 @@ class InertAttributesTest {
 
   @ParameterizedTest
   @ValueSource(strings = {
-    "<a t:rel=\"s\">x</a>",
     "<a t:target=\"s\">x</a>",
     // A custom element has no exemption (#584).
     "<my-el t:target=\"s\"></my-el>",
-    "<iframe t:sandbox=\"s\"></iframe>",
-    "<iframe t:allow=\"s\"></iframe>",
-    "<img t:crossorigin=\"s\">",
-    "<p t:itemtype=\"s\">x</p>",
     // A browser may load a <param name=src> value as the object's resource URL.
     "<object type=\"application/pdf\"><param name=\"src\" t:value=\"s\"></object>",
-    "<a t:attr=\"rel=${s}\">x</a>",
-    "<a t:rel=\"k\">x</a>",
+    "<a t:attr=\"target=${s}\">x</a>",
+    "<a t:target=\"k\">x</a>",
   })
-  void otherStandardAttributesRejectPlainValues(String body) {
+  void typedAttributesRejectPlainValues(String body) {
     // The fix-it points at a JSON block, not a data-* attribute, which takes no String since #584.
     compile("\n" + body)
         .assertError(
@@ -71,33 +66,18 @@ class InertAttributesTest {
   @Test
   void literalsAndNumbersCompile() {
     assertEquals(
-        "<a rel=\"nofollow\" target=\"_blank\">x</a>",
-        render("<a t:rel=\"b ? 'noopener' : 'nofollow'\" t:target=\"'_blank'\">x</a>"));
+        "<a target=\"_blank\">x</a><a target=\"_self\">y</a>",
+        render("<a t:target=\"'_blank'\">x</a><a t:target=\"b ? '_blank' : '_self'\">y</a>"));
   }
 
   /** #565: a safe type is the wrong kind for a typed attribute. */
   @ParameterizedTest
   @ValueSource(strings = {
-    "<iframe t:sandbox=\"u\"></iframe>",
-    "<p t:itemtype=\"u\">x</p>",
-    "<a t:rel=\"b ? u : 'nofollow'\">x</a>",
+    "<a t:target=\"u\">x</a>",
+    "<a t:target=\"b ? u : '_self'\">x</a>",
   })
   void safeTypesAreRejected(String body) {
     compile("\n" + body).assertError("t.html:2:", "is not allowed", "only combine string literals and numbers");
-  }
-
-  /**
-   * A boolean attribute that is not inert text (declare on HTML, where
-   * the inert scope is html) keeps the condition handling: present or absent, never a value.
-   */
-  @Test
-  void typedBooleanAttributesTakeACondition() {
-    String body = "<object t:declare=\"b\"></object>";
-    assertEquals("<object declare=\"declare\"></object>", render(body, "b", true));
-    assertEquals("<object></object>", render(body, "b", false));
-    // A String next to it, in a non-boolean typed attribute, still fails.
-    compile("<object t:declare=\"b\"></object>\n<iframe t:sandbox=\"s\"></iframe>")
-        .assertError("t.html:2:", "t:sandbox is not allowed", "is not an inert-text attribute");
   }
 
   /** Vue shorthand bindings are not plain names, so they take no computed value at all (#584). */
@@ -108,75 +88,40 @@ class InertAttributesTest {
   }
 
   /**
-   * A meta's content is inert text only as named metadata (#590): a static name on the allow-list
-   * (description, keywords, author, application-name, generator, color-scheme, theme-color), and no
-   * http-equiv, property or itemprop. Any other meta content takes literals only.
+   * #761: a standard name off the closed allow-list takes no computed value, a literal neither:
+   * what was TYPED_ATTRIBUTE (rel, sandbox, allow, crossorigin, itemtype, declare) and every
+   * {@code <meta>} content but a refresh, named metadata (#590) included.
    */
-  @Test
-  void metaContentIsInertOnlyAsNamedMetadata() {
-    assertEquals(
-        "<meta name=\"description\" content=\"&quot;\"><meta NAME=\" Author \" content=\"&quot;\">",
-        render("<meta name=\"description\" t:content=\"s\"><meta NAME=\" Author \" t:content=\"s\">", "s", "\""));
-    assertEquals(
-        "<meta name=\"application-name\" content=\"a\"><meta name=\"generator\" content=\"a\">"
-            + "<meta name=\"color-scheme\" content=\"a\"><meta name=\"theme-color\" content=\"a\">",
-        render("<meta name=\"application-name\" t:content=\"s\"><meta name=\"generator\" t:content=\"s\">"
-            + "<meta name=\"color-scheme\" t:content=\"s\"><meta name=\"theme-color\" t:content=\"s\">", "s", "a"));
-    assertEquals(
-        "<meta name=\"referrer\" content=\"origin\"><meta name=\"viewport\" content=\"width=device-width\">",
-        render("<meta name=\"referrer\" t:content=\"b ? 'no-referrer' : 'origin'\">"
-            + "<meta name=\"viewport\" t:content=\"'width=device-width'\">"));
-    assertEquals("<meta name=\"keywords\" content=\"a\">",
-        render("<meta name=\"keywords\" t:attr=\"content=${s}\">", "s", "a"));
-    // Names off the allow-list, and Open Graph, still take literals.
-    assertEquals(
-        "<meta name=\"apple-itunes-app\" content=\"app-id=1\"><meta property=\"og:title\" content=\"T\">",
-        render("<meta name=\"apple-itunes-app\" t:content=\"'app-id=1'\"><meta property=\"og:title\" t:content=\"'T'\">"));
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {
-    // #590: names a browser, OS or crawler acts on, and unknown names, are not on the allow-list.
+    "<a t:rel=\"s\">x</a>",
+    "<a t:rel=\"b ? 'noopener' : 'nofollow'\">x</a>",
+    "<a t:attr=\"rel=${s}\">x</a>",
+    "<iframe t:sandbox=\"s\"></iframe>",
+    "<iframe t:allow=\"s\"></iframe>",
+    "<img t:crossorigin=\"s\">",
+    "<p t:itemtype=\"s\">x</p>",
+    "<object t:declare=\"b\"></object>",
+    "<button t:type=\"'submit'\">x</button>",
+    "<img t:loading=\"'lazy'\">",
+    "<meta name=\"description\" t:content=\"s\">",
+    "<meta NAME=\" Author \" t:content=\"s\">",
+    "<meta name=\"keywords\" t:attr=\"content=${s}\">",
+    "<meta name=\"viewport\" t:content=\"'width=device-width'\">",
+    "<meta name=\"referrer\" t:content=\"b ? 'no-referrer' : 'origin'\">",
+    "<meta property=\"og:title\" t:content=\"'T'\">",
     "<meta name=\"apple-itunes-app\" t:content=\"s\">",
-    "<meta name=\"google-site-verification\" t:content=\"s\">",
-    "<meta name=\"msapplication-config\" t:content=\"s\">",
-    "<meta name=\"msapplication-TileImage\" t:content=\"s\">",
-    "<meta name=\"og:image\" t:content=\"s\">",
-    "<meta name=\"twitter:title\" t:content=\"s\">",
-    "<meta name=\"refresh\" t:content=\"s\">",
-    "<meta name=\"robots\" t:content=\"s\">",
-    "<meta name=\"q\" t:content=\"s\">",
-    "<meta name=\"\" t:content=\"s\">",
-    "<meta name=\"apple-itunes-app\" t:attr=\"content=${s}\">",
-    "<meta name=\"description\" name=\"apple-itunes-app\" t:content=\"s\">",
-    // A computed name, with or without a static one.
-    "<meta t:name=\"'description'\" t:content=\"s\">",
-    "<meta t:attr=\"name='description', content=${s}\">",
-    // property and itemprop are read by crawlers (og:url, al:ios:url) whatever the name says.
-    "<meta property=\"og:title\" name=\"description\" t:content=\"s\">",
-    "<meta name=\"description\" property=\"al:ios:url\" t:content=\"s\">",
-    "<meta name=\"description\" itemprop=\"url\" t:content=\"s\">",
-    "<meta name=\"description\" t:property=\"s\" t:content=\"s\">",
-    "<meta name=\"description\" t:attr=\"itemprop=${s}\" t:content=\"s\">",
-    "<meta name=\"twitter:image\" property=\"og:image\" t:content=\"s\">",
-    "<meta name=\"referrer\" t:content=\"s\">",
-    "<meta NAME=\" Viewport \" t:content=\"s\">",
-    // htmx merges it into htmx.config: {"selfRequestsOnly":false,"allowEval":true}
     "<meta name=\"htmx-config\" t:content=\"s\">",
     "<meta http-equiv=\"content-security-policy\" t:content=\"s\">",
     "<meta http-equiv=\"default-style\" t:content=\"s\">",
-    "<meta name=\"description\" http-equiv=\"default-style\" t:content=\"s\">",
-    "<meta property=\"og:title\" t:content=\"s\">",
+    "<meta t:name=\"'description'\" t:content=\"s\">",
+    "<meta t:attr=\"name='description', content=${s}\">",
+    "<meta name=\"description\" t:property=\"s\">",
     "<meta t:content=\"s\">",
-    "<meta name=\"referrer\" t:attr=\"content=${s}\">",
-    // A computed name could replace the static one: name=referrer with a plain content.
-    "<meta name=\"description\" t:name=\"'referrer'\" t:content=\"s\">",
-    "<meta name=\"description\" t:attr=\"name='referrer'\" t:content=\"s\">",
-    "<meta name=\"description\" t:attr=\"name='referrer', content=${s}\">",
-    "<meta name=\"description\" t:attrappend=\"name=${s}\" t:content=\"s\">",
     "<p t:content=\"s\">x</p>",
   })
-  void otherMetaContentRejectsPlainValues(String body) {
-    compile("\n" + body).assertError("t.html:2:", "is not allowed", "is not an inert-text attribute", "write a static attribute");
+  void namesOffTheListAreRejected(String body) {
+    compile("\n" + body).assertError("t.html:2:", "is not allowed", "is not on Tessera's list of computed attributes",
+        "write it as a static value, or one element per value under t:if");
   }
 }

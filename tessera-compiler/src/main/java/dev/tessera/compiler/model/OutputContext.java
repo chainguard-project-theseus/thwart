@@ -12,8 +12,8 @@ public enum OutputContext {
   /** Element text, the RCDATA of {@code <title>} and {@code <textarea>} included. */
   TEXT(Escaper.TEXT),
   /**
-   * Quoted value of a plain-text attribute: an inert-text attribute ({@code inert-attributes.txt}),
-   * or a named {@code <meta>}'s {@code content}. Generated
+   * Quoted value of a plain-text attribute: an inert-text name on the computed allow-list
+   * ({@code Contexts}). Generated
    * attributes are always double-quoted.
    */
   ATTRIBUTE(Escaper.ATTR),
@@ -47,16 +47,16 @@ public enum OutputContext {
    */
   STYLE(null),
   /**
-   * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
-   * has no more specific context, such as {@code sandbox}, {@code rel} or {@code target},
-   * or the {@code content} of a {@code <meta>} that is not named.
+   * A listed attribute ({@code Contexts}) that takes only literals: {@code target}, a {@code value}
+   * off form controls (such as {@code <param>}), and a {@code for} off {@code <label>} and
+   * {@code <output>}.
    * The value may only combine string literals and numbers; a String, other plain value or
    * safe type is a build error. Written attribute-escaped.
    */
   TYPED_ATTRIBUTE(null),
   /**
-   * An attribute whose name is not a standard HTML, SVG, MathML or ARIA name ({@code data-*},
-   * {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own attributes, any other plain name):
+   * A {@code data-*} attribute, or an {@code aria-*} name outside WAI-ARIA 1.2
+   * (every other name outside HTML is off the allow-list and FORBIDDEN):
    * client frameworks may run any non-standard attribute as code. Whatever client code reads it gets only a framework-neutral value: an
    * exact-class number written in plain decimal, a boolean, a same-origin {@code @{/path}} with no
    * query, or a choice between those and literals. A String or any other type is a build error.

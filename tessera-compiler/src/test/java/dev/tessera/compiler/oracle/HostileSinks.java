@@ -28,13 +28,10 @@ final class HostileSinks {
   /**
    * The standard HTML, SVG, MathML and ARIA attribute names, each with the specs it comes from, as
    * the spec indices list them. Every other name is outside HTML. This is the oracle's own copy
-   * ({@code oracle/standard-attributes.txt}), not the compiler's {@code html/attributes.txt}, so
-   * one edit to the compiler's list cannot move the oracle with it (#608); a test keeps them equal.
+   * ({@code oracle/standard-attributes.txt}), written from the spec indices, not from the compiler's
+   * closed allow-list of computed names (#761), so the oracle does not restate the compiler (#608).
    */
   static final Map<String, Set<String>> STANDARD = standardNames("oracle/standard-attributes.txt");
-
-  /** The compiler's list, read only to check that the oracle's copy agrees with it. */
-  static final String COMPILER_STANDARD = "dev/tessera/compiler/html/attributes.txt";
 
   /**
    * The framework-neutral values (#583 rule 3, the grammar of the safety research there): a plain
