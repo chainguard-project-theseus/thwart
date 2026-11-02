@@ -68,6 +68,24 @@ class UnmodelledMarkupTest {
     builder(body).verifierOnly().compile().assertError("t.html:1:", "[verifier:");
   }
 
+  /**
+   * Error-free markup where the parser's tree is balanced and the hole is outside {@code <svg>} for
+   * Tessera, but a browser reads the raw text of an SVG {@code <title>} or {@code <style>} as markup
+   * (an integration point there), so the hole is inside a {@code <script>}. The parser no longer
+   * models that reading: the verifier rejects it as script on its own.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><title><script></title></svg><p>[[${s}]]</p><svg><title></script></title></svg>",
+        "<svg><style><foreignObject><script></style></svg><p>[[${s}]]</p><svg><style></script></foreignObject></style></svg>",
+      })
+  void aScriptOpenedInForeignRawTextIsTheVerifiersError(String body) {
+    // A full build fails too (for the first, on the parser's own end-tag check before the verifier runs).
+    compile(body).assertError("t.html:1:");
+    builder(body).verifierOnly().compile().assertError("t.html:1:", "[verifier:TEXT_IN_SCRIPT]");
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {
