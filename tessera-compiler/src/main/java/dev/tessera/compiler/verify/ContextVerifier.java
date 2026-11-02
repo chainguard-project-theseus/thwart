@@ -185,8 +185,8 @@ public final class ContextVerifier {
    * What the verifier rejects in a fragment no template calls ({@link #uncalled}, #461), checked on
    * its own like a partial: declared in HTML content, in the fragment contexts its root elements
    * imply (as a document only if it is a page); declared in {@code <svg>}, {@code <math>} or
-   * {@code <select>} content, in that element. Declared where no fragment fits (raw text, mixed
-   * {@code <svg>}/{@code <math>}, {@code t:remove="tag"} content), it can't be checked: {@link
+   * {@code <select>} content, in that element. Declared where no fragment fits (raw text or
+   * {@code t:remove="tag"} content), it can't be checked: {@link
    * Problem#UNCALLED_FRAGMENT_FITS_NOWHERE}.
    */
   List<Finding> checkUncalled(Skeleton.FragmentId id) {

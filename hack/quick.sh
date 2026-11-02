@@ -31,8 +31,10 @@ changed_modules() {
   mb=$(git merge-base HEAD "$base")
   files=$( (git diff --name-only "$mb"; git ls-files --others --exclude-standard) | sort -u)
   for m in $modules; do
-    # A file in the module, or the root or the aggregator pom above it.
-    if grep -q -e "^$m/" -e '^pom.xml$' -e "^$(dirname "$m")/pom.xml\$" <<<"$files"; then
+    # A file in the module, or the root or the aggregator pom above it. The javax starter has no
+    # sources: it is the jakarta starter's jar relocated, so it changes whenever that one does.
+    if grep -q -e "^$m/" -e '^pom.xml$' -e "^$(dirname "$m")/pom.xml\$" <<<"$files" \
+        || { [ "$m" = tessera-spring-boot-starter-javax ] && grep -q '^tessera-spring-boot-starter/' <<<"$files"; }; then
       out+=("$m")
     fi
   done

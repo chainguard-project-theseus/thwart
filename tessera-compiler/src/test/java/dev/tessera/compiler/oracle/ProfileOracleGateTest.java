@@ -3,18 +3,14 @@ package dev.tessera.compiler.oracle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.oracle.ProfileOracleTest.CaseResult;
-import dev.tessera.compiler.oracle.ProfileOracleTest.Classified;
 import dev.tessera.compiler.oracle.ProfileOracleTest.Compiled;
 import dev.tessera.compiler.oracle.ProfileOracleTest.Escape;
-import dev.tessera.compiler.oracle.ProfileOracleTest.Family;
 import dev.tessera.compiler.oracle.ProfileOracleTest.GateCase;
 import dev.tessera.compiler.oracle.ProfileOracleTest.Layer;
 import dev.tessera.compiler.oracle.ProfileOracleTest.LemmaMemo;
-import dev.tessera.compiler.oracle.ProfileOracleTest.Ratchet;
 import dev.tessera.compiler.oracle.ProfileOracleTest.Subject;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.Skeleton;
@@ -24,15 +20,15 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The oracle gate's own tests (#324): each way it must fail (a skeleton the render isn't in, an
- * escaper whose output isn't inert, an A/B finding on an accepted template, a stale or untracked
- * known-holes line), and that ordinary templates and listed C/D/E holes pass.
+ * escaper whose output isn't inert, generated code that writes a value unescaped), and that
+ * ordinary templates pass.
  */
 class ProfileOracleGateTest {
 
   private static final String P = "<div t:params=\"String s\">";
 
   private static GateCase gateCase(String template) {
-    return new GateCase(OracleCase.of("test", template, OracleCase.Origin.SEED), ProfileOracleTest.params(template), null);
+    return new GateCase(OracleCase.of("test", template, OracleCase.Origin.SEED), ProfileOracleTest.params(template));
   }
 
   private static Compilation compile(GateCase g) {
@@ -57,13 +53,11 @@ class ProfileOracleGateTest {
         + "<script>var a = [[s]];</script></div>");
     CaseResult r = ProfileOracleTest.check(Subject.of(g, compile(g)), ProfileOracleTest.RUNTIME, memo, 0);
     assertEquals(List.of(), r.failures);
-    assertEquals(List.of(), r.findings);
-    assertEquals(2 + ProfileOracleTest.HOSTILE.size(), r.renders);
+    assertEquals(1 + ProfileOracleTest.HOSTILE.size(), r.renders);
     // The lemma ran: 5 holes x 8 parsers, every value fed once per distinct state.
     assertTrue(memo.verdicts.size() >= 5, memo.verdicts.toString());
     assertTrue(memo.feeds.get() >= 5L * ProfileOracleTest.LEMMA_VALUES.size(), String.valueOf(memo.feeds.get()));
-    assertEquals(new Verdict.Clean(), r.verdict());
-    assertEquals(2, r.export.size()); // benign and fingerprint, no hostile values asked for
+    assertEquals(1, r.export.size()); // benign, no hostile values asked for
   }
 
   @Test
@@ -159,163 +153,11 @@ class ProfileOracleGateTest {
     assertNull(SkeletonMatcher.holes(c.skeleton(g.view()).body(), out + "x", c::fragmentSkeleton));
   }
 
-  // ---- A/B findings ----
-
-  @Test
-  void anABFindingOnAnAcceptedTemplateFailsTheGate() {
-    GateCase g = gateCase(P + "<p>[[s]]</p></div>");
-    Compilation c = compile(g);
-    ProfileOracleTest.Renderer real = ProfileOracleTest.renderer(c, g.view());
-    // Generated code that writes the value unescaped: the value oracle sees new elements.
-    Subject broken = new Subject(g, m -> real.render(m).replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\""),
-        c.skeleton(g.view()), c::fragmentSkeleton);
-    CaseResult r = ProfileOracleTest.check(broken, ProfileOracleTest.RUNTIME, new LemmaMemo(), -1);
-    assertTrue(r.findings.stream().anyMatch(f -> f.family() == Family.AB
-        && f.finding().kind() == Finding.Kind.STRUCTURE_CHANGED), r.findings.toString());
-    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt", ""), "t.txt");
-    List<String> failures = ratchet.check(g.oracleCase(), r.findings);
-    assertTrue(any(failures, "verifier soundness bug (family A/B, can't be listed in t.txt): " + g.oracleCase().id()),
-        failures.toString());
-  }
-
-  @Test
-  void anABKindCantBeListed() {
-    for (String kind : List.of("STRUCTURE_CHANGED", "MARKER_IN_NAME", "LIVE_HANDLER", "CONTEXT_MISMATCH")) {
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-          () -> ProfileOracleTest.holes("t.txt", "# c\n0123456789ab " + kind + " vnu-26 #367 x\n"));
-      assertTrue(e.getMessage().startsWith("t.txt:2: " + kind + " is a family A/B kind"), e.getMessage());
-    }
-    // A LIVE_SCRIPT line parses, but doesn't cover a LIVE_SCRIPT reached through markup: the gate
-    // still fails, and the line is stale.
-    OracleCase c = OracleCase.of("t", P + "x</div>", OracleCase.Origin.SEED);
-    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt", c.id() + " LIVE_SCRIPT * #332 x\n"), "t.txt");
-    Finding live = new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-26", "scripting-on /html/body/div/script", "v");
-    assertEquals(Family.AB, ProfileOracleTest.family(live, List.of()));
-    assertTrue(any(ratchet.check(c, List.of(new Classified(live, Family.AB))), "verifier soundness bug"));
-    assertTrue(any(ratchet.stale(null), "known hole " + c.id() + " LIVE_SCRIPT * #332 no longer occurs"));
-  }
-
-  @Test
-  void findingsAreSortedIntoFamilies() {
-    HtmlInvariant.ScriptSlot html = new HtmlInvariant.ScriptSlot("vnu-26", "scripting-on /html/body/div/script",
-        List.of("tqm0001"), "var a = \"tqm0001\";", "var a = tqm0001();");
-    HtmlInvariant.ScriptSlot svg = new HtmlInvariant.ScriptSlot("vnu-26", "scripting-on /html/body/div/svg[svg]/script[svg]",
-        List.of("tqm0001"), "var a = \"tqm0001\";", "var a = tqm0001();");
-    Finding inHtml = new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-26", html.where(), "v");
-    Finding inSvg = new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-26", svg.where(), "v");
-    assertEquals(Family.C, ProfileOracleTest.family(inHtml, List.of(html, svg)));
-    assertEquals(Family.AB, ProfileOracleTest.family(inSvg, List.of(html, svg)));
-    assertEquals(Family.AB, ProfileOracleTest.family(
-        new Finding(Finding.Kind.LIVE_SCRIPT, "parse5", html.where(), "v"), List.of(html))); // other engine
-    assertEquals(Family.D, ProfileOracleTest.family(new Finding(Finding.Kind.CSTI, "vnu-26", "/", "v"), List.of()));
-    assertEquals(Family.E, ProfileOracleTest.family(new Finding(Finding.Kind.JS_URL, "vnu-26", "/", "v"), List.of()));
-    assertEquals(Family.E,
-        ProfileOracleTest.family(new Finding(Finding.Kind.CROSS_ORIGIN_RESOURCE, "vnu-26", "/", "v"), List.of()));
-    for (Finding.Kind k : List.of(Finding.Kind.STRUCTURE_CHANGED, Finding.Kind.MARKER_IN_NAME, Finding.Kind.LIVE_HANDLER,
-        Finding.Kind.CONTEXT_MISMATCH)) {
-      assertEquals(Family.AB, ProfileOracleTest.family(new Finding(k, "vnu-26", "/", "v"), List.of()), k.name());
-    }
-  }
-
-  @Test
-  void contextMismatchesTheVerifierProvesInertAreNotFindings() {
-    // 306-A60: a value in <xmp>, raw text in a browser, is a build error since #571.
-    Compilation.builder()
-        .template("t.html", P + "<xmp>[[s]]</xmp></div>")
-        .compile()
-        .assertError("a value, condition or loop inside <xmp> is not supported");
-    // An attribute value classic <select> parsing drops with its <span> inside <select>: since #406 the
-    // verifier rejects the <span> there (exclusion (c)), so no accepted template has one.
-    Compilation.builder()
-        .template("t.html", P + "<table><tbody><tr><td t:fragment=\"frag(String s)\"><span t:title=\"s\">x</span></td>"
-            + "</tr></tbody></table><select><t:block t:replace=\"~{:: frag(s)}\"></t:block></select></div>")
-        .compile()
-        .assertError("[verifier:SELECT_CONTENT]");
-    // A text marker that is nowhere is not inert.
-    Finding nowhere = new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
-        "(nowhere): marker tqf0001 is in the render but not in the parsed tree", "v");
-    GateCase g = gateCase(P + "<p>[[s]]</p></div>");
-    Compilation c = compile(g);
-    String render = c.render(g.view(), Compilation.model("s", Fingerprint.value(1)));
-    List<SkeletonMatcher.Span> spans = SkeletonMatcher.holes(c.skeleton(g.view()).body(), render, c::fragmentSkeleton);
-    assertEquals(Family.AB, ProfileOracleTest.contextFamily(nowhere, render, spans));
-    Finding script = new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
-        "/html/body/div/p text: [SCRIPT] json escaping in HTML element text (<p>)", "v");
-    assertEquals(Family.AB, ProfileOracleTest.contextFamily(script, render, spans));
-    // A value in raw text is a finding, never inert: the verifier rejects it (#586), whether the
-    // element never runs (noscript with scripting on, xmp, iframe) or runs or applies (script,
-    // style, plaintext); and HTML element text.
-    for (String where : List.of(
-        "scripting-on /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
-        "/html/body/div/xmp text: [TEXT] text escaping in raw-text element text (<xmp>)",
-        "/html/body/div/iframe text: [ATTRIBUTE] attr escaping in raw-text element text (<iframe>)",
-        "scripting-off /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
-        "/html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
-        "/html/body/div/script text: [TEXT] text escaping in raw-text element text (<script>)",
-        "/html/body/div/style text: [TEXT] text escaping in raw-text element text (<style>)",
-        "/html/body/div/plaintext text: [TEXT] text escaping in raw-text element text (<plaintext>)",
-        "/html/body/div/xmp/p text: [SCRIPT] json escaping in HTML element text (<p>)")) {
-      assertEquals(Family.AB, ProfileOracleTest.contextFamily(
-          new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26", where, "v"), render, spans), where);
-    }
-    // A dropped marker with one occurrence in an attribute hole and one in a text hole (a live
-    // sibling) is not inert.
-    GateCase both = gateCase(P + "<span t:title=\"s\">x</span><p>[[s]]</p></div>");
-    Compilation bc = compile(both);
-    String bothRender = bc.render(both.view(), Compilation.model("s", Fingerprint.value(1)));
-    List<SkeletonMatcher.Span> bothSpans =
-        SkeletonMatcher.holes(bc.skeleton(both.view()).body(), bothRender, bc::fragmentSkeleton);
-    assertEquals(Family.AB, ProfileOracleTest.contextFamily(nowhere, bothRender, bothSpans));
-  }
-
-  // ---- known-holes.txt ----
-
-  @Test
-  void aStaleLineFails() {
-    OracleCase c = OracleCase.of("t", P + "x</div>", OracleCase.Origin.SEED);
-    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt",
-        c.id() + " CSTI * #336 gone\n" + c.id() + " JS_URL chromium #313 the Node job's\n"), "t.txt");
-    assertEquals(List.of(), ratchet.check(c, List.of()));
-    List<String> stale = ratchet.stale(null);
-    assertEquals(1, stale.size(), stale.toString()); // the chromium line is the Node job's to report
-    assertTrue(stale.get(0).startsWith("known hole " + c.id() + " CSTI * #336 no longer occurs"), stale.get(0));
-    assertTrue(stale.get(0).endsWith("delete its line from t.txt"), stale.get(0));
-    // A line for a case a partial run (-Dtessera.oracle.gen.max) didn't run isn't reported.
-    assertEquals(List.of(), ratchet.stale(java.util.Set.of()));
-  }
-
-  @Test
-  void anEngineDriftLineNamesANodeEngine() {
-    // #399: listable, with an issue, for the engine that drifts; never '*' or a vnu engine (the Java
-    // gate would report a '*' line stale, and vnu is what the others are compared with).
-    for (String engine : List.of("*", "vnu-26", "rhino")) {
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-          () -> ProfileOracleTest.holes("t.txt", "0123456789ab ENGINE_DRIFT " + engine + " #398 x\n"));
-      assertTrue(e.getMessage().startsWith("t.txt:1: an ENGINE_DRIFT line names the engine that drifts"), e.getMessage());
-    }
-    assertEquals(1, ProfileOracleTest.holes("t.txt", "0123456789ab ENGINE_DRIFT webkit #398 x\n").entries().size());
-  }
-
-  @Test
-  void anEngineDriftLineGoesStaleInTheJavaGateOnceItsCaseIsRejected() {
-    OracleCase c = OracleCase.of("t", P + "x</div>", OracleCase.Origin.SEED);
-    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt", c.id() + " ENGINE_DRIFT parse5 #398 x\n"), "t.txt");
-    // Accepted: the Node job reports whether it still drifts.
-    assertEquals(List.of(), ratchet.stale(null, java.util.Set.of(c.id())));
-    // Rejected (the verifier fix landed) or gone: delete the line in the same change.
-    List<String> stale = ratchet.stale(null, java.util.Set.of());
-    assertEquals(1, stale.size(), stale.toString());
-    assertTrue(stale.get(0).startsWith("known hole " + c.id() + " ENGINE_DRIFT parse5 #398: the case is rejected now"),
-        stale.get(0));
-    // A partial run that didn't run the case says nothing.
-    assertEquals(List.of(), ratchet.stale(java.util.Set.of(), java.util.Set.of()));
-  }
-
   @Test
   void theExportCarriesTheVnuTreesOfEachRender() {
     GateCase g = gateCase(P + "<p>[[s]]</p></div>");
     CaseResult r = ProfileOracleTest.check(Subject.of(g, compile(g)), ProfileOracleTest.RUNTIME, new LemmaMemo(), 1);
-    assertEquals(3, r.export.size()); // benign, fingerprint, the first hostile value
+    assertEquals(2, r.export.size()); // benign, the first hostile value
     for (ExportRecord e : r.export) {
       assertEquals(VnuTrees.json(e.render()), e.trees());
       assertTrue(e.toJsonLine().endsWith(",\"trees\":" + e.trees() + "}"), e.toJsonLine());
@@ -329,18 +171,5 @@ class ProfileOracleGateTest {
     List<String> exported = ProfileOracleTest.HOSTILE.subList(0, ProfileOracleTest.EXPORT_DEFAULT);
     assertTrue(exported.containsAll(List.of("hidden", "text/html", "application/xhtml+xml")), exported.toString());
     assertTrue(exported.stream().anyMatch(v -> v.contains("</")), exported.toString());
-  }
-
-  @Test
-  void aLineWithoutAnIssueFails() {
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> ProfileOracleTest.holes("t.txt", "0123456789ab CSTI * no issue\n"));
-    assertTrue(e.getMessage().startsWith("t.txt:1: expected '<case-id> <KIND> <engine or *> #<issue> <note>'"), e.getMessage());
-  }
-
-  @Test
-  void theCheckedInListHasOnlyFamilyCDAndELines() {
-    KnownHoles holes = ProfileOracleTest.holes("known-holes.txt", ProfileOracleTest.resource(KnownHoles.RESOURCE));
-    assertTrue(holes.entries().stream().allMatch(e -> ProfileOracleTest.LISTABLE.contains(e.kind())));
   }
 }

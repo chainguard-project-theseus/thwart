@@ -25,7 +25,7 @@ final class KnownAttributes {
   /** The standard names; the value is the rest of the line (the sources). */
   private static final Map<String, String> STANDARD = load("attributes.txt");
 
-  /** The inert-text names; the value is the scope ({@code html}, {@code foreign} or {@code any}) and group. */
+  /** The inert-text names; the value is the group, then the HTML elements it is inert on, if only some. */
   private static final Map<String, String> INERT = load("inert-attributes.txt");
 
   /** Whether {@code name} (A-Z folded) is a standard HTML, SVG, MathML or ARIA attribute. */
@@ -34,10 +34,10 @@ final class KnownAttributes {
   }
 
   /**
-   * Whether {@code name} (any case) is a standard name that is not an inert-text attribute in
-   * {@code element}'s namespace (HTML, or SVG/MathML when {@link Element#foreign}), so a plain
-   * computed value may not go there. The element may be a custom element: its standard attributes
-   * are classified like any other element's.
+   * Whether {@code name} (any case) is a standard name that is not an inert-text attribute on
+   * {@code element}, so a plain computed value may not go there. No attribute of an SVG or MathML
+   * element is inert ({@link Contexts#attribute} forbids them all, #678). The element may be a
+   * custom element: its standard attributes are classified like any other element's.
    */
   static boolean needsSafeValue(Element element, String name) {
     String a = HtmlParser.asciiLower(name);
@@ -45,15 +45,12 @@ final class KnownAttributes {
       return false;
     }
     String inert = INERT.get(a);
-    if (inert == null) {
+    if (inert == null || element.foreign()) {
       return true;
     }
     String[] fields = inert.split(" ");
-    if (fields.length > 2 && !element.foreign()
-        && !Arrays.asList(fields[2].split(",")).contains(HtmlParser.asciiLower(element.name()))) {
-      return true; // inert only on the HTML elements listed
-    }
-    return !fields[0].equals("any") && !fields[0].equals(element.foreign() ? "foreign" : "html");
+    // Inert only on the HTML elements listed, if any are.
+    return fields.length > 1 && !Arrays.asList(fields[1].split(",")).contains(HtmlParser.asciiLower(element.name()));
   }
 
   /** A data file: the name, one per line before the first space, and the rest; {@code #} lines are comments. */

@@ -66,7 +66,7 @@ public final class Seeds {
   /** The main commit the {@code main} verdicts were recorded on. */
   public static final String MAIN_SNAPSHOT = "1c4b2b3";
 
-  /** What a seed's verdict is: the three {@link Verdict} labels. */
+  /** What a seed's verdict was on 0dda2f1: the oracle gate's three labels before #681. */
   public enum Outcome {
     CLEAN,
     REJECTED,
@@ -102,35 +102,6 @@ public final class Seeds {
         }
       }
       return new Expectation(Outcome.FINDINGS, kinds);
-    }
-
-    /**
-     * Whether {@code verdict} meets this expectation: same outcome, and for findings every listed
-     * kind reported on each of {@code engines} ({@code *} for any engine). {@code JS_UNPARSABLE}
-     * alone is not a finding here: the gate counts it, it doesn't fail on it (#319).
-     */
-    public boolean metBy(Verdict verdict, List<String> engines) {
-      List<Finding> findings = new ArrayList<>();
-      if (verdict instanceof Verdict.Findings f) {
-        for (Finding x : f.findings()) {
-          if (x.kind() != Finding.Kind.JS_UNPARSABLE) {
-            findings.add(x);
-          }
-        }
-      }
-      return switch (outcome) {
-        case REJECTED -> verdict instanceof Verdict.Rejected;
-        case CLEAN -> !(verdict instanceof Verdict.Rejected) && findings.isEmpty();
-        case FINDINGS ->
-            kinds.stream()
-                .allMatch(
-                    k ->
-                        engines.stream()
-                            .allMatch(
-                                e ->
-                                    findings.stream()
-                                        .anyMatch(x -> x.kind() == k && (e.equals("*") || e.equals(x.engine())))));
-      };
     }
 
     @Override

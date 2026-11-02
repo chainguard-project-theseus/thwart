@@ -1,8 +1,8 @@
-# The oracle's own copy of the standard attribute names (#608): ContextCheck, HostileSinks,
-# HtmlInvariant and the Node check (node/check.mjs, #611) hold every other name to the
-# framework-neutral value shape. It is deliberately not read from
-# the compiler's html/attributes.txt, so that one edit there cannot move the compiler and the
-# oracle together; ContextCheckTest.standardNamesAreTheOraclesOwnCopy fails until both agree.
+# The oracle's own copy of the standard attribute names (#608): HostileSinks and the Node check
+# (node/check.mjs, #611) hold every other name to the framework-neutral value shape. It is
+# deliberately not read from the compiler's html/attributes.txt, so that one edit there cannot move
+# the compiler and the oracle together; HostileSweepTest.standardNamesAreTheOraclesOwnCopy fails
+# until both agree.
 # The header below is the compiler file's, copied with its names.
 #
 # The standard attribute names (#330, #584,

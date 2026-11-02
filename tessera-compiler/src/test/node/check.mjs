@@ -1,6 +1,6 @@
 // The Node oracle (#322): runs the cases ProfileOracleTest exports (#324) through parse5 and headless
-// Chromium, Firefox and WebKit, and ratchets the findings against known-holes.txt like the Java gate
-// does. Not part of `mvn verify`; Chainguard Checks runs it through run.sh
+// Chromium, Firefox and WebKit, and ratchets the findings against known-holes.txt. Not part of
+// `mvn verify`; Chainguard Checks runs it through run.sh
 // (.chainguard/ci/oracle-node.yaml).
 //
 //   node check.mjs [--engines parse5,chromium,firefox,webkit] [--known-holes <file>] [--require-trees]
@@ -8,7 +8,7 @@
 //
 // Input: ExportRecord JSONL, {"id","name","template","value","render","verdict","trees"}, one line
 // per (case, value). Per case, the benign render is the record whose value is a bare marker
-// (`tqm0001`); fingerprint records (`tqf...`, #323) are skipped, every other record is hostile.
+// (`tqm0001`); every other record is hostile.
 // Rejected cases (render null) are skipped. A case with hostile renders and no benign one fails.
 // "trees" holds the vnu engine's trees of the render (VnuTrees.java); --require-trees makes a
 // render without them an error (the real export always has them; the fixture's synthetic renders
@@ -32,9 +32,9 @@
 // deliberately wrong normal form (the self-check's negative).
 //
 // Ratchet: a finding with no known-holes line fails ("new hole"); a line for an engine this job ran
-// (parse5, chromium, firefox, webkit) that matched nothing fails ("delete its line"). `*` lines cover
-// findings here but only the Java gate reports them stale. An ENGINE_DRIFT line names one of these
-// four engines, never `*`.
+// (parse5, chromium, firefox, webkit), or a `*` line when all four ran, that matched nothing fails
+// ("delete its line"). An
+// ENGINE_DRIFT line names one of these four engines, never `*`.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -48,11 +48,10 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BENIGN = /^tqm\d{4}$/;
-const FINGERPRINT = /^tqf\d{4}/;
 const NODE_ENGINES = ['parse5', 'chromium', 'firefox', 'webkit'];
 const KINDS = new Set([
   'STRUCTURE_CHANGED', 'MARKER_IN_NAME', 'LIVE_SCRIPT', 'LIVE_HANDLER', 'JS_URL',
-  'CROSS_ORIGIN_RESOURCE', 'JS_NOT_LITERAL', 'JS_UNPARSABLE', 'CONTEXT_MISMATCH', 'CSTI', 'ENGINE_DRIFT',
+  'CROSS_ORIGIN_RESOURCE', 'JS_NOT_LITERAL', 'JS_UNPARSABLE', 'CONTEXT_MISMATCH', 'ENGINE_DRIFT',
 ]);
 
 // ---- input ----
@@ -79,7 +78,6 @@ export function readCases(text, requireTrees = false) {
     }
     const c = byId.get(r.id);
     if (r.render == null || r.value == null) return; // REJECTED
-    if (FINGERPRINT.test(r.value)) return; // the context check (#323) is Java-only
     const trees = r.trees ?? null;
     if (trees != null && (typeof trees !== 'object' || !Array.isArray(trees['scripting-on']) || !Array.isArray(trees['scripting-off']))) {
       throw new Error(`line ${i + 1}: trees must hold scripting-on and scripting-off`);
@@ -110,10 +108,6 @@ const JS_TYPES = new Set([
   'application/x-ecmascript', 'text/x-javascript', 'text/x-ecmascript', 'text/javascript1.0',
   'text/javascript1.1', 'text/javascript1.2', 'text/javascript1.3', 'text/javascript1.4',
   'text/javascript1.5',
-]);
-// Elements whose text Tessera doesn't break `{{` in (raw text and RCDATA): a documented limitation.
-const NOT_FLOW = new Set([
-  'script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext',
 ]);
 const RESOURCE_LINK_RELS = new Set(['stylesheet', 'preload', 'modulepreload', 'import']);
 
@@ -186,14 +180,6 @@ function renderFindings(tree, contextRelative) {
     for (const name of resource) {
       const v = attr(el, name);
       if (v != null && crossOrigin(v, contextRelative)) f.push(['CROSS_ORIGIN_RESOURCE', `${p}@${name}`]);
-    }
-    const flow = el.ns !== HTML_NS || !NOT_FLOW.has(el.name);
-    if (flow) {
-      for (const k of el.kids) {
-        if (k.t === 'text' && k.runs.some((r) => /\{\{[\s\S]*?tqm\d{4}[\s\S]*?\}\}/i.test(r))) {
-          f.push(['CSTI', `${p}/#text`]);
-        }
-      }
     }
   });
   return f;
@@ -366,7 +352,8 @@ export function ratchet(findings, entries, enginesRun, file) {
         `\`${f.caseId} ${f.kind} ${f.engine} #<issue>\` to ${file}`);
   }
   for (const e of entries) {
-    if (!e.used && enginesRun.includes(e.engine)) {
+    const ran = e.engine === '*' ? NODE_ENGINES.every((n) => enginesRun.includes(n)) : enginesRun.includes(e.engine);
+    if (!e.used && ran) {
       failures.push(`known hole ${e.caseId} ${e.kind} ${e.engine} (${file}:${e.line}) is fixed (or now rejected): delete its line`);
     }
   }
