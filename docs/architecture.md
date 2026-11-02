@@ -1,24 +1,9 @@
-# Tessera MVP design
+# How the compiler, runtime and starter work
 
-Oct 22, 2026. What we build first. The long-term design is [tessera-vision.md](tessera-vision.md).
-If this doc and the code disagree, fix one of them in your PR.
-
-## Scope
-
-**In:** `t:params`/`t:import`, `t:text`, `t:utext` (SafeHtml only), `[[...]]`/`[(...)]` inlining,
-`t:if`/`t:unless`, `t:switch`/`t:case`, `t:each` with a status variable, `t:with`, `t:block`,
-`t:remove`, `t:attr` and generic `t:<attr>` (`t:href`, `t:src`, `t:value`, `t:class`, `t:id`,
-`t:data-*`, boolean attributes), `t:classappend`, `t:fragment`/`t:insert`/`t:replace` (typed
-params, same-file and cross-file, Fragment-valued args), `t:object`/`t:field`/`t:errors`/`t:errorclass`,
-CSRF in same-origin POST forms, `#{key(args)}`, `@{/path/{id}(id=x, q=y)}`, `@TemplateFunction` namespaces,
-built-in `strings`/`numbers`/`temporals`/`lists`/`css`/`html` and Spring `auth` namespaces, view-safe types,
-contextual escaping, `${...}`/`*{...}` wrappers, the Spring Boot starter, `tessera-migrate`,
-and a petclinic port.
-
-**Out:** sandbox, devtools/hot reload, LSP, Kotlin, a Gradle plugin, the layout dialect,
-`th:inline` modes and JS natural-template comments (`/*[[...]]*/`), markup selectors other than
-fragment names and `~{::tag}`, `__...__` preprocessing (never), `T(...)`/`new`/`@bean` (never),
-collection selection/projection, `th:style`/`th:onclick` (build errors by design), byte-array output.
+For contributors. The template language and every rejection are in [guide.md](guide.md), the
+accepted HTML profile and escaping contexts in [context-model.md](context-model.md), and the
+security design in [security-architecture.md](security-architecture.md). If this doc and the code
+disagree, fix one of them in your PR.
 
 ## Modules
 
@@ -31,31 +16,30 @@ JDK 21+. The table names the main classes only.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
+| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`/`HtmlSanitizer`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |
 | | `.html` | `HtmlParser`, `MarkupTokenizer` (its own tokenizer for Tessera's tree), `Contexts` (escaping-context table) | |
 | | `.expr` | `Expr` AST, `ExpressionParser` | |
 | | `.types` | `ExpressionCompiler`, `ViewSafety`, `FunctionRegistry`, `Scope` | |
-| | `.messages`, `.links`, `.forms` | `#{}`, `@{}` and `fields.*` compilation, `MessageBundle` | |
+| | `.messages`, `.links`, `.forms` | `#{}`, `@{}`, `fields.*` and `ids.*` compilation, `MessageBundle` | |
 | | `.codegen` | `TemplateGenerator`, `ElementPlan`, `AttributeProcessors`, `TemplateIndex`, `RegistryGenerator`, `Emitted` (the single output path) | |
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
-| | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
-| | `.verify.engine` | `Vnu`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
+| | `.verify` | the build-time context verifier: `ContextVerifier`, its rule table `Rules`, `ContentKinds`, the rule ids `Problem`, and `Skeleton` (what each generated class writes, recorded by `Emitted`) | |
+| | `.verify.engine` | `Vnu`, `Parser`, `ParserState`: the spec HTML parser the verifier runs (security-architecture.md §11.4) | |
 | `tessera-html5` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
-| `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
+| `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`); usage in [guide.md](guide.md) | attoparser, jsoup (bundled into the jar) |
 | `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
 The annotation processor lives in `tessera-compiler` (`META-INF/services/javax.annotation.processing.Processor`);
-a separate module would only add a jar. The per-issue file ownership of the original build plan is
-historical and no longer applies.
+a separate module would only add a jar.
 
 ## Pipeline
 
@@ -67,7 +51,7 @@ templates/**/*.html ─ TemplateDiscovery ─▶ TemplateSource(viewName, path, 
          └ ExpressionParser ─▶ Expr ─ ExpressionCompiler (ViewSafety, FunctionRegistry,
                                        MessageCompiler, LinkCompiler) ─▶ CompiledExpr(code, type)
    ─▶ one Java class per template + TesseraRegistry + META-INF/services entry ─ Filer ─▶ javac
-   ─▶ in memory: one Skeleton per template (static text, holes, control flow, fragment calls)
+   ─▶ in memory: one Skeleton per template ─ ContextVerifier (spec HTML parser) ─▶ accept or error
 ```
 
 Every stage reports to a `DiagnosticSink` and continues; errors print as
@@ -79,7 +63,8 @@ Stages are concrete classes; the only interface with several implementations is 
 
 - Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`,
   plus an optional CSP nonce written on every `<script>`/`<style>` start tag (#335),
-  is the *entire* ambient surface of a template; `Escapers.{text,attr,url,resourceUrl,html,json}`.
+  is the *entire* ambient surface of a template. Escapers: `Escapers.{text,attr,url,resourceUrl,
+  refresh,html,htmlMessage,javaScript,json}`.
 - `ExpressionParser.parseExpression/parseEach/parseAssignments/parseParams/parseImports/parseFragmentSignature/parseFragmentRef`.
 - `ExpressionCompiler.compile/compileCondition/elementType/resolveType/checkOutputType` → `CompiledExpr(code, type, pos)`.
 - `AttributeProcessor.process(CodegenContext, Attribute, ElementPlan)`. A processor adds wrappers
@@ -90,56 +75,13 @@ Stages are concrete classes; the only interface with several implementations is 
   `EmissionGuardTest` fails on output written any other way, and the `Compilation` test harness
   checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
-  (`<form>`), `CsrfInjector.checkSubmitter` (every element), `CsrfInjector.checkBase` (`<base href>`), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
-
-## Template syntax
-
-Root element carries the header; it is stripped from the output, as is `xmlns:t`.
-
-```html
-<html xmlns:t="https://tessera.dev"
-      t:import="com.example.owner.*, com.example.vet.VetView"
-      t:params="OwnerView owner, List<PetView> pets">
-```
-
-Types resolve against `t:import`, then `java.lang`, `java.util`, `java.time`, `java.math`,
-`dev.tessera.runtime`. A template without `t:params` takes no parameters. Inside fragments only the
-fragment's declared parameters are visible (no ambient caller context, principle 2).
-
-**Attribute precedence** (fixed; `AttributeProcessors.ORDER`): `fragment` → `insert`/`replace` →
-`each` → `if`/`unless`/`switch`/`case` → `object`/`with` → `attr`, generic `t:<attr>`, `field`,
-`classappend`, `errorclass` → `text`/`utext`/`errors` → `remove`. `t:text` + `t:utext` on one
-element, or `t:insert` + `t:replace`, is a build error. Unknown `t:` names are generic attributes.
-
-**Fragments.** `t:fragment="card(OwnerView owner, Fragment body)"` generates
-a `private static` method `fragment_card$<n>(OwnerView, Fragment, RenderContext, Output)` in its
-class and a copy in every class that calls it, so only templates call it; a fragment without a `Fragment` parameter gets a Java-facing `fragment_<name>` (#600).
-`t:insert`/`t:replace` take
-`~{tpl :: name(args)}`, `tpl :: name(args)`, `~{:: name}` (same file), or an expression of type
-`Fragment`. Arguments are positional or all named, type-checked against the signature.
-`~{::name}` as an *argument* is a generated `Fragment.Body` lambda (#676) over the same-file fragment `name`, or else the
-first element whose tag is `name` (petclinic's `~{::body}` layout pattern). A selected element renders in the
-scope of the `t:insert`/`t:replace` that passes it. Template names in `~{...}` are paths under the
-templates root; `.`, `..`, empty segments and a leading `/` are build errors. When a template renders
-as a whole, a parameterized fragment element is skipped; a parameterless one renders in place.
-
-**Forms.** `t:object` must name a variable; that name is the form object name passed to `Forms`
-(the Spring model attribute name). `t:field="lastName"` or `"*{lastName}"` checks the path at build
-time. Dynamic field names (`*{__${name}__}`) are not supported. For a reusable form-field
-fragment, declare a parameter of type `Field`: `t:fragment="input(String label, Field name, String type)"`,
-called as `~{fragments/inputField :: input(#{firstName}, 'firstName', 'text')}` inside `t:object`.
-The argument must be a string literal (or a `Field` variable passed on); the path is checked
-against the caller's `t:object` type at build time and the generated code passes
-`new Field(objectName, path, currentValue)`. Inside the fragment, `t:field="name"`,
-`t:errors="name"`, `t:errorclass` and `fields.hasErrors(name)`/`fields.errors(name)` accept it, and
-outputting it (`t:for="name"`) writes the path. Templates cannot read its value. `Field` is a
-fragment parameter type only (not allowed in `t:params`). A checkbox bound through a `Field` is
-checked by its value attribute, since the field's static type is not known inside the fragment.
+  (`<form>`), `CsrfInjector.checkSubmitter` (every element), `CsrfInjector.checkBase` (`<base href>`),
+  `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
 ## Expression grammar
 
-Attribute values are entity-decoded before parsing, so `&lt;` works; `lt gt le ge eq ne and or not`
-are aliases. A `${...}` wrapper is accepted and ignored.
+What `ExpressionParser` accepts. Attribute values are entity-decoded before parsing, so `&lt;`
+works; `lt gt le ge eq ne and or not` are aliases. A `${...}` wrapper is accepted and ignored.
 
 ```ebnf
 expr        = ternary ;
@@ -152,71 +94,52 @@ relational  = additive [ ( "<" | ">" | "<=" | ">=" | "lt" | "gt" | "le" | "ge" )
 additive    = mult { ( "+" | "-" ) mult } ;                (* + with a String operand concatenates *)
 mult        = unary { ( "*" | "/" | "%" ) unary } ;
 unary       = ( "!" | "not" | "-" ) unary | postfix ;
-postfix     = primary { ( "." | "?." ) ident [ args ] | "[" expr "]" } ;
+postfix     = primary { step } ;
+step        = ( "." | "?." ) ident [ args ] | "[" expr "]" ;
 primary     = literal | ident | "(" expr ")" | "${" expr "}" | "*{" selpath "}"
             | "#" ident "." ident args | message | link | interp | fragment ;
+selpath     = ident { step } ;                             (* a property of the t:object *)
 args        = "(" [ expr { "," expr } ] ")" ;
-message     = "#{" key [ "(" expr { "," expr } ")" ] "}" ;            (* key is literal *)
-link        = "@{" path [ "(" ident "=" expr { "," ident "=" expr } ")" ] "}" ;  (* path literal *)
-interp      = "|" { text | "${" expr "}" } "|" ;
-fragment    = "~{" [ ( tplname | "this" ) ] "::" ident [ "(" fargs ")" ] "}" ;
+message     = "#{" key [ args ] "}" ;                      (* key is literal *)
+link        = "@{" path [ "(" lparam { "," lparam } ")" ] "}" ;  (* path is literal *)
+lparam      = ident [ "=" expr ] ;                         (* no value: ?name *)
+interp      = "|" { text | "${" expr "}" | "*{" selpath "}" | message } "|" ;
+fragment    = "~{" fragref "}" ;
+fragref     = [ tplname | "this" ] "::" selector [ "(" [ fargs ] ")" ] ;
+selector    = ident { "-" ident } | "t:block" ;
+fargs       = expr { "," expr } | ident "=" expr { "," ident "=" expr } ;  (* all positional or all named *)
 literal     = "'" chars "'" | int [ "L" ] | decimal | "true" | "false" | "null" ;
 each        = ident [ "," ident ] ":" expr ;
-assignments = name "=" expr { "," name "=" expr } ;                   (* t:with, t:attr *)
+assignments = name "=" expr { "," name "=" expr } ;        (* t:with, t:attr *)
 params      = [ type ident { "," type ident } ] ;
 type        = qname [ "<" type { "," type } ">" ] { "[]" } ;
 ```
 
-Rejected with a specific message: `T(`, `new`, `__`, `@bean`, `=` assignment, `->`, `.![`, `.?[`,
-dynamic message keys and link paths, bare calls `fn(x)` (functions are `ns.fn(x)` or `#ns.fn(x)`).
+`t:insert`/`t:replace` also take a bare `fragref`. Rejected with a specific message: `T(`, `new`,
+`__`, `@bean`, `=` assignment, `->`, `.![`, `.?[`, dynamic message keys, link paths and template
+names, bare calls `fn(x)` (functions are `ns.fn(x)` or `#ns.fn(x)`).
 
-## View-safe rules
+## Types and functions
 
-Resolution (in `ExpressionCompiler`): an identifier is a scope variable, else a function namespace,
-else an error. `a.b`, `a.b()`, `a.getB()` resolve to a record component `b()` or a public no-arg
-`getB()`/`isB()` on a **view-safe** type, or a built-in (`size`, `isEmpty`, `length` on String,
-`first`/`last`/`getFirst`/`getLast` on List). Any other method call is an error. `ns.fn(x)` and
-`#ns.fn(x)` resolve only to `@TemplateFunction` methods. `==` is `Objects.equals` (numeric
-promotion for primitives; enum vs string literal compares `name()` and checks the constant exists).
+`ExpressionCompiler` resolves an identifier to a scope variable, else a function namespace, else
+an error. `a.b`, `a.b()` and `a.getB()` resolve to a record component or a public no-arg getter on
+a **view-safe** type, or a built-in (`size`, `isEmpty`, `length`, `first`/`last`); any other call
+is an error.
 
-**View-safe:** primitives and boxes, `String`/`CharSequence`, enums, records, `java.time` values,
-`BigDecimal`/`BigInteger`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/`Map`/`Map.Entry` and arrays of
-view-safe types, `LoopStatus`, `SafeHtml`, `Fragment` (params only), classes annotated
-`@TemplateView`.
+**View-safe** (`ViewSafety`): primitives and boxes, `String`/`CharSequence`, enums, records,
+`java.time` values, `BigDecimal`/`BigInteger`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/
+`Map`/`Map.Entry` and arrays of view-safe types (a public `java.util` type that implements one of
+them is seen as that interface, #135), `LoopStatus`, `SafeHtml`, `CssValue`, and classes annotated
+`@TemplateView`. `Fragment` passes only between templates (#676): Java can't build one. The
+never-view-safe list (reflection, class loading, processes, files, servlet and Spring context
+types) is in `ViewSafety`'s javadoc and wins over everything.
 
-**Never view-safe** (even if annotated or registered; checked on params, every intermediate result,
-function signatures): `Object` and its methods (`getClass`, `hashCode`, `wait`, ...), `Class`,
-`ClassLoader`, `java.lang.reflect.*`, `java.lang.invoke.*`, `Thread`, `ThreadGroup`, `Runtime`,
-`Process`, `ProcessBuilder`, `ProcessHandle`, `System`, `SecurityManager`, `Module`, `ModuleLayer`, `java.io.File`, `java.nio.file.*`, `javax.script.*`,
-`jakarta.servlet.*`, `javax.servlet.*`, Spring `context`, `beans`, `core.env`, `core.io`,
-`web.context`, `expression` packages. The list is in `ViewSafety`. `Object` is allowed only as a
-`@TemplateFunction` parameter type (input only).
-
-Function namespaces: classes annotated `@TemplateFunctions("ns")` in the current compilation, plus
-`BuiltinNamespaces.CLASSES` if on the classpath. Methods must be `public static @TemplateFunction`.
-`fields` is reserved: inside `t:object`, `fields.hasErrors('path'|'*')` and `fields.errors('path')`
-compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zero iterations. When a loop's status variable is provably unused, a plain
-`Iterable` can stream directly: iterator advancement and rendering the body are interleaved. When
-status is used (or fragment selection makes its use uncertain), a plain `Iterable` is consumed into
-a list first so `size` and `last` are available. Stateful iterators and body getters/functions can
-observe this ordering; templates should not depend on an eager snapshot when status is unused.
-
-## Escaping contexts
-
-`Contexts` decides the context from element and attribute names; the template author cannot. This
-table is what ships today. The whole profile is in [context-model.md](context-model.md), and the
-threat model is in [security-model.md](security-model.md).
-
-| Context | Where | Escaper | Notes |
-|---|---|---|---|
-| `TEXT` | element text, `t:text`, `[[...]]`, and the RCDATA of `<title>` and `<textarea>` | `Escapers.text` | `& < > " '` (one escaper, #679); a primitive is written as its digits (#685). Nothing inside `<svg>`, `<math>`, `<noscript>` or `<iframe>` is computed |
-| — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)`; a message `#{...}`: `Escapers.htmlMessage` | anything else is a build error; a message is sanitized by a fixed inline policy (#677) |
-| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.javaScript` (`Escapers.json` in a JSON script) | `[[...]]` only; JSON-able types only; in a JavaScript script only the whole value of a declaration at the top of the script (the prelude rule, #540), in a JSON script only outside a string |
-| `STYLE` | `<style>` | — | build error |
-
-Attribute contexts (`ATTRIBUTE`, `TYPED_ATTRIBUTE`, `URL`, `RESOURCE_URL`, `REFRESH`,
-`NEUTRAL`, `STYLE`, `EVENT_HANDLER`, `FORBIDDEN`) are in [context-model.md](context-model.md)
-section 6.1.
+Function namespaces: classes annotated `@TemplateFunctions("ns")` in the current compilation,
+plus `BuiltinNamespaces.CLASSES` if on the classpath; methods are `public static @TemplateFunction`.
+A namespace in neither is looked up in the function index the processor writes to the class
+output (`META-INF/tessera/functions/<ns>`, #118), so test compilation still finds main classes.
+Two names are reserved: `fields` (inside `t:object`: `hasErrors`/`errors`/`value` of a path,
+`'*'` or `'global'`; `FieldsCompiler`) and `ids` (`seq`/`next`/`prev`; `IdsCompiler`).
 
 ## Discovery and processor configuration
 
@@ -281,6 +204,8 @@ the static `render`. Registered via `META-INF/services/dev.tessera.runtime.Templ
 reflection anywhere. A template without `t:params` has no static `render` (it would clash with the
 instance method): call `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated
 code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
+A fragment compiles to a `private static` method in its class and a copy in every class that calls
+it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>` (#600).
 The registry also has `fragments()` (#131): an entry named `page :: name` per fragment that
 `ContextVerifier.servableFragments` accepts as a response body and that has no `Fragment` or
 `Field` param, adapting the model to the fragment's declared params the same way and calling
@@ -313,27 +238,8 @@ The registry also has `fragments()` (#131): an entry named `page :: name` per fr
   attribute `_csrf`, and a per-request CSP nonce (`CspNonce.get(request)`, 128 bits from
   `SecureRandom`; no policy header is sent). Content type `text/html;charset=UTF-8`.
 - `auth` namespace (`dev.tessera.spring.fn.Auth`): `isAuthenticated()`, `hasRole(String)`,
-  `hasAnyRole(String...)`, `name()`, via `SecurityContextHolder` (optional dependency).
-
-## Migration tool
-
-`tessera-migrate record|compare <base-url> <pages.txt> <dir> [--ignore REGEX]...` is the page-parity
-check behind the migration loop in [guide.md](guide.md): `record` fetches each request in
-`pages.txt` from the old app (one cookie jar, CSRF token carried over, redirects followed like a
-browser) and saves the pages; `compare` fetches them from the new app and reports each page
-`same`, `reordered` or `differs`, comparing status, final URL and the page as parsed by jsoup.
-
-`tessera-migrate <in> <out> [--report r.md]` (attoparser, source-preserving): `th:` → `t:`,
-`xmlns:th` → `xmlns:t`, drop redundant `${}`, `#lists.isEmpty(x)` → `x.isEmpty()`,
-`#strings.`/`#numbers.`/`#temporals.` → namespace calls, `th:fragment="f(a,b)"` → `f(Object a, Object b)`
-plus a report item to type it, `"[[${x}]]"`/`'[[${x}]]'` in a JavaScript or JSON `<script>` (not under `th:inline="none"`) →
-`[[${x}]]` plus a report item naming the non-string value change; `__${x}__`, `T(...)`, `th:inline`, `layout:*`,
-`sec:*`, unknown dialects and selection/projection → left in place and reported with file:line.
-A form the compiler rejects with file:line:col and the fix (`th:on*`, `th:style`, CSS on SVG, a computed
-`target`, raw `String` output, a POST form's non-link action, parse errors) is converted like any other
-and not reported: the compiler's error is the single source (#595).
-It inserts a `t:params` stub listing every root variable it saw, with `Object` types and a report
-item each. Exit code 0 even with report items (the report is the audit).
+  `hasAnyRole(String...)`, `hasAuthority(String)`, `hasAnyAuthority(String...)`, `name()`, via
+  `SecurityContextHolder` (optional dependency).
 
 ## Test strategy
 
@@ -342,8 +248,9 @@ item each. Exit code 0 even with report items (the report is the audit).
   compiles templates and Java sources in memory with the real processor, then renders through the
   generated registry or asserts on `file:line:col` errors. Type-resolution tests use
   `Compilation.builder().inProcessor(pe -> ...)` with `Compilation.env(pe, sink)`.
-- Every security rule has a negative test (fails to build, or output is escaped). Issue #17 adds
-  an adversarial SSTI/XSS suite in `dev.tessera.compiler.security`.
+- Every security rule has a negative test (fails to build, or output is escaped); the adversarial
+  SSTI/XSS suite is in `dev.tessera.compiler.security`, the verifier seeds and hostile sweep in
+  `.oracle` and `.verify`.
 - `RuntimeArchitectureTest` keeps reflection, script engines and third-party imports out of the runtime.
 - Starter: MockMvc tests with hand-written `TemplateRegistry`s, plus an end-to-end smoke test and
   a `@WebMvcTest` slice over templates compiled from `src/test/templates`. The test sources are
