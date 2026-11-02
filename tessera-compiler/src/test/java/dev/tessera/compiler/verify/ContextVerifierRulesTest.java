@@ -136,6 +136,9 @@ class ContextVerifierRulesTest {
     onlyParseErrors(st("<table><input type=\"hidden\">"));
     // #678: no value in MathML, so a computed encoding never decides how annotation-xml content parses.
     reject(Problem.VALUE_IN_FOREIGN, st("<math><annotation-xml encoding=\""), attr("encoding"));
+    // An attribute of an HTML element in an HTML integration point is still read with MathML current
+    // (ax-pos-5, which the profile now rejects first: everything under <math> is foreign by tag).
+    reject(Problem.VALUE_IN_FOREIGN, st("<math><annotation-xml encoding=\"text/html\"><a title=\""), attr("title"));
   }
 
   @Test
@@ -201,9 +204,9 @@ class ContextVerifierRulesTest {
 
   @Test
   void framesetAndTheNoahsArkClause() {
-    // Any frameset element: a coarse exclusion. Where it doesn't apply, it is a parse error.
-    reject(Problem.FRAMESET, st("<!DOCTYPE html><html><FRAMESET>"));
-    reject(Problem.FRAMESET, st("<!DOCTYPE html><html><head></head><frameset></frameset></html>"));
+    // Any frameset element is a PARSE_ERROR (Rules.FRAMESET), also where its start tag applies.
+    reject(Problem.PARSE_ERROR, st("<!DOCTYPE html><html><FRAMESET>"));
+    reject(Problem.PARSE_ERROR, st("<!DOCTYPE html><html><head></head><frameset></frameset></html>"));
     onlyParseErrors(st("<p>x<frameset>"));
     // Identical formatting elements with a computed attribute: the Noah's Ark clause drops an entry
     // from the list depending on the value, but the element stays open, and in an error-free parse
@@ -672,8 +675,7 @@ class ContextVerifierRulesTest {
   }
 
   private static final Set<Problem> PARSER_REPORTED =
-      Set.of(Problem.PARSE_ERROR, Problem.FOREIGN_IN_TABLE, Problem.TABLE_IN_TEMPLATE, Problem.SELECT_CONTENT,
-          Problem.FRAMESET);
+      Set.of(Problem.PARSE_ERROR, Problem.FOREIGN_IN_TABLE, Problem.TABLE_IN_TEMPLATE, Problem.SELECT_CONTENT);
 
   private static void reject(Problem expected, Node... nodes) {
     reject(Map.of(), expected, nodes);

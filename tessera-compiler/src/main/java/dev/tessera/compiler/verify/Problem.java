@@ -22,11 +22,6 @@ public enum Problem {
   JSON_NOT_IN_SCRIPT,
   /** A {@code SafeHtml}, {@code Fragment} value or HTML message outside flow content. */
   RAW_NOT_FLOW,
-  /**
-   * A {@code frameset} element (a coarse exclusion, {@link Rules#exclusion}): whether a {@code
-   * <frameset>} start tag applies depends on the content before it.
-   */
-  FRAMESET,
   /** A fragment that calls itself in ever new parser states (deeper nesting each time), or reaches a bad state only through recursion. */
   STRUCTURE_DEPENDS_ON_DATA,
   /** A parser engine failed. */

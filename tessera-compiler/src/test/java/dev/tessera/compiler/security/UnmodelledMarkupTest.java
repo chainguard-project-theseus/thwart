@@ -16,9 +16,56 @@ import org.junit.jupiter.params.provider.ValueSource;
 class UnmodelledMarkupTest {
 
   private static Compilation compile(String body) {
+    return builder(body).compile();
+  }
+
+  private static Compilation.Builder builder(String body) {
     return Compilation.builder()
-        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s, boolean b, int n\">" + body + "</div>")
-        .compile();
+        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s, boolean b, int n\">" + body + "</div>");
+  }
+
+  /**
+   * Foreign content is by tag (#759): the parser does not model what a browser reads as HTML or as
+   * markup inside {@code <svg>} and {@code <math>} (integration points, breakout tags, raw text that
+   * holds markup there). Everything under them is foreign, so a value anywhere there is an error.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><title><script>[[${s}]]</script></title></svg>",
+        "<svg><p><title>[[${s}]]</title></p></svg>",
+        "<svg><style><p><script>/*</style>*/[[${s}]]//<script></script></svg>",
+        "<math><textarea><img src=x onerror=[[${s}]]></textarea></math>",
+        "<svg><script>var a = &quot;[[${s}]]&quot;;</script></svg>",
+        "<svg><script><![CDATA[ f([[${s}]]); ]]></script></svg>",
+        "<svg><font color=\"red\"><b t:text=\"s\">x</b></font></svg>",
+        "<math><annotation-xml encoding=\"text/html\"><p t:text=\"s\">x</p></annotation-xml></math>",
+        "<math><annotation-xml encoding=\"text/html\"><a t:title=\"s\">x</a></annotation-xml></math>",
+        "<svg><foreignObject><div t:class=\"s\">x</div></foreignObject></svg>",
+      })
+  void foreignContentIsByTag(String body) {
+    compile(body).assertError("t.html:1:", "SVG and MathML by rules Tessera doesn't check");
+  }
+
+  /**
+   * The verifier rejects the same markup on its own where a browser reads it as markup or foreign
+   * content: it parses the composed output as a browser does (and so reads an HTML integration point
+   * as HTML, which only the profile rejects).
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><title><script>[[${s}]]</script></title></svg>",
+        "<svg><p><title>[[${s}]]</title></p></svg>",
+        "<svg><style><p><script>/*</style>*/[[${s}]]//<script></script></svg>",
+        "<math><textarea><img src=x onerror=[[${s}]]></textarea></math>",
+        "<svg><script>var a = &quot;[[${s}]]&quot;;</script></svg>",
+        "<svg><script><![CDATA[ f([[${s}]]); ]]></script></svg>",
+        "<svg><font color=\"red\"><b t:text=\"s\">x</b></font></svg>",
+        "<svg><p>x</p></svg><p t:text=\"s\">y</p>",
+      })
+  void theVerifierRejectsForeignContentOnItsOwn(String body) {
+    builder(body).verifierOnly().compile().assertError("t.html:1:", "[verifier:");
   }
 
   @ParameterizedTest
