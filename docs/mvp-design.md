@@ -204,14 +204,13 @@ observe this ordering; templates should not depend on an eager snapshot when sta
 ## Escaping contexts
 
 `Contexts` decides the context from element and attribute names; the template author cannot. This
-table is what ships today. The target profile, with the status of each rule, is in
-[context-model.md](context-model.md), and the threat model is in [security-model.md](security-model.md).
+table is what ships today. The whole profile is in [context-model.md](context-model.md), and the
+threat model is in [security-model.md](security-model.md).
 
 | Context | Where | Escaper | Notes |
 |---|---|---|---|
-| `TEXT` | element text, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '`; every `{` and `}` written between two empty comments, so a value never forms `{{` (#571) |
-| `RCDATA` | text a browser reads as RCDATA: `<title>`, `<textarea>` (not inside `<svg>`/`<math>`, #277); the verifier names it from the parser state (#378) | `Escapers.rcdata` | `& < > " '`; no comment, it would show, so a computed one gets `v-pre` (#549) |
-| — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)` | non-`SafeHtml` is a build error |
+| `TEXT` | element text, `t:text`, `[[...]]`, and the RCDATA of `<title>` and `<textarea>` | `Escapers.text` | `& < > " '` (one escaper, #679); a primitive is written as its digits (#685). Nothing inside `<svg>`, `<math>`, `<noscript>` or `<iframe>` is computed |
+| — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)`; a message `#{...}`: `Escapers.htmlMessage` | anything else is a build error; a message is sanitized by a fixed inline policy (#677) |
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.javaScript` (`Escapers.json` in a JSON script) | `[[...]]` only; JSON-able types only; in a JavaScript script only the whole value of a declaration at the top of the script (the prelude rule, #540), in a JSON script only outside a string |
 | `STYLE` | `<style>` | — | build error |
 

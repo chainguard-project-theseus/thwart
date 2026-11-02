@@ -420,7 +420,8 @@ an HTML parent with CSS (`fill: currentColor`, or a CSS variable such as
 `<div t:style="|--progress: ${n}|">` read by `stroke-dasharray: var(--progress) 100` in the stylesheet),
 one static `<svg>` per case under `t:if`/`t:switch`, or an `<img t:src="@{/icons/...svg}">`. For a
 computed `srcset`, write one `src` (or a static `srcset`); for `<font color>` from data, write a `<span>`
-with a `t:class`. CDATA sections, `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>` and `<frameset>` are
+with a `t:class`; for a computed `<input type>`, write one `<input>` per type under `t:if` or
+`t:switch` (the `fields` example in 4.8). CDATA sections, `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>` and `<frameset>` are
 build errors: write the text escaped (`&lt;`) in a `<pre>`, or use `<noscript>`, an ordinary layout or an
 `<iframe>`. Inside `<noscript>` and `<iframe>`, only static text.
 
@@ -762,8 +763,8 @@ parameters.
   `.class` selectors.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
 - The compiler checks each fragment where it is inserted, so a `~{::tr}` goes into a `<tbody>`
-  but not a `<div>`. An SVG icon fragment is declared inside an `<svg>` (or is a whole `<svg>`).
-  Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
+  but not a `<div>`. An SVG icon fragment is a whole, static `<svg>`: nothing inside an `<svg>`
+  is computed (4.4). Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
 - Every `t:if`, `t:unless`, `t:case` and `t:each` body, and every fragment, must close what it
   opens and leave open what it finds open, so what follows parses the same however often it is
   written (`[verifier:UNBALANCED]`). Two shapes need a change when porting:
@@ -1038,4 +1039,29 @@ Gaps in Tessera today, with what to do instead.
   template through a spec HTML parser and rejects markup that a browser reads only by error
   recovery (a second `<body>`, a `<div>` inside a `<p>`, a stray end tag) or where browsers build
   different trees. The message says what a browser would do and the smallest fix. For an
-  expression inside a fragment, the error is at the call site and names the fragment.
+  expression inside a fragment, the error is at the call site and names the fragment. Each rule
+  and its fix:
+
+| Rule | What it means | Fix |
+|---|---|---|
+| `PARSE_ERROR` | The markup parses only by error recovery: a block in a `<p>`, a second `<body>`, content between `</head>` and `<body>`, content directly in a table, a stray end tag, a missing space between attributes, a literal `<` or `&` | Write the markup a browser reads without recovery: close the `<p>` first, write `&lt;` and `&amp;`, pass `~{::body}` with `t:remove="tag"` (4.8) |
+| `UNBALANCED` | A `t:if`, `t:unless`, `t:case`, `t:each`, computed attribute or fragment leaves an element open or closed, or implies a `<tbody>`, `<head>` or `<body>` | Close inside the body what it opens; write the `<tbody>` around rows; make a fragment library's root a `<t:block>` (4.8) |
+| `TEXT_IN_TABLE` | A value directly in a `<table>`, `<tbody>` or `<tr>`, where a browser moves it out of the table | Put it in a `<td>`, `<th>` or `<caption>` |
+| `TEXT_OUTSIDE_BODY` | A value in `<head>` or after `</body>` | Move it into `<title>` or the body |
+| `TEXT_IN_SCRIPT`, `JSON_NOT_IN_SCRIPT` | A value in a script or style position the compiler doesn't accept | A prelude declaration or a JSON block (4.4, Scripts); no expressions in `<style>` (4.4, CSS) |
+| `TEXT_NOT_IN_TEXT` | A value inside a comment, a tag, or right after `&` or `<` | Move it into element text or a `t:` attribute; finish the character reference |
+| `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | Static markup around a computed attribute changes which attribute it lands in (an unclosed quote, a duplicate) | Fix the static tag; one attribute per name |
+| `RAW_NOT_FLOW`, `RAW_CLOSES_ELEMENT` | A `SafeHtml`, HTML message or `Fragment` where its markup would leave its place: in a table part, in a `<p>` or heading, inside a link (for a message with links), in a `<select>` | Insert it into a `<div>` or a cell; split the message (4.5) |
+| `VALUE_IN_FOREIGN` | A value, condition, loop or fragment inside `<svg>` or `<math>` | Static SVG; set what changes outside it with a `t:class` or a CSS variable, one `<svg>` per case, or an `<img>` (4.4) |
+| `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
+| `VALUE_IN_RAW_TEXT` | A value inside `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` | Static content; move the value outside the element |
+| `FRAMESET` | A `<frameset>` | An ordinary layout, or an `<iframe>` |
+| `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img>` with the SVG file, or the SVG outside the table |
+| `TABLE_IN_TEMPLATE` | A table part directly in `<template>` | Put the whole `<table>` in the `<template>` |
+| `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |
+| `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` (4.4, Rich text) |
+| `UNCALLED_FRAGMENT_FITS_NOWHERE` | A fragment declared in raw text or `t:remove="tag"` content that no template calls | Move it out, or delete it |
+| `UNKNOWN_NODE`, `ENGINE_FAILURE` | A fragment the compiler can't resolve, static markup right after a computed attribute that isn't whitespace, `/` or `>`, or an internal failure | Fix the reference, or put a space after the attribute; report an `ENGINE_FAILURE` as a bug |
+
+Never reported, names reserved: `TEXT_RECONSTRUCTS`, `NOAHS_ARK`, `ATTRIBUTE_VALUE_CHANGES_PARSE`,
+`CDATA_IN_INTEGRATION_POINT`, `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES`.

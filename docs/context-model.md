@@ -1,237 +1,143 @@
 # Context model: the Tessera HTML profile
 
-This document specifies the HTML profile, the set of templates the compiler accepts, as
-tables. It is the written form of §5.2-§5.6 of
-[security-architecture.md](security-architecture.md). The threat model it serves is in
-[security-model.md](security-model.md).
+This document specifies, as tables, the set of templates the compiler accepts and where each
+value may go. It is the detail behind [security-architecture.md](security-architecture.md) §5 and
+§11; the threat model is [security-model.md](security-model.md), and the porting recipe for each
+rejection is [guide.md](guide.md).
 
-The tables describe the profile as it will be after phase 2 (#309). Each row also says what
-ships today. Where this document and [mvp-design.md](mvp-design.md) disagree about current
-behaviour, mvp-design.md describes what ships. This document describes the target and marks
-every gap.
-
-**Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
-([security-architecture.md](security-architecture.md) §11, tracker #364), enforced in every build
-since #367. It runs every template through the pinned spec HTML parser and enforces section 1
-per hole, whether or not a row below has its own rule; its rule table is section 9. Once #406
-lands it accepts only parses with no parse errors (missing-doctype aside), outside three coarse
-exclusions where browsers split (security-architecture.md §11.4). Markup that parses only through
-error recovery (foster parenting, misnested formatting, a second `<body>`) is then rejected, not
-modelled; until then `main` still models it.
-The profile of principle 3 is what the verifier accepts, narrowed by the rows below. The rows in
-sections 2, 3 and 5 run first, as friendly early errors (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
-lexical position, URL policy or the value shapes of names outside HTML (`NEUTRAL`).
+The security boundary for markup is the build-time verifier (`verify/ContextVerifier`, rule table
+`verify/Rules`, section 9). It runs every template through the pinned spec HTML parser and
+accepts only error-free parses outside four coarse exclusions, with every value in a state where
+its escaper is inert. The parser and generator rules in sections 2 and 3 run first, as friendly
+early errors with a better message. Sections 4 and 6 hold what the verifier doesn't decide: script
+lexical position, URL policy and the value shapes of attribute names.
 
 ## How to keep this document current
 
-- A PR that changes `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers` or
-  the verifier's rule table (`verify/`) updates this document in the same PR.
-- A PR that widens the accepted language says so in its description, and adds the oracle seed
-  or generator value that checks the new row.
-- Every row names its check, or says `none yet`. A `none yet` row is a gap to close with a seed,
-  a generator value or a unit test.
-
-## Columns
-
-| Column | Meaning |
-|---|---|
-| **Status** | `verifier (#367)`: enforced for every template by the build-time verifier (`verify/ContextVerifier`, rule table `verify/Rules`, section 9), whatever the row's own rule says. `main`: enforced on `main` (f135112). In sections 2 and 3 the status also names the layer that rejects: `parser` is an early error from `html/HtmlParser` or `MarkupTokenizer` (`generator` from `codegen/TemplateGenerator`), reported before the verifier runs; `verifier` is the verifier, by a rule id of section 9. `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
-| **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged) and #342 (context check, merged); script slots are checked by the hostile-value sweep (#543, which replaced #341's gate check in #591) and the Node job's acorn check. Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
-| **Proof** | `Lean`: a predicate in the Lean model of T1 (unpublished, not in this repository). `JML`: an OpenJML contract in an unpublished `docs/rule-contracts.md` (the rule functions on `main` 99e35c5), or on an unpublished branch where the row names one. `Esc`: an escaper postcondition proved on an unpublished branch. `not yet` means no proof states the row |
-
-The unpublished JML contracts are stated over the rule functions on `main`. Some proofs
-rewrote a function without changing its behaviour (`indexOf` to a loop, for example). Where the
-name on `main` differs, the row gives both. The tag-end, namespace and `select` contracts are on
-fork branches `proof-b-tse`, `proof-b-301` and `proof-b-305`, stacked on #353 (merged), #301 and #305.
-
-The Lean model is token-level. It proves that a WHATWG tokenizer, with the tree builder's
-tokenizer switches, reads `render(T, M)` as the tokens the compiler assigned. It does not model
-which node a token attaches to: implied end tags, nested `<form>`, the adoption agency and foster
-parenting are outside it. Its slices are: 1 text and TEXT holes; 2 tags, comments and DOCTYPE;
-3 `<script>` with JSON holes; 4 `title`, `textarea`, `style`, `iframe`; 5 `noscript` (scripting
-enabled only). `InProfile` (`Profile.lean`) is the whole profile. `t1_profile_tree`
-(`ProfileT1.lean`) states token-level T1 over HTML, raw text, script, `noscript`, SVG, MathML and
-`select`, with a tree builder that tracks insertion modes (`profileTB`). It proves that each hole
-lands in the token, tokenizer state and namespace the compiler chose, and that every element
-closes. That is the per-hole part of section 1. The other part, that the static structure is the
-same for every value, is what the oracle checks; no proof states it. `t1_profile_tree` does not
-cover CDATA in foreign content, the tree-level effects of tables and `template`, or the content
-kinds of inserted fragments (section 5); those rows say `not yet`. The Lean allow-list still
-leaves out `template` and the obsolete elements that decisions 5 and 6 accept.
-The model is checked against the test suites it can run: `profileTB` passes 1,047 WPT
-tree-construction tests (926 skipped as unmodeled), and the tokenizer passes 1,439 html5lib
-tokenizer tests (968 skipped), with no failures.
+- A PR that changes `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers`,
+  `ContentKinds` or the verifier (`verify/`) updates this document in the same PR.
+- A PR that widens the accepted language says so in its description and adds a seed
+  (`tessera-compiler/src/test/resources/oracle/seeds`) or a test for the new row.
+- Every row names its check. **Enforced by** is the layer that rejects: `verifier` (by a rule id
+  of section 9), `parser` (`html/HtmlParser`, `MarkupTokenizer`, before a skeleton exists),
+  `generator` (`codegen/TemplateGenerator` and the processors), or `runtime`.
 
 ## 1. The invariant
 
 For every template T the compiler accepts, every model M, and every supported browser or spec
 HTML parser that parses `render(T, M)`:
 
-- each hole's value lands in the node, context and namespace the compiler chose;
+- each value lands in the node, context and namespace the compiler chose;
 - the static structure is the same for every value: the benign and hostile trees are equal.
 
-This is a per-hole claim (decision 9). It does not say that the parsed tree is the one the
-compiler recorded: implied end tags, foster parenting and the adoption agency can move static
-nodes, the same way for every value, without moving a hole out of its context.
+This is a per-value claim. Implied end tags may move static nodes, the same way for every value.
 
-| Part | Status | Checked by | Proof |
-|---|---|---|---|
-| Static structure is the same for every value | verifier (#367); the rules below are early errors | `ContextVerifierRulesTest`, `SeedVerifierTest`; #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
-| Each value lands in the node, context and namespace the compiler chose | verifier (#367): the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest`; #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
-| No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; the sweep's script pass (#543) and the Node job's `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
-| Static structure does not depend on the browser | verifier (#367): error-free parses outside the exclusions (#406), in one engine (#408); real engines checked by the nightly detector (#399) | the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
+| Part | Enforced by | Checked by |
+|---|---|---|
+| Static structure is the same for every value | verifier: error-free parses, state-neutral control flow, inert holes | `ContextVerifierRulesTest`, `SeedVerifierTest`, `ProfileOracleTest` |
+| Each value lands in the node and context the compiler chose | verifier: the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest` |
+| No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | escapers, attribute classes (section 6), the script prelude (section 4) | `HostileSweepTest`, `EscapersTest`, `EscaperFuzzTest` |
+| Static structure doesn't depend on the browser | verifier: one engine, error-free parses, the exclusions (section 9) | the Node job (`.chainguard/ci/oracle-node.yaml`: parse5, Chromium, Firefox ESR, WebKit, after every merge) |
 
-## 2. Token-level rules (§5.2)
+## 2. Token-level rules
 
-The tokenizer accepts only these forms. Anything else is a build error with file, line and
-column. The `parser` rules are friendly early errors; the verifier (#367) is the boundary. A row
-marked `verifier for holes` is one where a value next to the construct lands in a parser state the
-verifier rejects (a tag, a comment, a character reference, CDATA, raw text after `<`); a row marked
-`verifier: PARSE_ERROR` is one where the construct itself is a parse error (#406). #327 is re-scoped
-to rules that give a better message than the verifier; the `phase 2 (#327)` rows below are kept
-only if they do. #411 took the inventory of `HtmlParser`'s rules: a rule went only where the
-verifier rejects every one of its tests with a message naming the same markup and fix, and the
-rest stay, each row saying why. #442 gave the verifier's parse errors behind the self-closing, PI,
-DOCTYPE and bogus-comment rules a fix-it at the markup's `<`, and those rules went.
+| Construct | Accepted | Rejected | Enforced by | Checked by |
+|---|---|---|---|---|
+| Element name | `[A-Za-z][A-Za-z0-9_.:-]*` | anything else; a value in a name | parser | `HtmlParserTest`, `ValueAfterLessThanTest` |
+| Tag separators | ASCII whitespace (TAB, LF, FF, CR, SPACE) | U+000B, U+001C-U+001F and other Java-only whitespace in a tag | parser; verifier for values | `XssContextTest` |
+| Quotes in tags | `"` or `'` only as delimiters of a quoted value | a quote in a name, in an unquoted value, or right after a quoted value | parser; verifier for values | `HtmlParserTest`, `XssContextTest` |
+| Attribute names | no `=`, `<` or quotes | the rest | parser | `HtmlParserTest` |
+| Duplicate attributes | one per name | two with the same ASCII-lowercased name | parser | `HtmlParserTest` |
+| `&` in text and attribute values | a complete character reference | a named reference without its `;` | verifier: `PARSE_ERROR` | `ErrorFreeTest` |
+| Value after `&` | after a complete reference, or `&` and a character that starts none | after static `&`, `&#`, `&#x` or `&` + letters, which a value could finish into a reference | verifier: `TEXT_NOT_IN_TEXT` | `ValueAfterAmpersandTest` |
+| `/>` | on void HTML elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest`, `BrowserRawTextTest` |
+| End tag | `</name>` matching the open element | stray or mismatched end tags | parser (Tessera's tree is built from matched tags) | `HtmlParserTest` |
+| Comment | `<!--` text `-->` | `<!-->`, `<!--->`, `--!>` | parser; verifier: `PARSE_ERROR`; values in comments: `TEXT_NOT_IN_TEXT` | `HtmlParserTest`, `XssContextTest` |
+| Template comment | `<!--/*` text `*/-->`, dropped before codegen | unclosed; `<!--/*/`; inside `script`, `style`, `title`, `textarea` | parser | `HtmlParserTest` |
+| Doctype | `<!DOCTYPE html>`, first token only | other forms or positions | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest` |
+| `<?`, other `<!` forms | none | processing instructions, bogus comments | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest` |
+| CDATA section | none | anywhere | parser; verifier: `CDATA_SECTION` (exclusion (d)) | `ContextVerifierRulesTest`, seeds |
+| `<` in text | the start of a tag or comment | a literal `<` that starts nothing (write `&lt;`) | verifier: `PARSE_ERROR` | `ValueAfterLessThanTest` |
+| Value after `<` | after any other text | after static `<`, `<!`, `<!-`, `<?`, `</`+letters | parser; verifier | `ValueAfterLessThanTest` |
+| RCDATA and raw-text content | no `</name` + whitespace, `/` or `>` before the element's own end tag | the rest | parser; verifier for values | `BrowserRawTextTest` |
+| Value positions | `[[...]]`, `[(...)]` in text; `t:*` attributes | in comments, tags, attribute or element names (`[[...]]` in a comment or static attribute is literal text) | parser; verifier | `HtmlParserTest`, `TextOutputTest` |
 
-| Construct | Accepted | Rejected | Status | Checked by | Proof |
-|---|---|---|---|---|---|
-| Element name | `[A-Za-z][A-Za-z0-9_.:-]*` | anything else | parser (main): a hole in a name is rejected before there is a skeleton | `HtmlParserTest`; `<scr[[s]]ipt>` in `ValueAfterLessThanTest` | Lean `validElementName` |
-| Start tag separators | ASCII whitespace (TAB, LF, FF, CR, SPACE) | U+000B, U+001C-U+001F and other Java-only whitespace in a tag (#338) | parser (main, #297); verifier for holes | `XssContextTest.REJECTED`; generator interference "U+000B/U+001F/U+2028/U+3000 in a tag" | Lean `TagAttrsOK` (assumes ASCII separators); JML `tagEnd` (fork branch `proof-b-tse`) |
-| Quotes in tags | `"` or `'` only as the delimiters of a quoted value | a quote in a name, in an unquoted value, or right after a quoted value | parser (main, #297); verifier for holes | seed `A13`; `HtmlParserTest`, `XssContextTest` | JML `tagEnd` (fork branch `proof-b-tse`); Lean `SrcTagOK` |
-| Attribute names | names without `=`, `<` or quotes | `=`, `<` or a quote in a name | parser (main) | `HtmlParserTest` | Lean `validSrcAttrName` |
-| Unquoted values | `[A-Za-z0-9_.:/#-]`, not ending in `/` before `>` | other characters | verifier for holes; parser: `/` before `>` and quotes (#297), a value starting with `=` (#353); the character class is phase 2 (#327) | generator interference `<textarea x=y/>` | Lean `SrcValue.ok` (weaker: any non-space, non-quote, non-`>`) |
-| Attribute values: `&` | only as a complete character reference | an incomplete `&name` (decision 13) | verifier: PARSE_ERROR for a named reference without its `;` (`a &amp b`, #406); the rest phase 2 (#327) | generator interference `&amp` | not yet (a decoding rule; the token-level proof doesn't need it) |
-| Duplicate attributes | one attribute per name | two attributes with the same lowercased name (`toLowerCase(Locale.ROOT)` on main; ASCII in the target) | parser (main) | `HtmlParserTest` | Lean `TagAttrsOK` (`Nodup`) |
-| `/>` | on void HTML elements and foreign elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | verifier: PARSE_ERROR on every non-void HTML element (#406), with the fix-it (write the end tag; #442, which deleted the parser's rule for `script`, `style`, `select` from #298); generator: `title`, `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript` (#298); parser: anything but `>` after `/` (#353) | seeds `A11`, `A12`; `BrowserRawTextTest`, `ParseErrorFixItTest` | Lean `NodeOK` (`selfClosing = false` on non-void); `t:field` case not modeled |
-| End tag | `</name>` matching the open element | stray or mismatched end tags; `</` + non-letter | parser (main, #296): Tessera builds its tree from matched tags | `HtmlParserTest`; generator interference `</ x>` | Lean slice 2 `run_endTag`; JML §3 `bogusComment` |
-| Comment | `<!--` text `-->`; text does not start with `>` or `->` and has no `--!>`, `<!--` or `-->` | early-ending comments | verifier for holes; verifier: PARSE_ERROR for `<!-->` and `<!--->`; parser: `<!-->`, `<!--->`, `--!>` (#295), kept: the pinned engine reports no error at `--!>` (#411); a nested `<!--` check is unpublished hardening, not a browser difference (G10) | seed `A14`; `HtmlParserTest`, `XssContextTest` | JML §2 `earlyCommentEnd`; Lean `CommentTessera` |
-| Template comment | `<!--/*` text `*/-->` in markup (Thymeleaf's parser-level comment), ending at the first `*/-->`; dropped with its content before codegen, so it is never output, compiled or verified | unclosed; `<!--/*/` (Thymeleaf's prototype-only comment); `<!--/*` in `script`, `style`, `title` or `textarea` content | parser (#132) | `HtmlParserTest`, `CodegenEndToEndTest` | not modeled (never output) |
-| Conditional comments | as written in petclinic (`<!--[if ...]>...<![endif]-->`) | | main | #296 corpus scan | Lean `CommentTessera` |
-| Doctype | `<!DOCTYPE html>`, ASCII case-insensitive, first token only | other DOCTYPEs; a DOCTYPE after other content | verifier: PARSE_ERROR at the DOCTYPE's start, with the fix-it (write `<!doctype html>`; #442, which deleted the parser's early-`>` rule from #296); the exact form and position phase 2 (#327) | `ParseErrorFixItTest` | Lean `DoctypeOK`, first node only (`InProfile`) |
-| `<?`, `<!` other forms | none | processing instructions, bogus comments | verifier: PARSE_ERROR for every processing instruction and bogus comment (#406), at its `<` and with a fix-it (#442, which deleted the parser's rules for `<?`, `<!x` and `</`+non-letter in text and for an early `>` in `<?...?>`, from #296) | generator interference `<?x>`, `<!x>`; `ParseErrorFixItTest` | JML §3 `earlyEnd`, `bogusComment` |
-| CDATA | inside SVG and MathML only, outside the integration points, with no hole and no `>` before `]]>` | CDATA in HTML content, including the HTML descendants of `foreignObject`, where it is a bogus comment (decision 11); CDATA whose current node is an HTML or MathML text integration point (`foreignObject`, `desc`, `title` in SVG, an HTML `annotation-xml`, `mi`, `mo`, `mn`, `ms`, `mtext`), where parse5 and Chromium read a bogus comment (#441) | verifier: a hole (`TEXT_NOT_IN_TEXT`; the parser's rule went in #411, `CdataHoleTest`), CDATA in HTML content (a bogus comment, PARSE_ERROR, #406), and CDATA in an integration point (exclusion (d), `CDATA_IN_INTEGRATION_POINT`, #441); parser: an early `>` (#296), kept: the verifier accepts `<svg><![CDATA[ a > b ]]></svg>` | seeds `A10`, `A54`, `A55` | JML §3 `earlyEnd`, `cdataHole` (main before #411); Lean: not modeled (sink) |
-| Text: `<` | only as the start of an accepted tag or comment | a literal `<` that is not a tag (write `&lt;`) | verifier: PARSE_ERROR for a `<` followed by `!`, `?` or `/`+non-letter (see `<?`, `<!` above; the parser's rule went in #442) and for a `<` that starts no tag (`a < b`, #406) | `ValueAfterLessThanTest` (controls) | Lean `TextOK` (`'<' ∉ s`); `StaticText` for main's rule |
-| Text: hole after `<` | a hole after any other text | a hole after static `<`, `<!`, `<!-`, `<?`, `</`+letters | verifier for holes; parser (main, #299) | seed `A15`; `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (`markupBefore` on main); Lean `NoLtBeforeHole` |
-| Text: `&` | only as a complete character reference | an incomplete `&name` (decision 13) | verifier: PARSE_ERROR for a named reference without its `;` (`a &amp b`, #406); the rest phase 2 (#327) | generator interference `&amp` | not yet (a decoding rule; Lean treats references as transparent) |
-| Text: hole after `&` | a hole after a complete reference (`&amp;`, `&nbsp;`) or after `&` and a character that starts none (`& `) | a hole after static `&`, `&#`, `&#x` or `&` and letters, which a value such as `#123;` finishes into a reference (`&#123;` is `{`): in text, RCDATA and foreign content, also with the `&` in another node (`<t:block>`, `t:remove="tag"`, a condition or a fragment) | verifier for holes (`TEXT_NOT_IN_TEXT`). Attribute values: a computed attribute is one value through one escaper, so a static `&` in it (`t:href="'&' + ${s}"`) is written `&amp;` | `ValueAfterAmpersandTest` | not yet (Lean treats references as transparent) |
-| NUL | no U+0000 | U+0000 anywhere in static markup: text, tags, RCDATA and raw text (decision 8) | phase 2 (#327) | none yet | Lean assumes it (G8) |
-| RCDATA and RAWTEXT content | text with no `</name` + whitespace, `/` or `>` before the element's end tag, no hole right after `<` or `</` + letters, and no NUL (decision 10) | the rest | verifier for holes; parser: the end-tag rule (#298), kept: the verifier accepts the hidden end tags of `xmp`, `noscript` and the rest that leave a `<script>` open at the end of a partial, and for `script` the profile's message comes first; the look-alike end tag (`</ſcript>`), kept: the verifier reads it as a browser does, so only Tessera's tree is wrong; a hole after `<` (#299); NUL phase 2 (#327) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest`, `ValueAfterLessThanTest` | Lean `RawOK` (`NoRawDanger`, `NoRawLtBeforeHole`); JML §4 `browserEndTag`, §5 |
-| Holes | `[[...]]`, `[(...)]` in text; `t:*` attributes | holes in comments, tags, attribute names, element names | verifier for holes; parser: in element names (#299), before there is a skeleton; in comments and static attributes `[[...]]` is copied as literal text, not a hole; an error in phase 2 (#327) | `HtmlParserTest`, `TextOutputTest` | Lean `Node.hole` placement |
-
-## 3. Parse modes (§5.3)
-
-The parser keeps a parse mode for every open element. Today `HtmlParser` keeps none: it
-decides raw text from the local name (`RAW_TEXT_ELEMENTS`, `Contexts.browserRawText`), and it
-has no namespaces. #301 adds namespaces. The verifier (#367) reads the real mode and namespace
-from the spec parser, and owns the browser splits as exclusions (#406). #328 is re-scoped to
-friendly errors. #411 took the inventory of the `HtmlParser` rules in this section and kept them
-all: each row says what the verifier would miss or say less clearly without it. #378 kept the
-raw-text name tables too: Tessera's tree needs them before there is a skeleton, and the profile's
-messages use them. The verifier names the escaper of element text from the parser state
-(section 9), so `Contexts.text` no longer tells `<title>` and `<textarea>` apart. The element allow-list moves to phase 4 (#311).
+## 3. Elements and parse modes
 
 ### 3.1 Modes and what they accept
 
-| Mode | Entered by | Children accepted | Holes | Status | Checked by | Proof |
-|---|---|---|---|---|---|---|
-| `HTML` | document root; `foreignObject` | allow-listed HTML elements, including `template` (3.2) and the obsolete `center`, `font`, `tt`, `big`, `strike`, `marquee` (decision 6); custom elements (name with `-`) | TEXT | partial: no allow-list on main, any valid name is accepted; a static `is` must name a custom element, so `<component is="script">` is an error (#272, #584); phase 2 (#328) | generator container axis (HTML values) | Lean `NodeOK .html`, `HtmlName` |
-| `RAWTEXT(script)` | `<script>` in HTML mode | static script text | SCRIPT (§4) | verifier: JSON only in an HTML script's data; parser (main) | seeds `A1`-`A2`, `A32`-`A36` | Lean slice 3 `ScriptOK`; JML §4 `browserEndTag` |
-| `RAWTEXT(style)` | `<style>` in HTML mode | static CSS | none | verifier; parser (main) | seed `A53` | Lean slice 4 `RawKindOK`; JML §4 |
-| `RCDATA` | `<title>`, `<textarea>` in HTML mode | text | RCDATA | verifier; parser (main) | seed `A50`; `BrowserRawTextTest` | Lean slice 4 `RawOK`; JML §4 |
-| `SVG` | `<svg>` | SVG 2 element names only | TEXT | verifier for holes; verifier: PARSE_ERROR for a breakout tag (#406); parser: the breakout list (#301), kept (see 3.2); allow-list phase 2 (#328) | seeds `A3`-`A7`, `A19`, `A21`, `A25`-`A27`, `A54`-`A56`, `A58`, `B0`, `B7`-`B11` | JML (fork branch `proof-b-301`); Lean `NodeOK .svg`, `SvgName`, `svg_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
-| `MATHML` | `<math>` | MathML Core element names only | TEXT | verifier for holes; verifier: PARSE_ERROR for a breakout tag (#406); parser: the breakout list (#301), kept (see 3.2); allow-list phase 2 (#328) | seeds `A20`, `A22`, `A40`, `A57` | JML (fork branch `proof-b-301`); Lean `NodeOK .math`, `MathName`, `math_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
-| `SELECT` | `<select>` | `option`, `optgroup` (not nested, decision 3), `hr`, text | TEXT | verifier for holes, classic and customizable parsing; verifier: exclusion (c) `SELECT_CONTENT` (#406); parser (#305), kept as the in-template fix-it; no nested `optgroup` phase 2 (#328) | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select`, `NoOptgroup`; token-level T1 (`t1_profile_tree`) |
-| `NOSCRIPT` | `<noscript>` in HTML mode | HTML elements except RCDATA, raw-text, script, `select`, `svg` and `math` elements, at every depth (decision 1); an empty `iframe` | TEXT | verifier for holes, scripting on and off; parser: the end-tag rule (#298), kept (see 3.2); generator: no runtime HTML (#298); the descendant rule phase 2 (#328) | seeds `A9`, `A59`; `BrowserRawTextTest` (GTM `<noscript><iframe>`) | Lean slice 5 `NoscriptOK`, `NoscriptBodyOK` (scripting enabled; empty `iframe` allowed) |
+| Mode | Entered by | Content | Values | Enforced by | Checked by |
+|---|---|---|---|---|---|
+| HTML | document root | HTML elements, custom elements (name with `-`); a static `is` must be a valid custom element name | text | verifier; generator (`is`) | `NeutralValuesTest`, seeds |
+| Script | `<script>` | static script text | the script prelude (section 4) | verifier: `JSON_NOT_IN_SCRIPT`, `TEXT_IN_SCRIPT`; generator | `ScriptPreludeTest`, seeds |
+| Style | `<style>` | static CSS | none | verifier: `TEXT_IN_SCRIPT`; generator | seeds |
+| RCDATA | `<title>`, `<textarea>` | text | text | verifier | `BrowserRawTextTest` |
+| SVG, MathML | `<svg>`, `<math>` | static markup only | none: no computed attribute, `[[...]]`, `t:*` or fragment inside (control flow on the `<svg>`/`<math>` element itself is fine) | generator; verifier: `VALUE_IN_FOREIGN` | `ContextVerifierRulesTest`, `ContextVerifierTest` |
+| Select | `<select>` | `option`, `optgroup`, `hr`, `t:block`, text | text | parser; verifier: `SELECT_CONTENT` | seeds |
+| `noscript`, `iframe` | `<noscript>`, `<iframe>` | static content only | none | generator; verifier: `VALUE_IN_RAW_TEXT` | `BrowserRawTextTest`, `ContextVerifierRulesTest` |
 
-### 3.2 Transitions and element rules
+### 3.2 Element rules
 
-| Rule | Status | Checked by | Proof |
-|---|---|---|---|
-| `script`, `style` are raw text and `title`, `textarea` are RCDATA only in HTML mode | verifier; parser (#301): the namespace Tessera's tree records | seeds `A5`, `A6`, `A21`-`A23`, `A27`; `<svg title>` wrapper axis | Lean `NodeOK .svg` (SVG `script`/`style`/`title`) |
-| A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | verifier for holes; parser (#298, ASCII case folding), kept: see section 2, RCDATA and RAWTEXT content (#411) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest` | JML §4 `browserEndTag`; Lean `NoRawDanger`, `NoScriptDanger` |
-| `<!--` inside `<script>` is an error | verifier for holes; parser (main), kept: without it Tessera's tokenizer misreads the script and reports an unmatched `</script>` instead, and the verifier accepts a static `<script><!-- a --></script>` (#411) | seed `A36`; `HtmlParserTest` | Lean `NoScriptDanger` (S6b); JML not yet |
-| `plaintext` is an error | parser (main), kept (#411) | seed `A62` | Lean: excluded (`htmlNames`) |
-| `xmp`, `noembed`, `noframes`, `frameset`, `frame` are errors | verifier: `frameset` is an error (a coarse exclusion after #410); phase 2 (#328); parser: their end tag must match (#298) | seeds `A8`, `A28`, `A29`, `A60` | Lean: excluded (`htmlNames`) |
-| `iframe` must be empty | phase 2 (#328); parser: its end tag must match (#298) | seed `A30` | Lean `RawKindOK` (`iframe`, empty body) |
-| `noscript`: no `</noscript` before its own end tag, including in comments and static attribute values (decision 2) | parser (#298), kept: the verifier accepts `<noscript><!-- </noscript><script> --></noscript>` in a partial, where the `<script>` it leaves open is no parse error (#411) | seed `A9` | Lean `NoscriptBodyOK` (stricter: no `<` in comments or static attribute values) |
-| `noscript`: no `t:insert`, `t:utext`, `[(...)]`; no value, condition or loop at all inside it or `xmp`, `iframe`, `noembed`, `noframes` (#571) | generator (#298, #571) | `BrowserRawTextTest` | Lean: raw holes not modeled |
-| `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | verifier: PARSE_ERROR (#406), whose message names the fix since #442; parser (#301), kept: the verifier accepts a breakout tag that is never written (`<p t:remove="all">`) (#411) | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
-| Integration points `title`, `desc` (SVG) and `mi`, `mo`, `mn`, `ms`, `mtext` (MathML) take text and TEXT holes only | parser (#301): the TEXT context, and `<` in an SVG or MathML `title` or `textarea`, kept with the same rule for `script` and `style` (next row); verifier: any CDATA section there, where browsers split (#296), exclusion (d) `CDATA_IN_INTEGRATION_POINT` (#441; the parser's rule for a `>` in a CDATA section in an SVG `title` went); text-only content phase 2 (#328) | seeds `A7`, `A21`, `A22`, `A48` | Lean `TextOnly` |
-| SVG `script` and `style` take no holes, no `<` and no `&` | verifier: no holes; parser: `<` and `&` (#301), kept: the verifier accepts static text that parses without errors, such as `<svg><style><!-- a{} --></style>` or `<svg><script>if (a && b) {}</script>` (#411) | seeds `A3`, `A4`, `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
-| `foreignObject` holds an HTML subtree under these rules | parser (#301) | seeds `A23`, `B9`; `foreignObject` wrapper axis | Lean `NodeOK .svg` (`foreignobject`) |
-| `annotation-xml` with `encoding="text/html"` or `"application/xhtml+xml"` is an HTML integration point | verifier: a computed `encoding` in MathML is an error; parser (#301, static `encoding`); a computed `encoding`: in fragments #304, everywhere phase 2 (#328) (decision 4) | `annotation-xml` wrapper axis | Lean: MathML content only (stricter) |
-| `select` takes only `option`, `optgroup`, `hr`, `t:block` and text | parser (#305) in the template's source, kept as the in-template fix-it (#411); verifier: exclusion (c) `SELECT_CONTENT` on composed output, including fragments and unwrapped elements (#406) | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select` |
-| No nested `optgroup` inside `select` (decision 3) | phase 2 (#328) | none yet | Lean `NoOptgroup` |
-| No nested `<form>` | verifier: PARSE_ERROR (#406) | `CsrfFormactionTest` | not modeled (tree level) |
-| Tables are allowed; foster parenting is an error | verifier (#367): text holes in a table part, and raw HTML anywhere in a table outside a cell or caption, are errors; static content that would be foster-parented is a parse error (#406); SVG or MathML anywhere inside a table part is exclusion (a) `FOREIGN_IN_TABLE` (#406); generator (#351, not an `HtmlParser` rule): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
-| `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | verifier exclusion (b) `TABLE_IN_TEMPLATE` (#406); in the profile phase 2 (#328) | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
+| Rule | Enforced by | Checked by |
+|---|---|---|
+| `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | generator (`plaintext`: parser); verifier: `FRAMESET` | `BrowserRawTextTest`, seeds |
+| A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | parser | `BrowserRawTextTest` |
+| `<!--` inside `<script>` is an error | parser | `HtmlParserTest` |
+| `noscript`: no `</noscript` before its own end tag, in comments and attribute values too | parser | `BrowserRawTextTest` |
+| No `t:insert`, `t:utext`, `[(...)]`, value, condition or loop inside `noscript`, `iframe` | generator; verifier: `VALUE_IN_RAW_TEXT` | `BrowserRawTextTest` |
+| Inside `svg`/`math`, HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors | parser; verifier: `PARSE_ERROR` | seeds |
+| `svg`/`math` inside a table part or `template` | verifier: `FOREIGN_IN_TABLE` (exclusion (a)) | seeds, `ErrorFreeTest` |
+| `template` holds flow content; table parts as direct children are errors | verifier: `TABLE_IN_TEMPLATE` (exclusion (b)) | seeds |
+| No nested `<form>` | verifier: `PARSE_ERROR` | `CsrfFormactionTest` |
+| Tables: values go in cells and captions; content that would be foster-parented is a parse error | verifier: `TEXT_IN_TABLE`, `RAW_NOT_FLOW`, `PARSE_ERROR`; generator: computed text directly in a table part, misplaced table parts | `ClientTemplateInjectionTest`, `XssContextTest` |
 
-## 4. Scripts: the script prelude rule (§5.4)
+## 4. Scripts: the script prelude rule
 
 Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
-(`Contexts.SCRIPT_TYPES`). Holes in other script types are errors (`FORBIDDEN`), and a computed
-`type` (`t:type`) is an error. The type is the first static `type`, the one a browser reads (the
-parser rejects a duplicate attribute anyway; `ContextsTest.firstStaticScriptTypeDecides`).
+(`Contexts.SCRIPT_TYPES`); the type is the first static `type`. Values in other script types are
+errors (`FORBIDDEN`), and a computed `type` is an error.
 
-| Rule | Status | Checked by | Proof |
-|---|---|---|---|
-| Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029, and writes every code point the parser reports as an error in its input (`Escapers.forbiddenCodePoint`: controls, noncharacters, lone surrogates) as a `\uXXXX` escape, the same JS value without a parse error (#619) | main | `ScriptJsonTest`; `EscapersTest`; `FlowProducerTest` (the forbidden code points of `SanitizerBalanceTest` in a script value); the hostile-value sweep's script pass (#543) | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
-| In a JavaScript script every value is written in parentheses, `(json)` (`Escapers.javaScript` and the generated bean serializers), so it is one primary expression whatever its type; JSON scripts (`application/json`, `application/ld+json`) keep plain JSON (`Escapers.json`) | main (#540, replacing #511 and #533) | `ScriptNumberTest`, `ScriptJsonTest`, `EscapersTest` | not yet |
-| A `BigDecimal` or `BigInteger` is written only if its class is exactly the JDK class; a subclass fails the render (scripts, bindings, messages, styles) | main (#540, replacing #508's text check) | `BigNumberSubclassTest`, `EscapersTest` | n/a |
-| `{` in JSON strings is written as `\u007b` | main (#303) | `ScriptJsonTest` (#303) | not yet (G3) |
-| In a JavaScript script each hole is the whole value of a declaration `const\|let\|var NAME = [[...]];` (a space or tab after the keyword; `NAME` an ASCII identifier, not a reserved word or `location`, whose setter `var location = v` would call; one hole per declaration), and the declarations form a prelude at the top: before, between and after them only ASCII spaces, tabs, line breaks and `//` comments. No form without a keyword. Any other hole is an error with a fix-it (a prelude declaration, or a JSON script and `JSON.parse`) | main (#540, `TextInlining.checkPrelude`, replacing #332's `checkDataPrelude` lexer and #509's expression-position checks) | `ScriptPreludeTest`, `ValueAfterLessThanTest`; seeds `A2`, `A32`-`A36`, `A51`, `A52`; generator script positions (rejected outside the prelude) | not yet (Lean does not model JavaScript) |
-| `t:text` and `t:utext` on a JavaScript `<script>` are errors, with the same fix-it; on a JSON script `t:text` writes one JSON value | main (#540) | `ScriptPreludeTest`, `TextOutputTest` | n/a |
-| In a JSON script each hole is outside a `"..."` string, and there is no `/` outside strings | main (#540) | `ScriptPreludeTest` | n/a |
-| After the prelude, any static script text (no holes) | main (#540) | the hostile-value sweep's script pass (#543) aligns the AST after the slot | n/a |
-| No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
+| Rule | Enforced by | Checked by |
+|---|---|---|
+| In a JavaScript script each value is the whole value of `const\|let\|var NAME = [[...]];` (`NAME` an ASCII identifier, not a reserved word or `location`; one value per declaration), and the declarations form a prelude at the top, with only whitespace and `//` comments between them. Any other value is an error with a fix-it | generator (`TextInlining.checkPrelude`) | `ScriptPreludeTest`; `HostileSweepTest` (script pass) |
+| The value is JSON in parentheses (`Escapers.javaScript`), so it is one primary expression; a JSON script takes plain JSON (`Escapers.json`) outside `"..."` strings, with no `/` outside strings | generator; runtime | `ScriptJsonTest`, `ScriptNumberTest`, `ScriptPreludeTest` |
+| The JSON escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028, U+2029 and every code point the parser reports as an error (as `\uXXXX`) | runtime | `ScriptJsonTest`, `EscapersTest` |
+| A `BigDecimal` or `BigInteger` subclass fails the render (scripts, neutral values, messages, styles) | runtime | `BigNumberSubclassTest` |
+| `t:text`, `t:utext` on a JavaScript script are errors; on a JSON script `t:text` writes one JSON value | generator | `ScriptPreludeTest`, `TextOutputTest` |
+| After the prelude, static script text only | generator | `HostileSweepTest` |
 
-The one Rhino check of script values is the script pass of the hostile-value sweep
-(`HostileSweepTest`, #543): for every prelude shape the compiler accepts, each hostile value must be
-one literal spanning the hole, with the AST outside it unchanged. Since every accepted script hole
-is a prelude declaration, the profile oracle gate has no Rhino script check of its own (#591); the
-Node job (#345) still runs an acorn version of the slot check over the gate's exported renders.
+## 5. Composition: content kinds
 
-## 5. Composition: content kinds (§5.5)
+A value known only at render time is invisible to the parser's error check, so it gets a content
+kind: a predicate on the parser state at the insertion point, plus a promise about what its
+producer emits (`verify/ContentKinds`). Statically known fragments need no kind: the verifier
+analyses them at each call site.
 
-A content kind is a predicate on the spec parser's state at the insertion point, plus a promise
-about what the producer emits (#329, redefined Oct 25, 2026; `verify/ContentKinds`). Together
-they let the verifier take the state after a value known only at render time to be the state
-before it. Statically known fragments need no kind: the verifier analyses them at each call site.
-HTML messages are `PHRASING`, a narrower kind (below).
+**`FLOW`, the predicate**, scripting on and off:
 
-**`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. `closer` stays: a
-runtime value is invisible to the error check. Formatting elements waiting to be reopened are
-reached only by error recovery, and SVG or MathML above a cell only past exclusion (a), so #410
-dropped both clauses. #444 dropped three formatting entries of one name: one more makes the Noah's
-Ark clause drop the oldest from the list, but that element stays open, and in an error-free parse
-the list changes the tree only through entries that are no longer open.
+- data state between tokens, an HTML current node, and in body, cell, caption or template mode
+  (`RAW_NOT_FLOW` otherwise);
+- no open element that flow content would close, reopen or adopt (`RAW_CLOSES_ELEMENT`): a `p` in
+  button scope; a heading as the current node; an active `a`; a `button`, `nobr` or `ruby` in
+  scope; a `select`, `option` or `optgroup` anywhere on the stack.
 
-- data state, between tokens; the current node is HTML; the mode is in body, in cell, in caption
-  or in template (`RAW_NOT_FLOW` otherwise);
-- and no open element that flow content would close, reopen or adopt (`RAW_CLOSES_ELEMENT`
-  otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
-  formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
-  `option` or `optgroup` anywhere on the stack.
+**`FLOW`, the promise:** balanced content without parse errors; no `form`; no top-level `li`,
+`dd`, `dt`, table part, `head`, `body`, `html` or `frameset`.
 
-In template mode the first flow start tag switches to "in body"; the verifier then continues
-from both states (the second is the state after `<span></span>`).
-
-**`FLOW`, the producer promise:** balanced content (it closes every element it opens); no
-`form`; and no top-level `li`, `dd`, `dt`,
-table part, `head`, `body`, `html` or `frameset`. That is why an open `li`, `dd`, `dt` or `form`
-is not in the predicate: `<li t:utext="${html.sanitize(x)}">` and sanitized text in a form are
-fine.
+**`PHRASING`** is for HTML messages only: inline elements and links, so only an open
+`select`/`option`/`optgroup` and, for a message with links, an active `a` are
+`RAW_CLOSES_ELEMENT`.
 
 | Producer | Meets the promise | Checked by |
 |---|---|---|
-| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` writes a closed content model (#592, below), closes everything it opens, unwraps every tag that doesn't fit and writes forbidden code points as U+FFFD, so the output parses without a parse error, as written; it doesn't model the tree builder | `FlowProducerTest` (no parse error, and exit state equals entry state, at 14 `FLOW` insertion points, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell and follows the model, without a parse error; a seeded property test over well-formed and broken trees; negative controls for each check); the #329 PR's parse5 run |
-| `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text, with forbidden code points written as U+FFFD as the sanitizer writes them (#614), so it parses without a parse error; concatenation of balanced content) | `FlowProducerTest` (hostile input and the forbidden code points of `SanitizerBalanceTest`); `EscapersTest` |
-| A `Fragment` argument | only between compiled templates (#676): `Fragment` has no instances, so Java can't build, subclass or vouch for one; no page (`t:params`) or `@TemplateFunction` takes one; a fragment with a `Fragment` parameter is a `private` method of its class and of each caller (#600), and its argument is checked at the call site | `FragmentFromJavaTest`, `FragmentTest` |
+| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: a closed content model (below), every element closed, unfit tags unwrapped, forbidden code points as U+FFFD | `FlowProducerTest`, `SanitizerBalanceTest` |
+| `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes | `FlowProducerTest`, `EscapersTest` |
+| HTML message (`#{...}` in `t:utext`, `[(...)]`) | `PHRASING`: formatted with escaped arguments, then sanitized by a fixed inline policy (`b i em strong u s sub sup small mark code kbd span br`, `title`, and `a` with a checked `href` and `rel="noopener noreferrer"` for a key whose bundle values have an `<a`) | `HtmlMessageTest`, `FlowProducerTest` |
+| A `Fragment` argument | only between compiled templates: Java can't build one, and no page or `@TemplateFunction` takes one; checked where it lands | `FragmentFromJavaTest`, `FragmentCandidatesTest` |
 
-**The sanitizer's closed content model** (#592). The output is built from a stack, every non-void
-element gets an explicit end tag, and an end tag is written only while its element is the current
-node. P (phrasing) is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
+**The sanitizer's closed content model.** The output is built from a stack; every non-void
+element gets an explicit end tag, written only while its element is the current node. P (phrasing)
+is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
 
 | Element | Children | Never inside | Attributes |
 |---|---|---|---|
@@ -241,210 +147,147 @@ node. P (phrasing) is `a b i em strong u s del ins sub sup small mark code kbd s
 | `a` | text, P | `a` | checked `href`, `rel`, `target=_blank` |
 | `b i em strong u s small code` | text, P | itself | |
 | `del ins sub sup mark kbd span` | text, P | | |
-| `br hr img` | void | | `img`: `src` (required), `alt`, `width`, `height` |
+| `br hr img` | void | | `img`: `src` (required, same-origin), `alt`, `width`, `height` |
 
-`id`, `class` and `title` go on any element the policy allows them on. `li` goes only directly in
-`ul` or `ol`; text goes in the current node (also in `ul`/`ol`, where the parser keeps it as
-written). Input that doesn't fit is unwrapped (the tag is dropped, its content lands in the current
-node): misplaced and unknown tags, table parts (no policy allows them; the builder throws) and
-anything past depth 100. Raw-text, foreign, `template`, `select` and `object` elements are dropped
-with their content. Nothing is implied, closed early or moved. A numeric reference to
-U+0080..U+009F is read through the spec's windows-1252 table first (`&#146;` is `’`). Controls other than ASCII
-whitespace, noncharacters and lone surrogates, literal or from references, become U+FFFD in text
-and attribute values (they are parse errors in the parser's input), and a CR from a reference
-becomes LF. A named reference is decoded if the sanitizer knows it, kept if it is an HTML 4 name
-(complete with its `;`, so not an error), and otherwise has its `&` escaped: `&notit;` (a legacy
-name without its `;`) and `&X;` (an unknown name) are parse errors as written.
+`id`, `class` and `title` go on any element the policy allows them on; ids get the prefix
+`user-content-`. Input that doesn't fit is unwrapped; raw-text, foreign, `template`, `select` and
+`object` elements are dropped with their content. Nothing is implied, closed early or moved.
 
-Why this parses as written, by the HTML standard's "in body" rules, given `FLOW` (no open `p` or
-`a` at the insertion point): formatting reconstruction is a no-op because every entry of the list
-of active formatting elements is still open; a block start tag closes a `p` in button scope, but a
-`p` holds only P, so none is open (likewise a heading in a heading); `li` stops at its `ul`/`ol`
-parent, a special element; the "never inside" column rules out the `a` error (adoption agency) and
-the Noah's Ark clause, so the list comes back unchanged; and every end tag takes its no-error path
-because its element is the current node.
+| Value or position | Kind | Enforced by | Checked by |
+|---|---|---|---|
+| Fragment (`t:fragment`) inserted by name | none: analysed at each call site | verifier | `FragmentParsingContextTest` |
+| `Fragment` parameter or value | `FLOW` when unbound; each bound argument parsed where it lands; any other `Fragment` expression is an error | verifier; generator | `FragmentCandidatesTest`, `ContentKindsTest` |
+| `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier | `ContentKindsTest`, `FlowProducerTest` |
+| HTML message | `PHRASING` | verifier; runtime (`Escapers.htmlMessage`) | `ContentKindsTest`, `HtmlMessageTest` |
+| `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | generator; verifier | `BrowserRawTextTest` |
+| `t:replace` with a whole `<title>` fragment | allowed | | `FragmentsTest` |
+| `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | generator; verifier | `ControlFlowTest`, `FragmentsTest` |
+| Fragment no template calls, declared where no fragment fits | error | verifier: `UNCALLED_FRAGMENT_FITS_NOWHERE` | `ContextVerifierTest` |
 
-**Rendered templates** (#676). Java can't wrap a template's output as `SafeHtml` or build a
-`Fragment`: another template inserts it with `t:insert`/`t:replace`, and the verifier checks the
-fragment and its arguments where they land. The flow-partial mark (#396) is gone with the APIs that
-read it.
-
-`HEAD` and `TABLE_ROWS` are not added, and `PHRASING` only for HTML messages. On the bench corpus
-the `p` clause rejects 6 call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD`
-or `TABLE_ROWS` (the #329 PR has the counts). The fix is a `<div>`. A `PHRASING` `SafeHtml` would
-need its own safe type, since the compiler sees only `SafeHtml`.
-
-**HTML messages** (`#{...}` in `t:utext` or `[(...)]`, #677) are `PHRASING`: at render time the
-message, formatted with escaped arguments, is sanitized by a fixed policy that writes only inline
-elements (`b i em strong u s sub sup small mark code kbd span br`) and, for a key with an `<a` in a
-bundle value the build sees (or an unchecked bundle), links. None of those closes an open `p`,
-heading, `button`, `nobr` or `ruby`, so the predicate is FLOW's without those clauses: only an open
-`select`/`option`/`optgroup` and, for a message with links, an active `a` are `RAW_CLOSES_ELEMENT`
-(`ContentKinds.closer(ParserState, Source)`; producer side: `FlowProducerTest`).
-
-| Value or position | Kind | Status | Checked by | Proof |
-|---|---|---|---|---|
-| Fragment (`t:fragment`) | none: analysed at each call site | verifier (#367); #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
-| `Fragment` parameter or value | `FLOW` | verifier (#367, #329, #561): a template-built value is a closed set of candidates (a `Fragment` parameter, `null`, a `t:with` alias of one, a ternary or Elvis of those; inserted or passed on), each bound argument parsed where it lands; any other `Fragment` expression (also any function or method call, whatever its parameter types), and a `@TemplateFunction` that takes a `Fragment`, is a build error. An unbound parameter (a fragment checked apart from its callers) is `FLOW`; Java can't build a `Fragment` and a page can't take one (#676); #304 | `FragmentCandidatesTest`, `FragmentFromJavaTest`, `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest` | not yet |
-| `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier (#367, #329); #304 | `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
-| HTML message (`#{...}` as HTML) | `PHRASING` (with or without links) | verifier (#677); runtime sanitizer (`Escapers.htmlMessage`) | `ContentKindsTest`, `FlowProducerTest`, `HtmlMessageTest`, `EscapersTest` | not yet |
-| `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | verifier (#367); main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |
-| `t:replace` with a whole `<title>` fragment | allowed (the fix-it) | main | `FragmentsTest` | n/a |
-| `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | verifier (#367) for holes; main (#300) | seeds `A16`, `A17`; `ControlFlowTest`, `FragmentsTest`; composition value `t:remove="tag"` | not yet |
-| Fragment declared inside `noscript`, `iframe`, `xmp`, `noembed`, `noframes` | fits nowhere | #304 | `FragmentParsingContextTest` | not yet |
-| HTML fragment inside `select` | only without `title`, `style`, `svg`, `math`, `t:insert`, `t:replace`, `t:utext`, `[(...)]` | #304 | `FragmentParsingContextTest` | not yet |
-
-#304's name-based checks still run first, as friendly early errors; removing them is left to a
-follow-up (#329 PR).
-
-## 6. Attributes (§5.6)
+## 6. Attributes
 
 ### 6.1 Attribute classes
 
-`Contexts.attribute(element, name)` picks the class of a computed attribute. The classes and
-escapers below ship today. No name is classified by client framework (#583, #584): a name outside
-HTML takes only a framework-neutral value (`NEUTRAL`).
+`Contexts.attribute(element, name)` picks the class of a computed attribute, in this order. No
+name is classified by client framework.
 
-| Class (`OutputContext`) | Where | Escaper | Status | Checked by | Proof |
-|---|---|---|---|---|---|
-| `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA; on SVG and MathML only text and language attributes), on any element, a custom element included (#584), and `content` of a `<meta>` whose static `name` is on the allow-list (`description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme`, `theme-color`; #590), with no computed `name` and no `http-equiv`, `property` or `itemprop` | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
-| `TYPED_ATTRIBUTE` | every other standard name without a class of its own, on any element: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a hash-name reference, not a URL), other `<meta>` `content` (`referrer`, `viewport`, `htmx-config`, a name a browser, OS or crawler acts on such as `apple-itunes-app` or `google-site-verification`, an unknown name, Open Graph `property`, `itemprop`, a computed `name`; #590), SVG and MathML geometry and presentation attributes, ...; and the attributes that hold URLs but are not exactly one URL: the lists `ping` (space-separated) and `srcset imagesrcset` (comma-separated candidates), and `values to from by` on SVG `animate` and `set`, whose meaning depends on `attributeName` (not when they animate a `STYLE` attribute; #414, #668) | `Escapers.attr`, string literals, numbers and a choice between literals only (a condition for a boolean attribute); a plain value or a safe type is a build error (#565) | main (#539) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest`, `AttributesEndToEndTest` (`ping`, `srcset`, animation values) | `Esc` `htmlSafe` |
-| `NEUTRAL` | every plain name that is not a standard HTML, SVG, MathML or ARIA name (`attributes.txt`): `data-*`, `hx-*`, `x-*`, `v-*`, `v-bind:x`, `ng-*`, `up-*`, a custom element's own attributes, any other name (#583 rule 3) | `Escapers.attr` over a framework-neutral value, by static type and expression shape: a number (`Escapers.neutralNumber`: exact JDK class, plain decimal `-?(0\|[1-9][0-9]*)(\.[0-9]+)?`, no exponent, NaN or Infinity), a boolean (`true`, `false`), a link `@{/path}` whose literal path starts with a single `/`, holds only `A-Z a-z 0-9 . _ ~ / -` and `%XX` and has no query (`Escapers.neutralPath`: percent-encodes every other byte of the built URL and the second `-` of `--`, and checks it starts with a single `/`), or a choice (`c ? a : b`, `a ?: b`) between those and literals; a String, concatenation or any other type is a build error | main (#584) | `NeutralValuesTest`, `ContextsTest`, `EscapersTest`; hostile sweep: every name outside HTML it accepts, with a String, a link, a number and a boolean, renders only values in the neutral grammar (`HostileSweepTest`, `NON_NEUTRAL_VALUE`, #587) | the alphabet is the safety research on #583 (headless Chromium, 20 libraries): a value starting with `/` is read as a regular expression literal by every JavaScript evaluator, `--` was the one write primitive inside it |
-| `URL` | the attributes whose grammar is exactly one URL (WHATWG "valid URL potentially surrounded by spaces"): `href src action formaction cite poster xlink:href` and the obsolete `background longdesc manifest` | `Escapers.url` | main; only exactly-one-URL attributes (#539) | seeds `A40`, `A41`; `AttributesEndToEndTest` (`manifest`) | `Esc` `htmlSafe`; scheme check not yet |
-| `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
-| `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | main | seed `B3` | `Esc` `htmlSafe` |
-| `STYLE` | `style` attribute; SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them (the attribute name folds A-Z only, as in a browser: `attrıbuteName` with a dotless i is another attribute) | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest`, `ContextsTest` | not yet |
-| `EVENT_HANDLER` | `on*` | none: build error | main | `ContextsTest` | n/a |
-| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`, `#x`, `.x` included: stricter than rule 3) | none: build error | main | `ContextsTest`, `NeutralValuesTest` | n/a |
+| Class (`OutputContext`) | Where | Accepts | Checked by |
+|---|---|---|---|
+| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
+| `EVENT_HANDLER` | `on*` | nothing: build error | `ContextsTest` |
+| `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
+| `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3` |
+| `RESOURCE_URL` | `script[src\|href\|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a literal-path `@{...}` link, re-checked as same-origin when rendered (`Escapers.resourceUrl`); every `<base href>` must be same-origin | `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` |
+| `URL` | attributes whose grammar is exactly one URL: `href src action formaction cite poster xlink:href background longdesc manifest` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera` (`Escapers.url`) | `AttributesEndToEndTest` |
+| `TYPED_ATTRIBUTE` | every other standard name without an inert value type (`rel`, `target`, `sandbox`, `allow`, `crossorigin`, `usemap`, ...), and `<meta content>` unless its static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` |
+| `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA) | any value (`Escapers.attr`) | `ContextsTest` |
+| `NEUTRAL` | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes | a framework-neutral value by static type and shape: an exact-class number in plain decimal (`Escapers.neutralNumber`), a boolean, a link `@{/path}` with a literal path in `A-Z a-z 0-9 . _ ~ / -` and `%XX` and no query (`Escapers.neutralPath`), or a choice between those and literals | `NeutralValuesTest`, `HostileSweepTest` |
 
 ### 6.2 Which computed names are accepted
 
-Static attributes are copied verbatim and are not affected by these rules, except a static `is`.
+Static attributes are copied verbatim, except a static `is`.
 
-| Name | Target | Today on main | Status | Checked by |
-|---|---|---|---|---|
-| Standard HTML, SVG, MathML or ARIA attribute | accepted, classified as in 6.1 | accepted, on any element; the names are `tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt` (WHATWG HTML index and obsolete attributes, SVG 2 attribute and property indexes, MathML Core, WAI-ARIA 1.2; the file names the versions) | main | `ContextsTest`, `KnownAttributesTest` |
-| Any other name matching `[A-Za-z_][A-Za-z0-9_.:-]*` (`data-*`, framework names such as `hx-get` or `hx-boost`, a custom element's own attributes) | `NEUTRAL` (#583 rule 3) | `NEUTRAL`; the build error's fix-it: the element text or a standard inert attribute such as `title`, hidden inputs (with `hx-include`), or a `<script type="application/json">` block | main (#584; covers #273's Unpoly and Datastar names and #276's `hx-action`) | `NeutralValuesTest`, `ContextsTest` |
-| Any other name | error | error ("names must match") | main | `ContextsTest`, `NeutralValuesTest` |
-| Static `is` | a valid custom element name only (HTML 4.13.3), so nothing that reads `is` renders another element than the one classified, such as `<component is="script">` | ASCII `[a-z][a-z0-9._]*-[a-z0-9._-]*`, not a reserved SVG/MathML name; `<component>` is an ordinary element | main (#584, closes #272's element half). A framework's own element switch in static markup (Vue's `:is="'script'"`, `v-bind:is`) is copied verbatim: what client code builds from static markup is outside the guarantee (principle 7, security-model.md) | `NeutralValuesTest`, `ContextsTest` |
-| Computed `action` on a `<form>` | same-origin link only, static POST or not, with or without client code that submits the form (#668); another site is a static action; a choice (`c ? a : b`, nested, or without else) whose every branch is a same-origin link counts as one (#635) | as the target; replaces the `hx-boost` tracking of #258 (#585) | main (#585, #285, #635) | `FormActionTest`, `CsrfActionOriginTest` |
-| Computed `formaction` | same-origin link only, or a choice whose every branch is one (#635) | same-origin link required on every element, since any form may get the CSRF token | main (#346, #314, #635) | seeds `A45`, `B6`; `CsrfFormactionTest` |
-| Computed `href` on `<base>` | same-origin link only, or a choice whose every branch is one (#635), in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
+| Name | Accepted | Checked by |
+|---|---|---|
+| Standard HTML, SVG, MathML or ARIA attribute (`tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt`, which names its spec versions) on an HTML element | classified as in 6.1 | `ContextsTest`, `KnownAttributesTest` |
+| Any other name matching `[A-Za-z_][A-Za-z0-9_.:-]*` | `NEUTRAL` | `NeutralValuesTest` |
+| Any other name | error | `ContextsTest` |
+| Static `is` | a valid custom element name only (ASCII, with `-`, not a reserved SVG/MathML name) | `NeutralValuesTest` |
+| Computed `action` on a `<form>` | a same-origin link, or a choice whose every branch is one | `FormActionTest`, `CsrfActionOriginTest` |
+| Computed `formaction` | a same-origin link, or a choice whose every branch is one | `CsrfFormactionTest` |
+| Computed `href` on `<base>` | a same-origin link, or a choice whose every branch is one; a static one must be same-origin by shape | `CsrfBaseTest` |
 
 ### 6.3 Client code
 
-There is no framework table (#583-#587): client code that evaluates attribute values or DOM text
-is outside the guarantee (principle 7), and the compiler constrains the shape of its own output
-only in attributes (`NEUTRAL` above). Computed text is plain-escaped with the one HTML escaper
-(#679, reversing #248): `{{` in a value renders as `{{`, and no `v-pre` is added. Client
-frameworks that compile the server's DOM as a template are unsupported; a strict CSP is the
-backstop (#335, guide §4.9). The hostile sweep checks the attribute shape without naming a
-framework (#587).
+There is no framework table: client code that evaluates attribute values or DOM text is outside
+the guarantee (principle 7), and the compiler constrains its own output only in attribute names
+outside HTML (`NEUTRAL`). Client frameworks that compile the server's DOM as a template are
+unsupported; a strict CSP is the backstop (6.4, guide §4.9).
 
-| Rule | Status | Checked by |
+| Rule | Enforced by | Checked by |
 |---|---|---|
-| Element text, RCDATA and attribute values use one escaper (`& < > " '`) | main (#679) | `EscapersTest`, `EscaperFuzzTest`, `ClientTemplateInjectionTest` |
-| `{` as `{` in JSON strings, as defence in depth | main (#303) | `ScriptJsonTest` (#303) |
-| RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no character reference is decoded, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
-| What client code makes of the page, static markup, text and standard attribute values: outside the guarantee (guide §5) | not modelled; a strict CSP is the backstop | seed `A37` |
+| Element text, RCDATA and attribute values use one escaper (`& < > " '`); `{{` in a value renders as `{{` | runtime | `EscapersTest`, `EscaperFuzzTest`, `ClientTemplateInjectionTest` |
+| `{` is written `{` in JSON strings | runtime | `ScriptJsonTest` |
+| No value, condition or loop in `noscript`, `iframe` (raw text decodes no reference) | generator; verifier: `VALUE_IN_RAW_TEXT` | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
+| What client code makes of static markup, text and standard attribute values | outside the guarantee | seed `A37` |
 
-### 6.4 The CSP nonce (#335)
+### 6.4 The CSP nonce
 
-Defence in depth beyond the guarantee (security-model.md §1): with a nonce-based `script-src`,
-which the application sends (guide §4.9), only the scripts the compiler wrote run. The nonce
-comes from `RenderContext.cspNonce()`; the Spring starter sets a fresh one per request.
+Defence in depth beyond the guarantee: with a nonce-based `script-src`, which the application
+sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes from
+`RenderContext.cspNonce()`; the Spring starter sets a fresh one per request.
 
-| Rule | Status | Checked by |
-|---|---|---|
-| Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes, written with `Escapers.attr`; nothing when the context has no nonce | #361 | `CspNonceTest` (static, `src`, `t:if`/`t:each`, fragments by `t:insert`/`t:replace` and `~{::selector}`, hostile nonce values) |
-| Stamped only where a browser reads the element as HTML: not inside `<svg>`/`<math>` (which decode character references in script and style) or inside an element a browser reads as text (`<noscript>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`), and fragments inserted in `<svg>`/`<math>` render without the nonce. A mistake in this tracking only removes a nonce, so the script is blocked; it never adds one | #361 | `CspNonceTest` (`scriptsABrowserDoesNotReadAsHtmlAreNotStamped`) |
-| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | #361 | `CspNonceTest` |
-| Markup the compiler did not write gets no nonce: `html.sanitize` drops `script` and `style` with their content; a hand-written `Template`'s output is copied as is | #361 | `CspNonceTest`, `HtmlSanitizerTest` |
+| Rule | Checked by |
+|---|---|
+| Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes (`Escapers.attr`); nothing when the context has no nonce | `CspNonceTest` |
+| Not inside `<svg>`/`<math>` or an element a browser reads as text; a mistake here only removes a nonce, never adds one | `CspNonceTest` |
+| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | `CspNonceTest` |
+| Markup the compiler did not write gets no nonce: the sanitizer drops `script` and `style` with their content | `CspNonceTest`, `HtmlSanitizerTest` |
 
-## 7. Decisions (Oct 25, 2026)
-
-dlorenc decided the profile questions on #349, following security-architecture.md: fail closed,
-and shrink the profile rather than model more. Rows above that the code doesn't do yet carry
-their phase issue.
+## 7. Profile decisions
 
 | # | Decision | Reason |
 |---|---|---|
-| 1 | `noscript` rules apply to all descendants; `select`, `svg` and `math` inside `noscript` are errors | One rule for both scripting readings |
-| 2 | `</noscript` is an error anywhere before the element's own end tag, including comments and static attribute values | With scripting on, a browser ends the element there |
-| 3 | Nested `optgroup` is an error | The browser closes the outer one |
-| 4 | `annotation-xml` with an HTML `encoding` is an HTML integration point, as #301 has it; the `encoding` must be static | Follows the spec; a computed `encoding` would pick the mode at render time |
-| 5 | `template` is accepted with flow content only; table-part elements as direct children are errors | `<template><col>` ignores raw-text start tags |
-| 6 | `center`, `font`, `tt`, `big`, `strike`, `marquee` are on the HTML allow-list; `font` stays an error inside SVG and MathML | Migration parity; `font` is a breakout tag |
-| 7 | Supported browsers: Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current). Safari is checked through Playwright's WebKit build in the Node job (#354): the WPE port, so WebKit's HTML parser and JavaScriptCore at a recent WebKit revision, not a shipping Safari release or its app shell | Rules must hold in every engine users run |
-| 8 | Static NUL is an error | A browser replaces it, so the source is not what is parsed |
-| 9 | Section 1 is a per-hole claim: each hole lands in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | That is what the oracle checks; implied end tags make the tree claim false |
-| 10 | RCDATA and RAWTEXT content get the end-tag rule, no markup right before a hole, and no NUL | The proof needs exactly these |
-| 11 | CDATA under the HTML descendants of `foreignObject` is an error | A browser reads it as a bogus comment there |
-| 12 | `iframe` content must be empty; #298's pinned end tag is the current implementation, and phase 2 tightens it | Its content is never shown |
-| 13 | The `&` complete-reference rule is part of the text and attribute value rows | It is a decoding rule, not a tokenizer one |
+| 1 | Fail closed: reject what can't be proven simply, and shrink the profile rather than model more | security-architecture.md §4 |
+| 2 | `<noscript>` and `<iframe>` hold only static content; `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | Raw text decodes no reference, so no escaper fits |
+| 3 | `<svg>` and `<math>` are static; CDATA sections are errors (#678) | Foreign content, its integration points and CDATA are where browsers and sanitizers split; Tessera doesn't model them |
+| 4 | Attributes the tree builder reads can't be computed (#678) | They decide how the rest of the page parses |
+| 5 | `template` holds flow content only | `<template><col>` ignores raw-text start tags |
+| 6 | `center`, `font`, `tt`, `big`, `strike`, `marquee` are accepted HTML | Migration parity |
+| 7 | Supported browsers: Chromium, Firefox, Firefox ESR and Safari/WebKit (current); WebKit is checked through Playwright's build in the Node job | Rules must hold in every engine users run |
+| 8 | The invariant is per value: each value lands where the compiler chose, and benign and hostile trees are equal | Implied end tags make a full-tree claim false |
+| 9 | No `{{` breaking and no `v-pre` (#679, reversing #248) | Client frameworks that compile server DOM are unsupported; strict CSP is the backstop |
 
-## 8. Verifier decisions (Oct 25, 2026)
-
-dlorenc decided these on the research memo for #364
-([security-architecture.md](security-architecture.md) §11).
+## 8. Verifier decisions
 
 | # | Decision | Reason |
 |---|---|---|
-| 14 | The build-time verifier is the boundary for markup contexts, enforced in every build, not first in test scope | The hand-written model is what kept failing; the spec algorithm decides instead |
-| 15 | ~~Two parsers: pinned current upstream validator.nu htmlparser and the 1.4.16 classic snapshot; a hole is accepted only if both accept~~ Superseded by 19 | Covered the classic and customizable `<select>` split (Firefox ESR); exclusion (c) does now |
-| 16 | The parsers are shaded into `tessera-compiler`, relocated and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
-| 17 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it; ~~`tessera-migrate` reports it~~ the compiler's error is the only report (#595) | It breaks the per-hole invariant; 25 of 1,585 corpus templates |
-| 18 | Scripts (#332), URL policy and client frameworks (phase 4) stay as planned; CSP auto-nonce (#335) moves earlier | The verifier doesn't cover them |
-| 19 | One engine: the pinned current validator.nu htmlparser; the classic 1.4.16 engine goes (#408) | No template, seed or generator case needs it once the error-free rule and exclusion (c) apply |
-| 20 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials only in their implied fragment context (#406) | Error recovery is where engines and browsers split; the corpus barely uses it (101 of 1,120 accepted templates, 80 of those one layout idiom) |
-| 21 | Coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select` (#406); no CDATA section in an integration point (#441) | The known splits (#398, #401, #305, #296), covered by a stack shape rather than a model |
-| 22 | A divergence the nightly detector finds becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill; #406 replaces PR #402 with exclusion (a) |
-| 23 | The hole-state rules and `ContentKinds.closer` stay | Values are invisible to the error check |
+| 10 | The build-time verifier is the boundary for markup contexts, in every build | The hand-written model kept failing; the spec algorithm decides instead |
+| 11 | One engine, the pinned validator.nu htmlparser, shaded into `tessera-compiler` and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
+| 12 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials in their implied fragment context | Error recovery is where engines and browsers split |
+| 13 | Four coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select`; any CDATA section | The known splits, covered by a shape rather than a model |
+| 14 | A divergence found later becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill |
+| 15 | Control flow is state-neutral (#682): each body leaves the parser as it found it | One path is then exact; no joins, fixed points or state caps |
+| 16 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it | It breaks the per-value invariant |
 
-## 9. The verifier's rule table (#367)
+## 9. The verifier's rule table
 
-`verify/Rules` and `verify/ContextVerifier`. Each path through a template holds the parser twice,
-scripting on and off; a template is accepted only if both accept it. Retired ids are no longer
-reported; their names stay reserved.
-The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
+`verify/Rules` and `verify/ContextVerifier`. Each path through a template holds one parser per
+scripting mode (off only if the template mentions `<noscript>`); a template is accepted only if
+every parser accepts it. The id in brackets ends every error message (`[verifier:ID]`); guide
+section 5 gives the fix for each. Retired ids are never reported; their names stay reserved.
 
-The parser state names the one escaper a hole may have (#378): data and RCDATA `text` (one
-escaper since #679), the script data of an HTML `<script>` `json`, a double-quoted attribute value
-an attribute escaper for that attribute (which one is policy, `Contexts.attribute`). Raw text
-names none: no hole is accepted there (#586). A hole with another escaper is rejected, so a hole
-whose paths reach states that name different escapers is rejected (Go's branch rule). Since #461
-every fragment's holes are reached.
+The parser state names the one escaper a value may have: `text` in data state (in body, cell,
+caption or template mode) and RCDATA; `json`/`javaScript` in the script data of an HTML
+`<script>`; an attribute escaper in the double-quoted value of the attribute the compiler wrote.
+A value with another escaper is rejected, so a value whose paths reach states that name different
+escapers is rejected.
 
 | Id | Rejects | Accepted instead |
 |---|---|---|
-| `TEXT_NOT_IN_TEXT` | a `text` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA |
-| `TEXT_IN_SCRIPT` | a `text` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
-| `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group (foster-parented table text; an element foster-parented out of the table is a parse error) | in a cell or caption |
-| `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
-| `TEXT_RECONSTRUCTS` | retired (#410): a `text` hole where formatting elements closed out of order would be reopened first. The misnesting is a parse error | |
-| `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
-| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
-| `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
-| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or Java-built `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
-| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup` | flow content (section 5) |
-| `FRAMESET` | any `frameset` element the parser inserts, a coarse exclusion (#410); where a `<frameset>` start tag doesn't apply, it is a parse error | |
-| `NOAHS_ARK` | retired (#444): three or more identical formatting elements, one of them with a computed attribute. The value decides which entry the Noah's Ark clause drops from the list of active formatting elements, but the element stays open, and in an error-free parse the list changes the tree only through entries that are no longer open. Misnested, they are a parse error | |
-| `PARSE_ERROR` (#406) | any tokenizer or tree-builder error on any path, scripting on or off, except the missing-doctype messages; a partial only in its implied fragment context. The current engine reports them; each parser reports each rule once per path, at its first occurrence. validator.nu's "Duplicate ID" isn't a parse error and is allowed (it is checked only within one chunk of input) | markup that parses without errors |
-| `FOREIGN_IN_TABLE` (#406) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it (the fragment context counts) | SVG and MathML outside tables; a table inside `foreignObject` outside any table |
-| `TABLE_IN_TEMPLATE` (#406) | an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |
-| `SELECT_CONTENT` (#406) | any element other than `option`, `optgroup` or `hr` open above `select`, in composed output (void elements too) | option, optgroup, hr and text |
-| `CDATA_IN_INTEGRATION_POINT` (#441) | a CDATA section the parser starts while the current node is an HTML integration point or a MathML text integration point, exclusion (d) | CDATA in other SVG and MathML elements (`style`, `script`, `text`, `g`, `mrow`) |
-| `UNCALLED_FRAGMENT_FITS_NOWHERE` (#461) | a fragment no template calls, declared where no fragment fits (raw text, mixed `svg`/`math`, `t:remove="tag"` content). Every other fragment no template calls is checked on its own: declared in HTML content, in the fragment contexts its root elements imply (as a document only if it is a page); in `svg`, `math` or `select` content, in that element | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
-| `UNBALANCED` (#682) | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole (in its fragment contexts only). The state is compared without a stale original insertion mode. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
-| `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states (on the call stack 4 times, or entered in more than 24 states while it recurses); anything reached only through recursion | recursion into the state its call started in |
-| `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES` | retired (#682): with state-neutral control flow there are no joins and no fixed points | |
-| `VALUE_IN_RAW_TEXT` (#586) | any hole, whatever its escaper, in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes`, which decodes no character reference (the CSRF input of a `<form>` inside `<noscript>` included) | static content; the value outside the element |
-| `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
+| `TEXT_NOT_IN_TEXT` | a `text` value inside a tag, comment, character reference, doctype or `plaintext` | data state; RCDATA |
+| `TEXT_IN_SCRIPT` | a `text` value in script data or `style` | as above |
+| `TEXT_IN_TABLE` | a `text` value in a table, table body, row or column group | in a cell or caption |
+| `TEXT_OUTSIDE_BODY` | a `text` value before `<html>`, in or after the head, after the body | in body, cell, caption, `template` |
+| `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute value outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote |
+| `JSON_NOT_IN_SCRIPT` | a script value outside the script data of an HTML `<script>` | script data |
+| `RAW_NOT_FLOW` | `SafeHtml`, an HTML message or an unbound `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
+| `RAW_CLOSES_ELEMENT` | the same where its markup would close, reopen or adopt an open element | flow content (section 5) |
+| `PARSE_ERROR` | any tokenizer or tree-builder error on any path, except the missing-doctype messages; a partial only in its implied fragment context | markup that parses without errors |
+| `FOREIGN_IN_TABLE` | exclusion (a): an `svg` or `math` element open with a table part or `template` below it (the fragment context counts) | SVG and MathML outside tables |
+| `TABLE_IN_TEMPLATE` | exclusion (b): an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |
+| `SELECT_CONTENT` | exclusion (c): any element other than `option`, `optgroup` or `hr` open above `select`, in composed output | option, optgroup, hr and text |
+| `CDATA_SECTION` | exclusion (d): any CDATA section | text with `&lt;` and `&amp;` |
+| `FRAMESET` | any `frameset` element | an ordinary layout |
+| `VALUE_IN_RAW_TEXT` | any value in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes` | static content; the value outside the element |
+| `VALUE_IN_FOREIGN` | any value while the current node is SVG or MathML | static SVG/MathML; the change outside it |
+| `UNBALANCED` | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
+| `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states, or reaches a bad state only through recursion | recursion into the state its call started in |
+| `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content) | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
+| `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws; a fragment the skeleton doesn't define; markup right after a computed attribute that isn't whitespace, `/` or `>` | |
+| retired | `TEXT_RECONSTRUCTS`, `NOAHS_ARK` (error recovery is a parse error), `ATTRIBUTE_VALUE_CHANGES_PARSE`, `CDATA_IN_INTEGRATION_POINT` (#678: no values in foreign content, no CDATA), `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES` (#682: state-neutral control flow) | |
 
-A computed attribute (`[ name="..."]`) inside a start tag is one state: writing it or not leaves the
-tokenizer in states that parse what follows alike, except for `encoding` and a tag the static
-markup leaves in another state, where the two must be the same state (`UNBALANCED`). A partial (a
-view whose output doesn't start with a doctype or
-`<html>`) is also checked by fragment parsing in the context its first element implies (`tr`:
-`tbody`; `td`, `th`: `tr`; `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`), where it must
-also end in the state it starts in.
+A partial (a view whose output doesn't start with a doctype or `<html>`) is checked by fragment
+parsing in the context its first element implies (`tr`: `tbody`; `td`, `th`: `tr`; `option`,
+`optgroup`: `select`; `li`: `ul`; otherwise `body`), where it must also end in the state it
+starts in.

@@ -138,7 +138,7 @@ Applications call it through a generated, typed facade, `Templates.ordersPage(us
 | Event handler attribute (`onclick`, ...) | Expressions are a build error; use `data-*` attributes plus script |
 | `<style>` block or `style` attribute | Allow-listed CSS values only; anything else is a build error |
 
-Raw HTML goes through types, not flags. `t:utext` accepts only `SafeHtml`, which comes only from the escaper, a sanitizer or another rendered template; nothing wraps a string unchecked (#664). Same pattern for `SafeStyle`.
+Raw HTML goes through types, not flags. `t:utext` accepts only `SafeHtml`, which comes only from the escaper or a sanitizer; nothing wraps a string or a rendered template unchecked (#664, #676). Same pattern for `SafeStyle`.
 
 Spring forms get CSRF tokens inserted automatically into every `method="post"` form.
 

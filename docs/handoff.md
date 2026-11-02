@@ -23,39 +23,40 @@ and the PR workflow. This doc covers how the work gets orchestrated.
 
 ## Security process
 
-From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 2026) and §11
-(the build-time verifier, decided Oct 25, 2026):
+From [security-architecture.md](security-architecture.md) §11-§12:
 
+- **The north star decides** (AGENTS.md): when a feature can't be proven safe simply, reject it
+  with a `file:line:col` error and a guide recipe; never model browsers, client frameworks or one
+  app's idiom.
 - **The verifier is the boundary for markup contexts.** The pinned spec HTML parser checks every
-  template at build time (#367). It accepts only error-free parses outside three coarse
-  exclusions (#406, security-architecture.md §11.4). A new parser-differential or composition
+  template at build time (#367). It accepts only error-free parses outside four coarse
+  exclusions (security-architecture.md §11.4). A new parser-differential or composition
   report (family A/B) becomes a verifier test case: a seed the verifier must reject. If the
   verifier accepted it, fix the verifier or its rule table. Don't patch `HtmlParser`,
   `MarkupTokenizer` or `Contexts` with a special case for it. Early, friendly errors there are
   welcome only when the verifier already rejects the template and the message is better.
 - **Reject error recovery; don't model it.** If the parser and a supported browser build
-  different trees (the nightly detector, #399, or a report), add a coarse exclusion and a test.
+  different trees (the Node job, or a report), add a coarse exclusion and a test.
   Never model the browser's algorithm in the verifier, and never patch the parser. Don't widen
   the error allow-list without a corpus measurement.
 - **Engine bumps are their own PR.** A PR that moves the pinned validator release runs the seeds,
-  the corpus and the nightly detector, and lists every change in verdict.
+  the corpus (`hack/corpus.sh`) and the Node job, and lists every change in verdict.
 
 - **Two specs.** [security-model.md](security-model.md) is the threat model and trust
   boundaries. [context-model.md](context-model.md) is the HTML profile as tables, with each
-  row's status, check and proof. Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`,
-  `TextInlining`, `Escapers` or the verifier's rule table (`verify/`) updates context-model.md in
-  the same PR.
-- **The oracle gate** (#324) tests the verifier (skeleton fidelity, the inertness lemma) and
-  keeps value checks for scripts and URLs; its context check, `HtmlInvariant` and the Node check
-  hold a name outside HTML to the framework-neutral shape and name no framework (#608, #611).
-  A new context or parse mode lands with oracle rows. A PR that widens the accepted language says
-  so in its description.
+  row's check. Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`,
+  `Escapers` or the verifier (`verify/`) updates context-model.md in the same PR, and a new
+  verifier rule gets a row in guide section 5 (`VerifierRulesDocumentedTest`).
+- **The tests hold the line**: the seeds (`SeedVerifierTest`), the hostile sweep
+  (`HostileSweepTest`, sink table `HostileSinks`) and the Node job (security-architecture.md
+  §10). A new rejection lands with a seed or negative test and a guide recipe. A PR that widens
+  the accepted language says so in its description.
 - **Framework-neutral, not framework-modelled (#583).** Never add a rule that names a client
   framework. Outside standard HTML attributes a computed value is framework-neutral (a number, a
-  boolean or a same-origin path), and computed text never contains `{{`; the hostile sweep checks
-  that shape (`HostileSinks`). What still names one: the constant `v-pre` on a computed `<title>`
-  or `<textarea>`, and the build error for a computed htmx 1.x `hx-ws` or `hx-sse` (#562). A
-  report about what a framework does with other output is outside the guarantee.
+  boolean or a same-origin path); the hostile sweep checks that shape. Computed text is
+  plain-escaped (`{{` stays `{{`): frameworks that compile the server's DOM are unsupported, and
+  a strict CSP is the backstop. A report about what a framework does with the output is outside
+  the guarantee.
 - **One owner per security area.** Claim an issue before starting. For parser, context or escaper
   changes, post a design comment and get agreement before opening a PR. Don't open a second PR
   for a claimed issue; offer tests to the first one.
