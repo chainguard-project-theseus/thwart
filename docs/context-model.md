@@ -101,7 +101,7 @@ errors (`FORBIDDEN`), and a computed `type` is an error.
 |---|---|---|
 | In a JavaScript script each value is the whole value of `const\|let\|var NAME = [[...]];` (`NAME` an ASCII identifier, not a reserved word or `location`; one value per declaration), and the declarations form a prelude at the top, with only whitespace and `//` comments between them. Any other value is an error with a fix-it | generator (`TextInlining.checkPrelude`) | `ScriptPreludeTest`; `HostileSweepTest` (script pass) |
 | The value is JSON in parentheses (`Escapers.javaScript`), so it is one primary expression; a JSON script takes plain JSON (`Escapers.json`) outside `"..."` strings, with no `/` outside strings | generator; runtime | `ScriptJsonTest`, `ScriptNumberTest`, `ScriptPreludeTest` |
-| The JSON escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028, U+2029 and every code point the parser reports as an error (as `\uXXXX`) | runtime | `ScriptJsonTest`, `EscapersTest` |
+| The JSON escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, `{`, U+2028, U+2029 and every code point the parser reports as an error (as `\uXXXX`) | runtime | `ScriptJsonTest`, `EscapersTest` |
 | A `BigDecimal` or `BigInteger` subclass fails the render (scripts, neutral values, messages, styles) | runtime | `BigNumberSubclassTest` |
 | `t:text`, `t:utext` on a JavaScript script are errors; on a JSON script `t:text` writes one JSON value | generator | `ScriptPreludeTest`, `TextOutputTest` |
 | After the prelude, static script text only | generator | `HostileSweepTest` |
@@ -132,7 +132,7 @@ analyses them at each call site.
 |---|---|---|
 | `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: a closed content model (below), every element closed, unfit tags unwrapped, forbidden code points as U+FFFD | `FlowProducerTest`, `SanitizerBalanceTest` |
 | `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes | `FlowProducerTest`, `EscapersTest` |
-| HTML message (`#{...}` in `t:utext`, `[(...)]`) | `PHRASING`: formatted with escaped arguments, then sanitized by a fixed inline policy (`b i em strong u s sub sup small mark code kbd span br`, `title`, and `a` with a checked `href` and `rel="noopener noreferrer"` for a key whose bundle values have an `<a`) | `HtmlMessageTest`, `FlowProducerTest` |
+| HTML message (`#{...}` in `t:utext`, `[(...)]`) | `PHRASING`: formatted with escaped arguments, then sanitized by a fixed inline policy (`b i em strong u s sub sup small mark code kbd span br`, `title`, and `a` with a checked `href`, `rel="noopener noreferrer"` and `target=_blank` kept, for a key whose bundle values have an `<a`) | `HtmlMessageTest`, `FlowProducerTest` |
 | A `Fragment` argument | only between compiled templates: Java can't build one, and no page or `@TemplateFunction` takes one; checked where it lands | `FragmentFromJavaTest`, `FragmentCandidatesTest` |
 
 **The sanitizer's closed content model.** The output is built from a stack; every non-void
@@ -168,7 +168,7 @@ is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
 
 ### 6.1 Attribute classes
 
-`Contexts.attribute(element, name)` picks the class of a computed attribute, in this order. No
+`Contexts.attribute(element, name)` picks the class of a computed attribute, in this order (a name outside the pattern or on a foreign element is `FORBIDDEN` first; `srcdoc`, URL lists and tree-builder inputs are checked after `REFRESH`). No
 name is classified by client framework.
 
 | Class (`OutputContext`) | Where | Accepts | Checked by |
@@ -207,7 +207,7 @@ unsupported; a strict CSP is the backstop (6.4, guide §4.9).
 | Rule | Enforced by | Checked by |
 |---|---|---|
 | Element text, RCDATA and attribute values use one escaper (`& < > " '`); `{{` in a value renders as `{{` | runtime | `EscapersTest`, `EscaperFuzzTest`, `ClientTemplateInjectionTest` |
-| `{` is written `{` in JSON strings | runtime | `ScriptJsonTest` |
+| `{` is written `\u007b` in JSON strings | runtime | `ScriptJsonTest` |
 | No value, condition or loop in `noscript`, `iframe` (raw text decodes no reference) | generator; verifier: `VALUE_IN_RAW_TEXT` | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
 | What client code makes of static markup, text and standard attribute values | outside the guarantee | seed `A37` |
 
@@ -230,13 +230,13 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 |---|---|---|
 | 1 | Fail closed: reject what can't be proven simply, and shrink the profile rather than model more | security-architecture.md §4 |
 | 2 | `<noscript>` and `<iframe>` hold only static content; `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | Raw text decodes no reference, so no escaper fits |
-| 3 | `<svg>` and `<math>` are static; CDATA sections are errors (#678) | Foreign content, its integration points and CDATA are where browsers and sanitizers split; Tessera doesn't model them |
-| 4 | Attributes the tree builder reads can't be computed (#678) | They decide how the rest of the page parses |
+| 3 | `<svg>` and `<math>` are static; CDATA sections are errors | Foreign content, its integration points and CDATA are where browsers and sanitizers split; Tessera doesn't model them |
+| 4 | Attributes the tree builder reads can't be computed | They decide how the rest of the page parses |
 | 5 | `template` holds flow content only | `<template><col>` ignores raw-text start tags |
 | 6 | `center`, `font`, `tt`, `big`, `strike`, `marquee` are accepted HTML | Migration parity |
 | 7 | Supported browsers: Chromium, Firefox, Firefox ESR and Safari/WebKit (current); WebKit is checked through Playwright's build in the Node job | Rules must hold in every engine users run |
 | 8 | The invariant is per value: each value lands where the compiler chose, and benign and hostile trees are equal | Implied end tags make a full-tree claim false |
-| 9 | No `{{` breaking and no `v-pre` (#679, reversing #248) | Client frameworks that compile server DOM are unsupported; strict CSP is the backstop |
+| 9 | No `{{` breaking and no `v-pre` (`ClientTemplateInjectionTest`) | Client frameworks that compile server DOM are unsupported; strict CSP is the backstop |
 
 ## 8. Verifier decisions
 
@@ -244,10 +244,10 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 |---|---|---|
 | 10 | The build-time verifier is the boundary for markup contexts, in every build | The hand-written model kept failing; the spec algorithm decides instead |
 | 11 | One engine, the pinned validator.nu htmlparser, shaded into `tessera-compiler` and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
-| 12 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials in their implied fragment context | Error recovery is where engines and browsers split |
+| 12 | Error-free parses only: on every path, scripting on and off, no parse error except missing doctype and "Duplicate ID"; partials in their implied fragment context | Error recovery is where engines and browsers split |
 | 13 | Four coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select`; any CDATA section | The known splits, covered by a shape rather than a model |
 | 14 | A divergence found later becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill |
-| 15 | Control flow is state-neutral (#682): each body leaves the parser as it found it | One path is then exact; no joins, fixed points or state caps |
+| 15 | Control flow is state-neutral: each body leaves the parser as it found it | One path is then exact; no joins, fixed points or state caps |
 | 16 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it | It breaks the per-value invariant |
 
 ## 9. The verifier's rule table
@@ -255,7 +255,7 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 `verify/Rules` and `verify/ContextVerifier`. Each path through a template holds one parser per
 scripting mode (off only if the template mentions `<noscript>`); a template is accepted only if
 every parser accepts it. The id in brackets ends every error message (`[verifier:ID]`); guide
-section 5 gives the fix for each. Retired ids are never reported; their names stay reserved.
+section 5 gives the fix for each.
 
 The parser state names the one escaper a value may have: `text` in data state (in body, cell,
 caption or template mode) and RCDATA; `json`/`javaScript` in the script data of an HTML
@@ -273,7 +273,7 @@ escapers is rejected.
 | `JSON_NOT_IN_SCRIPT` | a script value outside the script data of an HTML `<script>` | script data |
 | `RAW_NOT_FLOW` | `SafeHtml`, an HTML message or an unbound `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where its markup would close, reopen or adopt an open element | flow content (section 5) |
-| `PARSE_ERROR` | any tokenizer or tree-builder error on any path, except the missing-doctype messages; a partial only in its implied fragment context | markup that parses without errors |
+| `PARSE_ERROR` | any tokenizer or tree-builder error on any path, except missing doctype and validator.nu's "Duplicate ID" (security-architecture.md §11.3); a partial only in its implied fragment context | markup that parses without errors |
 | `FOREIGN_IN_TABLE` | exclusion (a): an `svg` or `math` element open with a table part or `template` below it (the fragment context counts) | SVG and MathML outside tables |
 | `TABLE_IN_TEMPLATE` | exclusion (b): an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |
 | `SELECT_CONTENT` | exclusion (c): any element other than `option`, `optgroup` or `hr` open above `select`, in composed output | option, optgroup, hr and text |
@@ -285,7 +285,6 @@ escapers is rejected.
 | `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states, or reaches a bad state only through recursion | recursion into the state its call started in |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content) | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws; a fragment the skeleton doesn't define; markup right after a computed attribute that isn't whitespace, `/` or `>` | |
-| retired | `TEXT_RECONSTRUCTS`, `NOAHS_ARK` (error recovery is a parse error), `ATTRIBUTE_VALUE_CHANGES_PARSE`, `CDATA_IN_INTEGRATION_POINT` (#678: no values in foreign content, no CDATA), `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES` (#682: state-neutral control flow) | |
 
 A partial (a view whose output doesn't start with a doctype or `<html>`) is checked by fragment
 parsing in the context its first element implies (`tr`: `tbody`; `td`, `th`: `tr`; `option`,
