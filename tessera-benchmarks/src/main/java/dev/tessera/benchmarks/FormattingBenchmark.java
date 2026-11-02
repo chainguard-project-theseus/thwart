@@ -1,7 +1,7 @@
 package dev.tessera.benchmarks;
 
-import dev.tessera.runtime.fn.Numbers;
-import dev.tessera.runtime.fn.Temporals;
+import dev.tessera.runtime.internal.fn.Numbers;
+import dev.tessera.runtime.internal.fn.Temporals;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;

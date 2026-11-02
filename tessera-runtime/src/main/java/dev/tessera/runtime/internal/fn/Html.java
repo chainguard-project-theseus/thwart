@@ -1,4 +1,4 @@
-package dev.tessera.runtime.fn;
+package dev.tessera.runtime.internal.fn;
 
 import dev.tessera.runtime.HtmlPolicy;
 import dev.tessera.runtime.SafeHtml;

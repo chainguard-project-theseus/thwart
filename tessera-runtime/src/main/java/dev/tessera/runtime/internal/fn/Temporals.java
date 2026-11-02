@@ -1,4 +1,4 @@
-package dev.tessera.runtime.fn;
+package dev.tessera.runtime.internal.fn;
 
 import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;

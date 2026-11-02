@@ -1,5 +1,7 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Output;
+
 /**
  * The type of a markup argument between compiled templates, e.g. {@code ~{::body}} in
  * {@code t:replace="~{layout :: layout(~{::body}, 'home')}"}; the receiving fragment declares a

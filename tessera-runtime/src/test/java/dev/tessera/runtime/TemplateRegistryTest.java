@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.runtime.internal.Output;
+import dev.tessera.runtime.internal.TemplateEntry;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

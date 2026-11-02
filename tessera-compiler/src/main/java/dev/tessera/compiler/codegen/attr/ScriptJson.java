@@ -10,8 +10,8 @@ import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ViewSafety;
 import dev.tessera.compiler.verify.Skeleton;
-import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.Escapers;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -212,7 +212,7 @@ final class ScriptJson {
       return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
           "s$.append('{');\nboolean first$ = true;\n" + loop
               + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
-              + "dev.tessera.runtime.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
+              + "dev.tessera.runtime.internal.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
               + "java.lang.Object e$ = x$.getValue();\n" + item + ";\n}\ns$.append('}');\n");
     }
     if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent() && accessible(t)) {
@@ -276,7 +276,7 @@ final class ScriptJson {
         body.append("s$.append(").append(JavaStrings.literal((first ? "" : ",") + escapedKey + ":")).append(");\n");
         first = false;
         body.append(value.equals(access)
-            ? "dev.tessera.runtime.Escapers.appendJson(s$, " + access + ", j$ + 1)" : value).append(";\n");
+            ? "dev.tessera.runtime.internal.Escapers.appendJson(s$, " + access + ", j$ + 1)" : value).append(";\n");
       }
       body.append("s$.append('}');\n");
       generating.remove(element);
@@ -293,7 +293,7 @@ final class ScriptJson {
     String tooDeep = ") { throw new java.lang.IllegalArgumentException(\"value nested deeper than " + MAX_DEPTH
         + " (cycle?)\"); }\n";
     ctx.addMember("private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
-            + "if (o$ == null) { dev.tessera.runtime.Escapers.appendJson(s$, null, j$); return; }\n"
+            + "if (o$ == null) { dev.tessera.runtime.internal.Escapers.appendJson(s$, null, j$); return; }\n"
             + "if (d$ > " + MAX_DEPTH + " || j$ > " + MAX_DEPTH + tooDeep + body + "}\n");
   }
 

@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.runtime.fn.Html;
+import dev.tessera.runtime.internal.Ascii;
 import dev.tessera.runtime.internal.Checks;
+import dev.tessera.runtime.internal.Escapers;
+import dev.tessera.runtime.internal.fn.Html;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -245,7 +247,7 @@ class HtmlPolicyTest {
     assertEquals("<img src=\"/a.png\" alt=\"x\">", SafeInlineHtml.sanitize("<img src=/a.png alt=x>",
         HtmlPolicy.inlineBuilder().allowElements("img").allowAttributes("alt").build()).html());
     assertEquals("a<i>bc</i>", SafeInlineHtml.sanitize("a<i>b<b>c</b></i>", HtmlPolicy.inlineBuilder().allowElements("i").build()).html());
-    for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, HtmlPolicy.MESSAGE,
+    for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, Escapers.MESSAGE_POLICY,
         HtmlPolicy.builder().allowElements("b").build()}) {
       assertThrows(IllegalArgumentException.class, () -> SafeInlineHtml.sanitize("<b>x</b>", p));
     }

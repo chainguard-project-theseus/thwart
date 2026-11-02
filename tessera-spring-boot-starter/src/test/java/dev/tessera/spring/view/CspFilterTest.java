@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.internal.TemplateEntry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterRegistration;
 import jakarta.servlet.ServletContext;

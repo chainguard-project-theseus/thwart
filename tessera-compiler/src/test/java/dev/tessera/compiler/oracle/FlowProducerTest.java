@@ -15,7 +15,7 @@ import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.Vnu;
 import dev.tessera.runtime.DefaultLinks;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.HtmlPolicy;
 import dev.tessera.runtime.RenderContext;

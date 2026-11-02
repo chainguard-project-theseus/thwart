@@ -1,6 +1,8 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Ascii;
 import dev.tessera.runtime.internal.Checks;
+import dev.tessera.runtime.internal.UrlEncoding;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;

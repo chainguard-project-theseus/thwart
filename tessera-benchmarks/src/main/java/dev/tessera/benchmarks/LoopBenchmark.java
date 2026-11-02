@@ -5,7 +5,7 @@ import dev.tessera.benchmarks.templates.loops.CollectionStatusTemplate;
 import dev.tessera.benchmarks.templates.loops.IterableTemplate;
 import dev.tessera.benchmarks.templates.loops.IterableStatusTemplate;
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;

@@ -198,7 +198,7 @@ compiles the result. Nothing is evaluated reflectively at render time.
 
 ## 6. Escapers
 
-`dev.tessera.runtime.Escapers` has one method per context: `text` (element text and RCDATA),
+`dev.tessera.runtime.internal.Escapers` has one method per context: `text` (element text and RCDATA),
 `attr`, `url`, `resourceUrl`, `refresh`, `json`, `javaScript`, plus the neutral-value checks.
 The verifier's rule table (§11.2) names which escaper each parser state accepts. `EscapersTest`
 and `EscaperFuzzTest` test them; `TextChokePointTest` checks that value text reaches element text
@@ -214,7 +214,7 @@ harmless, write it raw" is a design error, not a fix.
 ## 8. ASCII-only names and character classes
 
 Browsers fold A-Z only and split on HTML whitespace. Every HTML, CSS and URL comparison goes
-through named ASCII helpers (`dev.tessera.runtime.Ascii` at render time, `HtmlParser.asciiLower`
+through named ASCII helpers (`dev.tessera.runtime.internal.Ascii` at render time, `HtmlParser.asciiLower`
 and its siblings in the compiler); Java text goes through `JavaStrings`. `AsciiOnlyTest` fails on
 `equalsIgnoreCase`, `toLowerCase`, `trim`, `Character.isWhitespace`, regex `\s` and the like
 outside a pinned allow-list.

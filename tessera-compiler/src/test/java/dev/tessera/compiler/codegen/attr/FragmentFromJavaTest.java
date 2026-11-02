@@ -98,6 +98,7 @@ class FragmentFromJavaTest {
     if (caller != null) {
       b.java("com.example.Caller", "package com.example;\n"
           + "import dev.tessera.runtime.*;\n"
+          + "import dev.tessera.runtime.internal.*;\n"
           + "public final class Caller {\n"
           + "  public static String call() {\n"
           + "    StringOutput out = new StringOutput();\n"
