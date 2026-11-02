@@ -430,7 +430,7 @@ ways.
 
 | Change | Why |
 |---|---|
-| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. `SafeHtml`/`TrustedUrl`: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
+| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. `TrustedUrl.unchecked` and hand-written `Template`s: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
 | **docs/context-model.md**: the profile (§5.2-5.6) as tables. **Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining` or `Escapers` updates it in the same PR** | One written model instead of one per PR |
 | **The oracle gate in CI** (§5.7). A new context, mode, or framework entry lands with oracle or harness rows. A PR that widens the accepted language must say so in its description | Turns review findings into CI failures; would have caught #291's regression |
 | **Framework-neutral values for client code** (§12.2, #583, #584; this row first said deny-by-default names and a framework table). A computed value in any name that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path. No framework is modelled; `{{` breaking and CSP bound the rest | Ends the chase in family D |
@@ -617,8 +617,9 @@ document parses identically, and the value is in the node the parser reported.
    check can't see them. The argument assumes their exit state equals their entry state. That
    holds only if the producer emits balanced content that implies no end tags in that state.
    Content kinds are therefore predicates on the insertion state (`FLOW`, including
-   `ContentKinds.closer`), plus a check on producers (#329). `SafeHtml.unchecked` stays the
-   caller's responsibility.
+   `ContentKinds.closer`), plus a check on producers (#329). A hand-written `Template`
+   vouching for its output stays the caller's responsibility, and `tessera:review` fails the
+   build on one (#602).
 3. **One parser.** The guarantee is relative to the WHATWG algorithm as the pinned engine
    implements it, on error-free parses, outside the exclusions. The supported browsers are tested
    to agree there, not proved to. The nightly detector (#399, not yet on `main`) is to compare the

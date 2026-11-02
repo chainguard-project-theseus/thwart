@@ -65,13 +65,13 @@ script. `<style>` can't contain holes. A `style` attribute takes only literals, 
 
 Raw output always needs a typed value built in Java, never a flag on a string:
 
-- **`SafeHtml`** for `t:utext` and `[(...)]`. Values from `SafeHtml.escape`, `sanitize`, or a
-  compiled `Template` that the compiler proved safe to insert are trusted by construction.
+- **`SafeHtml`** for `t:utext` and `[(...)]`. It comes only from `SafeHtml.escape`, `sanitize`,
+  `concat`, or a compiled `Template` that the compiler proved safe to insert; nothing wraps a
+  string unchecked.
 - **`TrustedUrl`** skips the URL scheme and origin checks.
 - **`Fragment`**, from `Fragment.of` of a compiled partial.
 
-**`SafeHtml.unchecked`** and **`TrustedUrl.unchecked`** vouch for a string with no check at all,
-and a hand-written `Template` whose `verifiedFlowPartial()` returns true vouches for its own output.
+**`TrustedUrl.unchecked`** vouches for a string with no check at all, and a hand-written `Template` whose `verifiedFlowPartial()` returns true vouches for its own output.
 Whatever such a door lets through is the caller's responsibility, not a Tessera bug.
 `mvn tessera:review` fails the build on every door outside generated code (those calls, a
 `verifiedFlowPartial()` override, and a call of `Fragment.unverifiedForGeneratedCode` or a

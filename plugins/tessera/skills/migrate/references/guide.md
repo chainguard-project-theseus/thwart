@@ -139,9 +139,9 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
   `@TemplateFunction`, for a security review, and every unverified door with its source line. It
-  fails the build on a door: a `SafeHtml.unchecked`/`TrustedUrl.unchecked` call, a hand-written
-  `verifiedFlowPartial()`, or a call of `Fragment.unverifiedForGeneratedCode` or
-  `internalUnverified$...` outside generated code.
+  fails the build on a door: a `TrustedUrl.unchecked` call, a hand-written `verifiedFlowPartial()`,
+  or a call of `Fragment.unverifiedForGeneratedCode` or `internalUnverified$...` outside generated
+  code.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.
@@ -543,8 +543,8 @@ rebuild it with a fragment that inserts itself: the compiler rejects it, because
 structure would depend on data.
 
 In Java, `SafeHtml.escape`, `SafeHtml.concat` and `SafeHtml.sanitize` build markup from checked
-parts, and `SafeHtml.of(template, ctx)` wraps another template's output. `SafeHtml.unchecked` and
-`TrustedUrl.unchecked` are review points that the migration must not introduce.
+parts, and `SafeHtml.of(template, ctx)` wraps another template's output. Nothing wraps a string
+unchecked; `TrustedUrl.unchecked` is a review point that the migration must not introduce.
 
 **CSS.** A `style` value is built from literals, numbers and `CssValue`s:
 `t:style="|background-color: ${css.color(category.color)}|"`. `css.color`, `css.length` and
@@ -894,9 +894,9 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
 **Rich text.** Stored HTML goes through `html.sanitize`, `html.sanitizeRich` or the application's
 own `HtmlPolicy` into a `SafeHtml` (section 4.4). Delete any Java parser, node records and
 recursive fragment that rebuild it. If trusted markup needs more than any policy allows, build that
-piece in Java with `SafeHtml.concat` and `SafeHtml.escape`, never `SafeHtml.unchecked` over a stored
-string. Content whose structure a policy drops (tables, inline styles) loses it: map what you need
-to classes in Java before sanitizing, or accept the loss.
+piece in Java with `SafeHtml.concat` and `SafeHtml.escape`. Content whose structure a policy drops
+(tables, inline styles) loses it: map what you need to classes in Java before sanitizing, or accept
+the loss.
 
 **Thymeleaf.** Run `tessera-migrate` first (section 3). Natural-template script comments
 (`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]`; move each value that
@@ -999,8 +999,8 @@ Gaps in Tessera today, with what to do instead.
   attribute values is outside that guarantee. Pass data to scripts through `[[...]]` declarations
   or JSON blocks, use htmx 2, and send a strict CSP without `'unsafe-eval'`. AngularJS is not
   supported (it ignores `v-pre`, reads `{{` in class tokens and attributes, and runs under its own
-  CSP mode), nor are custom delimiters or `SafeHtml.unchecked` text, so don't mount a client
-  template compiler over server-rendered user data.
+  CSP mode), nor are custom delimiters, so don't mount a client template compiler over
+  server-rendered user data.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline`, collection selection and projection, expressions in
   `<style>` and `on*`, and Kotlin.

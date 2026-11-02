@@ -52,14 +52,14 @@ class ReviewMojoTest {
 
   private static final String UNCHECKED = """
       package com.example;
-      import static dev.tessera.runtime.SafeHtml.unchecked;
-      import dev.tessera.runtime.SafeHtml;
+      import static dev.tessera.runtime.Fragment.unverifiedForGeneratedCode;
+      import dev.tessera.runtime.Fragment;
       import dev.tessera.runtime.TrustedUrl;
       import java.util.function.Function;
       public final class Pages {
-        static Object pick(int k, String s) {
+        static Object pick(int k, Fragment.Body b) {
           switch (k) {
-            case 1: return "a" + s;
+            case 1: return "a" + b;
             case 2: return "b";
             case 9: return "c";
             default: break;
@@ -69,13 +69,13 @@ class ReviewMojoTest {
             case 2000000: return "y";
             default: break;
           }
-          return SafeHtml.unchecked(s);
+          return Fragment.unverifiedForGeneratedCode(b);
         }
-        static Object more(String s) {
+        static Object more(Fragment.Body b, String s) {
           long big = 123456789012L;
           double d = big * 2.5;
-          SafeHtml a = unchecked(s + d);
-          Function<String, SafeHtml> f = SafeHtml::unchecked;
+          Fragment a = unverifiedForGeneratedCode(d > 0 ? b : null);
+          Function<Fragment.Body, Fragment> f = Fragment::unverifiedForGeneratedCode;
           return TrustedUrl.unchecked(s) + "" + a + f;
         }
       }
@@ -86,7 +86,7 @@ class ReviewMojoTest {
       import dev.tessera.runtime.SafeHtml;
       public final class Clean {
         static Object ok(String s) {
-          return SafeHtml.concat(SafeHtml.escape(s), SafeHtml.sanitize(s), other.SafeHtml.unchecked(s));
+          return SafeHtml.concat(SafeHtml.escape(s), SafeHtml.sanitize(s)) + other.Fragment.unverifiedForGeneratedCode(s);
         }
       }
       """;
@@ -94,9 +94,9 @@ class ReviewMojoTest {
   /** Not Tessera's: same simple name, never reported. */
   private static final String LOOKALIKE = """
       package other;
-      public final class SafeHtml {
-        public static dev.tessera.runtime.SafeHtml unchecked(String s) {
-          return dev.tessera.runtime.SafeHtml.escape(s);
+      public final class Fragment {
+        public static String unverifiedForGeneratedCode(String s) {
+          return s;
         }
       }
       """;
@@ -272,13 +272,13 @@ class ReviewMojoTest {
   }
 
   @Test
-  void everyUncheckedCallIsADoorAtItsLine() throws Exception {
-    compile(Map.of("com.example.Pages", UNCHECKED, "com.example.Clean", CLEAN, "other.SafeHtml", LOOKALIKE));
+  void everyDoorCallIsReportedAtItsLine() throws Exception {
+    compile(Map.of("com.example.Pages", UNCHECKED, "com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE));
     String report = failsWithDoors(4);
     assertTrue(report.contains("doors (4)\n"
-        + "SafeHtml.unchecked  com/example/Pages.java:19\n" // qualified, after a tableswitch and a lookupswitch
-        + "SafeHtml.unchecked  com/example/Pages.java:24\n" // static import
-        + "SafeHtml.unchecked  com/example/Pages.java:25\n" // method reference
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:19\n" // qualified, after a tableswitch and a lookupswitch
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:24\n" // static import
+        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:25\n" // method reference
         + "TrustedUrl.unchecked  com/example/Pages.java:26\n"), report);
     assertFalse(report.contains("Clean"), report);
   }
@@ -311,7 +311,7 @@ class ReviewMojoTest {
 
   @Test
   void cleanCodePasses() throws Exception {
-    compile(Map.of("com.example.Clean", CLEAN, "other.SafeHtml", LOOKALIKE, "com.example.Fmt", FUNCTIONS,
+    compile(Map.of("com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE, "com.example.Fmt", FUNCTIONS,
         "com.example.Honest", HONEST));
     mojo().execute();
     assertTrue(report().contains("## Unverified doors (0)\n"));
@@ -369,7 +369,7 @@ class ReviewMojoTest {
   void java8BytecodeAndNoDebugInfo() throws Exception {
     compile(Map.of("com.example.Pages", UNCHECKED), "--release", "8", "-Xlint:-options", "-g:none");
     String report = failsWithDoors(4);
-    assertTrue(report.contains("SafeHtml.unchecked  com.example.Pages.pick\n"), report);
+    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com.example.Pages.pick\n"), report);
     assertTrue(report.contains("TrustedUrl.unchecked  com.example.Pages.more\n"), report);
   }
 
