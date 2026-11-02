@@ -17,6 +17,12 @@ import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.spring.CspNonce;
 import dev.tessera.spring.plain.CspPages;
 import dev.tessera.spring.testing.SpringTestContext;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
+import java.io.IOException;
 import java.util.Collections;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * A compiled template through the auto-configuration, with the application's {@code
@@ -285,14 +292,29 @@ class SmokeTest {
    */
   @Test
   void springSecurityPolicyIsNeverReplaced() throws Exception {
-    MockMvc secured =
-        MockMvcBuilders.webAppContextSetup(context)
-            .addFilters(
-                new HeaderWriterFilter(
-                    Collections.<HeaderWriter>singletonList(
-                        new ContentSecurityPolicyHeaderWriter("default-src 'self'"))))
-            .build();
+    HeaderWriterFilter securityCsp =
+        new HeaderWriterFilter(
+            Collections.<HeaderWriter>singletonList(
+                new ContentSecurityPolicyHeaderWriter("default-src 'self'")));
+    MockMvc secured = MockMvcBuilders.webAppContextSetup(context).addFilters(securityCsp).build();
     MvcResult result = secured.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    assertEquals(
+        Collections.singletonList("default-src 'self'"),
+        result.getResponse().getHeaders("Content-Security-Policy"));
+
+    // Another filter's wrapper around Spring Security's: the view looks through it.
+    OncePerRequestFilter wrapping =
+        new OncePerRequestFilter() {
+          @Override
+          protected void doFilterInternal(
+              HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+              throws ServletException, IOException {
+            chain.doFilter(request, new HttpServletResponseWrapper(response));
+          }
+        };
+    MockMvc wrapped =
+        MockMvcBuilders.webAppContextSetup(context).addFilters(securityCsp, wrapping).build();
+    result = wrapped.perform(get("/csp")).andExpect(status().isOk()).andReturn();
     assertEquals(
         Collections.singletonList("default-src 'self'"),
         result.getResponse().getHeaders("Content-Security-Policy"));

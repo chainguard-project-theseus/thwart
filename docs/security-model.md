@@ -25,7 +25,9 @@ output in attribute names outside HTML, a framework-neutral value (context-model
 `NEUTRAL`). Computed text is plain-escaped, so client frameworks that compile the server's DOM as
 a template are unsupported. Past that boundary, the defence in depth is a strict CSP: Tessera puts
 the request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
-starter's view sends a strict nonce policy unless the response already has one (guide §4.9).
+starter's view sends a strict nonce policy unless the response already has one. Under Spring
+Security's `HeaderWriterFilter`, which writes headers on commit, it sends none and the application
+adds the policy with a `HeaderWriter` (guide §4.9).
 
 The build-time verifier makes the first point hold for every template the compiler accepts:
 
