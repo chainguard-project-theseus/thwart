@@ -256,7 +256,7 @@ class ContentKindsTest {
   }
 
   private Skeleton.Hole text() {
-    return new Skeleton.Hole(Skeleton.Escaper.TEXT, null, null, pos());
+    return new Skeleton.Hole(Skeleton.Escaper.TEXT, null, pos());
   }
 
   private Skeleton.RawInsert raw() {

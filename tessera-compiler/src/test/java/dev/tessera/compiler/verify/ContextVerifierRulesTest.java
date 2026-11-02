@@ -555,7 +555,7 @@ class ContextVerifierRulesTest {
 
   @Test
   void aHoleWithoutAPositionIsReportedAtTheNearestOne() {
-    List<Finding> f = check(seq(st("<table>"), new Skeleton.Hole(Escaper.TEXT, null, null, null)));
+    List<Finding> f = check(seq(st("<table>"), new Skeleton.Hole(Escaper.TEXT, null, null)));
     assertEquals(new SourcePos("t.html", 1, 1), f.get(0).at);
   }
 
@@ -594,7 +594,7 @@ class ContextVerifierRulesTest {
   }
 
   private Skeleton.Hole hole(Escaper e, String attribute) {
-    return new Skeleton.Hole(e, null, attribute, pos());
+    return new Skeleton.Hole(e, attribute, pos());
   }
 
   private Skeleton.RawInsert raw() {

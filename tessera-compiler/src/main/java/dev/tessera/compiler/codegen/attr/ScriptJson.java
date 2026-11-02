@@ -117,12 +117,12 @@ final class ScriptJson {
     }
     if (code.equals("o$")) {
       Skeleton.Escaper escaper = ctx.inJsonScript() ? Skeleton.Escaper.JSON : Skeleton.Escaper.JAVASCRIPT;
-      return Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
+      return Emitted.hole(escaper, null, c.pos(), c.code()).then("\n");
     }
     String helper = ctx.freshName("jsonOutput");
     boolean js = !ctx.inJsonScript();
     ctx.addMember(Emitted.jsonHelperMethod(helper, code, js));
-    return Emitted.jsonHelperHole(helper, ctx.hostElement(), c.pos(), c.code(), js).then("\n");
+    return Emitted.jsonHelperHole(helper, c.pos(), c.code(), js).then("\n");
   }
 
   private void report(SourcePos pos, TypeMirror type, String where) {

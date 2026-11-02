@@ -244,15 +244,10 @@ public final class CsrfInjector {
     String t = ctx.freshName("csrf");
     Emitted input =
         Emitted.concat(
-            Emitted.text("<input type=\"hidden\" name=\"", null),
-            Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", form, t + ".get().parameterName()"),
-            Emitted.code(" "),
-            Emitted.text("\" value=\"", null),
-            Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.ATTR, "input", "value", form, t + ".get().token()"),
-            Emitted.code(" "),
-            Emitted.text("\" />", null));
+            Emitted.text("<input type=\"hidden\"", null),
+            Emitted.attributeValue(Skeleton.Escaper.ATTR, "name", form, t + ".get().parameterName()"),
+            Emitted.attributeValue(Skeleton.Escaper.ATTR, "value", form, t + ".get().token()"),
+            Emitted.text(" />", null));
     StringBuilder notOwn = new StringBuilder();
     for (String name : ownNames) {
       notOwn.append(" && !").append(t).append(".get().parameterName().equals(")

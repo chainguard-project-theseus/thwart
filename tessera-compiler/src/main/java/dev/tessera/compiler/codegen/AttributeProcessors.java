@@ -19,7 +19,6 @@ import dev.tessera.compiler.codegen.attr.UtextProcessor;
 import dev.tessera.compiler.codegen.attr.WithProcessor;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -98,11 +97,11 @@ public final class AttributeProcessors {
     return generic;
   }
 
-  /** The processor for a local name; empty for {@link #CORE} names. */
-  public static Optional<AttributeProcessor> forName(String localName) {
+  /** The processor for a local name that is not one of the {@link #CORE} names. */
+  public static AttributeProcessor forName(String localName) {
     if (CORE.contains(localName)) {
-      return Optional.empty();
+      throw new IllegalArgumentException("a core attribute has no processor: " + localName);
     }
-    return Optional.of(ORDER.get(precedence(localName)).processor());
+    return ORDER.get(precedence(localName)).processor();
   }
 }

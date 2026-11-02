@@ -43,7 +43,7 @@ import java.util.Set;
  * {@link AttributeProcessors} in precedence order, and calls the per-template hooks
  * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>} and for every
  * element's static submit URLs and {@code <base href>}, {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
- * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
+ * root element, {@code <t:block>} (tag omitted), and rejects misplaced core attributes.
  * Implements {@link CodegenContext}; {@link TemplateClassSource} assembles the class text.
  *
  * <p>Elements without {@code t:} attributes whose plan is unchanged are copied from the source
@@ -53,8 +53,6 @@ import java.util.Set;
  * <p>Not thread-safe: one instance generates one template at a time.
  */
 public final class TemplateGenerator implements CodegenContext {
-  /** Static text is split into constants of at most this many chars (constant-pool limit). */
-
   /** {@code t:} attributes that write HTML known only at runtime into the element. */
   private static final Set<String> RUNTIME_HTML = Backports.setOf("utext", "insert", "replace");
   /**
@@ -87,11 +85,6 @@ public final class TemplateGenerator implements CodegenContext {
   private Skeleton.TemplateSkeleton skeleton;
   /** The fragment whose method is being generated, or null. */
   private TemplateIndex.FragmentInfo fragment;
-  /**
-   * The lower-case name of the nearest element being generated whose tag is written, or null:
-   * the element of a text hole ({@link #hostElement}).
-   */
-  private String hostElement;
   private int fresh;
   private Map<Element, String> whitespaceBefore;
   /**
@@ -150,7 +143,6 @@ public final class TemplateGenerator implements CodegenContext {
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
     }
-    hostElement = null;
     fragment = null;
     Emitted.Builder body = builder();
     for (Node n : document.children()) {
@@ -287,11 +279,6 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
-  public String hostElement() {
-    return hostElement;
-  }
-
-  @Override
   public boolean inJsonScript() {
     return jsonScript;
   }
@@ -303,16 +290,13 @@ public final class TemplateGenerator implements CodegenContext {
     // ... and rendered where it is inserted, which is checked there, not inside its source parent.
     String host = rawTextHost;
     boolean foreign = inForeign;
-    String outerHost = hostElement;
     rawTextHost = null;
     inForeign = false;
-    hostElement = null;
     try {
       Emitted.Builder c = builder();
       element(c, element, scope, ignoredAttributes);
       return c.build();
     } finally {
-      hostElement = outerHost;
       rawTextHost = host;
       inForeign = foreign;
       if (ws != null) {
@@ -447,7 +431,6 @@ public final class TemplateGenerator implements CodegenContext {
 
   private void element(Emitted.Builder c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
-    String outerHost = hostElement;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
     String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
@@ -468,9 +451,6 @@ public final class TemplateGenerator implements CodegenContext {
               : "use <noscript> or ordinary content"));
     }
     jsonScript = Contexts.isJsonScript(e);
-    if (!TextInlining.tagNotRendered(e)) {
-      hostElement = HtmlParser.asciiLower(e.name());
-    }
     try {
       ElementPlan plan = new ElementPlan(e, scope);
       if (e.name().equals("t:block")) {
@@ -494,7 +474,7 @@ public final class TemplateGenerator implements CodegenContext {
         if (within != null && RUNTIME_HTML.contains(a.localName())) {
           runtimeHtmlInRawText(a.pos(), a.name(), within);
         }
-        AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
+        AttributeProcessors.forName(a.localName()).process(this, a, plan);
       }
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
         CsrfInjector.apply(this, plan);
@@ -509,7 +489,6 @@ public final class TemplateGenerator implements CodegenContext {
       }
       emit(c, plan, leadingLineFeed, foreignTop);
     } finally {
-      hostElement = outerHost;
       rawTextHost = outer;
       inForeign = outerForeign;
       jsonScript = outerJson;
@@ -680,7 +659,7 @@ public final class TemplateGenerator implements CodegenContext {
         Attribute source1 = ((ElementPlan.StaticAttr) a).source();
         c.text(" " + a.name() + source1.sourceValue(), source1.pos());
       } else {
-        c.add(dynamicAttr(e, (ElementPlan.DynamicAttr) a));
+        c.add(dynamicAttr((ElementPlan.DynamicAttr) a));
       }
     }
     if (nonce) {
@@ -690,12 +669,7 @@ public final class TemplateGenerator implements CodegenContext {
               Skeleton.OptKind.CSP_NONCE,
               e.pos(),
               "{ java.util.Optional<java.lang.String> " + n + " = ctx.cspNonce(); if (" + n + ".isPresent()) { ",
-              Emitted.concat(
-                  Emitted.text(" nonce=\"", null),
-                  Emitted.code(" "),
-                  Emitted.hole(Skeleton.Escaper.ATTR, e.name(), "nonce", e.pos(), n + ".get()"),
-                  Emitted.code(" "),
-                  Emitted.text('"', null)),
+              Emitted.attributeValue(Skeleton.Escaper.ATTR, "nonce", e.pos(), n + ".get()"),
               " } }"));
     }
     if (!e.selfClosing() || opensSelfClosing(plan)) {
@@ -711,7 +685,7 @@ public final class TemplateGenerator implements CodegenContext {
    * Whether the start tag gets the render's CSP nonce (#335): every {@code <script>} and {@code
    * <style>} the template writes where a browser reads it as an HTML element. One inside {@code
    * <svg>} or {@code <math>} (whose content a browser parses differently, decoding character
-   * references) or inside a raw text element such as {@code <noscript>} or {@code <xmp>} (where it
+   * references) or inside a raw text element such as {@code <noscript>} (where it
    * is text) gets none. A fragment is rendered with the caller's {@code ctx}: its own start tags
    * decide, as a fragment cannot be put where a browser parses it differently from where it is
    * declared (a build error). If the tracking is wrong, a script loses its nonce and does not run under
@@ -782,32 +756,18 @@ public final class TemplateGenerator implements CodegenContext {
     }
   }
 
-  private Emitted dynamicAttr(Element e, ElementPlan.DynamicAttr d) {
-    // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'. A STYLE
-    // attribute is attribute-escaped; GenericAttrProcessor admits only safe style values (#182),
-    // only literals and numbers in TYPED_ATTRIBUTE (#565; URL lists too, #539), and
-    // neutral values (numbers, booleans, same-origin paths, literals) in NEUTRAL (#584).
-    OutputContext ctx = d.context();
-    String escaper =
-        ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL
-            || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH
-            ? ctx.escaper()
-            : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE || ctx == OutputContext.NEUTRAL
-                ? OutputContext.ATTRIBUTE.escaper()
-                : null;
+  private Emitted dynamicAttr(ElementPlan.DynamicAttr d) {
+    // Only attribute escapers: e.g. the SCRIPT (json) escaper does not escape '"'.
+    // GenericAttrProcessor admits only safe style values in STYLE (#182), literals and numbers in
+    // TYPED_ATTRIBUTE (#565) and neutral values in NEUTRAL (#584).
+    String escaper = d.context().attributeEscaper();
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
               + " context): write a literal value");
       return Emitted.EMPTY;
     }
     String v = freshName("v");
-    Emitted attribute =
-        Emitted.concat(
-            Emitted.text(" " + d.name() + "=\"", d.pos()),
-            Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.forMethod(escaper), e.name(), d.name(), d.pos(), v),
-            Emitted.code(" "),
-            Emitted.text('"', d.pos()));
+    Emitted attribute = Emitted.attributeValue(Skeleton.Escaper.forMethod(escaper), d.name(), d.pos(), v);
     String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
     return Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
   }
