@@ -1,0 +1,3556 @@
+diff --git a/.gitignore b/.gitignore
+index 0e13eeb..2da49e8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -9,3 +9,4 @@ buildNumber.properties
+ .mvn/timing.properties
+ # https://github.com/takari/maven-wrapper#usage-without-binary-jar
+ .mvn/wrapper/maven-wrapper.jar
++.tessera/
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..4b50fed
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,189 @@
++# Migration report: Thymeleaf → Tessera
++
++## Summary
++
++Every server-rendered page (25 templates: 18 pages, 3 fragment libraries, the Boot error page and
++the login pages) now renders through Tessera 0.1.0-SNAPSHOT. Thymeleaf is gone: the
++`spring-boot-starter-thymeleaf` and `thymeleaf-extras-springsecurity6` dependencies were removed,
++every template was rewritten to `t:` syntax, and no Thymeleaf configuration was left (there was
++none in `application.properties`). The startup warning `Tessera: another template engine is still
++configured` does not appear. The log shows `Found 25 compiled Tessera templates`.
++
++`mvn clean verify` (Java 17 target, built on the default JDK 21) passes. That is 52 tests: the
++existing 46 (one of them, `PurlClientTest`, was already `@Disabled`) plus 6 new ones. No existing
++test was changed, disabled or weakened. Security config is untouched: no new `permitAll`, CSRF
++still on, nothing printed raw that the old app escaped.
++
++## What changed
++
++### Build (`pom.xml`)
++- Removed the Thymeleaf starter and the Spring Security dialect. Added
++  `dev.tessera:tessera-spring-boot-starter` (jakarta / Boot 3).
++- `maven-compiler-plugin` now runs `tessera-compiler` as an annotation processor, with
++  `tessera.templates` = `src/main/resources/templates`,
++  `tessera.package` = `de.uni.rostock.ub.purl_server.templates` and
++  `tessera.messages` = `src/main/resources/messages`, so every `#{key}` is checked at build time.
++- Added `tessera-maven-plugin:check`, so a change to only a template or only a message file still
++  triggers a recompile.
++- The Spring Boot and Spring versions are unchanged.
++
++### Java
++- `model/Domain`, `DomainUser`, `Purl`, `PurlHistory`, `User`, `PurlServerError`: annotated
++  `@TemplateView` so templates can read their getters.
++- New `web/PageModelAdvice` (`@ControllerAdvice`): adds a `page` model attribute (`PageInfo`) to
++  every view. It holds the locale and language (Thymeleaf's `#locale`), plus the configurable
++  `purl_server.web.html_fragment.title`/`.footer` HTML. The old templates read that HTML with
++  `@environment.getProperty(...)` and printed it raw. It is now turned into a `SafeHtml` through an
++  `HtmlPolicy` that allows headings, `hr`, `span`, inline formatting and Bootstrap spacing/text
++  classes.
++- New `web/ViewFunctions` (`@TemplateFunctions("views")`):
++  - `dateTime(Instant)` replaces `#temporals.format(x, 'yyyy-MM-dd HH:mm')`, in the JVM default
++    zone as before.
++  - `timestamp(ZonedDateTime)` makes the error page show the timestamp in `java.util.Date#toString()`
++    format, as Thymeleaf did.
++- `LoginController`: puts the request parameters the login templates used to read via `${param.*}`
++  (`error`, `logout`, `token`, `login`) into the model as `paramError`, `paramLogout`, `paramToken`
++  and `paramLogin`.
++- `AdminDomainController`: before rendering the create/modify form it adds one empty `DomainUser`
++  to the domain. Thymeleaf's binder used to do this by auto-growing `domainUserList[n]` while
++  rendering, so the page always showed one more empty row. Tessera reads the list directly and
++  threw `IndexOutOfBoundsException`. The form now iterates over the list instead of
++  `#numbers.sequence(0, size)`.
++
++### Templates
++- Layout pieces in `fragments/page.html` became typed fragments: `html_header`, `title(page)`,
++  `switchLang(page)`, `navigation`, `errorView(error)`, `footer(page)`, `html_footer`.
++  `sec:authorize` became `auth.isAuthenticated()` / `auth.hasRole(...)`, and
++  `#authentication.name` became `auth.name()`.
++- `fragments/info.html`: typed fragments `infoDomainTable(Domain)` and
++  `infoPurlTable(Purl, suffix, createdBy, lastModifiedBy)`. Explicit `<tbody>` elements were added;
++  the DOM is the same as before.
++- Form fragments (`domainForm`, `userForm`, `purlForm`) were written out in each create/modify page.
++  They bound the caller's `th:object`, and each page now binds its own form object. The
++  `__${form}__` message keys and conditions became literals per page. `help` and
++  `next*Action(...)` stay fragments.
++- `__...__` link preprocessing became `@{/path(id=x.id)}`, or a string path for `/info/purl` +
++  path. The path contains `/`, which a link placeholder would percent-encode.
++- `th:style="#{...css}"` (a message used as CSS) became a choice between the two literal CSS
++  values, picked by the page language (see the limitations section).
++
++## Verifying parity
++
++The H2 seed data (`src/test/resources/data-test.sql`) stores password hashes that no password can
++match under H2 2.x: `HASH()` returns binary, and `CONCAT` turns it into garbage text. So nobody can
++log in when the app runs from that file. To exercise the logged-in pages I started both apps from a
++copy of that file with valid hashes for `admin` and `user1`. The copy is
++`.tessera/data-login.sql`, outside the source tree and git-ignored. The command was
++`-Dspring.profiles.active=test -Dspring.sql.init.data-locations=file:...`, run on the test
++classpath with `spring.h2.console.enabled=false`; with the H2 console on, the original app fails
++at startup with an `MvcRequestMatcher` error.
++
++`.tessera/pages.txt` has 123 requests:
++- anonymous, logged in as `user1` (not an admin), and logged in as `admin`;
++- German and English;
++- every search page empty, with results and with no results;
++- every create/modify/delete form empty, with validation errors and after success;
++- the add-user state of the domain form, and unknown ids;
++- the info pages, including a partial-redirect suffix and history;
++- error pages: 400, 403, 404 and 500.
++
++The result of `tessera-migrate compare` (masking only the port and the current-minute timestamps,
++which change between runs):
++
++- **69 pages `same`, 54 `differs`, and every recorded status and final URL matches.** A script
++  (`.tessera/residual.py`) confirmed that each of the 54 differences comes only from the two
++  causes below, which Tessera does not let a template avoid.
++
++  1. **Inline event handlers (49 pages).** These are the login, password, search, user and
++     domain-info pages. Tessera rejects every `on*` attribute, static ones included (verified:
++     `onclick on <button> is not allowed`). `<body onload>`, `onclick` and `onsubmit` became
++     `data-action="..."` markers. The page's existing `<script>` gained `addEventListener` lines
++     (the guide's recipe), with the same behaviour: a click handler that returns `false` now calls
++     `preventDefault()`.
++     On the password form, the message for "passwords differ" became a top-level
++     `const msgPasswordsDifferent = [[#{...}]];` declaration. A `[[...]]` inside a function is
++     rejected.
++  2. **Stack traces on the error page.** The app sets `server.error.include-stacktrace=always`,
++     and 403/400/500 pages print the trace. Every trace now contains three frames of Tessera's
++     `dev.tessera.spring.view.CspFilter`. A trace thrown during rendering names Tessera's generated
++     classes instead of Thymeleaf's: `domaincreate` after a successful create fails with a 500 in
++     both apps, because the controller never sets `error`. That bug was kept for parity.
++
++- **Intended differences that compare does not show:**
++  - `errorMessage` on the login page was `th:utext` and is now escaped. It is built from exception
++    messages, so this closes an injection point; the branch is unreachable in practice.
++  - The `message` cell on the error page is now escaped. Boot leaves it empty here.
++  - The configurable title/footer HTML goes through a sanitizer.
++  - Pages get a CSP header with nonces, which compare ignores.
++- **One deliberate content fix:** `login/password_form.html` used the message key
++  `purl_server.error.validate.passwords_different`, which doesn't exist. Thymeleaf printed
++  `??purl_server.error.validate.passwords_different_de??` into the alert. With `tessera.messages`
++  set, a missing key is a build error, so the template now uses the existing key
++  `purl_server.error.login.passwords_different`. That line already differs because of the
++  declaration recipe.
++- **Excluded:** requests that redirect to an external site (`/test/redirect1` →
++  `www.google.de`). The resolver redirects even after a PURL is deleted, so the `GONE_410` branch
++  never runs.
++
++## Not converted
++
++Nothing. All 25 templates are Tessera templates. No view falls back to another engine.
++
++## Where Tessera or its documentation fell short
++
++1. **Inline event handlers rule out strict page parity.** Static `on*` attributes are build errors,
++   with no escape hatch. The `tessera-migrate compare` tool flags the guide's own recipe as
++   `differs`, so every page that had an `onclick`/`onload`/`onsubmit` can't come out `same`. The
++   guide says a recipe "changes the page, and compare shows it", but `compare` has no way to accept
++   a documented recipe difference short of `--ignore`, which would hide too much.
++2. **`t:field` does not behave like Spring's binder for list paths.** The guide says forms "bind
++   through Spring's `BindingResult`, as Spring's form tags and macros do". Thymeleaf (through
++   Spring's `BeanWrapper` with `autoGrowNestedPaths`) silently grew `domainUserList[n]` while
++   rendering. Tessera's generated code calls `getDomainUserList().get(i)` and fails at runtime with
++   `IndexOutOfBoundsException`. Neither the guide nor the converter's report mentions this.
++3. **Thymeleaf markup selectors that match element names went unreported.** In Thymeleaf,
++   `~{fragments/page :: title}` matched `th:fragment="title"` and also the `<title>` element of the
++   fragment file. Every page therefore had `<title>Page fragments</title>` inside its `<body>`.
++   Likewise, three elements shared `th:fragment="html_header"` and all three were inserted.
++   `tessera-migrate` copied both constructs unchanged (three `t:fragment="html_header"`) and
++   reported nothing. Only `compare` revealed them.
++4. **`CspFilter` shows up in user-visible output.** Apps that print stack traces on error pages
++   (`include-stacktrace=always`) get extra frames, an unavoidable `compare` difference. The guide
++   doesn't mention it. Turning the CSP off (`tessera.csp.enabled=false`) would hide the frames but
++   weakens security, so I didn't.
++5. **Error page `timestamp`.** The guide says to declare it as `Instant` or `ZonedDateTime`, but not
++   that Thymeleaf printed `java.util.Date#toString()`, nor which zone the value carries. Matching
++   the old page needed a custom function.
++6. **The zone `temporals.format` uses for an `Instant` is undocumented.** I used my own function
++   with the JVM default zone, which is what Thymeleaf used.
++7. **`HtmlPolicy.allowClasses` fails silently.** A plain prefix such as `"m"` matched nothing and
++   classes were silently stripped (`<hr class="mb-1">` became `<hr>`). Only the `"mb-*"` form
++   works. A builder that validates only names could also reject a pattern that can never match.
++8. **No way to build a style from a bundle message.** `th:style="#{key}"` (CSS kept in
++   `messages*.properties`) can't be expressed: `t:style` takes literals and `css.*` values, and
++   `css.*` has no general declaration. The two locale-specific `transform` values are now literals
++   in `domaincreate.html`/`domainmodify.html`, chosen by `page.lang`. The keys
++   `purl_server.domain.form.create.css`/`.modify.css` in the bundles are no longer read, so
++   editing them has no effect.
++9. **The converter report misses things.**
++   - It lists `sec:authorize` as "port by hand" even for the documented one-to-one mappings
++     (`isAuthenticated()`, `hasRole(...)`).
++   - It doesn't flag `th:if` + `th:unless` on the same element.
++   - It doesn't flag an expression that compares against a bare class name
++     (`${exception} == org.springframework...ResponseStatusException`). That had to be rewritten as
++     a string comparison on Boot's `exception` attribute.
++10. **Missing message keys.** The build rejects them, which is good, but there is no documented way
++    to reproduce the old `??key_locale??` output when exact parity is wanted.
++
++## Files outside the source tree
++
++`.tessera/` (git-ignored) holds:
++- the `tessera-migrate` jar;
++- `pages.txt` and the recorded baseline;
++- the login-capable seed data and the start/compare scripts;
++- the generators used to write the templates.
++
++To repeat the comparison:
++1. Start the original build with `.tessera/run.sh .tessera/orig/classes .tessera/orig/test-classes .tessera/orig/cp.txt 8081`.
++2. Record it with `java -jar .tessera/tessera-migrate.jar record http://localhost:8081 .tessera/pages.txt .tessera/baseline`.
++3. Run `.tessera/cmp.sh $(cat .tessera/ign)`.
+diff --git a/pom.xml b/pom.xml
+index ed1c616..e23c433 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -16,6 +16,8 @@
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+     <java.version>17</java.version>
++    <tessera.version>0.1.0-SNAPSHOT</tessera.version>
++    <tessera.messages>${project.basedir}/src/main/resources/messages</tessera.messages>
+   </properties>
+ 
+   <dependencies>
+@@ -28,12 +30,9 @@
+       <artifactId>spring-boot-starter-mail</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.springframework.boot</groupId>
+-      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+-    </dependency>
+-    <dependency>
+-      <groupId>org.thymeleaf.extras</groupId>
+-      <artifactId>thymeleaf-extras-springsecurity6</artifactId>
++      <groupId>dev.tessera</groupId>
++      <artifactId>tessera-spring-boot-starter</artifactId>
++      <version>${tessera.version}</version>
+     </dependency>
+     <dependency>
+       <groupId>org.springframework.boot</groupId>
+@@ -106,6 +105,37 @@
+   <build>
+     <finalName>purl_server</finalName>
+     <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-compiler-plugin</artifactId>
++        <configuration>
++          <parameters>true</parameters>
++          <annotationProcessorPaths>
++            <path>
++              <groupId>dev.tessera</groupId>
++              <artifactId>tessera-compiler</artifactId>
++              <version>${tessera.version}</version>
++            </path>
++          </annotationProcessorPaths>
++          <compilerArgs combine.children="append">
++            <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++            <arg>-Atessera.package=de.uni.rostock.ub.purl_server.templates</arg>
++            <arg>-Atessera.messages=${tessera.messages}</arg>
++          </compilerArgs>
++        </configuration>
++      </plugin>
++      <plugin>
++        <groupId>dev.tessera</groupId>
++        <artifactId>tessera-maven-plugin</artifactId>
++        <version>${tessera.version}</version>
++        <executions>
++          <execution>
++            <goals>
++              <goal>check</goal>
++            </goals>
++          </execution>
++        </executions>
++      </plugin>
+       <plugin>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-maven-plugin</artifactId>
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/authentication/LoginController.java b/src/main/java/de/uni/rostock/ub/purl_server/authentication/LoginController.java
+index f2224eb..376494a 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/authentication/LoginController.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/authentication/LoginController.java
+@@ -54,6 +54,14 @@ import org.springframework.web.util.UriComponents;
+ public class LoginController {
+     private static final String MODEL_ATTRIBUTE_ERROR_MESSAGE = "errorMessage";
+ 
++    private static final String MODEL_ATTRIBUTE_PARAM_ERROR = "paramError";
++
++    private static final String MODEL_ATTRIBUTE_PARAM_LOGOUT = "paramLogout";
++
++    private static final String MODEL_ATTRIBUTE_PARAM_TOKEN = "paramToken";
++
++    private static final String MODEL_ATTRIBUTE_PARAM_LOGIN = "paramLogin";
++
+     private static final Logger LOGGER = LoggerFactory.getLogger(LoginController.class);
+ 
+     private static final String SQL_UPDATE_RESET_TOKEN = "UPDATE user SET password_reset_token = ? WHERE login = ?;";
+@@ -83,13 +91,21 @@ public class LoginController {
+     private String mailFrom;
+ 
+     @GetMapping(value = "/admin/login")
+-    public ModelAndView login() {
+-        return new ModelAndView("login/login");
++    public ModelAndView login(@RequestParam(value = "error", required = false) String error,
++        @RequestParam(value = "logout", required = false) String logout) {
++        ModelAndView mav = new ModelAndView("login/login");
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_ERROR, error);
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_LOGOUT, logout);
++        return mav;
+     }
+ 
+     @PostMapping(value = "/admin/login")
+-    public ModelAndView login(HttpServletRequest request) {
++    public ModelAndView login(HttpServletRequest request,
++        @RequestParam(value = "error", required = false) String error,
++        @RequestParam(value = "logout", required = false) String logout) {
+         ModelAndView mav = new ModelAndView("login/login");
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_ERROR, error);
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_LOGOUT, logout);
+         HttpSession session = request.getSession(false);
+         if (session != null) {
+             AuthenticationException ex = (AuthenticationException) session
+@@ -114,8 +130,12 @@ public class LoginController {
+     }
+ 
+     @GetMapping(value = "/admin/login/password", params = "token")
+-    public String passwordForm() {
+-        return "login/password_form";
++    public ModelAndView passwordForm(@RequestParam("token") String token,
++        @RequestParam(value = "login", required = false) String login) {
++        ModelAndView mav = new ModelAndView("login/password_form");
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_TOKEN, token);
++        mav.addObject(MODEL_ATTRIBUTE_PARAM_LOGIN, login);
++        return mav;
+     }
+ 
+     @PostMapping(value = "/admin/login/password", params = "do_set_password")
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/controller/admin/AdminDomainController.java b/src/main/java/de/uni/rostock/ub/purl_server/controller/admin/AdminDomainController.java
+index 9a0cca7..283425d 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/controller/admin/AdminDomainController.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/controller/admin/AdminDomainController.java
+@@ -115,6 +115,7 @@ public class AdminDomainController {
+         model.addAttribute(MODEL_ATTRIBUTE_FORM, MODEL_VALUE_FORM_CREATE);
+         model.addAttribute(MODEL_ATTRIBUTE_DOMAIN, new Domain());
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, userDAO.retrieveActiveUsers());
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINCREATE;
+     }
+ 
+@@ -146,6 +147,7 @@ public class AdminDomainController {
+             model.addAttribute(MODEL_ATTRIBUTE_SUBMITTED, false);
+         }
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, userDAO.retrieveActiveUsers());
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINCREATE;
+     }
+ 
+@@ -158,6 +160,7 @@ public class AdminDomainController {
+         List<User> list = userDAO.retrieveActiveUsers();
+         list.add(new User());
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, list);
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINCREATE;
+     }
+ 
+@@ -183,6 +186,7 @@ public class AdminDomainController {
+             model.addAttribute(MODEL_ATTRIBUTE_ERROR, pse);
+         });
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, userDAO.retrieveActiveUsers());
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINMODIFY;
+     }
+ 
+@@ -208,6 +212,7 @@ public class AdminDomainController {
+         model.addAttribute(MODEL_ATTRIBUTE_ERROR, pse);
+         model.addAttribute(MODEL_ATTRIBUTE_DOMAIN, domainDAO.retrieveDomainWithUser(domain.getId()).get());
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, userDAO.retrieveActiveUsers());
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINMODIFY;
+     }
+ 
+@@ -220,6 +225,7 @@ public class AdminDomainController {
+         List<User> list = userDAO.retrieveActiveUsers();
+         list.add(new User());
+         model.addAttribute(MODEL_ATTRIBUTE_USERS_LOGIN, list);
++        addEmptyDomainUser(model);
+         return MODEL_VIEW_DOMAINMODIFY;
+     }
+ 
+@@ -318,6 +324,18 @@ public class AdminDomainController {
+      * 
+      * @param domain
+      */
++    /**
++     * adds an empty domain user to the domain in the model, as the form always shows one more (empty) row 
++     * (the form binding of the old template engine grew the list while rendering)
++     */
++    private void addEmptyDomainUser(Model model) {
++        if (model.getAttribute(MODEL_ATTRIBUTE_DOMAIN) instanceof Domain domain) {
++            DomainUser du = new DomainUser();
++            du.setUser(new User());
++            domain.getDomainUserList().add(du);
++        }
++    }
++
+     private void cleanUpDomain(Domain domain) {
+         Iterator<DomainUser> it = domain.getDomainUserList().iterator();
+         while (it.hasNext()) {
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/Domain.java b/src/main/java/de/uni/rostock/ub/purl_server/model/Domain.java
+index 47890f7..4acec44 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/Domain.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/Domain.java
+@@ -18,10 +18,13 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.time.Instant;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
++@TemplateView
+ public class Domain implements PurlServerResponse {
+ 
+     public static final String REGEX_VALID_DOMAINS = "(?!\\badmin\\b|\\bapi\\b|\\binfo\\b|\\bstatic\\b|\\bwebjars\\b).+";
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/DomainUser.java b/src/main/java/de/uni/rostock/ub/purl_server/model/DomainUser.java
+index 67e52f0..80d9fb2 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/DomainUser.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/DomainUser.java
+@@ -18,11 +18,14 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+ 
+ import de.uni.rostock.ub.purl_server.common.DomainUserSerializer;
+ 
+ @JsonSerialize(using = DomainUserSerializer.class)
++@TemplateView
+ public class DomainUser {
+     private int id;
+ 
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/Purl.java b/src/main/java/de/uni/rostock/ub/purl_server/model/Purl.java
+index 54a1540..4b2e1d7 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/Purl.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/Purl.java
+@@ -18,12 +18,15 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.beans.Transient;
+ import java.time.Instant;
+ import java.util.List;
+ 
+ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+ 
++@TemplateView
+ public class Purl implements PurlServerResponse {
+     private int id = -1;
+ 
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/PurlHistory.java b/src/main/java/de/uni/rostock/ub/purl_server/model/PurlHistory.java
+index 8471246..777aac3 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/PurlHistory.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/PurlHistory.java
+@@ -18,10 +18,13 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.time.Instant;
+ 
+ import com.fasterxml.jackson.annotation.JsonIgnore;
+ 
++@TemplateView
+ public class PurlHistory {
+     private int id;
+ 
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/PurlServerError.java b/src/main/java/de/uni/rostock/ub/purl_server/model/PurlServerError.java
+index 050aa91..77732bd 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/PurlServerError.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/PurlServerError.java
+@@ -18,11 +18,14 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+ import org.springframework.http.HttpStatus;
+ 
++@TemplateView
+ public class PurlServerError implements PurlServerResponse {
+     private HttpStatus status;
+ 
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/model/User.java b/src/main/java/de/uni/rostock/ub/purl_server/model/User.java
+index 88eb936..a4b0cf4 100644
+--- a/src/main/java/de/uni/rostock/ub/purl_server/model/User.java
++++ b/src/main/java/de/uni/rostock/ub/purl_server/model/User.java
+@@ -18,8 +18,11 @@
+  */
+ package de.uni.rostock.ub.purl_server.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.time.Instant;
+ 
++@TemplateView
+ public class User {
+     private int id;
+ 
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/web/PageInfo.java b/src/main/java/de/uni/rostock/ub/purl_server/web/PageInfo.java
+new file mode 100644
+index 0000000..7c90aae
+--- /dev/null
++++ b/src/main/java/de/uni/rostock/ub/purl_server/web/PageInfo.java
+@@ -0,0 +1,61 @@
++/*
++ * Copyright 2021 University Library, 18051 Rostock, Germany
++ *
++ * This file is part of the application "PURL Server".
++ * https://github.com/ubrostock/purl_server
++ * 
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *   http://www.apache.org/licenses/LICENSE-2.0
++
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package de.uni.rostock.ub.purl_server.web;
++
++import dev.tessera.runtime.SafeHtml;
++import dev.tessera.runtime.TemplateView;
++
++/**
++ * Values every page layout needs: the locale and the configurable HTML fragments
++ */
++@TemplateView
++public class PageInfo {
++    private final String lang;
++
++    private final String locale;
++
++    private final SafeHtml titleHtml;
++
++    private final SafeHtml footerHtml;
++
++    public PageInfo(String lang, String locale, SafeHtml titleHtml, SafeHtml footerHtml) {
++        this.lang = lang;
++        this.locale = locale;
++        this.titleHtml = titleHtml;
++        this.footerHtml = footerHtml;
++    }
++
++    /** the language of the current locale, e.g. "de" */
++    public String getLang() {
++        return lang;
++    }
++
++    /** the current locale as string, e.g. "de" or "en" */
++    public String getLocale() {
++        return locale;
++    }
++
++    public SafeHtml getTitleHtml() {
++        return titleHtml;
++    }
++
++    public SafeHtml getFooterHtml() {
++        return footerHtml;
++    }
++}
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/web/PageModelAdvice.java b/src/main/java/de/uni/rostock/ub/purl_server/web/PageModelAdvice.java
+new file mode 100644
+index 0000000..6bbcdea
+--- /dev/null
++++ b/src/main/java/de/uni/rostock/ub/purl_server/web/PageModelAdvice.java
+@@ -0,0 +1,62 @@
++/*
++ * Copyright 2021 University Library, 18051 Rostock, Germany
++ *
++ * This file is part of the application "PURL Server".
++ * https://github.com/ubrostock/purl_server
++ * 
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *   http://www.apache.org/licenses/LICENSE-2.0
++
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package de.uni.rostock.ub.purl_server.web;
++
++import java.util.Locale;
++
++import org.springframework.core.env.Environment;
++import org.springframework.web.bind.annotation.ControllerAdvice;
++import org.springframework.web.bind.annotation.ModelAttribute;
++
++import dev.tessera.runtime.HtmlPolicy;
++import dev.tessera.runtime.SafeHtml;
++
++/**
++ * Provides the model attribute "page" for the page layout of all views.
++ */
++@ControllerAdvice
++public class PageModelAdvice {
++    public static final String MODEL_ATTRIBUTE_PAGE = "page";
++
++    // markup allowed in the configurable HTML fragments (purl_server.web.html_fragment.*)
++    private static final HtmlPolicy FRAGMENT_POLICY = HtmlPolicy.builder()
++        .allowElements("h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span", "hr", "br", "b", "i", "em", "strong",
++            "small", "a", "img")
++        .allowAttributes("title", "alt")
++        .allowClasses("m-*", "mt-*", "mb-*", "ms-*", "me-*", "mx-*", "my-*", "p-*", "pt-*", "pb-*", "ps-*", "pe-*",
++            "px-*", "py-*", "text-*", "fs-*", "fw-*", "float-*", "d-*", "col", "col-*", "row")
++        .build();
++
++    private final Environment environment;
++
++    public PageModelAdvice(Environment environment) {
++        this.environment = environment;
++    }
++
++    @ModelAttribute(MODEL_ATTRIBUTE_PAGE)
++    public PageInfo page(Locale locale) {
++        return new PageInfo(locale.getLanguage(), locale.toString(),
++            fragment("purl_server.web.html_fragment.title"), fragment("purl_server.web.html_fragment.footer"));
++    }
++
++    private SafeHtml fragment(String property) {
++        String html = environment.getProperty(property);
++        return html == null ? null : SafeHtml.sanitize(html, FRAGMENT_POLICY);
++    }
++}
+diff --git a/src/main/java/de/uni/rostock/ub/purl_server/web/ViewFunctions.java b/src/main/java/de/uni/rostock/ub/purl_server/web/ViewFunctions.java
+new file mode 100644
+index 0000000..9e18ceb
+--- /dev/null
++++ b/src/main/java/de/uni/rostock/ub/purl_server/web/ViewFunctions.java
+@@ -0,0 +1,60 @@
++/*
++ * Copyright 2021 University Library, 18051 Rostock, Germany
++ *
++ * This file is part of the application "PURL Server".
++ * https://github.com/ubrostock/purl_server
++ * 
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *   http://www.apache.org/licenses/LICENSE-2.0
++
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package de.uni.rostock.ub.purl_server.web;
++
++import java.time.Instant;
++import java.time.ZoneId;
++import java.time.ZonedDateTime;
++import java.time.format.DateTimeFormatter;
++import java.util.Locale;
++
++import dev.tessera.runtime.TemplateFunction;
++import dev.tessera.runtime.TemplateFunctions;
++
++/**
++ * Template functions for the views
++ */
++@TemplateFunctions("views")
++public final class ViewFunctions {
++    // the format of java.util.Date.toString()
++    private static final DateTimeFormatter DATE_TO_STRING = DateTimeFormatter
++        .ofPattern("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US);
++
++    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
++
++    private ViewFunctions() {
++    }
++
++    /**
++     * formats a timestamp as java.util.Date.toString() does (used by the error page)
++     */
++    @TemplateFunction
++    public static String timestamp(ZonedDateTime timestamp) {
++        return timestamp == null ? null
++            : DATE_TO_STRING.format(timestamp.withZoneSameInstant(ZoneId.systemDefault()));
++    }
++
++    /**
++     * formats an instant as "yyyy-MM-dd HH:mm" in the default time zone
++     */
++    @TemplateFunction
++    public static String dateTime(Instant instant) {
++        return instant == null ? null : DATE_TIME.format(instant.atZone(ZoneId.systemDefault()));
++    }
++}
+diff --git a/src/main/resources/templates/domaincreate.html b/src/main/resources/templates/domaincreate.html
+index 21136fa..abc5124 100644
+--- a/src/main/resources/templates/domaincreate.html
++++ b/src/main/resources/templates/domaincreate.html
+@@ -1,32 +1,95 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, Domain domain, List<User> usersLogin">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Management</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.domain.create.title}">Create a new domain</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.domain.create.created}">
++            <h3 class="card-title" t:text="#{purl_server.domain.create.title}">Domain</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.domain.create.created}">
+               Domain created!</div>
+-            <form th:action="@{/admin/manager/domain/create}" method="post" th:object="${domain}">
+-              <div th:replace="~{fragments/forms :: domainForm}"></div>
++            <form t:action="@{/admin/manager/domain/create}" method="post" t:object="domain">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.path}">Path</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{path}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.name}">Name</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{name}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <div class="col-sm-1 offset-sm-10" style="min-height: 5em;">
++        <label class="col-form-label text-start" t:style="page.lang == 'en' ? 'transform: rotate(-90deg) translate(-2em,-1em);' : 'transform: rotate(-90deg) translate(-1.7em,-1.5em);'"
++          t:text="#{purl_server.domain.form.create}">Create</label>
++      </div>
++      <div class="col-sm-1">
++        <label class="col-form-label text-start" t:style="page.lang == 'en' ? 'transform: rotate(-90deg) translate(-1.7em,-1.4em);' : 'transform: rotate(-90deg) translate(-1.2em,-2em);'"
++          t:text="#{purl_server.domain.form.modify}">Modify</label>
++      </div>
++    </div>
++    <div class="row mb-3" t:each="du, st : domain.domainUserList">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.user} + ' ' + st.count"></label>
++      <div class="col-sm-7">
++        <select class="form-select" t:field="*{domainUserList[st.index].user.login}" t:disabled="submitted != null &amp;&amp; submitted">
++          <option value=""></option>
++          <option t:each="user : usersLogin" t:text="user.fullname" t:value="user.login ?: ''"></option>
++        </select>
++      </div>
++      <div class="col-sm-1">
++        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" t:field="*{domainUserList[st.index].canCreate}"
++          t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++      <div class="col-sm-1">
++        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" t:field="*{domainUserList[st.index].canModify}"
++          t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <div class="col-sm-3"></div>
++      <div class="col-sm-9">
++        <button type="submit" name="addUser" class="btn btn-sm btn-secondary" t:disabled="submitted != null &amp;&amp; submitted"
++          t:text="#{purl_server.domain.form.button.add_user}">Add User</button>
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.comment}">Comment</label>
++      <div class="col-sm-9">
++        <textarea class="form-control" t:field="*{comment}" t:disabled="submitted != null &amp;&amp; submitted"></textarea>
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-9 offset-sm-3">
++        <button type="submit" name="submit" class="btn btn-primary" t:text="#{purl_server.domain.create.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/domain/search}" t:text="#{purl_server.domain.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.domain.create.help})}" class="row mt-3"></div>
+-        <div th:if="${submitted}" th:insert="~{fragments/forms :: nextDomainAction}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div t:if="submitted != null &amp;&amp; submitted" t:insert="~{fragments/forms :: nextDomainAction(domain)}" class="row mt-3"></div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/domaindelete.html b/src/main/resources/templates/domaindelete.html
+index 0e4e0be..9aef992 100644
+--- a/src/main/resources/templates/domaindelete.html
++++ b/src/main/resources/templates/domaindelete.html
+@@ -1,45 +1,47 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean deleted, Domain domain">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Management</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body ">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.domain.delete.title}">Delete a domain</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${deleted}">
+-              <div class="alert alert-success" th:text="#{purl_server.domain.delete.deleted}">Domain deleted!</div>
++            <h3 class="card-title" t:text="#{purl_server.domain.delete.title}">Delete a domain</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="deleted != null &amp;&amp; deleted">
++              <div class="alert alert-success" t:text="#{purl_server.domain.delete.deleted}">Domain deleted!</div>
+             </div>
+-            <form th:action="@{/admin/manager/domain/delete}" method="post" th:object="${domain}" th:if="${domain}">
+-              <input type="hidden" th:field="*{id}" />
++            <form t:action="@{/admin/manager/domain/delete}" method="post" t:object="domain" t:if="domain != null">
++              <input type="hidden" t:field="*{id}" />
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.domain.delete.path}">Path</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.domain.delete.path}">Path</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" th:field="*{path}" disabled />
++                  <input type="text" class="form-control" t:field="*{path}" disabled />
+                 </div>
+               </div>
+-              <div class="row" th:unless="${deleted}">
++              <div class="row" t:unless="deleted != null &amp;&amp; deleted">
+                 <div class="col-sm-6 offset-sm-4">
+-                  <button type="submit" class="btn btn-danger" th:text="#{purl_server.domain.delete.delete}">delete</button>
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/domain/search}" th:text="#{purl_server.domain.form.cancel}">Abbrechen</a>
++                  <button type="submit" class="btn btn-danger" t:text="#{purl_server.domain.delete.delete}">delete</button>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/domain/search}" t:text="#{purl_server.domain.form.cancel}">Abbrechen</a>
+                 </div>
+               </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.domain.delete.help})}" class="row mt-3"></div>
+-        <div th:if="${deleted}" th:insert="~{fragments/forms :: nextDomainAction}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div t:if="deleted != null &amp;&amp; deleted" t:insert="~{fragments/forms :: nextDomainAction(domain)}" class="row mt-3"></div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/domaininfo.html b/src/main/resources/templates/domaininfo.html
+index ace1e4d..b504096 100644
+--- a/src/main/resources/templates/domaininfo.html
++++ b/src/main/resources/templates/domaininfo.html
+@@ -1,17 +1,19 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, Domain domain">
+ <head>
+-<title th:text="#{purl_server.title}">Home: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+     <div class="row my-3">
+-      <div class="col-8" th:utext="${@environment.getProperty('purl_server.web.html_fragment.title')}">
++      <div class="col-8" t:utext="page.titleHtml">
+           PURL Server
+       </div>
+       <div class="col-4">
+-        <div th:replace="~{fragments/page :: switchLang}"></div>
++        <div t:replace="~{fragments/page :: switchLang(page)}"></div>
+       </div>
+     </div>
+     <div class="card">
+@@ -19,17 +21,17 @@
+         <div class="row">
+           <div class="col">
+             <div class="p-1 float-start" style="width:12em">
+-              <h3 th:text="#{purl_server.info.purl.domain}"></h3>
++              <h3 t:text="#{purl_server.info.purl.domain}"></h3>
+             </div>
+             <div class="p-1 float-start">
+-              <h3 th:text="${domain.path}"></h3>
++              <h3 t:text="domain.path"></h3>
+             </div>
+-            <div th:replace="~{fragments/info :: infoDomainTable (${domain})}"></div>
++            <div t:replace="~{fragments/info :: infoDomainTable(domain)}"></div>
+             <div class="p-1" style="margin-left:12em;">
+-              <a class="btn btn-sm btn-outline-secondary float-end" th:href="@{?format=json}">🗎 JSON</a>
+-              <form th:action="@{/admin/manager/purl/search}" method="post" onsubmit="storeFormData()">
+-                <input type="hidden" class="form-control" th:value="${domain.path + '/%'}" name="path" />
+-                <button sec:authorize="isAuthenticated()" type="submit" class="btn btn-sm btn-secondary" th:text="#{purl_server.info.domain.purl_search}">Zugehörige PURLs suchen</button>
++              <a class="btn btn-sm btn-outline-secondary float-end" href="?format=json">🗎 JSON</a>
++              <form t:action="@{/admin/manager/purl/search}" method="post" data-action="store-form-data">
++                <input type="hidden" class="form-control" t:value="domain.path + '/%'" name="path" />
++                <button t:if="auth.isAuthenticated()" type="submit" class="btn btn-sm btn-secondary" t:text="#{purl_server.info.domain.purl_search}">Zugehörige PURLs suchen</button>
+               </form>
+             </div>
+             <script type="text/javascript">
+@@ -39,13 +41,14 @@
+           	    sessionStorage.setItem('purl_search_tombstoned', false);
+           	    return true;
+               }
++              document.querySelector('form[data-action=store-form-data]').addEventListener('submit', storeFormData);
+             </script>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/domainmodify.html b/src/main/resources/templates/domainmodify.html
+index 1bb2d81..bea8e08 100644
+--- a/src/main/resources/templates/domainmodify.html
++++ b/src/main/resources/templates/domainmodify.html
+@@ -1,32 +1,99 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, Domain domain, List<User> usersLogin">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Management</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.domain.modify.title}">Modify a domain</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.domain.modify.modified}">
++            <h3 class="card-title" t:text="#{purl_server.domain.modify.title}">Domain</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.domain.modify.modified}">
+               Domain modified!</div>
+-            <form th:action="@{/admin/manager/domain/modify}" method="post" th:object="${domain}" th:if="${domain}">
+-              <div th:replace="~{fragments/forms :: domainForm}"></div>
++            <form t:action="@{/admin/manager/domain/modify}" method="post" t:object="domain" t:if="domain != null">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.path}">Path</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{path}" t:disabled="submitted != null &amp;&amp; submitted || domain.id != -1" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.name}">Name</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{name}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <div class="col-sm-1 offset-sm-10" style="min-height: 5em;">
++        <label class="col-form-label text-start" t:style="page.lang == 'en' ? 'transform: rotate(-90deg) translate(-2em,-1em);' : 'transform: rotate(-90deg) translate(-1.7em,-1.5em);'"
++          t:text="#{purl_server.domain.form.create}">Create</label>
++      </div>
++      <div class="col-sm-1">
++        <label class="col-form-label text-start" t:style="page.lang == 'en' ? 'transform: rotate(-90deg) translate(-1.7em,-1.4em);' : 'transform: rotate(-90deg) translate(-1.2em,-2em);'"
++          t:text="#{purl_server.domain.form.modify}">Modify</label>
++      </div>
++    </div>
++    <div class="row mb-3" t:each="du, st : domain.domainUserList">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.user} + ' ' + st.count"></label>
++      <div class="col-sm-7">
++        <select class="form-select" t:field="*{domainUserList[st.index].user.login}" t:disabled="submitted != null &amp;&amp; submitted">
++          <option value=""></option>
++          <option t:each="user : usersLogin" t:text="user.fullname" t:value="user.login ?: ''"></option>
++        </select>
++      </div>
++      <div class="col-sm-1">
++        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" t:field="*{domainUserList[st.index].canCreate}"
++          t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++      <div class="col-sm-1">
++        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" t:field="*{domainUserList[st.index].canModify}"
++          t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <div class="col-sm-3"></div>
++      <div class="col-sm-9">
++        <button type="submit" name="addUser" class="btn btn-sm btn-secondary" t:disabled="submitted != null &amp;&amp; submitted"
++          t:text="#{purl_server.domain.form.button.add_user}">Add User</button>
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.form.comment}">Comment</label>
++      <div class="col-sm-9">
++        <textarea class="form-control" t:field="*{comment}" t:disabled="submitted != null &amp;&amp; submitted"></textarea>
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-9 offset-sm-3">
++        <a t:href="'/info/domain' + domain.path" class="btn btn-sm btn-outline-secondary float-end mt-2">
++          &#128712;
++          <span t:text="#{purl_server.domain.form.info}">Info</span>
++        </a>
++        <button type="submit" name="submit" class="btn btn-primary" t:text="#{purl_server.domain.modify.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/domain/search}" t:text="#{purl_server.domain.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.domain.modify.help})}" class="row mt-3"></div>
+-        <div th:if="${submitted}" th:insert="~{fragments/forms :: nextDomainAction}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div t:if="submitted != null &amp;&amp; submitted" t:insert="~{fragments/forms :: nextDomainAction(domain)}" class="row mt-3"></div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/domainsearch.html b/src/main/resources/templates/domainsearch.html
+index 9b5014f..8a9a69e 100644
+--- a/src/main/resources/templates/domainsearch.html
++++ b/src/main/resources/templates/domainsearch.html
+@@ -1,52 +1,54 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String searchPath, String searchName, String searchUser, Boolean searchTombstonedDomain, List<Domain> domains, Boolean moreResults">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Domain Management</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+-<body onload="loadFormData()">
++<body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border mb-3">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <button type="button" class="btn float-end" onclick="clearFormData()" th:title="#{purl_server.domain.search.clear}">&#9253;</button>
+-            <h3 class="card-title" th:text="#{purl_server.domain.search.title}">Search for a domain</h3>
+-            <form th:action="@{/admin/manager/domain/search}" method="post" onsubmit="storeFormData()">
++            <button type="button" class="btn float-end" data-action="clear-form-data" t:title="#{purl_server.domain.search.clear}">&#9253;</button>
++            <h3 class="card-title" t:text="#{purl_server.domain.search.title}">Search for a domain</h3>
++            <form t:action="@{/admin/manager/domain/search}" method="post" data-action="store-form-data">
+               <div class="row mb-3">
+-                <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.search.path}">Path</label>
++                <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.search.path}">Path</label>
+                 <div class="col-sm-9">
+-                  <input type="text" class="form-control" th:value="${searchPath}" name="searchPath" />
++                  <input type="text" class="form-control" t:value="searchPath ?: ''" name="searchPath" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.search.name}">Name</label>
++                <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.search.name}">Name</label>
+                 <div class="col-sm-9">
+-                  <input type="text" class="form-control" th:value="${searchName}" name="searchName" />
++                  <input type="text" class="form-control" t:value="searchName ?: ''" name="searchName" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.search.user}">User</label>
++                <label class="col-sm-3 col-form-label" t:text="#{purl_server.domain.search.user}">User</label>
+                 <div class="col-sm-9">
+-                  <input type="text" class="form-control" th:value=${searchUser} name="searchUser" />
++                  <input type="text" class="form-control" t:value="searchUser ?: ''" name="searchUser" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+                 <div class="col-sm-3"></div>
+                 <div class="col-sm-9">
+                   <div class="form-check">
+-                    <input type="checkbox" class="form-check-input" th:checked="${searchTombstonedDomain}"
++                    <input type="checkbox" class="form-check-input" t:checked="searchTombstonedDomain != null &amp;&amp; searchTombstonedDomain"
+                       name="searchTombstonedDomain" id="tombstoned" />
+-                    <label class="form-check-label" th:text="#{purl_server.domain.search.tombstoned}"
++                    <label class="form-check-label" t:text="#{purl_server.domain.search.tombstoned}"
+                       for="tombstoned">Tombstoned domains</label>
+                   </div>
+                 </div>
+               </div>
+               <div class="row">
+                 <div class="col-sm-9 offset-sm-3">
+-                  <button type="submit" class="btn btn-primary" th:text="#{purl_server.domain.search.search}">Search</button>
++                  <button type="submit" class="btn btn-primary" t:text="#{purl_server.domain.search.search}">Search</button>
+                 </div>
+               </div>
+             </form>
+@@ -80,17 +82,20 @@
+                 document.getElementsByName('searchUser')[0].value = '';
+                 document.getElementsByName('searchTombstonedDomain')[0].checked = false;
+               }
++              window.addEventListener('load', loadFormData);
++              document.querySelector('[data-action=clear-form-data]').addEventListener('click', clearFormData);
++              document.querySelector('form[data-action=store-form-data]').addEventListener('submit', storeFormData);
+              </script>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.domain.search.help})}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
+       </div>
+     </div>
+     <div class="row">
+       <div class="col">
+-        <p class="alert alert-info" th:if="${domains != null && #lists.size(domains) == 0}"
+-          th:text="#{purl_server.common.search.result.empty}"></p>
+-        <p class="alert alert-info" th:if="${moreResults}" th:text="#{purl_server.common.search.result.more}"></p>
++        <p class="alert alert-info" t:if="domains != null &amp;&amp; domains.isEmpty()"
++          t:text="#{purl_server.common.search.result.empty}"></p>
++        <p class="alert alert-info" t:if="moreResults != null &amp;&amp; moreResults" t:text="#{purl_server.common.search.result.more}"></p>
+         <table class="table table-striped table-sm mt-3" aria-label="Domain search result">
+           <colgroup>
+             <col style="width: auto;"/>
+@@ -99,39 +104,41 @@
+             <col style="width: auto;"/>
+             <col style="width: 7.5em;"/>
+           </colgroup>
++          <tbody>
+           <tr>
+-            <th th:text="#{purl_server.domain.search.table.path}">Path</th>
+-            <th th:text="#{purl_server.domain.search.table.name}">Name</th>
+-            <th th:text="#{purl_server.domain.search.table.user}">User</th>
+-            <th th:text="#{purl_server.domain.search.table.status}">Status</th>
++            <th t:text="#{purl_server.domain.search.table.path}">Path</th>
++            <th t:text="#{purl_server.domain.search.table.name}">Name</th>
++            <th t:text="#{purl_server.domain.search.table.user}">User</th>
++            <th t:text="#{purl_server.domain.search.table.status}">Status</th>
+             <th></th>
+           </tr>
+-          <tr th:each="d : ${domains}">
+-            <td th:text="${d.path}"></td>
+-            <td th:text="${d.name}"></td>
++          <tr t:each="d : ${domains}">
++            <td t:text="d.path"></td>
++            <td t:text="d.name"></td>
+             <td>
+-              <span th:each="du : ${d.domainUserList}">
+-                <span th:text="${du.user.login}"></span>
+-                <span th:if="${du.canCreate}">(c)</span>
+-                <span th:if="${du.canModify}">(m)</span>
++              <span t:each="du : ${d.domainUserList}">
++                <span t:text="du.user.login"></span>
++                <span t:if="du.canCreate">(c)</span>
++                <span t:if="du.canModify">(m)</span>
+                 <br />
+               </span>
+             </td>
+-            <td th:text="${d.status}"></td>
++            <td t:text="d.status"></td>
+             <td>
+               <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;"
+-                 th:href="@{/info/domain__*{d.path}__}" th:title="#{purl_server.domain.search.table.info}">&#128712;</a>
++                 t:href="'/info/domain' + d.path" t:title="#{purl_server.domain.search.table.info}">&#128712;</a>
+               <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;"
+-                 th:href="@{/admin/manager/domain/modify?id=__${d.id}__}" th:title="#{purl_server.domain.search.table.modify}" sec:authorize="hasRole('ROLE_ADMIN')">&#x270F;&#xFE0E;</a>
+-              <a class="btn btn-sm btn-outline-secondary" th:classappend="${#strings.toString(d.status) == 'DELETED'} ? 'disabled'" style="min-width: 2.3em;"
+-                 th:href="@{/admin/manager/domain/delete?id=__${d.id}__}" th:title="#{purl_server.domain.search.table.delete}" sec:authorize="hasRole('ROLE_ADMIN')">&#x1F5D1;&#xFE0E;</a>
++                 t:href="@{/admin/manager/domain/modify(id=d.id)}" t:title="#{purl_server.domain.search.table.modify}" t:if="auth.hasRole('ROLE_ADMIN')">&#x270F;&#xFE0E;</a>
++              <a class="btn btn-sm btn-outline-secondary" t:classappend="d.status == 'DELETED' ? 'disabled'" style="min-width: 2.3em;"
++                 t:href="@{/admin/manager/domain/delete(id=d.id)}" t:title="#{purl_server.domain.search.table.delete}" t:if="auth.hasRole('ROLE_ADMIN')">&#x1F5D1;&#xFE0E;</a>
+             </td>
+           </tr>
++          </tbody>
+         </table>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/error.html b/src/main/resources/templates/error.html
+index affa02f..c3f4e1d 100644
+--- a/src/main/resources/templates/error.html
++++ b/src/main/resources/templates/error.html
+@@ -1,42 +1,44 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, ZonedDateTime timestamp, String error, String message, Integer status, String trace, String exception">
+ <head>
+-<title th:text="#{purl_server.title}">Home: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div sec:authorize="isAuthenticated()" th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:if="auth.isAuthenticated()" t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h2 th:text="#{purl_server.error.title}">Error</h2>
++        <h2 t:text="#{purl_server.error.title}">Error</h2>
+         <table class="table table-sm" aria-label="Error information">
+           <colgroup>
+             <col style="min-width: 10em; width: 10em" />
+           </colgroup>
+           <tr>
+-            <th th:text="#{purl_server.error.table.timestamp}">timestamp</th>
+-            <td th:text="${timestamp}"></td>
++            <th t:text="#{purl_server.error.table.timestamp}">timestamp</th>
++            <td t:text="views.timestamp(timestamp)"></td>
+           </tr>
+           <tr>
+-            <th th:text="#{purl_server.error.table.error}">error</th>
+-            <td th:text="${error}"></td>
++            <th t:text="#{purl_server.error.table.error}">error</th>
++            <td t:text="error"></td>
+           </tr>
+           <tr>
+-            <th th:text="#{purl_server.error.table.message}">message</th>
+-            <td th:utext="${message}"></td>
++            <th t:text="#{purl_server.error.table.message}">message</th>
++            <td t:text="message"></td>
+           </tr>
+           <tr>
+-            <th th:text="#{purl_server.error.table.status_code}">status code</th>
+-            <td th:text="${status}"></td>
++            <th t:text="#{purl_server.error.table.status_code}">status code</th>
++            <td t:text="status"></td>
+           </tr>
+-          <tr th:if="${trace}" th:unless="${exception} == org.springframework.web.server.ResponseStatusException">
+-            <th th:text="#{purl_server.error.table.stack_trace}">stack trace</th>
++          <tr t:if="trace != null &amp;&amp; exception != 'org.springframework.web.server.ResponseStatusException'">
++            <th t:text="#{purl_server.error.table.stack_trace}">stack trace</th>
+             <td>
+               <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#collapseTrace" role="button">...</a>
+               <div class="collapse" id="collapseTrace">
+-                <textarea th:text="${trace}" class="w-100" disabled rows="20"
++                <textarea t:text="trace" class="w-100" disabled rows="20"
+                   style="white-space: pre; font-family: monospace"></textarea>
+               </div>
+             </td>
+@@ -44,8 +46,8 @@
+         </table>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/fragments/forms.html b/src/main/resources/templates/fragments/forms.html
+index efef149..4762266 100644
+--- a/src/main/resources/templates/fragments/forms.html
++++ b/src/main/resources/templates/fragments/forms.html
+@@ -1,231 +1,36 @@
+-<!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+-<head>
+-  <title>Form fragments</title>
+-</head>
+-<body>
+-  <div th:fragment="domainForm">
+-    <input type="hidden" th:field="*{id}" />
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.form.path}">Path</label>
+-      <div class="col-sm-9">
+-        <input type="text" class="form-control" th:field="*{path}" th:disabled="${submitted} or *{id != -1}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.form.name}">Name</label>
+-      <div class="col-sm-9">
+-        <input type="text" class="form-control" th:field="*{name}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <div class="col-sm-1 offset-sm-10" style="min-height: 5em;">
+-        <label class="col-form-label text-start" th:style="#{purl_server.domain.form.create.css}"
+-          th:text="#{purl_server.domain.form.create}">Create</label>
+-      </div>
+-      <div class="col-sm-1">
+-        <label class="col-form-label text-start" th:style="#{purl_server.domain.form.modify.css}"
+-          th:text="#{purl_server.domain.form.modify}">Modify</label>
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:each="i : ${#numbers.sequence(0, __*{#lists.size(domainUserList)}__)}">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.form.user} + ' ' + ${i+1}"></label>
+-      <div class="col-sm-7">
+-        <select class="form-select" th:field="*{domainUserList[__${i}__].user.login}" th:disabled="${submitted}">
+-          <option value=""></option>
+-          <option th:each="user : ${usersLogin}" th:text="${user.fullname}" th:value="${user.login}"></option>
+-        </select>
+-      </div>
+-      <div class="col-sm-1">
+-        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" th:field="*{domainUserList[__${i}__].canCreate}"
+-          th:disabled="${submitted}" />
+-      </div>
+-      <div class="col-sm-1">
+-        <input type="checkbox" class="purl_server-checkbox form-check-input mx-auto" th:field="*{domainUserList[__${i}__].canModify}"
+-          th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <div class="col-sm-3"></div>
+-      <div class="col-sm-9">
+-        <button type="submit" name="addUser" class="btn btn-sm btn-secondary" th:disabled=${submitted}
+-          th:text="#{purl_server.domain.form.button.add_user}">Add User</button>
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.domain.form.comment}">Comment</label>
+-      <div class="col-sm-9">
+-        <textarea class="form-control" th:field="*{comment}" th:disabled="${submitted}"></textarea>
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:unless="${submitted}">
+-      <div class="col-sm-9 offset-sm-3">
+-        <a th:href="@{/info/domain__*{path}__}" class="btn btn-sm btn-outline-secondary float-end mt-2"
+-          th:unless="${form == 'create'}">
+-          &#128712;
+-          <span th:text="#{purl_server.domain.form.info}">Info</span>
+-        </a>
+-        <button type="submit" name="submit" class="btn btn-primary" th:text="#{purl_server.domain.__${form}__.submit}">Submit</button>
+-        <a class="btn btn-secondary" th:href="@{/admin/manager/domain/search}" th:text="#{purl_server.domain.form.cancel}">Abbrechen</a>
+-      </div>
+-    </div>
+-  </div>
+-
+-  <div th:fragment="userForm">
+-    <input type="hidden" th:field="*{id}" />
+-    <input type="hidden" id="password_sha" th:field="*{passwordSHA}" th:if="${form != 'modify'}" />
+-    <div id="errorPassword" class="alert alert-danger d-none">
+-      <span th:text="#{purl_server.user.create.error_password}">Password and Re-Password are not the same!</span>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.login}">Login</label>
+-      <div class="col-sm-8">
+-        <input type="text" class="form-control" th:field="*{login}" th:disabled="${submitted} or ${form == 'modify'}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.admin}">Admin</label>
+-      <div class="col-sm-2">
+-        <input type="checkbox" class="purl_server-checkbox form-check-input" th:field="*{admin}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.fullname}">Full name</label>
+-      <div class="col-sm-8">
+-        <input type="text" class="form-control" th:field="*{fullname}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.affiliation}">Affiliation</label>
+-      <div class="col-sm-8">
+-        <input type="text" class="form-control" th:field="*{affiliation}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.email}">E-Mail address</label>
+-      <div class="col-sm-8">
+-        <input type="text" class="form-control" th:field="*{email}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:if="${form != 'modify'}">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.password}">Password</label>
+-      <div class="col-sm-8">
+-        <input type="password" id="password" class="form-control" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:if="${form != 'modify'}">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.repassword}">Re-enter password</label>
+-      <div class="col-sm-8">
+-        <input type="password" id="repassword" class="form-control" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.form.comment}">Comment</label>
+-      <div class="col-sm-8">
+-        <textarea class="form-control" th:field="*{comment}" th:disabled="${submitted}"></textarea>
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:unless="${submitted}">
+-      <div class="col-sm-6 offset-sm-4">
+-        <button type="submit" class="btn btn-primary" onclick="return encryptPassword();"
+-          th:text="#{purl_server.user.__${form}__.submit}">Submit</button>
+-        <a class="btn btn-secondary" th:href="@{/admin/manager/user/search}" th:text="#{purl_server.user.form.cancel}">Abbrechen</a>
+-      </div>
+-    </div>
+-    <script type="text/javascript">
+-      function encryptPassword() {
+-        var password = document.getElementById("password").value;
+-        var repassword = document.getElementById("repassword").value;
+-        if (password != null) {
+-          if (password.localeCompare(repassword) == 0) {
+-            document.getElementById("errorPassword").classList.add("d-none");
+-            if (password != "") {
+-              var shaObj = new jsSHA("SHA-1", "TEXT");
+-              shaObj.update(document.getElementById("password").value);
+-              var hash = shaObj.getHash("HEX");
+-              document.getElementById("password_sha").value = hash;
+-            }
+-          } else {
+-            document.getElementById("errorPassword").classList.remove("d-none");
+-            return false;
+-          }
+-        }
+-        return true;
+-      }
+-    </script>
+-  </div>
+-
+-  <div th:fragment="purlForm">
+-    <input type="hidden" th:field="*{id}" />
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.purl.form.path}">Path</label>
+-      <div class="col-sm-9">
+-        <input type="text" class="form-control" th:field="*{path}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.purl.form.type}">Type of PURL</label>
+-      <div class="col-sm-9">
+-        <select class="form-select" th:field="*{type}" th:disabled="${submitted}">
+-          <option value="REDIRECT_302" th:text="#{purl_server.purl.form.type.redirect_302}">Simple redirection to a
+-            target URL (302)</option>
+-          <option value="PARTIAL_302" th:text="#{purl_server.purl.form.type.partial_302}">Partial-redirect PURL</option>
+-        </select>
+-      </div>
+-    </div>
+-    <div class="row mb-3">
+-      <label class="col-sm-3 col-form-label" th:text="#{purl_server.purl.form.target}">Target URL</label>
+-      <div class="col-sm-9">
+-        <input type="text" class="form-control" th:field="*{target}" th:disabled="${submitted}" />
+-      </div>
+-    </div>
+-    <div class="row mb-3" th:unless="${submitted}">
+-      <div class="col-sm-9 offset-sm-3">
+-        <a th:href="@{/info/purl__*{path}__}" class="btn btn-sm btn-outline-secondary float-end mt-2"
+-          th:unless="${form == 'create'}">
+-          &#128712;
+-          <span th:text="#{purl_server.purl.form.info}">Info</span>
+-        </a>
+-        <button type="submit" class="btn btn-primary" th:text="#{purl_server.purl.__${form}__.submit}">Submit</button>
+-        <a class="btn btn-secondary" th:href="@{/admin/manager/purl/search}" th:text="#{purl_server.purl.form.cancel}">Abbrechen</a>
+-      </div>
+-    </div>
+-  </div>
+-  
+-  <div th:fragment="help (text)" class="col offset-3">
++<t:block xmlns:t="https://tessera.dev" t:import="de.uni.rostock.ub.purl_server.model.*">
++  <!--/* form fragments; the forms themselves are written in the pages, as each binds its own form object */-->
++  <div t:fragment="help" class="col offset-3">
+     <button class="btn btn-outline-secondary float-end" data-bs-toggle="collapse" data-bs-target="#collapseHelp" aria-expanded="false" 
+-      aria-controls="collapseHelp" th:text="#{purl_server.common.help}"></button>
++      aria-controls="collapseHelp" t:text="#{purl_server.common.help}"></button>
+     <div class="collapse border p-1" style="min-height: 4em;" id="collapseHelp">
+-      <span class="p-1" th:text="#{purl_server.purl.create.help}">Help...</span>
++      <span class="p-1" t:text="#{purl_server.purl.create.help}">Help...</span>
+     </div>
+   </div>
+   
+-<!--/* global variable purl */-->
+-  <div th:fragment="nextPurlAction" class="col">
+-    <a class="btn btn-secondary" th:href="@{/info/purl__*{purl.path}__}">
++  <div t:fragment="nextPurlAction(Purl purl)" class="col">
++    <a class="btn btn-secondary" t:href="'/info/purl' + purl.path">
+       &#128712;
+-      <span th:text="#{purl_server.purl.form.info}">Info</span>
++      <span t:text="#{purl_server.purl.form.info}">Info</span>
+     </a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/purl/modify?id=__${purl.id}__}"
+-      th:text="#{purl_server.purl.goto.modify}">modify</a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/purl/create}"
+-      th:text="#{purl_server.purl.goto.create}">Create a new purl</a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/purl/search}"
+-      th:text="#{purl_server.purl.goto.search}">Search for a purl</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/purl/modify(id=purl.id)}"
++      t:text="#{purl_server.purl.goto.modify}">modify</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/purl/create}"
++      t:text="#{purl_server.purl.goto.create}">Create a new purl</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/purl/search}"
++      t:text="#{purl_server.purl.goto.search}">Search for a purl</a>
+   </div>
+   
+-  <!--/* global variable domain */-->
+-  <div th:fragment="nextDomainAction" class="col">
+-	<a class="btn btn-secondary" th:href="@{/info/domain__*{domain.path}__}">
++  <div t:fragment="nextDomainAction(Domain domain)" class="col">
++	<a class="btn btn-secondary" t:href="'/info/domain' + domain.path">
+       &#128712;
+-      <span th:text="#{purl_server.purl.form.info}">Info</span>
++      <span t:text="#{purl_server.purl.form.info}">Info</span>
+     </a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/domain/modify?id=__${domain.id}__}"
+-      th:text="#{purl_server.domain.goto.modify}">modify</a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/domain/create}"
+-      th:text="#{purl_server.domain.goto.create}">Create a new domain</a>
+-    <a class="btn btn-secondary" th:href="@{/admin/manager/domain/search}"
+-       th:text="#{purl_server.domain.goto.search}">Search for a domain</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/domain/modify(id=domain.id)}"
++      t:text="#{purl_server.domain.goto.modify}">modify</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/domain/create}"
++      t:text="#{purl_server.domain.goto.create}">Create a new domain</a>
++    <a class="btn btn-secondary" t:href="@{/admin/manager/domain/search}"
++       t:text="#{purl_server.domain.goto.search}">Search for a domain</a>
+   </div>
+-</body>
+-</html>
++</t:block>
+diff --git a/src/main/resources/templates/fragments/info.html b/src/main/resources/templates/fragments/info.html
+index 74f86b8..1b2b18c 100644
+--- a/src/main/resources/templates/fragments/info.html
++++ b/src/main/resources/templates/fragments/info.html
+@@ -1,160 +1,154 @@
+-<!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+-<head>
+-  <title>Info fragments</title>
+-</head>
+-<body>
+-  <div th:fragment="infoDomainTable (domain)">
++<t:block xmlns:t="https://tessera.dev" t:import="de.uni.rostock.ub.purl_server.model.*">
++  <div t:fragment="infoDomainTable(Domain domain)">
+     <table class="table table-sm mt-3" aria-label="Domain information">
+       <colgroup>
+         <col style="width: 12em" />
+-      </colgroup>
++      </colgroup><tbody>
+       <tr>
+-        <th th:text="#{purl_server.info.domain.name}"></th>
+-        <td th:text="${domain.name}"></td>
++        <th t:text="#{purl_server.info.domain.name}"></th>
++        <td t:text="domain.name"></td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.domain.domainuserlist}"></th>
++        <th t:text="#{purl_server.info.domain.domainuserlist}"></th>
+         <td class="pe-0">
+           <table class="table table-sm" aria-label="Domain user information">
+             <colgroup>
+               <col style="min-width: 12em; width: 12em" />
+-            </colgroup>
++            </colgroup><tbody>
+             <tr>
+-              <th class="border-top-0" th:text="#{purl_server.info.domain.domainuserlist.user}"></th>
+-              <th class="border-top-0" th:text="#{purl_server.info.domain.domainuserlist.cancreate}"></th>
+-              <th class="border-top-0" th:text="#{purl_server.info.domain.domainuserlist.canmodify}"></th>
++              <th class="border-top-0" t:text="#{purl_server.info.domain.domainuserlist.user}"></th>
++              <th class="border-top-0" t:text="#{purl_server.info.domain.domainuserlist.cancreate}"></th>
++              <th class="border-top-0" t:text="#{purl_server.info.domain.domainuserlist.canmodify}"></th>
+             </tr>
+-            <tr th:each="user : ${domain.domainUserList}">
+-              <td th:text="${user.user.login}"></td>
+-              <td><input type="checkbox" th:checked="${user.canCreate}" disabled="disabled" /></td>
+-              <td><input type="checkbox" th:checked="${user.canModify}" disabled="disabled" /></td>
++            <tr t:each="user : domain.domainUserList">
++              <td t:text="user.user.login"></td>
++              <td><input type="checkbox" t:checked="user.canCreate" disabled="disabled" /></td>
++              <td><input type="checkbox" t:checked="user.canModify" disabled="disabled" /></td>
+             </tr>
+-          </table>
++          </tbody></table>
+         </td>
+       </tr>
+-      <tr th:if="${!#strings.isEmpty(domain.comment)}">
+-        <th th:text="#{purl_server.info.domain.comment}"></th>
+-        <td th:text="${domain.comment}"></td>
++      <tr t:if="!strings.isEmpty(domain.comment)">
++        <th t:text="#{purl_server.info.domain.comment}"></th>
++        <td t:text="domain.comment"></td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.common.created}"></th>
++        <th t:text="#{purl_server.info.common.created}"></th>
+         <td>
+-          <label th:text="#{purl_server.info.common.at}"></label>
+-          <span th:text="${#temporals.format(domain.created, 'yyyy-MM-dd HH:mm')}"></span>
++          <label t:text="#{purl_server.info.common.at}"></label>
++          <span t:text="views.dateTime(domain.created)"></span>
+       </td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.common.modified}"></th>
++        <th t:text="#{purl_server.info.common.modified}"></th>
+         <td>
+-          <label th:text="#{purl_server.info.common.at}"></label>
+-          <span th:text="${#temporals.format(domain.lastmodified, 'yyyy-MM-dd HH:mm')}"></span>
++          <label t:text="#{purl_server.info.common.at}"></label>
++          <span t:text="views.dateTime(domain.lastmodified)"></span>
+       </td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.domain.status}"></th>
+-        <td th:text="${domain.status}"></td>
++        <th t:text="#{purl_server.info.domain.status}"></th>
++        <td t:text="domain.status"></td>
+       </tr>
+-    </table>
++    </tbody></table>
+   </div>
+ 
+-  <div th:fragment="infoPurlTable (purl)">
++  <div t:fragment="infoPurlTable(Purl purl, String purl_target_suffix, String purl_created_by, String purl_lastmodified_by)">
+     <table class="table table-sm" aria-label="PURL information">
+       <colgroup>
+         <col style="width: 12em" />
+-      </colgroup>
++      </colgroup><tbody>
+       <tr>
+-        <th class="h5" th:text="#{purl_server.info.purl.path}"></th>
+-        <td><span class="h5" th:text="${purl.path}"></span></td>
++        <th class="h5" t:text="#{purl_server.info.purl.path}"></th>
++        <td><span class="h5" t:text="purl.path"></span></td>
+       </tr>
+       <tr id="accordionDomain">
+-        <th class="h5" th:text="#{purl_server.info.purl.domain}"></th>
+-        <td class="pe-0"><span class="h5" th:text="${purl.domain.path}"></span> 
++        <th class="h5" t:text="#{purl_server.info.purl.domain}"></th>
++        <td class="pe-0"><span class="h5" t:text="purl.domain.path"></span> 
+           <a class="btn btn-sm btn-outline-secondary px-1 py-0 ms-3" data-bs-toggle="collapse" data-bs-target="#collapseDomain"
+-             th:title="#{purl_server.info.more}" aria-expanded="true" aria-controlls="collapseDomain">▼</a>
++             t:title="#{purl_server.info.more}" aria-expanded="true" aria-controlls="collapseDomain">▼</a>
+           <div id="collapseDomain" class="collapse" data-bs-parent="#accordionDomain">
+-            <div th:replace="~{fragments/info :: infoDomainTable (${purl.domain})}"></div>
++            <div t:replace="~{fragments/info :: infoDomainTable(purl.domain)}"></div>
+           </div></td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.purl.type}"></th>
+-        <td th:text="${purl.type}"></td>
++        <th t:text="#{purl_server.info.purl.type}"></th>
++        <td t:text="purl.type"></td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.purl.target}"></th>
+-        <td><span th:text="${purl.target}"></span><span class="fst-italic" th:if="${purl_target_suffix}"
+-          th:text="${purl_target_suffix}"></span></td>
++        <th t:text="#{purl_server.info.purl.target}"></th>
++        <td><span t:text="purl.target"></span><span class="fst-italic" t:if="purl_target_suffix != null"
++          t:text="purl_target_suffix"></span></td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.common.created}"></th>
++        <th t:text="#{purl_server.info.common.created}"></th>
+         <td>
+-          <label th:text="#{purl_server.info.common.at}"></label>
+-          <span th:text="${#temporals.format(purl.created, 'yyyy-MM-dd HH:mm')}"></span>
+-          <label class="ms-3" th:text="#{purl_server.info.common.by}"></label>
+-          <span th:text="${purl_created_by}"></span>
++          <label t:text="#{purl_server.info.common.at}"></label>
++          <span t:text="views.dateTime(purl.created)"></span>
++          <label class="ms-3" t:text="#{purl_server.info.common.by}"></label>
++          <span t:text="purl_created_by"></span>
+         </td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.common.modified}"></th>
++        <th t:text="#{purl_server.info.common.modified}"></th>
+         <td>
+-          <label th:text="#{purl_server.info.common.at}"></label>
+-          <span th:text="${#temporals.format(purl.lastmodified, 'yyyy-MM-dd HH:mm')}"></span>
+-          <label class="ms-3" th:text="#{purl_server.info.common.by}"></label>
+-          <span th:text="${purl_lastmodified_by}"></span>
++          <label t:text="#{purl_server.info.common.at}"></label>
++          <span t:text="views.dateTime(purl.lastmodified)"></span>
++          <label class="ms-3" t:text="#{purl_server.info.common.by}"></label>
++          <span t:text="purl_lastmodified_by"></span>
+         </td>
+       </tr>
+       <tr>
+-        <th th:text="#{purl_server.info.purl.status}"></th>
+-        <td th:text="${purl.status}"></td>
++        <th t:text="#{purl_server.info.purl.status}"></th>
++        <td t:text="purl.status"></td>
+       </tr>
+-      <tr id="accordionPurlHistory" th:if="${purl.purlHistory.size > 1}">
+-        <th th:text="#{purl_server.info.purl.purlhistory}"></th>
+-        <td class="pe-0"><span th:text="${purl.purlHistory.size-1}"></span> <span
+-          th:text="#{purl_server.info.purl.purlhistory.entry}"></span> <a
++      <tr id="accordionPurlHistory" t:if="purl.purlHistory.size() > 1">
++        <th t:text="#{purl_server.info.purl.purlhistory}"></th>
++        <td class="pe-0"><span t:text="purl.purlHistory.size() - 1"></span> <span
++          t:text="#{purl_server.info.purl.purlhistory.entry}"></span> <a
+           class="btn btn-sm btn-outline-secondary px-1 py-0 ms-3" data-bs-toggle="collapse"
+           data-bs-target="#collapsePurlHistory" aria-expanded="true" aria-controlls="collapsePurlHistory">▼</a>
+           <div id="collapsePurlHistory" class="collapse" data-bs-parent="#accordionPurlHistory">
+-            <table class="table table-sm mb-0" aria-label="PURL history information" th:each="entry, iterStat : ${purl.purlHistory}">
++            <table class="table table-sm mb-0" aria-label="PURL history information" t:each="entry, iterStat : purl.purlHistory">
+               <colgroup>
+                 <col style="width: 3em" />
+-              </colgroup>
+-              <tr th:if="${!iterStat.first}">
+-                <th th:classappend="${iterStat.index == 1} ? 'border-top-0'">
+-                  <div class="fw-bold pt-1" th:text="${iterStat.index}"></div>
++              </colgroup><tbody>
++              <tr t:unless="iterStat.first">
++                <th t:classappend="iterStat.index == 1 ? 'border-top-0'">
++                  <div class="fw-bold pt-1" t:text="iterStat.index"></div>
+                 </th>
+-                <td class="pe-0" th:classappend="${iterStat.index == 1} ? 'border-top-0'">
++                <td class="pe-0" t:classappend="iterStat.index == 1 ? 'border-top-0'">
+                   <table class="table table-sm mb-0" aria-label="PURL history entry information">
+                     <colgroup>
+                       <col style="width: 9em" />
+-                    </colgroup>
++                    </colgroup><tbody>
+                     <tr>
+-                      <th class="border-top-0" th:text="#{purl_server.info.purl.purlhistory.status}"></th>
+-                      <td class="border-top-0" th:text="${entry.status}"></td>
++                      <th class="border-top-0" t:text="#{purl_server.info.purl.purlhistory.status}"></th>
++                      <td class="border-top-0" t:text="entry.status"></td>
+                     </tr>
+                     <tr>
+-                      <th th:text="#{purl_server.info.purl.purlhistory.type}"></th>
+-                      <td th:text="${entry.type}"></td>
++                      <th t:text="#{purl_server.info.purl.purlhistory.type}"></th>
++                      <td t:text="entry.type"></td>
+                     </tr>
+                     <tr>
+-                      <th th:text="#{purl_server.info.purl.purlhistory.target}"></th>
+-                      <td th:text="${entry.target}"></td>
++                      <th t:text="#{purl_server.info.purl.purlhistory.target}"></th>
++                      <td t:text="entry.target"></td>
+                     </tr>
+                     <tr>
+-                      <th th:text="#{purl_server.info.common.modified}"></th>
++                      <th t:text="#{purl_server.info.common.modified}"></th>
+                       <td>
+-                        <label th:text="#{purl_server.info.common.at}"></label>
+-                        <span th:text="${#temporals.format(entry.lastmodified, 'yyyy-MM-dd HH:mm')}"></span>
+-                        <label class="ms-3" th:text="#{purl_server.info.common.by}"></label>
+-                        <span th:text="${entry.user}"></span>
++                        <label t:text="#{purl_server.info.common.at}"></label>
++                        <span t:text="views.dateTime(entry.lastmodified)"></span>
++                        <label class="ms-3" t:text="#{purl_server.info.common.by}"></label>
++                        <span t:text="entry.user"></span>
+                       </td>
+                     </tr>
+-                  </table>
++                  </tbody></table>
+                 </td>
+               </tr>
+-            </table>
++            </tbody></table>
+           </div></td>
+       </tr>
+-    </table>
++    </tbody></table>
+   </div>
+-</body>
+-</html>
++</t:block>
+diff --git a/src/main/resources/templates/fragments/page.html b/src/main/resources/templates/fragments/page.html
+index 3a01cc5..aaa704c 100644
+--- a/src/main/resources/templates/fragments/page.html
++++ b/src/main/resources/templates/fragments/page.html
+@@ -1,10 +1,9 @@
+-<!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+-<head>
+-  <title>Page fragments</title>
+-  <meta th:fragment="html_header" http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+-  <link th:fragment="html_header" rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
+-  <style th:fragment="html_header">
++<t:block xmlns:t="https://tessera.dev" t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo">
++  <!--/* page fragments */-->
++  <t:block t:fragment="html_header">
++  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
++  <link rel="stylesheet" t:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
++  <style>
+     .purl_server-checkbox {
+       min-width: 2rem;
+       min-height: 2rem;
+@@ -14,101 +13,100 @@
+ 		background-color: var(--bs-secondary-bg);
+ 	}
+   </style>
+-</head>
+-<body>
+-  <div th:fragment="title">
++  </t:block>
++
++  <!--/* Thymeleaf's selector "title" also matched the <title> of this file, which the pages wrote into their body */-->
++  <t:block t:fragment="title(PageInfo page)"><title>Page fragments</title><div>
+     <div class="row my-3">
+-      <div class="col-8" th:utext="${@environment.getProperty('purl_server.web.html_fragment.title')}">
++      <div class="col-8" t:utext="page.titleHtml">
+           PURL Server
+       </div>
+       <div class="col-4">
+-        <div th:replace="~{fragments/page :: switchLang}"></div>
+-        <form th:action="@{/admin/logout}" method="POST" class="mt-2 float-end"
+-          sec:authorize="isAuthenticated()">
++        <div t:replace="~{fragments/page :: switchLang(page)}"></div>
++        <form t:if="auth.isAuthenticated()" t:action="@{/admin/logout}" method="POST" class="mt-2 float-end">
+           <div class="input-group input-group-sm">
+-             <span class="input-group-text" th:text="#{purl_server.fragments.page.nav.dropdown.user}">User:</span>
+-		     <input type="text" class="form-control bg-white" th:value="${#authentication.name}" readonly style="min-width:4em" >
++             <span class="input-group-text" t:text="#{purl_server.fragments.page.nav.dropdown.user}">User:</span>
++		     <input type="text" class="form-control bg-white" t:value="auth.name()" readonly style="min-width:4em" >
+              <button type=submit class="btn btn-sm btn-secondary float-end" 
+-                     th:text="#{purl_server.fragments.page.nav.dropdown.logout}">Logout</button>
++                     t:text="#{purl_server.fragments.page.nav.dropdown.logout}">Logout</button>
+           </div>
+         </form>
+-        <a class="btn btn-sm btn-secondary float-end mt-2" th:href="@{/admin/login}"
+-          th:text="#{purl_server.login.button.login}" sec:authorize="!isAuthenticated()">Login</a>        
++        <a t:unless="auth.isAuthenticated()" class="btn btn-sm btn-secondary float-end mt-2" t:href="@{/admin/login}"
++          t:text="#{purl_server.login.button.login}">Login</a>        
+       </div>
+     </div>
+-  </div>
++  </div></t:block>
+ 
+-  <div class="dropdown float-end" th:fragment="switchLang">
++  <div class="dropdown float-end" t:fragment="switchLang(PageInfo page)">
+     <button class="btn btn-sm btn-outline-dark dropdown-toggle px-1 py-0 ms-3 mt-2" type="button"
+       id="switchLang" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true" style="border-color: #ced4da; height:2.25em">
+-      <img th:src="@{/static/images/flags/__${#locale}__.png}" alt="de" th:alt="#{purl_server.common.lang.__${#locale}__}" />
++      <img t:src="@{/static/images/flags/{locale}.png(locale=page.locale)}" alt="de" t:alt="page.locale == 'en' ? #{purl_server.common.lang.en} : #{purl_server.common.lang.de}" />
+       <span class="caret"></span>
+     </button>
+     <div class="dropdown-menu" aria-labelledby="switchLang">
+-      <a class="dropdown-item text-body" th:href="@{'?&lang=de'}">
+-        <img th:src="@{/static/images/flags/de.png}" alt="de" th:alt="#{purl_server.common.lang.de}" />
+-        <span th:text="#{purl_server.common.lang.de}"></span>
++      <a class="dropdown-item text-body" href="?&amp;lang=de">
++        <img t:src="@{/static/images/flags/de.png}" alt="de" t:alt="#{purl_server.common.lang.de}" />
++        <span t:text="#{purl_server.common.lang.de}"></span>
+       </a>
+-      <a class="dropdown-item text-body" th:href="@{'?&lang=en'}">
+-        <img th:src="@{/static/images/flags/en.png}" alt="en" th:alt="#{purl_server.common.lang.en}" />
+-        <span th:text="#{purl_server.common.lang.en}"></span>
++      <a class="dropdown-item text-body" href="?&amp;lang=en">
++        <img t:src="@{/static/images/flags/en.png}" alt="en" t:alt="#{purl_server.common.lang.en}" />
++        <span t:text="#{purl_server.common.lang.en}"></span>
+       </a>
+     </div>
+   </div>
+ 
+-  <div class="row" th:fragment="navigation">
++  <div class="row" t:fragment="navigation">
+     <div class="col bg-light mx-3 px-0 mb-3">
+       <nav class="navbar navbar-expand-lg navbar-light">
+         <div class="container-fluid">
+-          <a class="navbar-brand pt-0" th:href="@{/admin/manager}" th:text="#{purl_server.fragments.page.nav.title}"></a>
++          <a class="navbar-brand pt-0" t:href="@{/admin/manager}" t:text="#{purl_server.fragments.page.nav.title}"></a>
+           <div class="collapse navbar-collapse">
+             <ul class="navbar-nav me-auto">
+               <li class="nav-item dropdown">
+                 <a class="nav-link dropdown-toggle" id="purlDropdown" data-bs-toggle="dropdown" role="button"
+                   aria-haspopup="true" aria-expanded="false"
+-                  th:text="#{purl_server.fragments.page.nav.dropdown.purl.title}">
++                  t:text="#{purl_server.fragments.page.nav.dropdown.purl.title}">
+                   PURLs
+                   <span class="caret"></span>
+                 </a>
+                 <ul class="dropdown-menu">
+-                  <li><a class="dropdown-item" id="dropdownCreatePurl" th:href="@{/admin/manager/purl/create}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.purl.create}">Create a new PURL</a></li>
+-                  <li><a class="dropdown-item" id="dropdownSearchPurl" th:href="@{/admin/manager/purl/search}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.purl.search}">Search for a PURL</a></li>
++                  <li><a class="dropdown-item" id="dropdownCreatePurl" t:href="@{/admin/manager/purl/create}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.purl.create}">Create a new PURL</a></li>
++                  <li><a class="dropdown-item" id="dropdownSearchPurl" t:href="@{/admin/manager/purl/search}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.purl.search}">Search for a PURL</a></li>
+                 </ul>
+               </li>
+               <li class="nav-item dropdown">
+                 <a class="nav-link dropdown-toggle" id="domainDropdown" data-bs-toggle="dropdown" role="button"
+                   aria-haspopup="true" aria-expanded="false"
+-                  th:text="#{purl_server.fragments.page.nav.dropdown.domain.title}">
++                  t:text="#{purl_server.fragments.page.nav.dropdown.domain.title}">
+                   Domains
+                   <span class="caret"></span>
+                 </a>
+                 <ul class="dropdown-menu" aria-labelledby="domainDropdown">
+-                  <li><a class="dropdown-item" id="dropdownCreateDomain" th:href="@{/admin/manager/domain/create}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.domain.create}"
+-                    sec:authorize="hasRole('ROLE_ADMIN')">Create a new domain</a></li>
+-                  <li><a class="dropdown-item" id="dropdownSearchDomain" th:href="@{/admin/manager/domain/search}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.domain.search}">Search for a domain</a></li>
++                  <li><a t:if="auth.hasRole('ROLE_ADMIN')" class="dropdown-item" id="dropdownCreateDomain" t:href="@{/admin/manager/domain/create}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.domain.create}">Create a new domain</a></li>
++                  <li><a class="dropdown-item" id="dropdownSearchDomain" t:href="@{/admin/manager/domain/search}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.domain.search}">Search for a domain</a></li>
+                 </ul>
+               </li>
+-              <li class="nav-item dropdown" sec:authorize="hasRole('ROLE_ADMIN')">
++              <li t:if="auth.hasRole('ROLE_ADMIN')" class="nav-item dropdown">
+                 <a class="nav-link dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" role="button"
+                   aria-haspopup="true" aria-expanded="false"
+-                  th:text="#{purl_server.fragments.page.nav.dropdown.user.title}">
++                  t:text="#{purl_server.fragments.page.nav.dropdown.user.title}">
+                   Users
+                   <span class="caret"></span>
+                 </a>
+                 <ul class="dropdown-menu" aria-labelledby="userDropdown">
+-                  <li><a class="dropdown-item" id="dropdownRegisterUser" th:href="@{/admin/manager/user/create}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.user.create}">Register a new user</a></li>
+-                  <li><a class="dropdown-item" id="dropdownSearchUser" th:href="@{/admin/manager/user/search}"
+-                    th:text="#{purl_server.fragments.page.nav.dropdown.user.search}">Search for a user</a></li>
++                  <li><a class="dropdown-item" id="dropdownRegisterUser" t:href="@{/admin/manager/user/create}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.user.create}">Register a new user</a></li>
++                  <li><a class="dropdown-item" id="dropdownSearchUser" t:href="@{/admin/manager/user/search}"
++                    t:text="#{purl_server.fragments.page.nav.dropdown.user.search}">Search for a user</a></li>
+                 </ul>
+               </li>
+               <li class="nav-item">
+-                <a class="nav-link" th:href="@{/admin/manager/help}"
+-                  th:text="#{purl_server.fragments.page.nav.dropdown.help}">Help</a>
++                <a class="nav-link" t:href="@{/admin/manager/help}"
++                  t:text="#{purl_server.fragments.page.nav.dropdown.help}">Help</a>
+               </li>
+             </ul>
+           </div>
+@@ -117,20 +115,19 @@
+     </div>
+   </div>
+   
+-  <div class="alert alert-danger" role="alert" th:fragment="errorView (error)" th:unless="${error.ok}">
+-    <h4 th:text="${error.message}"></h4>
++  <div class="alert alert-danger" role="alert" t:fragment="errorView(PurlServerError error)" t:unless="error.ok">
++    <h4 t:text="error.message"></h4>
+     <ul>
+-      <li th:each="err : ${error.details}" th:text="${err}"></li>
++      <li t:each="err : error.details" t:text="err"></li>
+     </ul>
+   </div>
+   
+-  <div th:fragment="footer">
++  <div t:fragment="footer(PageInfo page)">
+     <div class="row my-3">
+-      <div class="col" th:utext="${@environment.getProperty('purl_server.web.html_fragment.footer')}">
++      <div class="col" t:utext="page.footerHtml">
+           (c) Your Company, 2022
+       </div>
+     </div>
+   </div>
+-  <script th:fragment="html_footer" th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
+-</body>
+-</html>
++  <script t:fragment="html_footer" t:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
++</t:block>
+diff --git a/src/main/resources/templates/help.html b/src/main/resources/templates/help.html
+index f03ca2a..ba45d79 100644
+--- a/src/main/resources/templates/help.html
++++ b/src/main/resources/templates/help.html
+@@ -1,21 +1,24 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page">
+ <head>
+ <title>Home: Purl Verwaltung</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card">
+       <div class="card-body">
+         <h3 class="card-title">Help</h3>
+         To be written ...
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/index.html b/src/main/resources/templates/index.html
+index f030d9e..eaded40 100644
+--- a/src/main/resources/templates/index.html
++++ b/src/main/resources/templates/index.html
+@@ -1,20 +1,23 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page">
+ <head>
+-<title th:text="#{purl_server.title}">Home: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div sec:authorize="isAuthenticated()" th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:if="auth.isAuthenticated()" t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <span th:text="#{purl_server.index.title}">Welcome</span>
++        <span t:text="#{purl_server.index.title}">Welcome</span>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/login/email_success.html b/src/main/resources/templates/login/email_success.html
+index 3381ed6..ae25ac2 100644
+--- a/src/main/resources/templates/login/email_success.html
++++ b/src/main/resources/templates/login/email_success.html
+@@ -1,25 +1,27 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+-  xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page">
+ <head>
+-<title th:text="#{purl_server.email_success.title}"></title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.email_success.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h2 th:text="#{purl_server.email_success.heading}">email success</h2>
++        <h2 t:text="#{purl_server.email_success.heading}">success</h2>
+         <div class="row mt-3">
+           <div class="col-6 offset-3">
+-            <p class="alert alert-info" th:text="#{purl_server.email_success.body}">Email success!</p>
++            <p class="alert alert-info" t:text="#{purl_server.email_success.body}">Success!</p>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/login/login.html b/src/main/resources/templates/login/login.html
+index 4134f66..3adafb2 100644
+--- a/src/main/resources/templates/login/login.html
++++ b/src/main/resources/templates/login/login.html
+@@ -1,52 +1,54 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+-  xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String paramError, String paramLogout, String errorMessage">
+ <head>
+-<title th:text="#{purl_server.title}"></title>
+-<meta th:replace="~{fragments/page :: html_header}" />
+-<script type="text/javascript" th:src="@{/static/login/sha1.js}"></script>
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
++<script type="text/javascript" t:src="@{/static/login/sha1.js}"></script>
++
+ </head>
+ <body>
+   <div class="container mb-5">
+-    <div th:replace="~{fragments/page :: title}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h3 class="card-title" th:text="#{purl_server.login.title}">Login</h3>
+-        <div class="alert alert-danger" th:if="${param.error}">
+-          <h5 th:utext="#{purl_server.login.error_message.failed}">Login failed!</h5>
+-          <span th:if="${errorMessage}" th:utext="${errorMessage}">error details</span>
++        <h3 class="card-title" t:text="#{purl_server.login.title}">Login</h3>
++        <div class="alert alert-danger" t:if="paramError != null">
++          <h5 t:utext="#{purl_server.login.error_message.failed}">Login failed!</h5>
++          <span t:if="errorMessage != null" t:text="errorMessage">error details</span>
+         </div>
+-        <div class="alert alert-info" th:if="${param.logout}">
+-          <h5 th:utext="#{purl_server.logout.message}">You have been logged off!</h5>
++        <div class="alert alert-info" t:if="paramLogout != null">
++          <h5 t:utext="#{purl_server.logout.message}">You have been logged off!</h5>
+         </div>
+-        <form th:action="@{/admin/login}" method="post">
++        <form t:action="@{/admin/login}" method="post">
+           <input id="password_sha1" type="hidden" name="password" />
+           <div class="row mb-3">
+             <div class="col-sm-6">
+               <input class="form-control" type="text" name="username"
+-                th:placeholder="#{purl_server.login.placeholder.user}" />
++                t:placeholder="#{purl_server.login.placeholder.user}" />
+             </div>
+           </div>
+           <div class="row mb-3">
+             <div class="col-sm-6">
+               <input id="password_plain" class="form-control" type="password"
+-                th:placeholder="#{purl_server.login.placeholder.password}" />
++                t:placeholder="#{purl_server.login.placeholder.password}" />
+             </div>
+           </div>
+           <div class="row mb-3">
+             <div class="col-6">
+-              <button class="btn btn-primary" type="submit" onclick="encryptPassword();" name="do_login"
+-                th:text="#{purl_server.login.button.login}">Login</button>
+-              <a class="btn btn-link float-end" th:href="@{/admin/login/password}"
+-                th:text="#{purl_server.login.button.password_reset}">Passwort vergessen</a>
++              <button class="btn btn-primary" type="submit" data-action="encrypt-password" name="do_login"
++                t:text="#{purl_server.login.button.login}">Login</button>
++              <a class="btn btn-link float-end" t:href="@{/admin/login/password}"
++                t:text="#{purl_server.login.button.password_reset}">Passwort vergessen</a>
+             </div>
+           </div>
+         </form>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+   <script type="text/javascript">
+ 			function encryptPassword() {
+ 				var shaObj = new jsSHA("SHA-1", "TEXT");
+@@ -55,6 +57,8 @@
+ 				document.getElementById("password_sha1").value = hash;
+ 				return true;
+ 			}
++			document.querySelector('[data-action=encrypt-password]').addEventListener('click', encryptPassword);
+   </script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/login/password_form.html b/src/main/resources/templates/login/password_form.html
+index ceba720..d32a986 100644
+--- a/src/main/resources/templates/login/password_form.html
++++ b/src/main/resources/templates/login/password_form.html
+@@ -1,47 +1,50 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+-  xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity4">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String paramToken, String paramLogin, String errorMessage">
+ <head>
+-<title th:text="#{purl_server.password.title}"></title>
+-<meta th:replace="~{fragments/page :: html_header}" />
+-<script type="text/javascript" th:src="@{/static/login/sha1.js}"></script>
++<title t:text="#{purl_server.password.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
++<script type="text/javascript" t:src="@{/static/login/sha1.js}"></script>
++
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h2 th:text="#{purl_server.password.heading}">Passwort zurücksetzen</h2>
+-        <div class="alert alert-danger" th:if="${!#strings.isEmpty(errorMessage)}" th:text="${errorMessage}"></div>
+-        <form th:action="@{/admin/login/password}" method="post">
+-          <input type="hidden" name="password_reset_token" th:value="${param.token}" />
++        <h2 t:text="#{purl_server.password.heading}">Passwort zurücksetzen</h2>
++        <div class="alert alert-danger" t:unless="strings.isEmpty(errorMessage)" t:text="errorMessage"></div>
++        <form t:action="@{/admin/login/password}" method="post">
++          <input type="hidden" name="password_reset_token" t:value="paramToken ?: ''" />
+           <input id="password_sha1" type="hidden" name="password_sha1" />
+           <div class="row mt-3">
+             <div class="col-4 offset-4">
+               <div class="mb-3">
+                 <input class="form-control" type="text" name="login" disabled
+-                  th:value="${param.login}" />
++                  t:value="paramLogin ?: ''" />
+               </div>
+               <div class="mb-3">
+                 <input id="password" class="form-control" type="password"
+-                  th:placeholder="#{purl_server.password.placeholder.password}" />
++                  t:placeholder="#{purl_server.password.placeholder.password}" />
+               </div>
+               <div class="mb-3">
+                 <input id="password_wdhl" class="form-control" type="password"
+-                  th:placeholder="#{purl_server.password.placeholder.password_repeat}" />
++                  t:placeholder="#{purl_server.password.placeholder.password_repeat}" />
+               </div>
+                 <button class="btn btn-primary" type="submit" name="do_set_password" value="x"
+-                  onclick="return encryptPassword();" th:text="#{purl_server.password.button.password_save}">Passwort
++                  data-action="encrypt-password" t:text="#{purl_server.password.button.password_save}">Passwort
+                   speichern</button>
+             </div>
+           </div>
+         </form>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>~{
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
+-  <script type="text/javascript" th:inline="javascript">
++  <script t:replace="~{fragments/page :: html_footer}"></script>
++  <script type="text/javascript">
++    const msgPasswordsDifferent = [[#{purl_server.error.login.passwords_different}]];
+     function encryptPassword() {
+       try {
+         if (document.getElementById("password").value == document.getElementById("password_wdhl").value) {
+@@ -51,7 +54,7 @@
+           document.getElementById("password_sha1").value = hash;
+           return true;
+         } else {
+-          const msg = /*[[#{purl_server.error.validate.passwords_different}]]*/;
++          const msg = msgPasswordsDifferent;
+           alert(msg);
+         }
+       } catch (err) {
+@@ -59,6 +62,12 @@
+       }
+       return false;
+     }
++    document.querySelector('[data-action=encrypt-password]').addEventListener('click', function(e) {
++      if (!encryptPassword()) {
++        e.preventDefault();
++      }
++    });
+   </script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/login/password_request.html b/src/main/resources/templates/login/password_request.html
+index 7df9667..61fac6d 100644
+--- a/src/main/resources/templates/login/password_request.html
++++ b/src/main/resources/templates/login/password_request.html
+@@ -1,36 +1,39 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+-  xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String errorMessage">
+ <head>
+-<title th:text="#{purl_server.login.title}"></title>
+-<meta th:replace="~{fragments/page :: html_header}" />
+-<script type="text/javascript" th:src="@{/static/login/sha1.js}"></script>
++<title t:text="#{purl_server.login.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
++<script type="text/javascript" t:src="@{/static/login/sha1.js}"></script>
++
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h2 th:text="#{purl_server.password.request.title}">Anfordern</h2>
+-        <div class="alert alert-danger" th:if="${!#strings.isEmpty(errorMessage)}" th:utext="${errorMessage}"></div>
+-        <form th:action="@{/admin/login/password}" method="post">
++        <h2 t:text="#{purl_server.password.request.title}">Anfordern</h2>
++        <div class="alert alert-danger" t:unless="strings.isEmpty(errorMessage)" t:text="errorMessage"></div>
++        <form t:action="@{/admin/login/password}" method="post">
+           <input id="password_sha1" type="hidden" name="password_sha1" />
+           <div class="row mt-3">
+             <div class="col-6 offset-3">
+-              <div class="alert alert-info" role="alert" th:text="#{purl_server.password.request.info}"></div>
++              <div class="alert alert-info" role="alert" t:text="#{purl_server.password.request.info}"></div>
+                 <div class="mb-3">
+                   <input class="form-control" type="text" name="login"
+-                    th:placeholder="#{purl_server.login.placeholder.user}" />
++                    t:placeholder="#{purl_server.login.placeholder.user}" />
+                 </div>
+                 <button class="btn btn-primary" type="submit" name="do_password_reset" value="x"
+-                  th:text="#{purl_server.password.request.button.request}">Anfordern</button>
++                  t:text="#{purl_server.password.request.button.request}">Anfordern</button>
+             </div>
+           </div>
+         </form>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/login/password_success.html b/src/main/resources/templates/login/password_success.html
+index 2714797..b6d2c98 100644
+--- a/src/main/resources/templates/login/password_success.html
++++ b/src/main/resources/templates/login/password_success.html
+@@ -1,25 +1,27 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+-  xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page">
+ <head>
+-<title th:text="#{purl_server.password_success.title}"></title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.password_success.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
+     <div class="card">
+       <div class="card-body">
+-        <h2 th:text="#{purl_server.password_success.heading}">password success</h2>
++        <h2 t:text="#{purl_server.password_success.heading}">success</h2>
+         <div class="row mt-3">
+           <div class="col-6 offset-3">
+-            <p class="alert alert-info" th:text="#{purl_server.password_success.body}">Password success!</p>
++            <p class="alert alert-info" t:text="#{purl_server.password_success.body}">Success!</p>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/purlcreate.html b/src/main/resources/templates/purlcreate.html
+index 72dead9..ec60433 100644
+--- a/src/main/resources/templates/purlcreate.html
++++ b/src/main/resources/templates/purlcreate.html
+@@ -1,32 +1,65 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, Purl purl">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.purl.create.title}">Create a PURL</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.purl.create.created}">
++            <h3 class="card-title" t:text="#{purl_server.purl.create.title}">PURL</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.purl.create.created}">
+               Purl created!</div>
+-            <form th:action="@{/admin/manager/purl/create}" method="post" th:object="${purl}">
+-              <div th:replace="~{fragments/forms :: purlForm}"></div>
++            <form t:action="@{/admin/manager/purl/create}" method="post" t:object="purl">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.path}">Path</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{path}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.type}">Type of PURL</label>
++      <div class="col-sm-9">
++        <select class="form-select" t:field="*{type}" t:disabled="submitted != null &amp;&amp; submitted">
++          <option value="REDIRECT_302" t:text="#{purl_server.purl.form.type.redirect_302}">Simple redirection to a
++            target URL (302)</option>
++          <option value="PARTIAL_302" t:text="#{purl_server.purl.form.type.partial_302}">Partial-redirect PURL</option>
++        </select>
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.target}">Target URL</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{target}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-9 offset-sm-3">
++        <button type="submit" class="btn btn-primary" t:text="#{purl_server.purl.create.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/purl/search}" t:text="#{purl_server.purl.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.purl.create.help})}" class="row mt-3"></div>
+-        <div th:if="${submitted}" th:insert="~{fragments/forms :: nextPurlAction}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div t:if="submitted != null &amp;&amp; submitted" t:insert="~{fragments/forms :: nextPurlAction(purl)}" class="row mt-3"></div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/purldelete.html b/src/main/resources/templates/purldelete.html
+index ba685a4..bcc67d4 100644
+--- a/src/main/resources/templates/purldelete.html
++++ b/src/main/resources/templates/purldelete.html
+@@ -1,45 +1,47 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean deleted, Purl purl">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.purl.delete.title}">Delete a PURL</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${deleted}">
+-              <div class="alert alert-success" th:text="#{purl_server.purl.delete.deleted}">Purl deleted!</div>
++            <h3 class="card-title" t:text="#{purl_server.purl.delete.title}">Delete a PURL</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="deleted != null &amp;&amp; deleted">
++              <div class="alert alert-success" t:text="#{purl_server.purl.delete.deleted}">Purl deleted!</div>
+             </div>
+-            <form th:action="@{/admin/manager/purl/delete}" method="post" th:object="${purl}" th:if="${purl}">
+-              <input type="hidden" th:field="*{id}" />
++            <form t:action="@{/admin/manager/purl/delete}" method="post" t:object="purl" t:if="purl != null">
++              <input type="hidden" t:field="*{id}" />
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.purl.delete.path}">Path</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.purl.delete.path}">Path</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" th:field="*{path}" disabled />
++                  <input type="text" class="form-control" t:field="*{path}" disabled />
+                 </div>
+               </div>
+-              <div class="row" th:unless="${deleted}">
++              <div class="row" t:unless="deleted != null &amp;&amp; deleted">
+                 <div class="col-sm-6 offset-sm-4">
+-                  <button type="submit" class="btn btn-danger" th:text="#{purl_server.purl.delete.delete}">delete</button>
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/purl/search}" th:text="#{purl_server.purl.form.cancel}">Abbrechen</a>
++                  <button type="submit" class="btn btn-danger" t:text="#{purl_server.purl.delete.delete}">delete</button>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/purl/search}" t:text="#{purl_server.purl.form.cancel}">Abbrechen</a>
+                 </div>
+               </div>
+             </form>
+-            <div th:insert="~{fragments/forms :: help (#{purl_server.purl.delete.help})}" class="row mt-3"></div>
+-            <div th:if="${deleted}" th:insert="~{fragments/forms :: nextPurlAction}" class="row mt-3"></div>
++            <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++            <div t:if="deleted != null &amp;&amp; deleted" t:insert="~{fragments/forms :: nextPurlAction(purl)}" class="row mt-3"></div>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/purlinfo.html b/src/main/resources/templates/purlinfo.html
+index 5fb824f..5a47812 100644
+--- a/src/main/resources/templates/purlinfo.html
++++ b/src/main/resources/templates/purlinfo.html
+@@ -1,17 +1,19 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, Purl purl, String purl_url, String purl_target_suffix, String purl_created_by, String purl_lastmodified_by">
+ <head>
+-<title th:text="#{purl_server.title}">Home: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+     <div class="row my-3">
+-      <div class="col-8" th:utext="${@environment.getProperty('purl_server.web.html_fragment.title')}">
++      <div class="col-8" t:utext="page.titleHtml">
+           PURL Server
+       </div>
+       <div class="col-4">
+-        <div th:replace="~{fragments/page :: switchLang}"></div>
++        <div t:replace="~{fragments/page :: switchLang(page)}"></div>
+       </div>
+     </div>
+     <div class="card">
+@@ -19,21 +21,21 @@
+         <div class="row">
+           <div class="col">
+             <div class="p-1 float-start" style="width:12em">
+-              <h3 th:text="#{purl_server.info.purl}"></h3>
++              <h3 t:text="#{purl_server.info.purl}"></h3>
+             </div>
+             <div class="p-1 float-start">
+-              <h3 th:text="@{__${purl_url}__}"></h3>
++              <h3 t:text="purl_url"></h3>
+             </div>
+-            <div th:replace="~{fragments/info :: infoPurlTable (${purl})}"></div>
++            <div t:replace="~{fragments/info :: infoPurlTable(purl, purl_target_suffix, purl_created_by, purl_lastmodified_by)}"></div>
+             <div class="p-1">
+-              <a class="btn btn-sm btn-outline-secondary float-end" th:href="@{?format=json}">🗎 JSON</a>
++              <a class="btn btn-sm btn-outline-secondary float-end" href="?format=json">🗎 JSON</a>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/purlmodify.html b/src/main/resources/templates/purlmodify.html
+index 24270df..6018920 100644
+--- a/src/main/resources/templates/purlmodify.html
++++ b/src/main/resources/templates/purlmodify.html
+@@ -1,32 +1,69 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, Purl purl">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.purl.modify.title}">Modify a PURL</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.purl.modify.modified}">
++            <h3 class="card-title" t:text="#{purl_server.purl.modify.title}">PURL</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.purl.modify.modified}">
+               Purl modified!</div>
+-            <form th:action="@{/admin/manager/purl/modify}" method="post" th:object="${purl}" th:if="${purl}">
+-              <div th:replace="~{fragments/forms :: purlForm}"></div>
++            <form t:action="@{/admin/manager/purl/modify}" method="post" t:object="purl" t:if="purl != null">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.path}">Path</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{path}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.type}">Type of PURL</label>
++      <div class="col-sm-9">
++        <select class="form-select" t:field="*{type}" t:disabled="submitted != null &amp;&amp; submitted">
++          <option value="REDIRECT_302" t:text="#{purl_server.purl.form.type.redirect_302}">Simple redirection to a
++            target URL (302)</option>
++          <option value="PARTIAL_302" t:text="#{purl_server.purl.form.type.partial_302}">Partial-redirect PURL</option>
++        </select>
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.form.target}">Target URL</label>
++      <div class="col-sm-9">
++        <input type="text" class="form-control" t:field="*{target}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-9 offset-sm-3">
++        <a t:href="'/info/purl' + purl.path" class="btn btn-sm btn-outline-secondary float-end mt-2">
++          &#128712;
++          <span t:text="#{purl_server.purl.form.info}">Info</span>
++        </a>
++        <button type="submit" class="btn btn-primary" t:text="#{purl_server.purl.modify.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/purl/search}" t:text="#{purl_server.purl.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.purl.modify.help})}" class="row mt-3"></div>
+-        <div th:if="${submitted}" th:insert="~{fragments/forms :: nextPurlAction}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div t:if="submitted != null &amp;&amp; submitted" t:insert="~{fragments/forms :: nextPurlAction(purl)}" class="row mt-3"></div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/purlsearch.html b/src/main/resources/templates/purlsearch.html
+index 20f326c..13249af 100644
+--- a/src/main/resources/templates/purlsearch.html
++++ b/src/main/resources/templates/purlsearch.html
+@@ -1,45 +1,47 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String path, String targetURL, Boolean tombstoned, List<Purl> purls, Boolean moreResults">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+-<body onload="loadFormData()">
++<body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border mb-3">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <button type="button" class="btn float-end" onclick="clearFormData()" th:title="#{purl_server.purl.search.clear}">&#9253;</button>
+-            <h3 class="card-title" th:text="#{purl_server.purl.search.title}">Search for a PURL</h3>
+-            <form th:action="@{/admin/manager/purl/search}" method="post" onsubmit="storeFormData()">
++            <button type="button" class="btn float-end" data-action="clear-form-data" t:title="#{purl_server.purl.search.clear}">&#9253;</button>
++            <h3 class="card-title" t:text="#{purl_server.purl.search.title}">Search for a PURL</h3>
++            <form t:action="@{/admin/manager/purl/search}" method="post" data-action="store-form-data">
+               <div class="row mb-3">
+-                <label class="col-sm-3 col-form-label" th:text="#{purl_server.purl.search.path}">Path</label>
++                <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.search.path}">Path</label>
+                 <div class="col-sm-9">
+-                  <input type="text" class="form-control" th:value="${path}" name="path" />
++                  <input type="text" class="form-control" t:value="path ?: ''" name="path" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-3 col-form-label" th:text="#{purl_server.purl.search.target}">Target URL</label>
++                <label class="col-sm-3 col-form-label" t:text="#{purl_server.purl.search.target}">Target URL</label>
+                 <div class="col-sm-9">
+-                  <input type="text" class="form-control" th:value="${targetURL}" name="targetURL" />
++                  <input type="text" class="form-control" t:value="targetURL ?: ''" name="targetURL" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+                 <label class="col-sm-3 col-form-label"></label>
+                 <div class="col-sm-9">
+                   <div class="form-check">
+-                    <input type="checkbox" class="form-check-input" th:checked="${tombstoned}" name="tombstoned"
++                    <input type="checkbox" class="form-check-input" t:checked="tombstoned != null &amp;&amp; tombstoned" name="tombstoned"
+                       id="tombstoned" />
+-                    <label class="form-check-label" th:text="#{purl_server.purl.search.tombstoned}" for="tombstoned"></label>
++                    <label class="form-check-label" t:text="#{purl_server.purl.search.tombstoned}" for="tombstoned"></label>
+                   </div>
+                 </div>
+               </div>
+               <div class="row">
+                 <div class="col-sm-9 offset-sm-3">
+-                  <button type="submit" class="btn btn-primary" th:text="#{purl_server.purl.search.search}">Search</button>
++                  <button type="submit" class="btn btn-primary" t:text="#{purl_server.purl.search.search}">Search</button>
+                 </div>
+               </div>
+             </form>
+@@ -68,17 +70,20 @@
+             	  document.getElementsByName('targetURL')[0].value = '';
+             	  document.getElementsByName('tombstoned')[0].checked = false;
+               }
++              window.addEventListener('load', loadFormData);
++              document.querySelector('[data-action=clear-form-data]').addEventListener('click', clearFormData);
++              document.querySelector('form[data-action=store-form-data]').addEventListener('submit', storeFormData);
+              </script>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.purl.search.help})}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
+       </div>
+     </div>
+     <div class="row">
+       <div class="col">
+-        <p class="alert alert-info" th:if="${purls != null && #lists.size(purls) == 0}"
+-          th:text="#{purl_server.common.search.result.empty}"></p>
+-        <p class="alert alert-info" th:if="${moreResults}" th:text="#{purl_server.common.search.result.more}"></p>
++        <p class="alert alert-info" t:if="purls != null &amp;&amp; purls.isEmpty()"
++          t:text="#{purl_server.common.search.result.empty}"></p>
++        <p class="alert alert-info" t:if="moreResults != null &amp;&amp; moreResults" t:text="#{purl_server.common.search.result.more}"></p>
+         <table class="table table-striped table-sm mt-3" aria-label="PURL search results">
+           <colgroup>
+             <col style="width: auto;"/>
+@@ -88,38 +93,40 @@
+             <col style="width: auto;"/>
+             <col style="width: 7.5em;"/>
+           </colgroup>
++          <tbody>
+           <tr>
+-            <th th:text="#{purl_server.purl.search.tabel.name}">name</th>
+-            <th th:text="#{purl_server.purl.search.tabel.type}">type</th>
+-            <th th:text="#{purl_server.purl.search.tabel.target}">target</th>
+-            <th th:text="#{purl_server.purl.search.tabel.created_lastmodified}">created</th>
+-            <th th:text="#{purl_server.purl.search.tabel.status}">status</th>
++            <th t:text="#{purl_server.purl.search.tabel.name}">name</th>
++            <th t:text="#{purl_server.purl.search.tabel.type}">type</th>
++            <th t:text="#{purl_server.purl.search.tabel.target}">target</th>
++            <th t:text="#{purl_server.purl.search.tabel.created_lastmodified}">created</th>
++            <th t:text="#{purl_server.purl.search.tabel.status}">status</th>
+             <th></th>
+           </tr>
+-          <tr th:each="purl : ${purls}">
+-            <td class="text-nowrap" th:text="${purl.path}"></td>
+-            <td th:text="${purl.type}"></td>
+-            <td th:text="${purl.target}"></td>
++          <tr t:each="purl : ${purls}">
++            <td class="text-nowrap" t:text="purl.path"></td>
++            <td t:text="purl.type"></td>
++            <td t:text="purl.target"></td>
+             <td>
+-              <span th:text="${#temporals.format(purl.created, 'yyyy-MM-dd HH:mm')}"></span>
++              <span t:text="views.dateTime(purl.created)"></span>
+               <br />
+-              <span th:text="${#temporals.format(purl.lastmodified, 'yyyy-MM-dd HH:mm')}"></span>
++              <span t:text="views.dateTime(purl.lastmodified)"></span>
+             </td>
+-            <td th:text="${purl.status}"></td>
++            <td t:text="purl.status"></td>
+             <td>
+               <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;"
+-                 th:href="@{/info/purl__*{purl.path}__}"  th:title="#{purl_server.purl.search.table.info}">&#128712;</a>
++                 t:href="'/info/purl' + purl.path"  t:title="#{purl_server.purl.search.table.info}">&#128712;</a>
+               <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;"
+-                 th:href="@{/admin/manager/purl/modify?id=__${purl.id}__}" th:title="#{purl_server.purl.search.table.modify}">&#x270F;&#xFE0E;</a>
+-              <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;" th:classappend="${#strings.toString(purl.status) == 'DELETED'} ? 'disabled'"
+-                 th:href="@{/admin/manager/purl/delete?id=__${purl.id}__}" th:title="#{purl_server.purl.search.table.delete}">&#x1F5D1;&#xFE0E;</a>
++                 t:href="@{/admin/manager/purl/modify(id=purl.id)}" t:title="#{purl_server.purl.search.table.modify}">&#x270F;&#xFE0E;</a>
++              <a class="btn btn-sm btn-outline-secondary" style="min-width: 2.3em;" t:classappend="purl.status == 'DELETED' ? 'disabled'"
++                 t:href="@{/admin/manager/purl/delete(id=purl.id)}" t:title="#{purl_server.purl.search.table.delete}">&#x1F5D1;&#xFE0E;</a>
+             </td>
+           </tr>
++          </tbody>
+         </table>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/usercreate.html b/src/main/resources/templates/usercreate.html
+index 873cea8..d959247 100644
+--- a/src/main/resources/templates/usercreate.html
++++ b/src/main/resources/templates/usercreate.html
+@@ -1,42 +1,135 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, User user">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
+-<script type="text/javascript" th:src="@{/static/login/sha1.js}"></script>
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
++<script type="text/javascript" t:src="@{/static/login/sha1.js}"></script>
++
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.user.create.title}">Register a new user</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.user.create.created}">
+-              User registered!</div>
+-            <form th:action="@{/admin/manager/user/create}" method="post" th:object="${user}">
+-              <div th:replace="~{fragments/forms :: userForm}"></div>
++            <h3 class="card-title" t:text="#{purl_server.user.create.title}">User</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.user.create.created}">
++              User created!</div>
++            <form t:action="@{/admin/manager/user/create}" method="post" t:object="user">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <input type="hidden" id="password_sha" t:field="*{passwordSHA}" />
++    <div id="errorPassword" class="alert alert-danger d-none">
++      <span t:text="#{purl_server.user.create.error_password}">Password and Re-Password are not the same!</span>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.login}">Login</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{login}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.admin}">Admin</label>
++      <div class="col-sm-2">
++        <input type="checkbox" class="purl_server-checkbox form-check-input" t:field="*{admin}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.fullname}">Full name</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{fullname}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.affiliation}">Affiliation</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{affiliation}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.email}">E-Mail address</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{email}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.password}">Password</label>
++      <div class="col-sm-8">
++        <input type="password" id="password" class="form-control" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.repassword}">Re-enter password</label>
++      <div class="col-sm-8">
++        <input type="password" id="repassword" class="form-control" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.comment}">Comment</label>
++      <div class="col-sm-8">
++        <textarea class="form-control" t:field="*{comment}" t:disabled="submitted != null &amp;&amp; submitted"></textarea>
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-6 offset-sm-4">
++        <button type="submit" class="btn btn-primary" data-action="encrypt-password"
++          t:text="#{purl_server.user.create.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}" t:text="#{purl_server.user.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++    <script type="text/javascript">
++      function encryptPassword() {
++        var password = document.getElementById("password").value;
++        var repassword = document.getElementById("repassword").value;
++        if (password != null) {
++          if (password.localeCompare(repassword) == 0) {
++            document.getElementById("errorPassword").classList.add("d-none");
++            if (password != "") {
++              var shaObj = new jsSHA("SHA-1", "TEXT");
++              shaObj.update(document.getElementById("password").value);
++              var hash = shaObj.getHash("HEX");
++              document.getElementById("password_sha").value = hash;
++            }
++          } else {
++            document.getElementById("errorPassword").classList.remove("d-none");
++            return false;
++          }
++        }
++        return true;
++      }
++      document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el) {
++        el.addEventListener('click', function(e) {
++          if (!encryptPassword()) {
++            e.preventDefault();
++          }
++        });
++      });
++    </script>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.user.create.help})}" class="row mt-3"></div>
+-        <div class="row mt-3" th:if="${submitted}">
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div class="row mt-3" t:if="submitted != null &amp;&amp; submitted">
+           <div class="col">
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/modify?id=__${user.id}__}"
+-              th:text="#{purl_server.user.goto.modify}">modify</a>
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/create}"
+-              th:text="#{purl_server.user.goto.create}">Register a new user</a>
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/search}"
+-              th:text="#{purl_server.user.goto.search}">Search for a user</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/modify(id=user.id)}"
++              t:text="#{purl_server.user.goto.modify}">modify</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/create}"
++              t:text="#{purl_server.user.goto.create}">Register a new user</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}"
++              t:text="#{purl_server.user.goto.search}">Search for a user</a>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/userdelete.html b/src/main/resources/templates/userdelete.html
+index 9137558..d1f9b5c 100644
+--- a/src/main/resources/templates/userdelete.html
++++ b/src/main/resources/templates/userdelete.html
+@@ -1,72 +1,74 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean deleted, User user">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.user.delete.title}">Delete a user</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${deleted}">
+-              <div class="alert alert-success" th:text="#{purl_server.user.delete.deleted}">User deleted!</div>
++            <h3 class="card-title" t:text="#{purl_server.user.delete.title}">Delete a user</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="deleted != null &amp;&amp; deleted">
++              <div class="alert alert-success" t:text="#{purl_server.user.delete.deleted}">User deleted!</div>
+             </div>
+-            <form th:action="@{/admin/manager/user/delete}" method="post" th:object="${user}" th:if="${user}">
+-              <input type="hidden" th:field="*{id}" />
++            <form t:action="@{/admin/manager/user/delete}" method="post" t:object="user" t:if="user != null">
++              <input type="hidden" t:field="*{id}" />
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.delete.username}">Username</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.delete.username}">Username</label>
+                 <div class="col-sm-6">
+-                  <input type="text" class="form-control" th:field="*{login}" disabled />
++                  <input type="text" class="form-control" t:field="*{login}" disabled />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.delete.fullname}">Full name</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.delete.fullname}">Full name</label>
+                 <div class="col-sm-6">
+-                  <input type="text" class="form-control" th:field="*{fullname}" disabled />
++                  <input type="text" class="form-control" t:field="*{fullname}" disabled />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.delete.affiliation}">affiliation</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.delete.affiliation}">affiliation</label>
+                 <div class="col-sm-6">
+-                  <input type="text" class="form-control" th:field="*{affiliation}" disabled />
++                  <input type="text" class="form-control" t:field="*{affiliation}" disabled />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.delete.email}">E-Mail</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.delete.email}">E-Mail</label>
+                 <div class="col-sm-6">
+-                  <input type="text" class="form-control" th:field="*{email}" disabled />
++                  <input type="text" class="form-control" t:field="*{email}" disabled />
+                 </div>
+               </div>
+-              <div class="row mb-3" th:unless="${deleted}">
++              <div class="row mb-3" t:unless="deleted != null &amp;&amp; deleted">
+                 <div class="col-sm-6 offset-sm-4">
+-                  <button type="submit" class="btn btn-danger" th:text="#{purl_server.user.delete.delete}">delete</button>
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/user/search}" th:text="#{purl_server.user.form.cancel}">Abbrechen</a>
++                  <button type="submit" class="btn btn-danger" t:text="#{purl_server.user.delete.delete}">delete</button>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}" t:text="#{purl_server.user.form.cancel}">Abbrechen</a>
+                 </div>
+               </div>
+-              <div class="row" th:if="${deleted}">
++              <div class="row" t:if="deleted != null &amp;&amp; deleted">
+                 <div class="col">
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/user/modify?id=__${user.id}__}"
+-                     th:text="#{purl_server.user.goto.modify}">modify</a>
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/user/create}"
+-                     th:text="#{purl_server.user.goto.create}">Create a new user</a>
+-                  <a class="btn btn-secondary" th:href="@{/admin/manager/user/search}"
+-                     th:text="#{purl_server.user.goto.search}">Search for a user</a>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/user/modify(id=user.id)}"
++                     t:text="#{purl_server.user.goto.modify}">modify</a>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/user/create}"
++                     t:text="#{purl_server.user.goto.create}">Create a new user</a>
++                  <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}"
++                     t:text="#{purl_server.user.goto.search}">Search for a user</a>
+                 </div>
+               </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.user.delete.help})}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
+       </div>
+-      <div th:replace="~{fragments/page :: footer}"></div>
++      <div t:replace="~{fragments/page :: footer(page)}"></div>
+     </div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/usermodify.html b/src/main/resources/templates/usermodify.html
+index f95ea2a..a5beaeb 100644
+--- a/src/main/resources/templates/usermodify.html
++++ b/src/main/resources/templates/usermodify.html
+@@ -1,42 +1,122 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, PurlServerError error, Boolean submitted, User user">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
+-<script type="text/javascript" th:src="@{/static/login/sha1.js}"></script>
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
++<script type="text/javascript" t:src="@{/static/login/sha1.js}"></script>
++
+ </head>
+ <body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <h3 class="card-title" th:text="#{purl_server.user.modify.title}">Modify a user</h3>
+-            <div th:replace="~{fragments/page :: errorView (${error})}"></div>
+-            <div th:if="${submitted}" class="alert alert-success" th:text="#{purl_server.user.modify.modified}">
++            <h3 class="card-title" t:text="#{purl_server.user.modify.title}">User</h3>
++            <div t:replace="~{fragments/page :: errorView(error)}"></div>
++            <div t:if="submitted != null &amp;&amp; submitted" class="alert alert-success" t:text="#{purl_server.user.modify.modified}">
+               User modified!</div>
+-            <form th:action="@{/admin/manager/user/modify}" method="post" th:object="${user}" th:if="${user}">
+-              <div th:replace="~{fragments/forms :: userForm}"></div>
++            <form t:action="@{/admin/manager/user/modify}" method="post" t:object="user" t:if="user != null">
++  <div>
++    <input type="hidden" t:field="*{id}" />
++    <div id="errorPassword" class="alert alert-danger d-none">
++      <span t:text="#{purl_server.user.create.error_password}">Password and Re-Password are not the same!</span>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.login}">Login</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{login}" t:disabled="true" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.admin}">Admin</label>
++      <div class="col-sm-2">
++        <input type="checkbox" class="purl_server-checkbox form-check-input" t:field="*{admin}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.fullname}">Full name</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{fullname}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.affiliation}">Affiliation</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{affiliation}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.email}">E-Mail address</label>
++      <div class="col-sm-8">
++        <input type="text" class="form-control" t:field="*{email}" t:disabled="submitted != null &amp;&amp; submitted" />
++      </div>
++    </div>
++    <div class="row mb-3">
++      <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.form.comment}">Comment</label>
++      <div class="col-sm-8">
++        <textarea class="form-control" t:field="*{comment}" t:disabled="submitted != null &amp;&amp; submitted"></textarea>
++      </div>
++    </div>
++    <div class="row mb-3" t:unless="submitted != null &amp;&amp; submitted">
++      <div class="col-sm-6 offset-sm-4">
++        <button type="submit" class="btn btn-primary" data-action="encrypt-password"
++          t:text="#{purl_server.user.modify.submit}">Submit</button>
++        <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}" t:text="#{purl_server.user.form.cancel}">Abbrechen</a>
++      </div>
++    </div>
++    <script type="text/javascript">
++      function encryptPassword() {
++        var password = document.getElementById("password").value;
++        var repassword = document.getElementById("repassword").value;
++        if (password != null) {
++          if (password.localeCompare(repassword) == 0) {
++            document.getElementById("errorPassword").classList.add("d-none");
++            if (password != "") {
++              var shaObj = new jsSHA("SHA-1", "TEXT");
++              shaObj.update(document.getElementById("password").value);
++              var hash = shaObj.getHash("HEX");
++              document.getElementById("password_sha").value = hash;
++            }
++          } else {
++            document.getElementById("errorPassword").classList.remove("d-none");
++            return false;
++          }
++        }
++        return true;
++      }
++      document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el) {
++        el.addEventListener('click', function(e) {
++          if (!encryptPassword()) {
++            e.preventDefault();
++          }
++        });
++      });
++    </script>
++  </div>
+             </form>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.user.modify.help})}" class="row mt-3"></div>
+-        <div class="row mt-3" th:if="${submitted}">
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
++        <div class="row mt-3" t:if="submitted != null &amp;&amp; submitted">
+           <div class="col">
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/modify?id=__${user.id}__}"
+-              th:text="#{purl_server.user.goto.modify}">modify</a>
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/create}"
+-              th:text="#{purl_server.user.goto.create}">Register a new user</a>
+-            <a class="btn btn-secondary" th:href="@{/admin/manager/user/search}"
+-              th:text="#{purl_server.user.goto.search}">Search for a user</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/modify(id=user.id)}"
++              t:text="#{purl_server.user.goto.modify}">modify</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/create}"
++              t:text="#{purl_server.user.goto.create}">Register a new user</a>
++            <a class="btn btn-secondary" t:href="@{/admin/manager/user/search}"
++              t:text="#{purl_server.user.goto.search}">Search for a user</a>
+           </div>
+         </div>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>
++    <div t:replace="~{fragments/page :: footer(page)}"></div>
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
++
+ </html>
+diff --git a/src/main/resources/templates/usersearch.html b/src/main/resources/templates/usersearch.html
+index 2056c93..f07c658 100644
+--- a/src/main/resources/templates/usersearch.html
++++ b/src/main/resources/templates/usersearch.html
+@@ -1,57 +1,59 @@
+ <!DOCTYPE html>
+-<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
++<html lang="de" t:lang="page.lang" xmlns:t="https://tessera.dev"
++  t:import="de.uni.rostock.ub.purl_server.model.*, de.uni.rostock.ub.purl_server.web.PageInfo"
++  t:params="PageInfo page, String searchLogin, String searchFullName, String searchAffiliation, String searchEMailAddress, Boolean tombstoned, List<User> users, Boolean moreResults">
+ <head>
+-<title th:text="#{purl_server.title}">Purls: Purl Manager</title>
+-<meta th:replace="~{fragments/page :: html_header}" />
++<title t:text="#{purl_server.title}">PURL Server</title>
++<t:block t:replace="~{fragments/page :: html_header}"></t:block>
+ </head>
+-<body onload="loadFormData()">
++<body>
+   <div class="container">
+-    <div th:replace="~{fragments/page :: title}"></div>
+-    <div th:replace="~{fragments/page :: navigation}"></div>
++    <div t:replace="~{fragments/page :: title(page)}"></div>
++    <div t:replace="~{fragments/page :: navigation}"></div>
+     <div class="card border mb-3">
+       <div class="card-body">
+         <div class="row">
+           <div class="col">
+-            <button type="button" class="btn float-end" onclick="clearFormData()" th:title="#{purl_server.user.search.clear}">&#9253;</button>
+-            <h3 class="card-title" th:text="#{purl_server.user.search.title}">Search for a user</h3>
+-            <form th:action="@{/admin/manager/user/search}" method="post" onsubmit="storeFormData()">
++            <button type="button" class="btn float-end" data-action="clear-form-data" t:title="#{purl_server.user.search.clear}">&#9253;</button>
++            <h3 class="card-title" t:text="#{purl_server.user.search.title}">Search for a user</h3>
++            <form t:action="@{/admin/manager/user/search}" method="post" data-action="store-form-data">
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.search.login}">Login</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.search.login}">Login</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" name="searchLogin" th:value="${searchLogin}" />
++                  <input type="text" class="form-control" name="searchLogin" t:value="searchLogin ?: ''" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.search.fullname}">Full name</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.search.fullname}">Full name</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" name="searchFullName" th:value="${searchFullName}" />
++                  <input type="text" class="form-control" name="searchFullName" t:value="searchFullName ?: ''" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.search.affiliation}">Affiliation</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.search.affiliation}">Affiliation</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" name="searchAffiliation" th:value="${searchAffiliation}" />
++                  <input type="text" class="form-control" name="searchAffiliation" t:value="searchAffiliation ?: ''" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+-                <label class="col-sm-4 col-form-label" th:text="#{purl_server.user.search.email}">E-Mail address</label>
++                <label class="col-sm-4 col-form-label" t:text="#{purl_server.user.search.email}">E-Mail address</label>
+                 <div class="col-sm-8">
+-                  <input type="text" class="form-control" name="searchEMailAddress" th:value="${searchEMailAddress}" />
++                  <input type="text" class="form-control" name="searchEMailAddress" t:value="searchEMailAddress ?: ''" />
+                 </div>
+               </div>
+               <div class="row mb-3">
+                 <div class="col-sm-4"></div>
+                 <div class="col-sm-8">
+                   <div class="form-check">
+-                    <input type="checkbox" class="form-check-input" th:checked="${tombstoned}"
++                    <input type="checkbox" class="form-check-input" t:checked="tombstoned != null &amp;&amp; tombstoned"
+                       name="searchTombstonedUser" id="tombstoned" />
+-                    <label class="form-check-label" th:text="#{purl_server.user.search.tombstoned}" for="tombstoned"></label>
++                    <label class="form-check-label" t:text="#{purl_server.user.search.tombstoned}" for="tombstoned"></label>
+                   </div>
+                 </div>
+               </div>
+               <div class="row">
+                 <div class="col-sm-6 offset-sm-4">
+-                  <button type="submit" class="btn btn-primary" th:text="#{purl_server.user.search.search}">Search</button>
++                  <button type="submit" class="btn btn-primary" t:text="#{purl_server.user.search.search}">Search</button>
+                 </div>
+               </div>
+             </form>
+@@ -90,17 +92,20 @@
+                 document.getElementsByName('searchEMailAddress')[0].value = '';
+                 document.getElementsByName('searchTombstonedUser')[0].checked = false;
+               }
++              window.addEventListener('load', loadFormData);
++              document.querySelector('[data-action=clear-form-data]').addEventListener('click', clearFormData);
++              document.querySelector('form[data-action=store-form-data]').addEventListener('submit', storeFormData);
+              </script>
+           </div>
+         </div>
+-        <div th:insert="~{fragments/forms :: help (#{purl_server.user.search.help})}" class="row mt-3"></div>
++        <div t:insert="~{fragments/forms :: help}" class="row mt-3"></div>
+       </div>
+     </div>
+     <div class="row">
+       <div class="col">
+-        <p class="alert alert-info" th:if="${users != null && #lists.size(users) == 0}"
+-          th:text="#{purl_server.common.search.result.empty}"></p>
+-        <p class="alert alert-info" th:if="${moreResults}" th:text="#{purl_server.common.search.result.more}"></p>
++        <p class="alert alert-info" t:if="users != null &amp;&amp; users.isEmpty()"
++          t:text="#{purl_server.common.search.result.empty}"></p>
++        <p class="alert alert-info" t:if="moreResults != null &amp;&amp; moreResults" t:text="#{purl_server.common.search.result.more}"></p>
+         <table class="table table-striped table-sm mt-3" aria-label="User search results">
+           <colgroup>
+             <col style="width: auto;"/>
+@@ -111,36 +116,38 @@
+             <col style="width: 3em;"/>
+             <col style="width: 3em;"/>
+           </colgroup>
++          <tbody>
+           <tr>
+-            <th th:text="#{purl_server.user.search.table.username}">Username</th>
+-            <th th:text="#{purl_server.user.search.table.fullname}">Full name</th>
+-            <th th:text="#{purl_server.user.search.table.affiliation}">affiliation</th>
+-            <th th:text="#{purl_server.user.search.table.email}">E-mail</th>
+-            <th th:text="#{purl_server.user.search.table.status}">Status</th>
++            <th t:text="#{purl_server.user.search.table.username}">Username</th>
++            <th t:text="#{purl_server.user.search.table.fullname}">Full name</th>
++            <th t:text="#{purl_server.user.search.table.affiliation}">affiliation</th>
++            <th t:text="#{purl_server.user.search.table.email}">E-mail</th>
++            <th t:text="#{purl_server.user.search.table.status}">Status</th>
+             <th></th>
+             <th></th>
+           </tr>
+-          <tr th:each="u : ${users}">
+-            <td th:text="${u.login}"></td>
+-            <td th:text="${u.fullname}"></td>
+-            <td th:text="${u.affiliation}"></td>
+-            <td th:text="${u.email}"></td>
+-            <td th:text="${u.status}"></td>
++          <tr t:each="u : ${users}">
++            <td t:text="u.login"></td>
++            <td t:text="u.fullname"></td>
++            <td t:text="u.affiliation"></td>
++            <td t:text="u.email"></td>
++            <td t:text="u.status"></td>
+             <td>
+-              <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/manager/user/modify?id=__${u.id}__}"
+-                 th:title="#{purl_server.user.search.table.modify}">&#x270F;&#xFE0E;</a>
++              <a class="btn btn-sm btn-outline-secondary" t:href="@{/admin/manager/user/modify(id=u.id)}"
++                 t:title="#{purl_server.user.search.table.modify}">&#x270F;&#xFE0E;</a>
+             </td>
+             <td>
+-              <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/manager/user/delete?id=__${u.id}__}"
+-                 th:classappend="${#strings.toString(u.status) == 'DELETED'} ? 'disabled'"
+-                 th:title="#{purl_server.user.search.table.delete}">&#x1F5D1;&#xFE0E;</a>
++              <a class="btn btn-sm btn-outline-secondary" t:href="@{/admin/manager/user/delete(id=u.id)}"
++                 t:classappend="u.status == 'DELETED' ? 'disabled'"
++                 t:title="#{purl_server.user.search.table.delete}">&#x1F5D1;&#xFE0E;</a>
+             </td>
+           </tr>
++          </tbody>
+         </table>
+       </div>
+     </div>
+-    <div th:replace="~{fragments/page :: footer}"></div>    	   
++    <div t:replace="~{fragments/page :: footer(page)}"></div>    	   
+   </div>
+-  <script th:replace="~{fragments/page :: html_footer}"></script>
++  <script t:replace="~{fragments/page :: html_footer}"></script>
+ </body>
+ </html>
+diff --git a/src/test/java/de/uni/rostock/ub/purl_server/test/ViewRenderingTest.java b/src/test/java/de/uni/rostock/ub/purl_server/test/ViewRenderingTest.java
+new file mode 100644
+index 0000000..09486de
+--- /dev/null
++++ b/src/test/java/de/uni/rostock/ub/purl_server/test/ViewRenderingTest.java
+@@ -0,0 +1,95 @@
++/*
++ * Copyright 2021 University Library, 18051 Rostock, Germany
++ *
++ * This file is part of the application "PURL Server".
++ * https://github.com/ubrostock/purl_server
++ * 
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *   http://www.apache.org/licenses/LICENSE-2.0
++
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package de.uni.rostock.ub.purl_server.test;
++
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import org.hamcrest.Matchers;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.http.MediaType;
++import org.springframework.security.test.context.support.WithMockUser;
++import org.springframework.test.context.ActiveProfiles;
++import org.springframework.test.web.servlet.MockMvc;
++
++/**
++ * renders the HTML views through the real view resolver
++ */
++@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
++@ActiveProfiles("test")
++@AutoConfigureMockMvc
++public class ViewRenderingTest {
++
++    @Autowired
++    private MockMvc mockMvc;
++
++    @Test
++    public void renderIndexAnonymous() throws Exception {
++        mockMvc.perform(get("/"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("<h2>PURL Server</h2>")))
++            .andExpect(content().string(Matchers.containsString("href=\"/admin/login\"")))
++            .andExpect(content().string(Matchers.not(Matchers.containsString("navbar-brand"))));
++    }
++
++    @Test
++    public void renderLoginWithError() throws Exception {
++        mockMvc.perform(get("/admin/login").param("error", ""))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("alert-danger")))
++            .andExpect(content().string(Matchers.containsString("name=\"_csrf\"")));
++    }
++
++    @Test
++    public void renderPurlInfo() throws Exception {
++        mockMvc.perform(get("/info/purl/test/test123/suffix").accept(MediaType.TEXT_HTML))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("/test/test123")))
++            .andExpect(content().string(Matchers.containsString("/suffix")));
++    }
++
++    @Test
++    public void renderDomainInfo() throws Exception {
++        mockMvc.perform(get("/info/domain/test").accept(MediaType.TEXT_HTML))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("Test Domain")));
++    }
++
++    @Test
++    @WithMockUser(username = "admin", roles = { "USER", "ADMIN" })
++    public void renderDomainCreateForm() throws Exception {
++        mockMvc.perform(get("/admin/manager/domain/create"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("name=\"domainUserList[0].user.login\"")))
++            .andExpect(content().string(Matchers.containsString("id=\"dropdownCreateDomain\"")));
++    }
++
++    @Test
++    @WithMockUser(username = "user1", roles = { "USER" })
++    public void renderPurlSearchAsUser() throws Exception {
++        mockMvc.perform(get("/admin/manager/purl/search"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(Matchers.containsString("value=\"user1\"")))
++            .andExpect(content().string(Matchers.not(Matchers.containsString("id=\"dropdownCreateDomain\""))));
++    }
++}

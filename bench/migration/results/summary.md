@@ -7,6 +7,7 @@
 | budgetmaster | run-10 | no | ok | 269/269 (base 269) | 44+0/121 | 0 | - | 0 | invoked | 41.4 | 30.22 | 413054 |
 | budgetmaster | run-11 | no | ok | 269/269 (base 269) | 13+0/121 | 0 | - | 0 | invoked | 34.8 | 33.88 | 444774 |
 | budgetmaster | run-12 | no | ok | 269/269 (base 269) | 13+0/121 | 0 | - | 0 | invoked | 37.3 | 26.50 | 380015 |
+| budgetmaster | run-13 | no | ok | 269/269 (base 269) | 23+0/121 | 0 | - | 0 | invoked | 36.3 | 29.76 | 408534 |
 | espd | run-1 | no | ok | 931/931 (base 931) | 21+0/60 | 0 | - | 0 | invoked | 16.3 | 10.74 | 171660 |
 | espd | run-2 | no | ok | 932/932 (base 931) | 46+0/60 | 0 | - | 51 | invoked | 34.4 | 14.47 | 169319 |
 | espd | run-3 | no | ok | 931/931 (base 931) | 50+0/60 | 0 | - | 0 | invoked | 58.0 | 19.57 | 193222 |
@@ -29,6 +30,7 @@
 | fredbet | run-11 | no | ok | 117/117 (base 117) | 146+0/169 | 0 | - | 0 | invoked | 34.7 | 12.25 | 127769 |
 | fredbet | run-12 | no | ok | 117/117 (base 117) | 5+0/169 | 190 | - | 0 | invoked | 11.3 | - | 2912 |
 | fredbet | run-13 | no | ok | 117/117 (base 117) | 147+0/169 | 0 | - | 0 | invoked | 30.0 | 12.85 | 140877 |
+| fredbet | run-14 | no | ok | 118/118 (base 117) | 123+0/169 | 0 | - | 0 | invoked | 30.4 | 15.96 | 194432 |
 | jobsearch | run-1 (crawl.py) | no | ok | 2/2 (base 1) | 84+5/92 | 0 | - | 0 | - | 28.8 | 18.28 | 319521 |
 | jobsearch | run-2 (crawl.py) | yes | ok | 2/2 (base 1) | 86+6/92 | 0 | - | 0 | - | 30.6 | 24.09 | 369955 |
 | jobsearch | run-3 (crawl.py) | no | ok | 1/1 (base 1) | 81+5/92 | 0 | - | 0 | - | 21.4 | 16.54 | 289235 |
@@ -53,11 +55,14 @@
 | luckyblog | run-2 | yes | ok | 0/0 (base 0) | 64+0/64 | 0 | - | 0 | invoked | 17.1 | 4.17 | 66528 |
 | luckyblog | run-10 | no | ok | 0/0 (base 0) | 57+0/64 | 0 | - | 0 | invoked | 12.0 | 3.90 | 60975 |
 | luckyblog | run-11 | no | ok | 0/0 (base 0) | 57+0/64 | 0 | - | 0 | invoked | 13.8 | 4.22 | 62350 |
+| luckyblog | run-12 | no | ok | 0/0 (base 0) | 21+0/64 | 0 | - | 0 | invoked | 11.5 | 4.08 | 56227 |
+| posters-demo-store | run-1 | no | ok | 284/284 (base 274) | 11+0/141 | 0 | - | 0 | invoked | 42.2 | 25.97 | 262226 |
 | purl-server | run-4 | yes | ok | 50/50 (base 46) | 92+0/92 | 0 | - | 0 | - | 17.6 | 5.09 | 79063 |
 | purl-server | run-8 | no | ok | 50/50 (base 46) | 89+0/92 | 0 | - | 0 | invoked | 13.6 | 5.34 | 72781 |
 | purl-server | run-9 | yes | ok | 49/49 (base 46) | 92+0/92 | 0 | - | 0 | invoked | 21.0 | 4.68 | 63801 |
 | purl-server | run-10 | yes | ok | 49/49 (base 46) | 92+0/92 | 0 | - | 0 | invoked | 14.0 | 5.30 | 66457 |
 | purl-server | run-11 | yes | ok | 46/46 (base 46) | 90+2/92 | 0 | - | 0 | invoked | 15.6 | 5.48 | 69695 |
+| purl-server | run-12 | no | ok | 52/52 (base 46) | 51+0/92 | 0 | - | 0 | invoked | 16.2 | 5.88 | 76151 |
 | spring-framework-petclinic | run-1 (crawl.py) | yes | ok | 82/82 (base 75) | 26+0/26 | 0 | - | 0 | - | 14.4 | 3.99 | 63740 |
 | spring-framework-petclinic | run-2 (crawl.py) | no | ok | 82/82 (base 75) | 20+0/26 | 6 | - | 0 | - | 13.5 | 3.01 | 50777 |
 | spring-framework-petclinic | run-3 (crawl.py) | yes | ok | 83/83 (base 75) | 26+0/26 | 0 | - | 0 | - | 11.9 | 3.43 | 54502 |
@@ -105,9 +110,10 @@
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
-| fredbet | 11 | 0/11 | 11/11 | 11/11 | 6/6 | 86% |
+| fredbet | 12 | 0/12 | 12/12 | 12/12 | 7/7 | 85% |
 | jobsearch | 8 | 1/8 | 8/8 | 8/8 | 3/3 | 87% |
 | jpetstore | 6 | 0/6 | 6/6 | 6/6 | 5/5 | 98% |
+| posters-demo-store | 1 | 0/1 | 1/1 | 1/1 | 1/1 | 8% |
 | spring-framework-petclinic | 7 | 6/7 | 7/7 | 7/7 | 3/3 | 97% |
 | spring-framework-petclinic-spring43 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-framework-petclinic-spring5 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
@@ -116,16 +122,16 @@
 | spring-petclinic-boot20 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-petclinic-boot27 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-petclinic-mustache | 7 | 4/7 | 7/7 | 7/7 | 3/3 | 95% |
-| all | 67 | 39/67 | | | | |
+| all | 69 | 39/69 | | | | |
 
 **Held-out apps**
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
-| budgetmaster | 7 | 0/7 | 7/7 | 7/7 | 5/5 | 30% |
+| budgetmaster | 8 | 0/8 | 8/8 | 8/8 | 6/6 | 29% |
 | espd | 6 | 0/6 | 6/6 | 6/6 | 6/6 | 32% |
 | ewp-registry | 5 | 0/5 | 5/5 | 5/5 | 5/5 | 83% |
 | jprime | 6 | 0/6 | 6/6 | 6/6 | 5/5 | 96% |
-| luckyblog | 4 | 1/4 | 4/4 | 4/4 | 4/4 | 94% |
-| purl-server | 5 | 4/5 | 5/5 | 5/5 | 4/4 | 99% |
-| all | 33 | 5/33 | | | | |
+| luckyblog | 5 | 1/5 | 5/5 | 5/5 | 5/5 | 82% |
+| purl-server | 6 | 4/6 | 6/6 | 6/6 | 5/5 | 92% |
+| all | 36 | 5/36 | | | | |

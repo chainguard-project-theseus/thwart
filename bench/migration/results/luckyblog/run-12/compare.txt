@@ -1,0 +1,976 @@
+01 differs   GET /
+--- recorded 01.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+02 differs   GET /archives/1
+--- recorded 02.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+03 differs   GET /archives/2
+--- recorded 03.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+04 differs   GET /archives/3
+--- recorded 04.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+05 differs   GET /tags
+--- recorded 05.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+06 differs   GET /tags/java
+--- recorded 06.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+07 differs   GET /tags/nope
+--- recorded 07.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+08 differs   GET /projects
+--- recorded 08.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+09 differs   GET /projects/1
+--- recorded 09.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+10 differs   GET /projects/2
+--- recorded 10.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+11 differs   GET /projects/3
+--- recorded 11.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+12 differs   GET /about
+--- recorded 12.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -76,7 +76,7 @@
+     <div class="container theme-light">
+       <div class="row">
+         <div class="col-lg-12 post">
+-          <div class="login-avatar" style="background: url(/img/avatar.jpg) no-repeat center center;">
++          <div class="login-avatar" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+               <h1>
+13 differs   GET /post/1
+--- recorded 13.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-1">
++              <h2 id="user-content-h2-1">
+                 springBoot整合mybatis
+               <p>
+                 这是第 1 篇文章，介绍
+@@ -89,7 +89,7 @@
+                 <code>
+                   System.out.println("post 1");
+               <p>
+-                <a href="https://example.com/1">
++                <a href="https://example.com/1" rel="nofollow noopener">
+                   参考链接
+           <br>
+           <br>
+14 differs   GET /post/5
+--- recorded 14.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-5">
++              <h2 id="user-content-h2-5">
+                 Velocity 宏的用法
+               <p>
+                 这是第 5 篇文章，介绍
+@@ -89,7 +89,7 @@
+                 <code>
+                   System.out.println("post 5");
+               <p>
+-                <a href="https://example.com/5">
++                <a href="https://example.com/5" rel="nofollow noopener">
+                   参考链接
+           <br>
+           <br>
+15 differs   GET /post/26
+--- recorded 15.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-26">
++              <h2 id="user-content-h2-26">
+                 Hello World
+               <p>
+                 这是第 26 篇文章，介绍
+@@ -89,7 +89,7 @@
+                 <code>
+                   System.out.println("post 26");
+               <p>
+-                <a href="https://example.com/26">
++                <a href="https://example.com/26" rel="nofollow noopener">
+                   参考链接
+           <br>
+           <br>
+16 same      GET /post/999
+17 same      GET /nope
+18 differs   GET /admin/
+--- recorded 18.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+19 differs   GET /admin/info
+--- recorded 19.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+20 differs   GET /login
+--- recorded 20.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+21 differs   POST /login.action username=jcala&password=wrong
+--- recorded 21.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+22 same      POST /login.action username=jcala&password=21232f297a57a5a743894a0e4a801fc3
+23 differs   GET /admin/
+--- recorded 23.html
++++ now
+@@ -77,4 +77,4 @@
+     <script src="//cdn.bootcss.com/raphael/2.2.1/raphael.min.js">
+     <script src="//cdn.bootcss.com/morris.js/0.5.1/morris.min.js">
+     <script type="text/javascript">
+-      Morris.Donut({element:'memory-donut',data:[{value:,label:'Residual memory'},{value:,label:'Used memory'}],backgroundColor:'#ccc',labelColor:'#060',colors:['#0BA462','#95D7BB'],formatter:function (x){return x + "%"}});
++      const freeMemory = 80; const used = 20; Morris.Donut({element:'memory-donut',data:[{value:freeMemory,label:'Residual memory'},{value:used,label:'Used memory'}],backgroundColor:'#ccc',labelColor:'#060',colors:['#0BA462','#95D7BB'],formatter:function (x){return x + "%"}});
+24 same      GET /admin/blogList/1
+25 same      GET /admin/blogList/2
+26 same      GET /admin/blogList/3
+27 differs   GET /admin/project/1
+--- recorded 27.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/luckyBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="1">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/1" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -111,7 +111,7 @@
+                     <td>
+                       https://github.com/jcala/jcalaBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="2">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/2" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -121,7 +121,7 @@
+                     <td>
+                       https://github.com/jcala/scala-crawler
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="3">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/3" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -131,7 +131,7 @@
+                     <td>
+                       https://github.com/jcala/go-chat
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="4">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/4" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -141,7 +141,7 @@
+                     <td>
+                       https://github.com/jcala/mini-rpc
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="5">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/5" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -151,7 +151,7 @@
+                     <td>
+                       https://github.com/jcala/spring-demo
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="6">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/6" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -161,7 +161,7 @@
+                     <td>
+                       https://github.com/jcala/redis-lock
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="7">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/7" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -171,7 +171,7 @@
+                     <td>
+                       https://github.com/jcala/markdown-editor
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="8">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/8" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -181,7 +181,7 @@
+                     <td>
+                       https://github.com/jcala/file-server
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="9">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/9" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -191,7 +191,7 @@
+                     <td>
+                       https://github.com/jcala/todo-app
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="10">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/10" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+28 differs   GET /admin/project/2
+--- recorded 28.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/weather-bot
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="11">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/11" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+29 differs   GET /admin/info
+--- recorded 29.html
++++ now
+@@ -128,7 +128,7 @@
+                         Update
+                 <div class="fade tab-pane" id="avatar">
+                   <br>
+-                  <div class="login-avatar" style="background: url(/img/avatar.jpg) no-repeat center center;">
++                  <div class="login-avatar" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+                   <br>
+                   <form action="/admin/file/uplAva.action" enctype="multipart/form-data" method="post">
+                     <input class="form-control" multiple name="avatar" type="file">
+30 same      GET /admin/resume
+31 same      GET /admin/update1
+32 same      GET /admin/update999
+33 same      GET /admin/pro.json?id=3
+34 same      GET /admin/blogAdd
+35 same      POST /admin/post.action tags=java&md=x&article=x
+36 same      POST /admin/post.action title=Velocity 迁移笔记&tags=java,migration&md=%23%23 迁移笔记  先迁移宏，再迁移页面。&article=<h2 id="h2-notes">迁移笔记</h2><p>先迁移<strong>宏</strong>，再迁移页面。</p>
+37 differs   GET /archives/1
+--- recorded 37.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+38 differs   GET /tags
+--- recorded 38.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+39 differs   GET /tags/migration
+--- recorded 39.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+40 differs   GET /post/28
+--- recorded 40.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-notes">
++              <h2 id="user-content-h2-notes">
+                 迁移笔记
+               <p>
+                 先迁移
+41 differs   GET /post/26
+--- recorded 41.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-26">
++              <h2 id="user-content-h2-26">
+                 Hello World
+               <p>
+                 这是第 26 篇文章，介绍
+@@ -89,7 +89,7 @@
+                 <code>
+                   System.out.println("post 26");
+               <p>
+-                <a href="https://example.com/26">
++                <a href="https://example.com/26" rel="nofollow noopener">
+                   参考链接
+           <br>
+           <br>
+42 same      GET /admin/update28
+43 same      POST /admin/update.action vid=28&tags=java&md=x&article=x
+44 differs   POST /admin/update.action vid=28&title=Velocity 迁移笔记（修订）&tags=java,velocity&md=%23%23 迁移笔记  已修订。&article=<h2 id="h2-notes">迁移笔记</h2><p>已修订。</p>
+--- recorded 44.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -78,7 +78,7 @@
+         <div class="col-lg-12 post">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+-              <h2 id="h2-notes">
++              <h2 id="user-content-h2-notes">
+                 迁移笔记
+               <p>
+                 已修订。
+45 differs   GET /tags/velocity
+--- recorded 45.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+46 same      GET /admin/delete/28
+47 differs   GET /archives/1
+--- recorded 47.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+48 differs   POST /admin/addPro.action name=new-project&url=https://github.com/jcala/new-project&tech=Go&desp=新项目
+--- recorded 48.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/luckyBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="1">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/1" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -111,7 +111,7 @@
+                     <td>
+                       https://github.com/jcala/jcalaBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="2">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/2" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -121,7 +121,7 @@
+                     <td>
+                       https://github.com/jcala/scala-crawler
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="3">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/3" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -131,7 +131,7 @@
+                     <td>
+                       https://github.com/jcala/go-chat
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="4">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/4" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -141,7 +141,7 @@
+                     <td>
+                       https://github.com/jcala/mini-rpc
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="5">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/5" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -151,7 +151,7 @@
+                     <td>
+                       https://github.com/jcala/spring-demo
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="6">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/6" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -161,7 +161,7 @@
+                     <td>
+                       https://github.com/jcala/redis-lock
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="7">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/7" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -171,7 +171,7 @@
+                     <td>
+                       https://github.com/jcala/markdown-editor
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="8">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/8" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -181,7 +181,7 @@
+                     <td>
+                       https://github.com/jcala/file-server
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="9">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/9" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -191,7 +191,7 @@
+                     <td>
+                       https://github.com/jcala/todo-app
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="10">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/10" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+49 differs   GET /admin/project/2
+--- recorded 49.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/weather-bot
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="11">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/11" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -111,7 +111,7 @@
+                     <td>
+                       https://github.com/jcala/new-project
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="12">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/12" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+50 same      GET /admin/pro.json?id=12
+51 differs   POST /admin/updPro.action id=12&name=renamed-project&url=https://github.com/jcala/renamed&tech=Go, Redis&desp=改名了
+--- recorded 51.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/luckyBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="1">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/1" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -111,7 +111,7 @@
+                     <td>
+                       https://github.com/jcala/jcalaBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="2">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/2" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -121,7 +121,7 @@
+                     <td>
+                       https://github.com/jcala/scala-crawler
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="3">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/3" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -131,7 +131,7 @@
+                     <td>
+                       https://github.com/jcala/go-chat
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="4">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/4" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -141,7 +141,7 @@
+                     <td>
+                       https://github.com/jcala/mini-rpc
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="5">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/5" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -151,7 +151,7 @@
+                     <td>
+                       https://github.com/jcala/spring-demo
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="6">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/6" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -161,7 +161,7 @@
+                     <td>
+                       https://github.com/jcala/redis-lock
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="7">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/7" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -171,7 +171,7 @@
+                     <td>
+                       https://github.com/jcala/markdown-editor
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="8">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/8" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -181,7 +181,7 @@
+                     <td>
+                       https://github.com/jcala/file-server
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="9">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/9" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -191,7 +191,7 @@
+                     <td>
+                       https://github.com/jcala/todo-app
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="10">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/10" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+52 differs   GET /admin/deletePro/12
+--- recorded 52.html
++++ now
+@@ -101,7 +101,7 @@
+                     <td>
+                       https://github.com/jcala/luckyBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="1">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/1" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -111,7 +111,7 @@
+                     <td>
+                       https://github.com/jcala/jcalaBlog
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="2">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/2" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -121,7 +121,7 @@
+                     <td>
+                       https://github.com/jcala/scala-crawler
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="3">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/3" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -131,7 +131,7 @@
+                     <td>
+                       https://github.com/jcala/go-chat
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="4">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/4" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -141,7 +141,7 @@
+                     <td>
+                       https://github.com/jcala/mini-rpc
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="5">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/5" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -151,7 +151,7 @@
+                     <td>
+                       https://github.com/jcala/spring-demo
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="6">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/6" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -161,7 +161,7 @@
+                     <td>
+                       https://github.com/jcala/redis-lock
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="7">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/7" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -171,7 +171,7 @@
+                     <td>
+                       https://github.com/jcala/markdown-editor
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="8">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/8" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -181,7 +181,7 @@
+                     <td>
+                       https://github.com/jcala/file-server
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="9">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/9" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+@@ -191,7 +191,7 @@
+                     <td>
+                       https://github.com/jcala/todo-app
+                     <td>
+-                      <a href="javascript:void(0)">
++                      <a data-action="none" href="#">
+                         <i class="fa fa-pencil upd_project" name="10">
+                       <a class="delete" data-confirm-button="Yes" data-title="Delete this project!" href="/admin/deletePro/10" role="button">
+                         <i class="fa fa-trash-o" name="del_project">
+53 same      POST /admin/info.action email=x@example.com
+54 same      POST /admin/info.action username=jcala&email=lucky@example.com&github=https://github.com/lucky&twitter=https://twitter.com/lucky
+55 differs   GET /
+--- recorded 55.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+56 differs   POST /admin/file/uplAva.action avatar=
+--- recorded 56.html
++++ now
+@@ -128,7 +128,7 @@
+                         Update
+                 <div class="fade tab-pane" id="avatar">
+                   <br>
+-                  <div class="login-avatar" style="background: url(/img/avatar.jpg) no-repeat center center;">
++                  <div class="login-avatar" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+                   <br>
+                   <form action="/admin/file/uplAva.action" enctype="multipart/form-data" method="post">
+                     <input class="form-control" multiple name="avatar" type="file">
+57 same      POST /admin/resume.action md=%23 简历  十年 Java。&resume=<h1>简历</h1><p>十年 Java。</p>
+58 differs   GET /about
+--- recorded 58.html
++++ now
+@@ -42,7 +42,7 @@
+               <a href="/admin/">
+                 Admin
+             <li>
+-              <a href="javascript:void(0)" onclick="day_night()">
++              <a data-action="day-night" href="#">
+                 <i class="fa fa-moon-o" id="day-night">
+                 <span class="network-name" id="day-night-name">
+                   night
+@@ -76,7 +76,7 @@
+     <div class="container theme-light">
+       <div class="row">
+         <div class="col-lg-12 post">
+-          <div class="login-avatar" style="background: url(/img/avatar.jpg) no-repeat center center;">
++          <div class="login-avatar" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+           <div class="editormd-preview" id="md-container">
+             <div class="editormd-preview-container markdown-body" previewcontainer="true" style="padding: 20px;">
+               <h1>
+59 differs   POST /admin/pass.action old_pass=wrong&new_pass=x
+--- recorded 59.html
++++ now
+@@ -128,7 +128,7 @@
+                         Update
+                 <div class="fade tab-pane" id="avatar">
+                   <br>
+-                  <div class="login-avatar" style="background: url(/img/avatar.jpg) no-repeat center center;">
++                  <div class="login-avatar" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+                   <br>
+                   <form action="/admin/file/uplAva.action" enctype="multipart/form-data" method="post">
+                     <input class="form-control" multiple name="avatar" type="file">
+60 differs   POST /admin/pass.action old_pass=21232f297a57a5a743894a0e4a801fc3&new_pass=21232f297a57a5a743894a0e4a801fc3
+--- recorded 60.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+61 differs   GET /admin/blogList/1
+--- recorded 61.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+62 same      POST /login.action username=jcala&password=21232f297a57a5a743894a0e4a801fc3
+63 differs   GET /logout
+--- recorded 63.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+64 differs   GET /admin/
+--- recorded 64.html
++++ now
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+   <body class="login-page">
+-    <div class="login-avatar" onclick="document.location='/'" onmouseover="this.style.cursor='pointer'" style="background: url(/img/avatar.jpg) no-repeat center center;">
++    <div class="login-avatar" data-action="home" style="background: url(&quot;/img/avatar.jpg&quot;) no-repeat center center;">
+     <div class="login-form">
+       <div class="login-content">
+         <form name="loginForm">
+tessera-migrate compare: 64 page(s): 21 same, 0 reordered, 43 differ

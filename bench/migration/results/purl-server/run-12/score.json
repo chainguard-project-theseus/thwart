@@ -1,0 +1,41 @@
+{
+ "app": "purl-server",
+ "run": "run-12",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 52,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 1
+ },
+ "tests_failed": [],
+ "baseline_tests": 46,
+ "pages_total": 92,
+ "pages_identical": 51,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 25,
+ "baseline_templates": 25,
+ "pass": false,
+ "wall_minutes": 16.2,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 5.880799399999999,
+ "turns": 96,
+ "tokens": {
+  "input_tokens": 186,
+  "output_tokens": 76151,
+  "cache_read_input_tokens": 15585827,
+  "cache_creation_input_tokens": 247974
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}
