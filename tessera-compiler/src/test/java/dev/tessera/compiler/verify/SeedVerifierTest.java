@@ -125,11 +125,33 @@ class SeedVerifierTest {
               seed.name() + ": no " + rule + " in " + c.errors());
         }
       }
-      case "ACCEPT" -> {
+      default -> {
+        boolean accept = e.expect().equals("ACCEPT");
         Compilation c = Compilation.builder().template("t.html", seed.template()).verifierOnly().compile();
-        assertTrue(c.success(), seed.name() + ": " + c.errors());
+        assertTrue(!accept || c.success(), seed.name() + ": " + c.errors());
+        Skeleton.TemplateSkeleton t = c.skeleton("t");
+        boolean nothingToCheck = c.success() && t != null && !checks(t.body())
+            && t.fragments().values().stream().noneMatch(SeedVerifierTest::checks);
+        // PROFILE: the build fails. An ACCEPT seed's build matters only when the verifier has nothing to check.
+        boolean builds = (!accept || nothingToCheck) && Compilation.builder().template("t.html", seed.template()).compile().success();
+        assertTrue(accept || !builds, seed.name() + ": builds");
+        // #752: the compiler wrote nothing the verifier checks, because the profile rejected it first, so the
+        // verifier's verdict covers nothing. Marked, so the file says which seeds exercise the verifier.
+        assertEquals(nothingToCheck && !builds, e.note().contains(HOLE_NOT_EMITTED),
+            seed.name() + ": the verifier-only skeleton holds " + (nothingToCheck ? "nothing to check" : "a value") + ": " + t);
       }
-      default -> assertFalse(Compilation.builder().template("t.html", seed.template()).compile().success(), seed.name());
     }
+  }
+
+  private static final String HOLE_NOT_EMITTED = "hole not emitted";
+
+  /** Whether the verifier checks something in {@code n}: a value, an insertion or control flow, not just markup. */
+  private static boolean checks(Skeleton.Node n) {
+    if (n instanceof Skeleton.Seq s) {
+      return s.nodes().stream().anyMatch(SeedVerifierTest::checks);
+    }
+    // The CSP nonce a <script> or <style> gets is generated markup, not the template's value.
+    return !(n instanceof Skeleton.Static)
+        && !(n instanceof Skeleton.Opt o && o.kind() == Skeleton.OptKind.CSP_NONCE);
   }
 }

@@ -90,6 +90,8 @@ public final class ContextVerifier {
   private int firstElementsBudget;
   /** The last source position seen, for nodes that have none (generated markup). */
   private SourcePos near;
+  /** Test hook (ExitStateTest): each entry context {@link #check} parses in, and the exit states there. */
+  java.util.function.BiConsumer<OpenElement, ParserState[]> exits;
 
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
     for (Skeleton.TemplateSkeleton t : templates.values()) {
@@ -271,6 +273,9 @@ public final class ContextVerifier {
       try {
         Path entry = start(context, scriptingOff);
         Path exit = seq(template.body(), entry.fork(), Env.EMPTY);
+        if (exits != null) {
+          exits.accept(context, exit.states());
+        }
         if (context != null) {
           balanced(entry, exit, start, what, false);
         }
