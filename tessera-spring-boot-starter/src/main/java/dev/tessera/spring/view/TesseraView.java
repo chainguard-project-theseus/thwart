@@ -5,6 +5,7 @@ import dev.tessera.runtime.StringOutput;
 import dev.tessera.runtime.TemplateEntry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collections;
@@ -18,7 +19,8 @@ import org.springframework.web.servlet.View;
 /**
  * Renders a compiled Tessera template as {@code text/html;charset=UTF-8}. The output is buffered
  * so a failure mid-render (for example a {@code TemplateModelException}) never commits a partial
- * page. As with Spring's {@code AbstractView} and Thymeleaf's view, the handler's {@code
+ * page; it is then written to the response stream as UTF-8 bytes with a {@code Content-Length}
+ * (#685). As with Spring's {@code AbstractView} and Thymeleaf's view, the handler's {@code
  * @PathVariable} values ({@link View#PATH_VARIABLES}) are merged under the model, so a model
  * attribute of the same name wins. A template still reads only its declared {@code t:params}.
  */
@@ -87,7 +89,9 @@ public final class TesseraView implements View {
     StringOutput out = new StringOutput(4096);
     renderer.render(m, ctx, out);
     response.setContentType(CONTENT_TYPE);
-    response.getWriter().write(out.toString());
+    byte[] body = out.toString().getBytes(StandardCharsets.UTF_8);
+    response.setContentLength(body.length);
+    response.getOutputStream().write(body);
   }
 
   /**

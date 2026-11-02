@@ -76,6 +76,20 @@ class TesseraViewTest {
     assertThat(render(null, request).get("text")).isEqualTo("x");
   }
 
+  /** The page is written as UTF-8 bytes with its length (#685). */
+  @Test
+  void writesUtf8BytesWithContentLength() throws Exception {
+    TemplateEntry entry =
+        new TemplateEntry(
+            "page", Collections.<TemplateEntry.Param>emptyList(), (m, ctx, out) -> out.write("caf" + (char) 0xE9));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    TesseraView.of(entry, (request, r, m) -> RenderContext.defaults())
+        .render(null, new MockHttpServletRequest(), response);
+    assertThat(response.getContentLength()).isEqualTo(5);
+    assertThat(response.getContentType()).isEqualTo(TesseraView.CONTENT_TYPE);
+    assertThat(response.getContentAsString()).isEqualTo("caf" + (char) 0xE9);
+  }
+
   private static Map<String, ?> render(Map<String, Object> model) throws Exception {
     return render(model, new MockHttpServletRequest());
   }
