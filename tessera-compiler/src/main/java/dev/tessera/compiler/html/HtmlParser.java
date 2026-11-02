@@ -56,13 +56,6 @@ public final class HtmlParser {
   private static final String PROTOTYPE_COMMENT_MESSAGE = "Thymeleaf prototype-only comments '<!--/*/ ... /*/-->'"
       + " are not supported: remove the '<!--/*/' and '/*/-->' markers to make the content part of the"
       + " template";
-  /**
-   * The start tags allowed anywhere inside a select. Browsers with the classic "in select"
-   * insertion mode (Firefox 140) ignore most other start tags there, svg and math included, and
-   * parse their content as markup: a {@code <script>} in a {@code <title>}, {@code <style>} or
-   * svg CDATA runs. The {@code <t:block>} tag is never rendered.
-   */
-  private static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr", "t:block");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
@@ -496,13 +489,6 @@ public final class HtmlParser {
     return comment.indexOf("--!>", 4);
   }
 
-  /** The error for a start tag, lower-cased, that is not in {@link #SELECT_CONTENT} inside a select. */
-  static String notInSelect(String lower) {
-    return "<" + lower + "> inside <select> is not supported: browsers with the classic select parser ignore"
-        + " most tags there and parse their content as markup; move the <" + lower + "> out of the <select>"
-        + " (a <select> holds only <option>, <optgroup>, <hr> and <t:block>)";
-  }
-
   /** An element whose end tag has not been seen yet. */
   private static final class Open {
     final String name;
@@ -691,20 +677,6 @@ public final class HtmlParser {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
-      // By name only: a classic select parser keeps svg and math there as HTML.
-      String lower = HtmlParser.asciiLower(name);
-      if (!SELECT_CONTENT.contains(lower) && inSelect()) {
-        diagnostics.error(tag.pos, notInSelect(lower));
-      }
-    }
-
-    private boolean inSelect() {
-      for (Open o : stack) {
-        if (HtmlParser.asciiEqualsIgnoreCase(o.name, "select")) {
-          return true;
-        }
-      }
-      return false;
     }
 
     @Override
