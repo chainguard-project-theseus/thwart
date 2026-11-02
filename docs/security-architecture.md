@@ -10,7 +10,7 @@ fast, plain Java, and makes template injection and XSS impossible by constructio
 can't be proven safe simply, reject it and let migration absorb the cost; never model browsers,
 client frameworks or one app's idiom.
 
-Code comments cite sections 5.3, 5.4 and 11-11.5 here, and context-model.md 6.1 and 6.2; keep
+Code comments cite sections 5.3, 5.4 and 11-11.5 here, and context-model.md 5, 6.1, 6.2 and 9; keep
 those numbers stable (add new sections after them, as §5.7 was).
 
 ## 1. Summary
