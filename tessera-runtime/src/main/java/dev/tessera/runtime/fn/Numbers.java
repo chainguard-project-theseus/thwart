@@ -1,8 +1,8 @@
 package dev.tessera.runtime.fn;
 
-import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;
+import dev.tessera.runtime.internal.Checks;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -24,7 +24,7 @@ import java.util.Locale;
  *
  * <p>A number reaching more than 10,000 places from the decimal point, and a digit count
  * ({@code minIntDigits}, {@code minDigits}, {@code decimals}) above 10,000, throw
- * {@link IllegalArgumentException}: the bound of {@link Escapers#requireBoundedMagnitude}, whose
+ * {@link IllegalArgumentException}: the bound of {@link Checks#requireBoundedMagnitude}, whose
  * rationale is on {@code Escapers.messageArgs}. A number of any {@link Number} type but a JDK
  * {@code BigDecimal} (a subclass included) is first converted to one from its {@code toString()},
  * and the converted value is checked and formatted.
@@ -193,7 +193,7 @@ public final class Numbers {
     // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
     // DecimalFormat formats, the converted value.
     BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
-    return Escapers.requireBoundedMagnitude(
+    return Checks.requireBoundedMagnitude(
         d, "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
   }
 }
