@@ -103,7 +103,6 @@ class CsrfActionOriginTest {
         "t:action=\"u\"",
         "t:attr=\"action=u\"",
         "t:attr=\"title=u, ACTION=u\"",
-        "t:action=\"t\"",
         "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{//evil.example/x}\"",
         "t:action=\"@{/\\evil.example/x}\"",
@@ -116,8 +115,8 @@ class CsrfActionOriginTest {
         Compilation.builder()
             .template(
                 "form.html",
-                "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
-                    + " t:params=\"String u, TrustedUrl t\"><form method=\"post\" " + attr + ">x</form></div>")
+                "<div xmlns:t=\"https://tessera.dev\""
+                    + " t:params=\"String u\"><form method=\"post\" " + attr + ">x</form></div>")
             .compile();
     c.assertError("form.html:1:", "is not allowed", "the CSRF token");
     assertNull(c.generatedSource("tessera.generated.FormTemplate"), "nothing may be generated");
@@ -178,7 +177,7 @@ class CsrfActionOriginTest {
 
   /**
    * Negative: a choice with any branch that is not a same-origin link stays a build error with the
-   * existing message (#635): a String in either branch, a literal, a concatenation, a TrustedUrl, a
+   * existing message (#635): a String in either branch, a literal, a concatenation, a
    * cross-origin or relative link, also nested, and an elvis.
    */
   @ParameterizedTest
@@ -195,7 +194,6 @@ class CsrfActionOriginTest {
         "t:action=\"b ? @{/a} : '/b/' + ${s}\"",
         "t:action=\"b ? @{/a} : @{/b} + ${s}\"",
         "t:action=\"b ? @{/a} : |/b/${s}|\"",
-        "t:action=\"b ? @{/a} : ${t}\"",
         "t:action=\"b ? @{/a} : @{//evil.example/x}\"",
         "t:action=\"b ? @{https://evil.example/x} : @{/a}\"",
         "t:action=\"b ? @{/a} : @{/\\\\evil.example/x}\"",
@@ -212,8 +210,8 @@ class CsrfActionOriginTest {
         Compilation.builder()
             .template(
                 "form.html",
-                "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
-                    + " t:params=\"boolean b, String s, TrustedUrl t\"><form method=\"post\" " + attr + ">x</form></div>")
+                "<div xmlns:t=\"https://tessera.dev\""
+                    + " t:params=\"boolean b, String s\"><form method=\"post\" " + attr + ">x</form></div>")
             .compile();
     c.assertError("form.html:1:", "is not allowed", "the CSRF token");
     assertNull(c.generatedSource("tessera.generated.FormTemplate"), "nothing may be generated");

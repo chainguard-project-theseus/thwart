@@ -193,14 +193,16 @@ class EscapersTest {
           fallback.append(c);
         }
       };
-      // TrustedUrl bypasses the scheme policy while retaining HTML escaping for URL sinks.
-      Object input = TrustedUrl.unchecked(value);
+      // A leading '/' makes the value a scheme-less path, so the URL sinks' scheme check passes it
+      // and only their HTML escaping is under test.
+      String input = "/" + value;
+      String want = "/" + expected;
       escaper.accept(string, input);
       escaper.accept(new WriterOutput(writer), input);
       escaper.accept(legacy, input);
-      assertEquals(expected, string.toString());
-      assertEquals(expected, writer.toString());
-      assertEquals(expected, fallback.toString());
+      assertEquals(want, string.toString());
+      assertEquals(want, writer.toString());
+      assertEquals(want, fallback.toString());
     }
     assertEquals(expected, SafeHtml.escape(value).html());
   }
@@ -411,7 +413,6 @@ class EscapersTest {
       assertTrue(Escapers.isSameOriginUrl(u), u);
     }
     assertTrue(Escapers.isSameOriginUrl(null));
-    assertTrue(Escapers.isSameOriginUrl(TrustedUrl.unchecked("/x")));
   }
 
   /** Negative (#285): a scheme or a protocol-relative start is another origin, however written. */
@@ -429,8 +430,6 @@ class EscapersTest {
         }) {
       assertFalse(Escapers.isSameOriginUrl(u), u);
     }
-    assertFalse(Escapers.isSameOriginUrl(TrustedUrl.unchecked("https://evil/")));
-    assertFalse(Escapers.isSameOriginUrl(TrustedUrl.unchecked("//evil/")));
   }
 
   /** #358: a link built for a same-origin slot passes only if it is a path starting with one '/'. */
@@ -534,19 +533,20 @@ class EscapersTest {
     assertEquals(Escapers.INVALID_URL, url(TestSafeHtml.of("javascript:alert(1)")));
   }
 
-  @Test
-  void trustedUrlSkipsSchemeCheckButIsStillAttributeEncoded() {
-    assertEquals("data:image/png;base64,AAAA", url(TrustedUrl.unchecked("data:image/png;base64,AAAA")));
-    assertEquals("x&quot;&gt;&lt;script&gt;", url(TrustedUrl.unchecked("x\"><script>")));
+  /** Negative (#668): no value skips the scheme check; there is no wrapper type that vouches for a URL. */
+  @ParameterizedTest
+  @ValueSource(strings = {"javascript:alert(1)", "data:image/png;base64,AAAA", "blob:x", "vbscript:x", "sms:1"})
+  void urlReplacesEveryOtherScheme(String value) {
+    assertEquals(Escapers.INVALID_URL, url(value));
+    assertEquals(Escapers.INVALID_URL, resourceUrl(value));
   }
 
   // --- resourceUrl -----------------------------------------------------------------------------
 
   @Test
-  void resourceUrlAcceptsTrustedUrlAndLinks() {
+  void resourceUrlAcceptsLinks() {
     assertEquals("/js/app.js?v=1&amp;x=2", resourceUrl("/js/app.js?v=1&x=2"));
     assertEquals("https://cdn.example.com/a.js", resourceUrl("https://cdn.example.com/a.js"));
-    assertEquals("blob:x&quot;", resourceUrl(TrustedUrl.unchecked("blob:x\"")));
   }
 
   @Test
@@ -785,7 +785,6 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> json(new Object()));
     assertThrows(IllegalArgumentException.class, () -> json(new Point(1, 2)));
     assertThrows(IllegalArgumentException.class, () -> json(TestSafeHtml.of("<b>")));
-    assertThrows(IllegalArgumentException.class, () -> json(TrustedUrl.unchecked("/x")));
     assertThrows(IllegalArgumentException.class, () -> json(Object.class));
     assertThrows(IllegalArgumentException.class, () -> json(List.of(new Object())));
     assertThrows(IllegalArgumentException.class, () -> json(Map.of("k", new Point(0, 0))));

@@ -25,11 +25,10 @@ import org.apache.maven.plugins.annotations.Parameter;
  *
  * <ul>
  *   <li>every {@code @TemplateFunction} the module registers, marking those that return a safe type
- *       ({@code SafeHtml}, {@code TrustedUrl}, {@code Fragment}, {@code CssValue}): templates output
+ *       ({@code SafeHtml}, {@code Fragment}, {@code CssValue}): templates output
  *       their result without escaping, so each vouches for what it returns;
  *   <li>every unverified door outside Tessera-generated classes, at its source line (#602): a call
- *       of {@code TrustedUrl.unchecked} or
- *       {@code Fragment.unverifiedForGeneratedCode}, and a {@code verifiedFlowPartial()}
+ *       of {@code Fragment.unverifiedForGeneratedCode}, and a {@code verifiedFlowPartial()}
  *       declaration (a hand-written {@code Template} vouching for its own output).
  * </ul>
  *
@@ -44,7 +43,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 public final class ReviewMojo extends AbstractMojo {
   static final String REPORT = "tessera-review.txt";
   private static final String SERVICES = "META-INF/services/dev.tessera.runtime.TemplateRegistry";
-  private static final String[] SAFE_TYPES = {"SafeHtml", "TrustedUrl", "Fragment", "CssValue"};
+  private static final String[] SAFE_TYPES = {"SafeHtml", "Fragment", "CssValue"};
 
   @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
   File outputDirectory;

@@ -31,7 +31,7 @@ JDK 21+. The table names the main classes only.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
+| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |
@@ -181,7 +181,7 @@ promotion for primitives; enum vs string literal compares `name()` and checks th
 
 **View-safe:** primitives and boxes, `String`/`CharSequence`, enums, records, `java.time` values,
 `BigDecimal`/`BigInteger`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/`Map`/`Map.Entry` and arrays of
-view-safe types, `LoopStatus`, `SafeHtml`, `TrustedUrl`, `Fragment` (params only), classes annotated
+view-safe types, `LoopStatus`, `SafeHtml`, `Fragment` (params only), classes annotated
 `@TemplateView`.
 
 **Never view-safe** (even if annotated or registered; checked on params, every intermediate result,
@@ -215,7 +215,7 @@ table is what ships today. The target profile, with the status of each rule, is 
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.javaScript` (`Escapers.json` in a JSON script) | `[[...]]` only; JSON-able types only; in a JavaScript script only the whole value of a declaration at the top of the script (the prelude rule, #540), in a JSON script only outside a string |
 | `STYLE` | `<style>` | — | build error |
 
-Attribute contexts (`ATTRIBUTE`, `TYPED_ATTRIBUTE`, `URL`, `TRUSTED_URL`, `RESOURCE_URL`, `REFRESH`,
+Attribute contexts (`ATTRIBUTE`, `TYPED_ATTRIBUTE`, `URL`, `RESOURCE_URL`, `REFRESH`,
 `NEUTRAL`, `STYLE`, `EVENT_HANDLER`, `FORBIDDEN`) are in [context-model.md](context-model.md)
 section 6.1.
 
