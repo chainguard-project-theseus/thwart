@@ -16,7 +16,8 @@ page. For every template the compiler accepts and every model:
   JSON expression slot;
 - so no value runs as a script, an event handler or a `javascript:` URL, and no value makes the
   page load a cross-origin script, frame or base URL;
-- a template cannot reach code or state beyond its declared, typed `t:params` (principles 1-4).
+- a template cannot reach code or state beyond its declared, typed `t:params` (principles 1-4;
+  security-architecture.md §5.7).
 
 It does not guarantee what page JavaScript or a client framework does with the DOM afterwards
 (principle 7). There is no framework table: the compiler only constrains the shape of its own
@@ -30,9 +31,10 @@ The build-time verifier makes the first point hold for every template the compil
 
 - relative to the WHATWG parsing algorithm as the pinned parser (validator.nu htmlparser,
   security-architecture.md §11.4) implements it;
-- only on parses with no parse errors (missing-doctype aside), outside the four coarse
-  exclusions: SVG or MathML above a table part or `template`, table parts directly in
-  `<template>`, anything but `option`, `optgroup` and `hr` in a `<select>`, and any CDATA section;
+- only on parses with no parse errors (the allowed errors of security-architecture.md §11.3
+  aside), outside the four coarse exclusions: SVG or MathML above a table part or `template`,
+  table parts directly in `<template>`, anything but `option`, `optgroup` and `hr` in a
+  `<select>`, and any CDATA section;
 - with no value inside SVG or MathML, or in raw text;
 - with the supported browsers tested to agree with the parser on that markup, not proved to (the
   Node job compares parse5, Chromium, Firefox ESR and WebKit with the pinned engine after every
@@ -45,17 +47,20 @@ Tessera doesn't verify markup that parses only through error recovery (foster pa
 misnested formatting, a second `<body>`). It rejects it, even where every browser would agree.
 
 ## 2. Actors and trust
+
+This is the one trust table; SECURITY.md links here.
+
 | Actor or input | Trust | What Tessera assumes | What enforces it |
 |---|---|---|---|
 | **Model values** (every `t:params` value, including strings, numbers, collections, nulls and their properties) | Untrusted | The attacker controls all of them, completely, including length, characters and `null` | Escapers chosen by context; URL checks; JSON for scripts |
-| **Template authors** | Trusted, but fallible | Authors don't attack their own templates, but they write markup whose meaning they don't know: a quote in an unquoted value, a comment a browser ends early, `<svg><title>` | The build-time verifier (#367); the profile's rules give earlier messages. A template whose meaning the compiler can't pin down is rejected, whoever wrote it |
-| **Message bundles** (`messages*.properties`) | Trusted for text, not for markup | Spring may serve a bundle the build never saw (another jar, a database, a changed file) | An HTML message is formatted with its arguments escaped as text and then sanitized at render time by a fixed policy (`Escapers.htmlMessage`, #677): inline elements and checked links only, whatever the bundle holds |
-| **Application Java code** (controllers, `@TemplateFunction`s, view-safe types) | Trusted | It decides what goes into the model, and what it marks as safe | Principles 2-4: allow-listed functions and properties, no reflection |
-| **A hand-written `Template`** | Its own code | It writes what its Java writes, like any other response code; nothing at build time vouches for it, and no API wraps its output as `SafeHtml` or `Fragment` (#676) | Nothing at render time. `t:utext` and `[(...)]` accept only `SafeHtml`; no type skips the URL checks (#668) |
-| **Other `SafeHtml` sources** (`escape`, `sanitize`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. | The verifier (#367, #329): `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). |
-| **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (#365) | Out of scope |
-| **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell) (#354). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`, CDATA) | At build time, the verifier runs the pinned htmlparser and accepts only error-free parses outside the exclusions. In tests, parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (on Chainguard Checks after every merge and on request) |
-| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (#584); frameworks that compile the server's DOM are unsupported (#679); strict CSP with nonces (#335: the nonce on compiler-written scripts; the policy header is the application's) |
+| **Template authors** | Trusted, but fallible | Authors don't attack their own templates, but they write markup whose meaning they don't know: a quote in an unquoted value, a comment a browser ends early, `<svg><title>` | The build-time verifier; the profile's rules give earlier messages. A template whose meaning the compiler can't pin down is rejected, whoever wrote it |
+| **Message bundles** (`messages*.properties`) | Trusted for text, not for markup | Spring may serve a bundle the build never saw (another jar, a database, a changed file) | An HTML message is formatted with its arguments escaped as text and then always sanitized at render time by a fixed policy (`Escapers.htmlMessage`, `HtmlPolicy.MESSAGE`; `HtmlMessageTest`): inline elements and checked links only, whatever the bundle holds. No message is written raw |
+| **Application Java code** (controllers, `@TemplateFunction`s, view-safe types) | Trusted | It decides what goes into the model, and what it marks as safe | Principles 2-4: allow-listed functions and properties, no reflection (security-architecture.md §5.7) |
+| **A hand-written `Template`** | Its own code | It writes what its Java writes, like any other response code; nothing at build time vouches for it, and no API wraps its output as `SafeHtml` or `Fragment` (`FragmentFromJavaTest`) | Nothing at render time. `t:utext` and `[(...)]` accept only `SafeHtml`; no type skips the URL checks |
+| **Other `SafeHtml` sources** (`escape`, `sanitize`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. | The verifier: `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). |
+| **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (`tessera-html5/pom.xml`) | Out of scope |
+| **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`, CDATA) | At build time, the verifier runs the pinned htmlparser and accepts only error-free parses outside the exclusions. In tests, parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (on Chainguard Checks after every merge and on request) |
+| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; the policy header is the application's) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
 | **The CSP nonce** (`RenderContext.cspNonce`) | Trusted, but escaped | The application (or the starter, from `SecureRandom`) supplies a fresh, unguessable value per response and the same value in its policy | Written only on compiler-written `<script>` and `<style>` start tags a browser reads as HTML (not in SVG, MathML or raw text), with `Escapers.attr`; a nonce in the template is a build error |
 
@@ -66,12 +71,14 @@ point.
 
 | Boundary | Crossing | Check | Where |
 |---|---|---|---|
-| Template source to compiled class | Author markup becomes a fixed tree and a set of holes | The template parses without errors and outside the exclusions, and each hole's escaper output is inert in the state the spec parser reaches there (security-architecture.md §11); the profile's early errors; expression resolution against the view-safe allow-list | The verifier (#367), `MarkupTokenizer`, `HtmlParser`, `Contexts`, the expression compiler |
+| Template source to compiled class | Author markup becomes a fixed tree and a set of holes | The template parses without errors and outside the exclusions, and each hole's escaper output is inert in the state the spec parser reaches there (security-architecture.md §11); the profile's early errors; expression resolution against the view-safe allow-list ([security-architecture.md §5.7](security-architecture.md#57-expressions)) | The verifier, `MarkupTokenizer`, `HtmlParser`, `Contexts`, `ExpressionParser`, `ExpressionCompiler` |
 | Model value to output | An untrusted value is written into a hole | The escaper for the hole's context, chosen at build time | `Escapers` (`text`, `attr`, `url`, `resourceUrl`, `refresh`, `json`, `javaScript`) |
-| Model value to URL | An untrusted value becomes a link or a resource | Scheme allow-list for `URL`, which is only the attributes whose grammar is exactly one URL; the URL lists `ping`, `srcset`, `imagesrcset` can't be computed (`FORBIDDEN`, #678); literal-path link for `RESOURCE_URL` (the author's literal fixes the origin; `/\` rejected for every link, #340); same-origin path for refresh URLs and every `formaction`; for the action of any form a same-origin link; for `<base href>`, `formaction` and a form's link `action`, also a choice whose every branch is such a link (#635; not a refresh URL), context-model.md §6.2 | `Escapers.url`; same-origin and CSRF: `Escapers.isSameOriginUrl` |
+| Model value to URL | An untrusted value becomes a link | Scheme allow-list (`http`, `https`, `mailto`, `tel`, relative), only on attributes whose grammar is exactly one URL; the URL lists `ping`, `srcset`, `imagesrcset` can't be computed (`FORBIDDEN`) | `Escapers.url`; `AttributesEndToEndTest` |
+| Model value to resource URL | An untrusted value picks a script, frame, stylesheet or object | A literal-path `@{...}` link: the author's literal fixes the origin, and it is re-checked as same-origin when rendered (`/\` is rejected for every link); a refresh URL is a same-origin path too | `Escapers.resourceUrl`, `Escapers.refresh`; `LinkCompilerTest`, `SameOriginLinkRenderTest` |
+| Model value to form action, `formaction` or `<base href>` | An untrusted value picks where a form submits or what relative URLs resolve against | A same-origin link, or a choice whose every branch is one (context-model.md §6.2) | `Escapers.isSameOriginUrl`; `FormActionTest`, `CsrfFormactionTest`, `CsrfBaseTest` |
 | Model value to script | An untrusted value is written into a `<script>` | A complete JSON value in parentheses, only as the value of a declaration at the top of a JavaScript script, or a JSON value in a JSON script (context-model.md §4) | `Escapers.javaScript`, `Escapers.json`, `TextInlining` |
-| Fragment, `SafeHtml` or message to an insertion point | Markup compiled for one context is placed in another | Static fragments: checked at each call site. Dynamic values: the insertion state meets the kind's predicate (context-model.md §5) | The verifier (#367, #329) |
-| Rendered page to browser parser | The browser parses the page | The invariant: each hole is in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | The verifier at build time (#367); `SeedVerifierTest`, `HostileSweepTest` and the Node job test it |
+| Fragment, `SafeHtml` or message to an insertion point | Markup compiled for one context is placed in another | Static fragments: checked at each call site. Dynamic values: the insertion state meets the kind's predicate (context-model.md §5) | The verifier; `ContentKindsTest`, `FlowProducerTest` |
+| Rendered page to browser parser | The browser parses the page | The invariant: each hole is in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | The verifier at build time; `SeedVerifierTest`, `HostileSweepTest` and the Node job test it |
 | Browser DOM to client framework | Page JavaScript reads attributes and text as code | Framework-neutral values outside HTML attributes; CSP | Beyond the guarantee except as bounded here |
 | Rendered page to the application's CSP | The browser decides which scripts and styles run | The nonce is on exactly the start tags the compiler writes, never on `SafeHtml` content (context-model.md §6.4) | `TemplateGenerator.startTag`; `CspNonceTest` |
 
@@ -85,26 +92,34 @@ point.
 | Pick the browser, among the supported set | Supply template source at runtime: the runtime has no template parser (principle 1) |
 | Rely on client frameworks the page loads | |
 
-The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 values (`PWN()`,
-`"+PWN()+"`, `\nPWN()//`, ` onerror=PWN() `, `{{PWN()}}`, `javascript:PWN()`, `\evil.example`,
-`/evil.example`, `//evil.example`, `img src=x onerror=PWN()`).
+The hostile value set used in tests is `HostileStrings.VECTORS` plus
+`ProfileOracleTest.SEED_VALUES` (`PWN()`, `"+PWN()+"`, `\nPWN()//`, ` onerror=PWN() `,
+`{{PWN()}}`, `javascript:PWN()`, `\evil.example`, `/evil.example`, `//evil.example`,
+`img src=x onerror=PWN()`).
 
 ## 5. In scope and out of scope
 
+Families A-E are the threat families of
+[security-architecture.md §2](security-architecture.md#2-threat-families): A parser
+differentials, B composition, C JavaScript position, D client frameworks, E URL and policy.
+
 | Class | In scope? | Notes |
 |---|---|---|
-| Server-side template injection, code execution | Yes | Closed by principles 1-4. No reported case |
-| XSS through a parser differential (the compiler's tree is not the browser's) | Yes | Family A; closed by the build-time verifier (#367), relative to the pinned parser, on error-free parses outside the exclusions (§1); the profile (context-model.md §2-§3) gives earlier errors |
+| Server-side template injection, code execution | Yes | Closed by principles 1-4 and the expression rules (security-architecture.md §5.7). No reported case |
+| XSS through a parser differential (the compiler's tree is not the browser's) | Yes | Family A; closed by the build-time verifier, relative to the pinned parser, on error-free parses outside the exclusions (§1); the profile (context-model.md §2-§3) gives earlier errors |
 | XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; script prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
-| Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (#584); text is plain-escaped and frameworks that compile the server's DOM are unsupported (#679); a strict CSP is the backstop. See guide §5 |
-| What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.9) |
+| Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); text is plain-escaped and frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); a strict CSP is the backstop. A computed non-HTML attribute value that isn't neutral is in scope. See guide §5 |
+| What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` and with `connect-src 'self'` limits the damage (guide §4.9) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
-| Content a door vouched for (a hand-written `Template`) | No | The call site owns it |
-| CSS injection | Yes, by restriction | No values in `<style>`; a `style` attribute takes only literals, numbers and `CssValue`; nothing in SVG is computed (#678) |
+| A hand-written `Template`'s own output | No | The Java that writes it owns it, like any other response code |
+| Views Tessera doesn't render (Thymeleaf or JSP still configured during a migration) | No | They get none of these guarantees; the Spring starter logs a warning at startup while that is the case |
+| CSS injection | Yes, by restriction | No values in `<style>`; a `style` attribute takes only literals, numbers and `CssValue`; nothing in SVG is computed |
 | Denial of service, timing, clickjacking, response headers | No | Application and server concerns |
 | Browsers outside the supported set | No | A difference there is a request to widen the supported set, not a bug |
+| A compromised build (template sources, bundles, compiler, dependencies) | No | Trusted (§2) |
+| Tooling inputs (`tessera-migrate`, the benchmarks, the example apps) | No | Developer tools and samples, not production components |
 
 ## 6. Severity
 
@@ -142,7 +157,7 @@ accepts. None is modelled.
 
 | Deviation | Who does what | Handling |
 |---|---|---|
-| "Reset the insertion mode" stops at an SVG or MathML element and picks "in body"; the spec walks on to the `td`, `th`, `caption`, table part or `template` | validator.nu (both versions) and Firefox (generated from the same Java) stop; the spec, parse5, Chromium and WebKit walk on. Not fixed upstream as of validator/htmlparser f5c4147 (Sep 2026) | exclusion (a): no SVG/MathML above a table part or `template` (#398, #406) |
-| `</table>` in a table mode inside `template` contents uses `findLast("table")`, not table scope, and closes an outer table | validator.nu and Firefox close it; the spec, parse5, Chromium and WebKit ignore the end tag | exclusion (b): no table part directly in `template` (#401, #406); the measurement's repros also report parse errors |
-| Classic and customizable `<select>` parsing | Firefox ESR and parse5 drop elements other than `option`, `optgroup` and `hr`; the current parser, Chromium, current Firefox and WebKit keep them | exclusion (c), on composed output (#305, #406) |
-| parse5: the end tag of an SVG/MathML integration point while an HTML formatting element is open (`<div><svg><desc><b></desc></svg>X`) | parse5 differs from validator.nu and all three browsers | a parse5 bug, not a browser one. The detector reports parse5-only drift without failing (#399). The error check rejects it (#406, `ErrorFreeTest`) |
+| "Reset the insertion mode" stops at an SVG or MathML element and picks "in body"; the spec walks on to the `td`, `th`, `caption`, table part or `template` | validator.nu and Firefox (generated from the same Java) stop; the spec, parse5, Chromium and WebKit walk on. Not fixed upstream as of validator/htmlparser f5c4147 (Sep 2026) | exclusion (a): no SVG/MathML above a table part or `template` (`FOREIGN_IN_TABLE`; seeds) |
+| `</table>` in a table mode inside `template` contents uses `findLast("table")`, not table scope, and closes an outer table | validator.nu and Firefox close it; the spec, parse5, Chromium and WebKit ignore the end tag | exclusion (b): no table part directly in `template` (`TABLE_IN_TEMPLATE`; seeds); the repros also report parse errors |
+| Classic and customizable `<select>` parsing | Firefox ESR and parse5 drop elements other than `option`, `optgroup` and `hr`; the pinned parser, Chromium, current Firefox and WebKit keep them | exclusion (c), on composed output (`SELECT_CONTENT`; seeds) |
+| parse5: the end tag of an SVG/MathML integration point while an HTML formatting element is open (`<div><svg><desc><b></desc></svg>X`) | parse5 differs from validator.nu and all three browsers | a parse5 bug, not a browser one. The Node job reports parse5-only drift without failing. The error check rejects it (`ErrorFreeTest`) |

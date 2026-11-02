@@ -10,7 +10,8 @@ fast, plain Java, and makes template injection and XSS impossible by constructio
 can't be proven safe simply, reject it and let migration absorb the cost; never model browsers,
 client frameworks or one app's idiom.
 
-Section numbers 5.4 and 11-11.4 are cited from code comments; keep them stable.
+Code comments cite sections 5.3, 5.4 and 11-11.5 here, and context-model.md 6.1 and 6.2; keep
+those numbers stable (add new sections after them, as §5.7 was).
 
 ## 1. Summary
 
@@ -64,15 +65,9 @@ and reject the rest.**
 
 ## 4. Principles this rests on
 
-The principles are in [AGENTS.md](../AGENTS.md). The ones this design adds or sharpens:
-
-- **Allow-list everything parseable** (principle 3): markup is held to the same closed-language
-  rule as expressions.
-- **Contexts are proven, not guessed** (principle 5): the spec parser decides, at build time, for
-  every template.
-- **The guarantee ends at the HTML parser** (principle 7).
-- **Reject, don't model.** If browsers split, add a coarse exclusion; never model a browser's
-  algorithm or a framework, and never patch the parser.
+The principles are in [AGENTS.md](../AGENTS.md). The one rule this design adds is **reject,
+don't model**: if browsers split, add a coarse exclusion; never model a browser's algorithm or a
+framework, and never patch the parser.
 
 ## 5. The profile
 
@@ -136,8 +131,8 @@ predicate on the parser state where it is inserted plus a promise about what its
   (`RAW_CLOSES_ELEMENT`). Producers (`html.sanitize`, `HtmlPolicy`, `SafeHtml.escape`/`concat`)
   emit balanced content that parses without errors.
 - HTML messages (`t:utext="#{...}"`) are `PHRASING`: at render time the formatted message is
-  sanitized by a fixed inline policy (`Escapers.htmlMessage`, #677).
-- `Fragment` is compile-time only (#676): Java can't build one, and no page or function takes
+  sanitized by a fixed inline policy (`Escapers.htmlMessage`, `HtmlMessageTest`).
+- `Fragment` is compile-time only (`FragmentFromJavaTest`): Java can't build one, and no page or function takes
   one, so every `Fragment` value comes from a `~{...}` the verifier checks where it lands.
   Statically known fragments need no kind: the verifier analyses them at each call site.
 
@@ -152,6 +147,39 @@ names the compiler constrains its own output to framework-neutral values (§5.3)
 The backstop is a strict CSP: the Spring starter puts the request's nonce on every `<script>`
 and `<style>` the compiler writes (context-model.md §6.4), and the application sends a
 nonce-based policy without `'unsafe-eval'` (guide §4.9).
+
+### 5.7 Expressions
+
+The expression language is closed and resolved by the compiler against static types; javac
+compiles the result. Nothing is evaluated reflectively at render time.
+
+- **Rejected by the parser** (`expr/ExpressionParser`, `ExpressionParserTest`, `SstiPayloadTest`):
+  `T(...)`, `new`, `__...__` preprocessing, `@bean` references, assignment, lambdas,
+  projection and selection (`.![]`, `.?[]`), dynamic message keys, link paths and template names
+  (`~{...}` takes a literal), and a bare `fn(x)` without a namespace.
+- **View-safe types** (`types/ViewSafety`, the source of truth; `ViewSafetyTest`): properties
+  resolve only on primitives and boxes, strings, enums, records, `java.time` values,
+  `BigDecimal`/`BigInteger`, the `java.util` containers and arrays of view-safe types,
+  `LoopStatus`, `SafeHtml`, `CssValue` and `@TemplateView` classes, all public. Never view-safe,
+  even if annotated or registered: `Object`, `Class`, `ClassLoader`, reflection and
+  `java.lang.invoke`, `Thread`, `Runtime`, `Process*`, `System`, files, `javax.script`, servlet
+  and Spring context, bean, environment, resource and expression types, and any type with such a
+  supertype or type argument. `Object` is allowed only as a function parameter type, where nothing
+  can be called on it.
+- **Internal names.** A variable whose name contains `$` is never looked up
+  (`ExpressionCompiler`, `FormPaths.fieldVariable`), so the compiler's own variables can't be
+  reached from a template.
+- **Path-only fields.** `t:errors`, `fields.*` and `t:field` on a file input resolve a form path
+  for its type only (`ExpressionCompiler.pathType`): a step may have a never-view-safe type such as
+  `MultipartFile`, but properties still resolve only on view-safe types and no code is emitted,
+  so the value can't be read (`NameOnlyFieldsTest`).
+- **Functions** (`types/FunctionRegistry`, `FunctionRegistryTest`): `public static` methods
+  annotated `@TemplateFunction` in a class annotated `@TemplateFunctions("ns")`, called as
+  `ns.fn(...)`. A signature with a never-view-safe type or a `Fragment` parameter, a duplicate or
+  invalid namespace, or a reserved one (`fields`, `ids`) is a build error. Namespaces come from the current
+  compilation, `BuiltinNamespaces` (Tessera's runtime functions), and the classpath index
+  `META-INF/tessera/functions/<ns>`, which any jar can provide; an indexed class must still
+  carry `@TemplateFunctions` with that namespace and passes the same checks.
 
 ## 6. Escapers
 
@@ -171,7 +199,8 @@ harmless, write it raw" is a design error, not a fix.
 ## 8. ASCII-only names and character classes
 
 Browsers fold A-Z only and split on HTML whitespace. Every HTML, CSS and URL comparison goes
-through named ASCII helpers; Java text goes through `JavaStrings`. `AsciiOnlyTest` fails on
+through named ASCII helpers (`dev.tessera.runtime.Ascii` at render time, `HtmlParser.asciiLower`
+and its siblings in the compiler); Java text goes through `JavaStrings`. `AsciiOnlyTest` fails on
 `equalsIgnoreCase`, `toLowerCase`, `trim`, `Character.isWhitespace`, regex `\s` and the like
 outside a pinned allow-list.
 
@@ -187,13 +216,13 @@ any form.
 
 | Test | What it holds |
 |---|---|
-| `SeedVerifierTest` | the 352 seeds (`oracle/seeds`): each historic bypass or probe keeps its verdict |
+| `SeedVerifierTest` | the seeds (`oracle/seeds`): each historic bypass or probe keeps its verdict |
 | `ErrorFreeTest`, `ContextVerifierRulesTest` | the error-free rule, the exclusions and the hole-state table |
 | `HostileSweepTest` | every computed (element, attribute) pair and the sanitizer, rendered with hostile values and classified against a sink table written from the specs (`HostileSinks`); the script prelude shapes, checked with Rhino |
 | `SstiPayloadTest` | template-injection payloads stay inert |
 | `EscapersTest`, `EscaperFuzzTest`, `TextChokePointTest`, `AsciiOnlyTest` | the escapers, the single text path and ASCII-only folding |
 | `FlowProducerTest`, `SanitizerBalanceTest` | `FLOW` producers emit balanced, error-free content |
-| `.chainguard/ci/oracle-node.yaml` | after every merge: parse5, Chromium, Firefox ESR and WebKit compared with the pinned engine's trees (#399) |
+| `.chainguard/ci/oracle-node.yaml` | after every merge: parse5, Chromium, Firefox ESR and WebKit compared with the pinned engine's trees |
 
 `hack/quick.sh tier1` runs the security core.
 
@@ -235,7 +264,7 @@ nothing is foster-parented, reconstructed or adopted. In data state the value pr
 character tokens, and the accepted modes append every character token. So after the value the
 parser is in the same state as before, for every value.
 
-**Control flow is state-neutral** (#682). The body of every `t:if`, `t:unless`, `t:case`,
+**Control flow is state-neutral** (`ContextVerifierRulesTest`). The body of every `t:if`, `t:unless`, `t:case`,
 `t:each` (one pass, and the separator), every computed attribute and every fragment insertion
 must leave the parser in the state it found it in (`UNBALANCED` otherwise), and a partial must end
 in the state it starts in. Then every path is in the same state at each point, so one path is
@@ -253,8 +282,11 @@ neutral by induction; recursion into ever new states is `STRUCTURE_DEPENDS_ON_DA
 3. **One parser.** The guarantee is relative to the WHATWG algorithm as the pinned engine
    implements it, on error-free parses, outside the exclusions. Browsers are tested to agree there
    (the Node job), not proved to.
-4. **The allowed errors** are the missing-doctype messages only. Widening the list needs a
-   measurement and an argument in the PR.
+4. **The allowed errors** are two (`Rules.allowedError`): the missing-doctype messages, which
+   say nothing about the tree (most views are partials or start at `<html>`), and validator.nu's
+   "Duplicate ID", which isn't a parse error in the HTML standard but a conformance check of its
+   tree builder, made only among the elements of one chunk of input. Widening the list needs a
+   corpus measurement and an argument in the PR.
 5. **Partials** are parsed in the fragment context their root implies. A partial rendered in
    another context isn't covered.
 6. **The inertness lemma** is argued here and tested by the hostile sweep, not proved.
@@ -268,7 +300,8 @@ Bumping it is its own PR, with seed and corpus verdicts diffed. The runtime and 
 dependency-free.
 
 **Error-free parses only.** On every path, scripting on and off, the parser reports no tokenizer
-or tree-builder error except the missing-doctype messages (`PARSE_ERROR`). A partial counts errors
+or tree-builder error except the two allowed ones of §11.3 item 4, missing doctype and
+"Duplicate ID" (`PARSE_ERROR`). A partial counts errors
 only in its implied fragment context (`tr`: `tbody`; `td`, `th`: `tr`; `option`, `optgroup`:
 `select`; `li`: `ul`; otherwise `body`). A fragment no template calls is checked on its own, or
 rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHERE`).
@@ -277,10 +310,10 @@ rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHE
 
 | | Rejected | Why |
 |---|---|---|
-| (a) `FOREIGN_IN_TABLE` | an `svg` or `math` element open with a table part or `template` below it | vnu and Firefox reset the insertion mode to "in body" at the foreign element; the spec, Chromium and WebKit go on to the cell (#398) |
-| (b) `TABLE_IN_TEMPLATE` | an HTML table part directly in `<template>` | vnu and Firefox close an outer table on `</table>` there (#401) |
-| (c) `SELECT_CONTENT` | anything but `option`, `optgroup` and `hr` above `<select>` | classic and customizable `<select>` parsing differ (#305) |
-| (d) `CDATA_SECTION` | any CDATA section | browsers read CDATA only in foreign content, and split on it at integration points (#441, #678) |
+| (a) `FOREIGN_IN_TABLE` | an `svg` or `math` element open with a table part or `template` below it | vnu and Firefox reset the insertion mode to "in body" at the foreign element; the spec, Chromium and WebKit go on to the cell |
+| (b) `TABLE_IN_TEMPLATE` | an HTML table part directly in `<template>` | vnu and Firefox close an outer table on `</table>` there |
+| (c) `SELECT_CONTENT` | anything but `option`, `optgroup` and `hr` above `<select>` | classic and customizable `<select>` parsing differ |
+| (d) `CDATA_SECTION` | any CDATA section | browsers read CDATA only in foreign content, and split on it at integration points |
 
 `<frameset>` is rejected too (`FRAMESET`): whether its start tag applies depends on what came
 before. The exclusions are coarse on purpose: a wider rule that is obviously right beats a narrow
