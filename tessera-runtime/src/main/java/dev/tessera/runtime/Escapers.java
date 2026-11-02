@@ -61,6 +61,31 @@ public final class Escapers {
     escapeHtml(out, toText(value));
   }
 
+  // Typed overloads of text (#685): javac picks them for a primitive value, whose text is only
+  // digits, '-' or a literal, written without escaping. A char is escaped like any other value (it
+  // would otherwise widen to the int overload); a boxed value, and an enum, whose toString() an
+  // application can override, go to text(Output, Object) and are escaped.
+
+  /** {@link #text(Output, Object)} for an {@code int} (and a {@code byte} or {@code short}): its digits. */
+  public static void text(Output out, int value) {
+    out.write(Integer.toString(value));
+  }
+
+  /** {@link #text(Output, Object)} for a {@code long}: its digits. */
+  public static void text(Output out, long value) {
+    out.write(Long.toString(value));
+  }
+
+  /** {@link #text(Output, Object)} for a {@code boolean}: {@code true} or {@code false}. */
+  public static void text(Output out, boolean value) {
+    out.write(value ? "true" : "false");
+  }
+
+  /** {@link #text(Output, Object)} for a {@code char}, escaped. */
+  public static void text(Output out, char value) {
+    escapeHtml(out, String.valueOf(value));
+  }
+
   /** Quoted attribute value (OutputContext.ATTRIBUTE). Encodes {@code & < > " '}. */
   public static void attr(Output out, Object value) {
     escapeHtml(out, toText(value));
@@ -323,15 +348,59 @@ public final class Escapers {
     }
   }
 
+  /** The replacement of every ASCII character {@link #appendHtml} escapes; {@code null} if kept. */
+  private static final String[] HTML_ASCII = new String[128];
+
+  /** U+FFFD, written for a {@link #forbiddenCodePoint}. */
+  private static final String REPLACEMENT = String.valueOf((char) 0xFFFD);
+
+  /** Bit {@code c} is set if {@code HTML_ASCII[c]} is, for {@code c < 64}. */
+  private static final long HTML_ASCII_LOW;
+
+  static {
+    for (int c = 0; c < 128; c++) {
+      if (forbiddenCodePoint(c)) {
+        HTML_ASCII[c] = REPLACEMENT;
+      }
+    }
+    HTML_ASCII['&'] = "&amp;";
+    HTML_ASCII['<'] = "&lt;";
+    HTML_ASCII['>'] = "&gt;";
+    HTML_ASCII['"'] = "&quot;";
+    HTML_ASCII['\''] = "&#39;";
+    long low = 0;
+    for (int c = 0; c < 64; c++) {
+      low |= HTML_ASCII[c] != null ? 1L << c : 0;
+    }
+    HTML_ASCII_LOW = low;
+  }
+
+  /**
+   * Whether {@link #appendHtml} may have to replace {@code c}: an {@link #HTML_ASCII} character,
+   * U+0080-U+009F, a surrogate (kept if half of an allowed pair) or U+FDD0 and above.
+   */
+  private static boolean mayEscapeHtml(char c) {
+    if (c < 64) {
+      return (HTML_ASCII_LOW >>> c & 1) != 0;
+    }
+    return c >= 0x7F && (c <= 0x9F || (c >= 0xD800 && (c <= 0xDFFF || c >= 0xFDD0)));
+  }
+
+  /** The index of the first char of {@code s} that {@link #mayEscapeHtml may need escaping}, or its length. */
+  private static int firstHtmlEscape(String s) {
+    int i = 0;
+    while (i < s.length() && !mayEscapeHtml(s.charAt(i))) {
+      i++;
+    }
+    return i;
+  }
+
   /**
    * The one HTML escaper (element text, RCDATA and attribute values alike): {@code & < > " '},
    * and {@link #forbiddenCodePoint forbidden code points} as U+FFFD, nothing else.
    */
   static void appendHtml(StringBuilder sb, String s) {
-    int i = 0;
-    while (i < s.length() && !needsHtmlEscape(s.charAt(i))) {
-      i++;
-    }
+    int i = firstHtmlEscape(s);
     if (i == s.length()) {
       sb.append(s);
     } else {
@@ -341,51 +410,43 @@ public final class Escapers {
 
   /** Escapes {@code s} as {@link #appendHtml} does. */
   static String escapeHtml(String s) {
-    int i = 0;
-    int n = s.length();
-    while (i < n && !needsHtmlEscape(s.charAt(i))) {
-      i++;
-    }
-    if (i == n) {
+    int i = firstHtmlEscape(s);
+    if (i == s.length()) {
       return s;
     }
-    StringBuilder sb = new StringBuilder(n + 16);
+    StringBuilder sb = new StringBuilder(s.length() + 16);
     appendEscapedHtml(sb, s, i);
     return sb.toString();
   }
 
+  /** {@link #appendHtml} from index {@code i}, copying runs of kept characters in bulk (#685). */
   private static void appendEscapedHtml(StringBuilder sb, String s, int i) {
     int n = s.length();
-    sb.append(s, 0, i);
+    int kept = 0;
     for (; i < n; i++) {
       char c = s.charAt(i);
-      switch (c) {
-        case '&':
-          sb.append("&amp;");
-          break;
-        case '<':
-          sb.append("&lt;");
-          break;
-        case '>':
-          sb.append("&gt;");
-          break;
-        case '"':
-          sb.append("&quot;");
-          break;
-        case '\'':
-          sb.append("&#39;");
-          break;
-        default:
-          int cp = Character.codePointAt(s, i); // a pair or a lone surrogate
-          if (forbiddenCodePoint(cp)) {
-            sb.append('\uFFFD');
-          } else {
-            sb.appendCodePoint(cp);
-          }
-          i += Character.charCount(cp) - 1;
-          break;
+      if (!mayEscapeHtml(c)) {
+        continue;
       }
+      String replacement;
+      int next = i + 1;
+      if (c < 128) {
+        replacement = HTML_ASCII[c];
+      } else {
+        int cp = Character.codePointAt(s, i); // a pair or a lone surrogate
+        next = i + Character.charCount(cp);
+        replacement = forbiddenCodePoint(cp) ? REPLACEMENT : null;
+      }
+      if (replacement != null) {
+        if (i > kept) {
+          sb.append(s, kept, i);
+        }
+        sb.append(replacement);
+        kept = next;
+      }
+      i = next - 1;
     }
+    sb.append(s, kept, n);
   }
 
   /**
@@ -402,19 +463,6 @@ public final class Escapers {
     }
     return (cp >= 0x7F && cp <= 0x9F) || (cp >= 0xD800 && cp <= 0xDFFF) || (cp >= 0xFDD0 && cp <= 0xFDEF)
         || (cp & 0xFFFE) == 0xFFFE;
-  }
-
-  private static boolean needsHtmlEscape(char c) {
-    switch (c) {
-      case '&':
-      case '<':
-      case '>':
-      case '"':
-      case '\'':
-        return true;
-      default:
-        return forbiddenCodePoint(c); // also either half of a pair, which the slow path keeps
-    }
   }
 
   // ---------------------------------------------------------------------------------------------
