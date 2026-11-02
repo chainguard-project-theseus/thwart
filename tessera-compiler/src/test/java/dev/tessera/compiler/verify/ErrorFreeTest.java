@@ -218,33 +218,6 @@ class ErrorFreeTest {
   }
 
   /**
-   * SVG or MathML in a SafeHtml or Fragment value lands in a cell at run time, where exclusion (a)
-   * can't see it: a partial with them isn't a verified FLOW partial (the <td> probe), so
-   * SafeHtml.of and Fragment.of refuse it.
-   */
-  @Test
-  void aPartialWithSvgOrMathIsNotFlow() {
-    String[][] partials = {
-      {"icon", "<span " + NS + " t:params=\"String a\"><svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"></path></svg>"
-          + "<b t:text=\"a\">x</b></span>"},
-      {"fo", "<div " + NS + " t:params=\"String a\"><svg><foreignObject><table></table></foreignObject></svg>"
-          + "<b t:text=\"a\">x</b></div>"},
-      {"mi", "<p " + NS + " t:params=\"String a\"><math><mi t:text=\"a\">x</mi></math></p>"},
-    };
-    Compilation.Builder b = Compilation.builder();
-    for (String[] t : partials) {
-      b.template("p/" + t[0] + ".html", t[1]);
-    }
-    Compilation c = b.compile().assertSuccess();
-    for (String[] t : partials) {
-      Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
-      all.put("p/" + t[0], c.skeleton("p/" + t[0]));
-      String why = new ContextVerifier(all).whyNotFlowPartial(c.skeleton("p/" + t[0]));
-      assertTrue(why != null && why.contains("FOREIGN_IN_TABLE"), t[0] + ": " + why);
-    }
-  }
-
-  /**
    * The parse5 deviation PR #402 found: parse5 handles the end tag of an SVG integration point
    * with an HTML formatting element open differently from validator.nu and the browsers. The
    * markup is a parse error, so the verifier never accepts it.

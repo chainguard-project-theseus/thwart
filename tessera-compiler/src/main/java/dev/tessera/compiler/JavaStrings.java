@@ -101,11 +101,19 @@ public final class JavaStrings {
     return sb.toString();
   }
 
+  private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
+
+  /**
+   * The Java type of a {@code Fragment} in generated code (#676): {@code Fragment} has no
+   * instances, so a fragment argument is a lambda of this type, passed only to private methods.
+   */
+  public static final String FRAGMENT_BODY = FRAGMENT + ".Body";
+
   /**
    * {@code t} as Java source, without type-use annotations (#627). {@code TypeMirror.toString()}
    * keeps them, and JDK 8's javac writes {@code List<@NotNull Integer>}'s element as
    * {@code (@NotNull :: java.lang.Integer)}, which does not compile. Generics, arrays, wildcards and
-   * inner classes of generic classes are kept.
+   * inner classes of generic classes are kept. {@code Fragment} is written {@link #FRAGMENT_BODY}.
    */
   public static String typeName(TypeMirror t) {
     return t.accept(TYPE_NAME, null);
@@ -150,6 +158,9 @@ public final class JavaStrings {
         @Override
         public String visitDeclared(DeclaredType t, Void unused) {
           TypeElement te = (TypeElement) t.asElement();
+          if (te.getQualifiedName().contentEquals(FRAGMENT)) {
+            return FRAGMENT_BODY;
+          }
           TypeMirror outer = t.getEnclosingType();
           StringBuilder sb = new StringBuilder();
           if (outer.getKind() == TypeKind.DECLARED) {

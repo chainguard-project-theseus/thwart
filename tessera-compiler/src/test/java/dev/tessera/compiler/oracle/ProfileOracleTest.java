@@ -9,7 +9,6 @@ import dev.tessera.compiler.oracle.gen.Generator;
 import dev.tessera.compiler.oracle.gen.Shape;
 import dev.tessera.compiler.security.HostileStrings;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.compiler.verify.SkeletonMatcher;
 import dev.tessera.compiler.verify.engine.Engine;
@@ -18,7 +17,6 @@ import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.Fragment;
 import dev.tessera.runtime.Output;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.SafeHtml;
@@ -372,12 +370,9 @@ class ProfileOracleTest {
     };
   }
 
-  /** A fixed {@code Fragment} argument: rendered the same in every render of a case. */
-  private static final Fragment FRAGMENT = TestFragments.markup("<b>fragment</b>");
-
   /**
    * A model for {@code params}: String slot {@code i} (1-based, in declaration order) gets {@code
-   * value(i)}, an {@code int} -1, a {@code SafeHtml} and a {@code Fragment} fixed benign markup (their
+   * value(i)}, an {@code int} -1, and a {@code SafeHtml} fixed benign markup (its
    * producers are #329's).
    */
   static Map<String, Object> model(List<Shape.Param> params, java.util.function.IntFunction<String> value) {
@@ -388,7 +383,6 @@ class ProfileOracleTest {
         case "String" -> m.put(p.name(), value.apply(++slot));
         case "int", "Integer", "long" -> m.put(p.name(), -1);
         case "SafeHtml" -> m.put(p.name(), SafeHtml.sanitize("<b>safe</b>"));
-        case "Fragment" -> m.put(p.name(), FRAGMENT);
         default -> throw new IllegalArgumentException("the gate can't fill a " + p.type() + " parameter");
       }
     }

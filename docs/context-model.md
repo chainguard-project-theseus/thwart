@@ -228,10 +228,7 @@ fine.
 |---|---|---|
 | `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` writes a closed content model (#592, below), closes everything it opens, unwraps every tag that doesn't fit and writes forbidden code points as U+FFFD, so the output parses without a parse error, as written; it doesn't model the tree builder | `FlowProducerTest` (no parse error, and exit state equals entry state, at 14 `FLOW` insertion points, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell and follows the model, without a parse error; a seeded property test over well-formed and broken trees; negative controls for each check); the #329 PR's parse5 run |
 | `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text, with forbidden code points written as U+FFFD as the sanitizer writes them (#614), so it parses without a parse error; concatenation of balanced content) | `FlowProducerTest` (hostile input and the forbidden code points of `SanitizerBalanceTest`); `EscapersTest` |
-| A rendered partial template (`SafeHtml.of`, `Fragment.of`) | only if the compiler proved it a `FLOW` partial (#396, below); the runtime refuses any other template with an `IllegalArgumentException` naming it | `FlowPartialTest` (the #329 review's partials are refused, each shown to change the state at a position the predicate accepts; ordinary partials are marked); `FlowProducerTest` (sample partials with hostile values); `Jdk8ProcessorTest` |
-| A `Fragment` built in Java with `Fragment.of` | yes (above). `Fragment` is a final class, so no lambda or subclass is one (#581). A page's `Fragment` parameter refuses, at render time, a value without the mark `Fragment.of` sets, also a template-built one handed back by Java. A fragment with a `Fragment` parameter has no Java-facing `fragment_<name>` method (#600), so Java reaches a template only through page `t:params` and registry entries | `FragmentFromJavaTest`, `FragmentTest` |
-| `Fragment.unverifiedForGeneratedCode` called from Java | builds a value nothing outside generated code accepts: a fragment with a `Fragment` parameter is a `private` method of its class, copied into every class that calls it, so no public method takes a `Fragment` but a page's `of`/`render`, which refuse the value (#581, #600, #666); `tessera:review` still fails the build on a call outside generated code (#602) | `FragmentFromJavaTest.noPublicMethodTakesAFragment`, `ReviewMojoTest` |
-| A hand-written `Template` whose `verifiedFlowPartial()` returns true | the caller's responsibility; `tessera:review` fails the build on one (#602) | `ReviewMojoTest` |
+| A `Fragment` argument | only between compiled templates (#676): `Fragment` has no instances, so Java can't build, subclass or vouch for one; no page (`t:params`) or `@TemplateFunction` takes one; a fragment with a `Fragment` parameter is a `private` method of its class and of each caller (#600), and its argument is checked at the call site | `FragmentFromJavaTest`, `FragmentTest` |
 
 **The sanitizer's closed content model** (#592). The output is built from a stack, every non-void
 element gets an explicit end tag, and an end tag is written only while its element is the current
@@ -268,32 +265,10 @@ parent, a special element; the "never inside" column rules out the `a` error (ad
 the Noah's Ark clause, so the list comes back unchanged; and every end tag takes its no-error path
 because its element is the current node.
 
-**Verified `FLOW` partials** (#396, `ContextVerifier.whyNotFlowPartial`). After a build the verifier
-accepts, it marks each template whose output it proves `FLOW` content: the generated class
-overrides `Template.verifiedFlowPartial()` to return `true`, and `SafeHtml.of(template, ctx)` and
-`Fragment.of(template)` throw for any template without the mark. No reflection: the mark is a
-generated method. A template is marked if:
-
-- it is a partial: not a page (a doctype or `<html>` start, the same inference as its entry
-  contexts), and its root needs no context but `<body>` (not `li`, `tr`, `td`, `th`, `option`,
-  `optgroup`);
-- inserted at each of `ContentKinds.PARTIAL_PROBES` (after `<body>`, `<ul><li>`, `<dl><dd>`,
-  `<table><tr><td>` and `<template>`, all accepted by the predicate) it has no verifier finding
-  and leaves all four parsers in the state it found them (in `<template>`, or in the state after
-  `<span></span>`). The original insertion mode is ignored outside the "text" mode, the only mode
-  that reads it (validator.nu keeps it after a `textarea`, `script` or `template`);
-- and, at every element inserted in the `<body>` probe (`ContentKinds.promiseBreach`), it keeps
-  the one clause of the producer promise that isn't a parse error: no `form` outside a
-  `template`. A formatting element inside one of its own name is allowed (#448): where more of
-  that name are open around the value, the Noah's Ark clause may drop the oldest entry from the
-  list of active formatting elements, but that element stays open, and in an error-free parse the
-  list changes the tree only through entries that are no longer open (#444).
-
-The rest of the promise needs no check of its own (#410): in the `<body>` probe a stray end tag,
-a top-level table part and a `head`, `body`, `html` or `frameset` start tag are parse errors, an
-`li` or `dd` outside its own list (inside a `div` too) closes the open `li` or `dd` of the list
-probes, and a table part closes a cell or switches a template's mode. So the bench corpus's two call sites pass: budgetmaster's `NotificationLinkTemplate` (an `a`)
-is marked, and so is espd run-3's `PrintContentTemplate`.
+**Rendered templates** (#676). Java can't wrap a template's output as `SafeHtml` or build a
+`Fragment`: another template inserts it with `t:insert`/`t:replace`, and the verifier checks the
+fragment and its arguments where they land. The flow-partial mark (#396) is gone with the APIs that
+read it.
 
 `HEAD` and `TABLE_ROWS` are not added, and `PHRASING` only for HTML messages. On the bench corpus
 the `p` clause rejects 6 call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD`
@@ -311,7 +286,7 @@ heading, `button`, `nobr` or `ruby`, so the predicate is FLOW's without those cl
 | Value or position | Kind | Status | Checked by | Proof |
 |---|---|---|---|---|
 | Fragment (`t:fragment`) | none: analysed at each call site | verifier (#367); #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
-| `Fragment` parameter or value | `FLOW` | verifier (#367, #329, #561): a template-built value is a closed set of candidates (a `Fragment` parameter, `null`, a `t:with` alias of one, a ternary or Elvis of those; inserted or passed on), each bound argument parsed where it lands; any other `Fragment` expression (also any function or method call, whatever its parameter types), and a `@TemplateFunction` that takes a `Fragment`, is a build error. Built in Java (page parameter, unbound parameter): `FLOW`, and only a `Fragment.of` of a verified `FLOW` partial, which the generated page and fragment methods check at render time (#581); #304 | `FragmentCandidatesTest`, `FragmentFromJavaTest`, `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
+| `Fragment` parameter or value | `FLOW` | verifier (#367, #329, #561): a template-built value is a closed set of candidates (a `Fragment` parameter, `null`, a `t:with` alias of one, a ternary or Elvis of those; inserted or passed on), each bound argument parsed where it lands; any other `Fragment` expression (also any function or method call, whatever its parameter types), and a `@TemplateFunction` that takes a `Fragment`, is a build error. An unbound parameter (a fragment checked apart from its callers) is `FLOW`; Java can't build a `Fragment` and a page can't take one (#676); #304 | `FragmentCandidatesTest`, `FragmentFromJavaTest`, `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest` | not yet |
 | `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier (#367, #329); #304 | `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
 | HTML message (`#{...}` as HTML) | `PHRASING` (with or without links) | verifier (#677); runtime sanitizer (`Escapers.htmlMessage`) | `ContentKindsTest`, `FlowProducerTest`, `HtmlMessageTest`, `EscapersTest` | not yet |
 | `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | verifier (#367); main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |

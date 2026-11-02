@@ -88,10 +88,6 @@ public final class ContextVerifier {
   private int firstElementsBudget;
   /** The last source position seen, for nodes that have none (generated markup). */
   private SourcePos near;
-  /** In the first FLOW-partial probe (#396): check the producer promise at every element inserted. */
-  private boolean promiseCheck;
-  /** How the template broke the producer promise in that probe, in words, or null. */
-  private String breach;
 
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
     for (Skeleton.TemplateSkeleton t : templates.values()) {
@@ -101,12 +97,6 @@ public final class ContextVerifier {
         fragmentContexts.put(id, t.fragmentContext(f.getKey()));
       }
     }
-  }
-
-  /** A fresh analysis (no memo) over the same fragments. */
-  private ContextVerifier(ContextVerifier other) {
-    fragments.putAll(other.fragments);
-    fragmentContexts.putAll(other.fragmentContexts);
   }
 
   /**
@@ -249,110 +239,6 @@ public final class ContextVerifier {
       }
     }
     return out;
-  }
-
-  /**
-   * The view names of the templates in {@code templates} that the verifier proves {@code FLOW}
-   * partials (#396, {@link #whyNotFlowPartial}). The generated class of each says so
-   * ({@code Template.verifiedFlowPartial()}), and only those may be rendered into a
-   * {@code SafeHtml} or {@code Fragment} value. Call it only when {@link #verify} reported nothing.
-   */
-  public static Set<String> flowPartials(Map<String, Skeleton.TemplateSkeleton> templates) {
-    ContextVerifier v = new ContextVerifier(templates);
-    Set<String> out = new LinkedHashSet<>();
-    for (Skeleton.TemplateSkeleton t : templates.values()) {
-      if (v.whyNotFlowPartial(t) == null) {
-        out.add(t.viewName());
-      }
-    }
-    return out;
-  }
-
-  /**
-   * Why {@code template}'s output may not be FLOW content, in words, or null if it is: it is a
-   * partial (not a page), its root needs no other context than {@code <body>}, and inserted at each
-   * of {@link ContentKinds#PARTIAL_PROBES} it has no finding and leaves the parser as it found it
-   * in every parser, keeping the producer promise ({@link ContentKinds#promiseBreach}). It fails closed: an engine
-   * failure or a probe the predicate doesn't accept is a "no".
-   */
-  String whyNotFlowPartial(Skeleton.TemplateSkeleton template) {
-    List<String> entries = entries(template);
-    if (entries.size() == 1) {
-      return "it is a page (it starts with a doctype or <html>)";
-    }
-    if (entries.size() != 2 || !"body".equals(entries.get(1))) {
-      return "its root is a list item, table part or option, which needs another element around it";
-    }
-    boolean first = true;
-    for (String context : ContentKinds.PARTIAL_PROBES) {
-      String why = new ContextVerifier(this).probe(template, context, first);
-      first = false;
-      if (why != null) {
-        return why;
-      }
-    }
-    return null;
-  }
-
-  /** Why {@code template} isn't FLOW content inserted after {@code context} in a {@code <body>}, or null. */
-  private String probe(Skeleton.TemplateSkeleton template, String context, boolean checkPromise) {
-    boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
-    parserCount = scriptingOff ? 2 : 1;
-    promiseCheck = checkPromise;
-    List<Finding> found = new ArrayList<>();
-    sink = found;
-    near = firstPos(template);
-    String where = context.isEmpty() ? "in a <body>" : "after " + context;
-    try {
-      Path entry = start(new OpenElement(OpenElement.HTML, "body", false), scriptingOff);
-      entry.feed(context, near);
-      for (ParserState s : entry.states()) {
-        if (ContentKinds.problem(s) != null) {
-          return "the probe " + where + " is not a FLOW position";
-        }
-      }
-      // As for an HTML message (known): the exit must be the entry, or in template mode the state
-      // a flow start tag switches to.
-      Set<String> allowed = new HashSet<>();
-      allowed.add(flowKey(entry));
-      for (ParserState s : entry.states()) {
-        if (ContentKinds.switchesMode(s)) {
-          Path written = entry.fork();
-          written.feed(ContentKinds.REPRESENTATIVE, near);
-          allowed.add(flowKey(written));
-          break;
-        }
-      }
-      List<Path> exits = seq(template.body(), Collections.singletonList(entry.fork()), Env.EMPTY);
-      if (breach != null) {
-        return breach;
-      }
-      for (Finding f : found) {
-        return "inserted " + where + ", the verifier rejects it (" + f.problem + ")";
-      }
-      ParserState[] before = entry.states();
-      for (Path exit : exits) {
-        if (!allowed.contains(flowKey(exit))) {
-          ParserState[] after = exit.states();
-          for (int i = 0; i < after.length; i++) {
-            if (!ContentKinds.flowSignature(after[i]).equals(ContentKinds.flowSignature(before[i]))) {
-              return "inserted " + where + ", it " + ContentKinds.difference(before[i], after[i]);
-            }
-          }
-        }
-      }
-    } catch (EngineException e) {
-      return "the verifier's parser failed: " + e.getMessage();
-    }
-    return null;
-  }
-
-  private static String flowKey(Path p) throws EngineException {
-    StringBuilder sb = new StringBuilder();
-    for (ParserState s : p.states()) {
-      sb.append(ContentKinds.flowSignature(s)).append('\u0000');
-    }
-    return sb.toString();
   }
 
   /** What the verifier rejects in {@code template}, deduplicated, in order. */
@@ -1498,9 +1384,6 @@ public final class ContextVerifier {
             Rules.Excluded x = Rules.exclusion(stack);
             if (x != null) {
               note(x.problem, x.detail, offset);
-            }
-            if (owner.promiseCheck && owner.breach == null) {
-              owner.breach = ContentKinds.promiseBreach(stack);
             }
           }
 

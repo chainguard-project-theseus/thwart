@@ -123,8 +123,8 @@
 => t.html:1:80: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, list, table or heading in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == RAW_CLOSES_ELEMENT: a Fragment value in a link
 -- t.html
-<a $NS t:import="dev.tessera.runtime.Fragment" t:params="Fragment f" href="/x"><span t:insert="f">x</span></a>
-=> t.html:1:122: error: a browser lets the markup of this Fragment value close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+<div $NS><a t:fragment="link(Fragment f)" href="/x"><span t:insert="f">x</span></a></div>
+=> t.html:1:95: error: a browser lets the markup of this Fragment value close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == RAW_CLOSES_ELEMENT: an HTML message with a link, in a link
 -- messages.properties
 m=See <a href="/docs">the docs</a>.

@@ -138,9 +138,7 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   reads `tessera.messages` from the property of that name, so set the property. The plugin needs
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
-  `@TemplateFunction`, for a security review, and every unverified door with its source line. It
-  fails the build on a door: a hand-written `verifiedFlowPartial()`, or a call of
-  `Fragment.unverifiedForGeneratedCode` outside generated code.
+  `@TemplateFunction`, for a security review.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.
@@ -541,8 +539,8 @@ rebuild it with a fragment that inserts itself: the compiler rejects it, because
 structure would depend on data.
 
 In Java, `SafeHtml.escape`, `SafeHtml.concat` and `SafeHtml.sanitize` build markup from checked
-parts, and `SafeHtml.of(template, ctx)` wraps another template's output. Nothing wraps a string
-unchecked.
+parts. Nothing wraps a string or a template's output unchecked: insert the other template with
+`t:insert` instead (#676).
 
 **CSS.** A `style` value is built from literals, numbers and `CssValue`s:
 `t:style="|background-color: ${css.color(category.color)}|"`. `css.color`, `css.length` and
@@ -860,10 +858,9 @@ supported. A controller can also return `ListTemplate.of(owners)`.
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
 `ResourceBundleMessages`, `DefaultLinks(contextPath)`), or in a controller with
-`SpringRenderContexts.create(request, response, model)`. A `Fragment` page parameter takes
-`Fragment.of(PartialTemplate.of(...))` of a compiled partial. `Fragment.unverifiedForGeneratedCode` is
-for generated code only: no public method accepts its values, and the `review` goal fails the build
-on a call from application code.
+`SpringRenderContexts.create(request, response, model)`. `Fragment` exists only between templates
+(#676): Java can't build one, and a page (`t:params`) or a function can't take one. A page that
+took one becomes a fragment its callers pass `~{...}`.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
 writes gets the request's nonce (`CspNonce.get(request)` returns it for your policy header). Delete

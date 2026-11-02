@@ -72,8 +72,6 @@ public final class TesseraProcessor extends AbstractProcessor {
   private List<GeneratedFile> written;
   /** The skeletons of the templates whose classes were written (#366); empty until then. */
   private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
-  /** The view names of the templates the verifier proved FLOW partials (#396). */
-  private Set<String> flowPartials = Collections.emptySet();
   /** #131: the fragments the verifier checked as response bodies, as {@code page :: fragment}. */
   private Set<String> servableFragments = Collections.emptySet();
   /** The templates the last {@link #compile} read (#425). */
@@ -131,8 +129,6 @@ public final class TesseraProcessor extends AbstractProcessor {
         escapers = ContextVerifier.verify(result.skeletons(), diagnostics);
       }
       if (!diagnostics.hasErrors()) {
-        // #396: which templates SafeHtml.of and Fragment.of accept, marked in their classes.
-        flowPartials = ContextVerifier.flowPartials(result.skeletons());
         // #131: which fragments get a "page :: fragment" registry entry.
         servableFragments = ContextVerifier.servableFragments(result.skeletons());
       }
@@ -142,7 +138,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       }
       // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
-        List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials, escapers, servableFragments));
+        List<GeneratedFile> files = new ArrayList<>(result.files(escapers, servableFragments));
         files.addAll(functionIndex(functionClasses));
         write(files);
         writeFingerprint(TemplateFingerprint.of(sources, options.messages()));
@@ -200,10 +196,10 @@ public final class TesseraProcessor extends AbstractProcessor {
     List<GeneratedFile> again;
     try {
       List<TypeElement> functionClasses = functionClasses();
-      // The same marks: if the skeletons changed, so did the classes.
+      // The same escapers: if the skeletons changed, so did the classes.
       TemplateCompiler.Result result = compile(new Diagnostics(), functionClasses);
       again = new ArrayList<>(result.files(
-          flowPartials, ContextVerifier.verify(result.skeletons(), new Diagnostics()), servableFragments));
+          ContextVerifier.verify(result.skeletons(), new Diagnostics()), servableFragments));
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check

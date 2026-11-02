@@ -58,8 +58,8 @@ class GeneratorTest {
     assertEquals(PINNED_COUNT + " " + PINNED_FINGERPRINT, ids.size() + " " + fingerprint);
   }
 
-  private static final int PINNED_COUNT = 1523;
-  private static final String PINNED_FINGERPRINT = "45990d7b6e24";
+  private static final int PINNED_COUNT = 1524;
+  private static final String PINNED_FINGERPRINT = "c4efaf8f5b34";
 
   @Test
   void defaultEnumerationIsWithinTheCapAndNotTruncated() {
@@ -98,9 +98,6 @@ class GeneratorTest {
       String value = shape.hole().safeHtml() ? "h" : "s";
       assertTrue(t.contains("[[" + value + "]]") || t.contains("[(" + value + ")]") || t.contains("=\"" + value + "\"")
           || t.contains("x=s") || t.contains("${s}"), "hole missing: " + t);
-      if (c.params().contains(Shape.FRAGMENT)) {
-        assertTrue(t.contains("t:replace=\"f\""), t);
-      }
       // The static interference is written as given, and the rest is a balanced element tree.
       Interference i = shape.interference();
       assertTrue(t.contains(i.prefix()) && t.contains(i.suffix()), t);
@@ -232,9 +229,6 @@ class GeneratorTest {
         ROOT + "<svg><title t:fragment=\"frag(String s)\">[[s]]</title></svg>"
             + "<table><tbody><tr><td><t:block t:replace=\"~{:: frag(s)}\"></t:block></td></tr></tbody></table></div>",
         base.with(Composition.REPLACE, Container.TABLE_TD).template());
-    assertEquals(
-        "<div t:params=\"String s, Fragment f\"><svg><title>[[s]]<t:block t:replace=\"f\"></t:block></title></svg></div>",
-        base.with(Composition.FRAGMENT_PARAM, null).template());
     assertEquals(ROOT + "<svg><title t:remove=\"tag\">[[s]]</title></svg></div>",
         base.with(Composition.REMOVE_TAG, null).template());
     // SafeHtml holes declare SafeHtml h, and a fragment takes it.

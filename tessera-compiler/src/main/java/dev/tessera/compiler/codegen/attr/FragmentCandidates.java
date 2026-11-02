@@ -9,7 +9,6 @@ import dev.tessera.compiler.types.Variable;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,8 +16,7 @@ import java.util.Optional;
  * parses where the value lands (#561). A {@code Fragment} parameter of the fragment being generated
  * is a {@link Skeleton.ParamInsert}, bound at each call site; {@code null} writes nothing; a
  * {@code t:with} alias is what its value was ({@link Scope#fragment}); a ternary or Elvis is the
- * union of its branches. A page parameter is built in Java and stays a {@code FLOW} value
- * (#581: the generated page refuses one that isn't a {@code Fragment.of}). Anything else is a
+ * union of its branches. Anything else is a
  * build error, also any function or method call whatever its parameter types: one that takes
  * {@code Object} could hand back a template-built value unchecked.
  * A {@code ~{...}} reference is handled where it is written ({@code InsertReplaceProcessor}).
@@ -86,13 +84,11 @@ final class FragmentCandidates {
       // Any other local: a loop variable, or a t:with alias of something else.
       return null;
     }
+    // Only a fragment has Fragment parameters: a page may not (#676).
     TemplateIndex.FragmentInfo f = ctx.fragment();
-    List<TemplateIndex.Param> params = f != null ? f.params() : ctx.template().params();
-    for (TemplateIndex.Param p : params) {
+    for (TemplateIndex.Param p : f == null ? Collections.<TemplateIndex.Param>emptyList() : f.params()) {
       if (p.name().equals(name)) {
-        return f != null
-            ? new Skeleton.ParamInsert(name, e.pos())
-            : new Skeleton.RawInsert(Skeleton.Source.FRAGMENT_VALUE, e.pos());
+        return new Skeleton.ParamInsert(name, e.pos());
       }
     }
     return null;

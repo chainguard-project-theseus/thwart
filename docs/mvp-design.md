@@ -49,7 +49,7 @@ JDK 21+. The table names the main classes only.
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
-| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). `ReviewMojo` (`tessera:review`): lists the `@TemplateFunction`s, and fails the build on an unverified door outside generated code (#428, #602). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
+| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). `ReviewMojo` (`tessera:review`): lists the `@TemplateFunction`s (#428). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
@@ -117,7 +117,7 @@ class and a copy in every class that calls it, so only templates call it; a frag
 `t:insert`/`t:replace` take
 `~{tpl :: name(args)}`, `tpl :: name(args)`, `~{:: name}` (same file), or an expression of type
 `Fragment`. Arguments are positional or all named, type-checked against the signature.
-`~{::name}` as an *argument* is a generated `Fragment` (`Fragment.unverifiedForGeneratedCode`) over the same-file fragment `name`, or else the
+`~{::name}` as an *argument* is a generated `Fragment.Body` lambda (#676) over the same-file fragment `name`, or else the
 first element whose tag is `name` (petclinic's `~{::body}` layout pattern). A selected element renders in the
 scope of the `t:insert`/`t:replace` that passes it. Template names in `~{...}` are paths under the
 templates root; `.`, `..`, empty segments and a leading `/` are build errors. When a template renders
@@ -274,10 +274,6 @@ public final class OwnerDetailsTemplate implements dev.tessera.runtime.Template 
   public static void fragment_card(..., dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) { ... }
 }
 ```
-
-A template the verifier proves a `FLOW` partial (#396; this page isn't one) also gets
-`@Override public boolean verifiedFlowPartial() { return true; }`, which `SafeHtml.of` and
-`Fragment.of` require.
 
 Plus `com.example.templates.TesseraRegistry implements TemplateRegistry`, whose entries adapt a
 `Map<String, ?>` model: `instanceof` check per param (`TemplateModelException` on mismatch; missing

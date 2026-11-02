@@ -33,8 +33,8 @@ assert !log.contains('read other message bundles')
 def last = log.substring(log.lastIndexOf('edits/msg-fixed'))
 assert last.contains('Recompiling the module') : 'invocation 8 did not compile'
 assert last.substring(last.indexOf('Recompiling the module')).contains('Nothing to compile') : 'invocation 9 recompiled'
-// #428, #602: the review goal ran after compile (invocation 9) and wrote its report.
+// #428: the review goal ran after compile (invocation 9) and wrote its report.
 def review = new File(basedir, 'target/tessera-review.txt').text
-assert review.contains('## @TemplateFunctions (0)\n') && review.contains('## Unverified doors (0)\n') : review
-assert log.contains('Tessera: 0 @TemplateFunction(s), 0 returning a safe type, and 0 unverified door(s)')
+assert review.contains('## @TemplateFunctions (0)\n') : review
+assert log.contains('Tessera: 0 @TemplateFunction(s), 0 returning a safe type')
 return true

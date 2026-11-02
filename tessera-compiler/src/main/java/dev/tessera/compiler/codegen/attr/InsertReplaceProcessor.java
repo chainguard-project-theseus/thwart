@@ -142,7 +142,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     String f = ctx.freshName("f");
-    return Emitted.fragmentValue(FRAGMENT, f, e.code(), candidates, ctx.insertionContext());
+    return Emitted.fragmentValue(JavaStrings.FRAGMENT_BODY, f, e.code(), candidates, ctx.insertionContext());
   }
 
   /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */
@@ -357,7 +357,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     boolean wantsFragment = isFragment(ctx, param.type());
     if (arg.value() instanceof Expr.FragmentExpr) {
       if (!wantsFragment) {
-        ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but a fragment ~{...} was passed");
+        ctx.diagnostics().error(arg.pos(), what + " has type " + param.type() + ", but a fragment ~{...} was passed");
         return null;
       }
       List<Skeleton.Node> skeleton = new ArrayList<>();
@@ -375,7 +375,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     if (!ctx.env().types().isAssignable(e.type(), param.type())) {
-      ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the argument has type " + e.type());
+      ctx.diagnostics().error(arg.pos(), what + " has type " + param.type() + ", but the argument has type " + e.type());
       return null;
     }
     if (ctx.env().types().isAssignable(param.type(), fragmentType(ctx))) {
@@ -419,7 +419,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       Variable forwarded = FormPaths.fieldVariable(arg.value(), scope).get();
       if (!ctx.env().types().isAssignable(forwarded.type(), param.type())) {
         ctx.diagnostics()
-            .error(arg.pos(), what + " has type " + param.javaType() + ", but '" + forwarded.name() + "' is a " + forwarded.type());
+            .error(arg.pos(), what + " has type " + param.type() + ", but '" + forwarded.name() + "' is a " + forwarded.type());
         return null;
       }
       return forwarded.javaName();
@@ -438,7 +438,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     TypeMirror type = f.value().type();
     if (wanted != null && !ctx.env().types().isAssignable(type, wanted)) {
-      ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the field has type " + type);
+      ctx.diagnostics().error(arg.pos(), what + " has type " + param.type() + ", but the field has type " + type);
       return null;
     }
     String typeArg = wanted == null ? "java.lang.Object" : JavaStrings.typeName(wanted);
@@ -479,8 +479,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (call == null) {
       return null;
     }
-    pre.append(FRAGMENT).append(' ').append(local).append(" = ").append(FRAGMENT).append(".unverifiedForGeneratedCode((").append(c)
-        .append(", ").append(o).append(") -> ").append(call).append(");\n");
+    pre.append(JavaStrings.FRAGMENT_BODY).append(" ").append(local).append(" = (").append(c)
+        .append(", ").append(o).append(") -> ").append(call).append(";\n");
     return local;
   }
 
@@ -551,7 +551,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   private static String signature(TemplateIndex.FragmentInfo f) {
     return f.name()
         + "("
-        + f.params().stream().map(p -> p.javaType() + " " + p.name()).collect(Collectors.joining(", "))
+        + f.params().stream().map(p -> p.type() + " " + p.name()).collect(Collectors.joining(", "))
         + ")";
   }
 
