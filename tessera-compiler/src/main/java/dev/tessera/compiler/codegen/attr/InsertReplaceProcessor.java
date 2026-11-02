@@ -347,7 +347,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       StringBuilder pre,
       Map<String, Skeleton.Seq> fragmentArgs) {
     String what = "argument " + (index + 1) + " ('" + param.name() + "') of fragment " + sig;
-    boolean wantsFragment = isFragment(ctx, param.type());
+    boolean wantsFragment = TemplateIndex.isFragment(param.type());
     if (arg.value() instanceof Expr.FragmentExpr) {
       if (!wantsFragment) {
         ctx.diagnostics().error(arg.pos(), what + " has type " + param.type() + ", but a fragment ~{...} was passed");
@@ -371,7 +371,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       ctx.diagnostics().error(arg.pos(), what + " has type " + param.type() + ", but the argument has type " + e.type());
       return null;
     }
-    if (ctx.env().types().isAssignable(param.type(), fragmentType(ctx))) {
+    if (wantsFragment) {
       // A Fragment parameter, which the callee may insert. Bound to its candidates (a Fragment
       // parameter passed on: whatever the caller's caller bound; null: nothing), which the
       // verifier checks where the callee inserts the parameter.
@@ -540,9 +540,5 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   private static TypeMirror fragmentType(CodegenContext ctx) {
     return ctx.env().elements().getTypeElement(FRAGMENT).asType();
-  }
-
-  private static boolean isFragment(CodegenContext ctx, TypeMirror t) {
-    return ctx.env().types().isSameType(t, fragmentType(ctx));
   }
 }

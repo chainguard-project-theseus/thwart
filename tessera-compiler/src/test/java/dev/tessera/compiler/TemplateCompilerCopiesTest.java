@@ -29,7 +29,7 @@ class TemplateCompilerCopiesTest {
   }
 
   private static Skeleton.Hole hole() {
-    return new Skeleton.Hole(Skeleton.Escaper.TEXT, "title", null, POS);
+    return new Skeleton.Hole(Skeleton.Escaper.TEXT, null, POS);
   }
 
   @Test

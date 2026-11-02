@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import static dev.tessera.compiler.JavaStrings.literal;
 import static dev.tessera.compiler.codegen.TemplateGenerator.javaName;
 
+import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,6 @@ final class TemplateClassSource {
     int dot = fqcn.lastIndexOf('.');
     String pkg = dot < 0 ? "" : fqcn.substring(0, dot);
     String simple = fqcn.substring(dot + 1);
-    String io = RT + "RenderContext ctx, " + RT + "Output out";
     List<String> decls = new ArrayList<>();
     List<String> names = new ArrayList<>();
     for (TemplateIndex.Param p : info.params()) {
@@ -61,13 +61,13 @@ final class TemplateClassSource {
     sb.append("  @Override\n  public java.lang.String templateName() {\n    return ")
         .append(literal(info.viewName()))
         .append(";\n  }\n\n");
-    sb.append("  @Override\n  public void render(").append(io).append(") {\n");
+    sb.append("  @Override\n  public void render(").append(FragmentMethods.IO).append(") {\n");
     if (info.params().isEmpty()) {
       // A static render(ctx, out) would clash with this method; the body lives here.
       sb.append(body).append("  }\n");
     } else {
       sb.append("    render(").append(nameList).append(", ctx, out);\n  }\n\n");
-      sb.append("  public static void render(").append(declList).append(", ").append(io).append(") {\n");
+      sb.append("  public static void render(").append(declList).append(", ").append(FragmentMethods.IO).append(") {\n");
       sb.append(body).append("  }\n");
     }
     for (String m : members) {

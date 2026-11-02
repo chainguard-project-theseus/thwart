@@ -7,10 +7,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Framework attributes after #584: no name is classified by framework (a computed value in one is
- * framework-neutral, NeutralValuesTest), static ones are the author's code and are written
- * verbatim, and what stays framework-named until #585 and #586 still holds: htmx 1.x sockets are
- * errors, and a computed class drops ng-like tokens.
+ * Framework attributes after #584: static directives are the author's code and are written
+ * verbatim; a computed value in one is framework-neutral (NeutralValuesTest), and a computed htmx
+ * request URL is a same-origin neutral link; a computed class is a plain attribute, written
+ * attribute-escaped.
  */
 class FrameworkDirectivesTest {
 

@@ -1,6 +1,7 @@
 package dev.tessera.compiler.codegen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.codegen.attr.GenericAttrProcessor;
@@ -19,7 +20,7 @@ class AttributeProcessorsTest {
 
   @Test
   void unknownNamesAreGenericAttributes() {
-    assertEquals(GenericAttrProcessor.class, AttributeProcessors.forName("data-id").orElseThrow().getClass());
-    assertTrue(AttributeProcessors.forName("params").isEmpty());
+    assertEquals(GenericAttrProcessor.class, AttributeProcessors.forName("data-id").getClass());
+    assertThrows(IllegalArgumentException.class, () -> AttributeProcessors.forName("params"));
   }
 }

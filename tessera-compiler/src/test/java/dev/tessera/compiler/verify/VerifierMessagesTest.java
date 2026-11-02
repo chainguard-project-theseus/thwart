@@ -165,7 +165,7 @@ class VerifierMessagesTest {
   }
 
   private static Skeleton.Hole attr(String name) {
-    return new Skeleton.Hole(Skeleton.Escaper.ATTR, null, name, new SourcePos("t.html", 1, 2));
+    return new Skeleton.Hole(Skeleton.Escaper.ATTR, name, new SourcePos("t.html", 1, 2));
   }
 
   /** The message of the one finding of {@code problem} for a template made of {@code nodes}. */
