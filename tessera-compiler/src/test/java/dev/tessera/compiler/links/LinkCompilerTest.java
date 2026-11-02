@@ -3,6 +3,7 @@ package dev.tessera.compiler.links;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
@@ -34,7 +35,9 @@ class LinkCompilerTest {
   void pathVariableAndQueryParamEndToEnd() {
     ExprRunner r = owners("\"a/b?c#d\"", "\"x & y=z\"");
     assertEquals(
-        "ctx.links().build(\"/owners/{id}\", new java.lang.String[] {\"id\", \"q\"}, new java.lang.Object[] {o.id(), term})",
+        "ctx.links().encode(ctx.links().contextPath() + \"/owners/\""
+            + " + dev.tessera.runtime.UrlEncoding.pathVariable(\"id\", o.id()) + \"?q=\""
+            + " + dev.tessera.runtime.UrlEncoding.queryValue(term))",
         r.compile("@{/owners/{id}(id=o.id, q=term)}").code());
     assertEquals("/owners/a%2Fb%3Fc%23d?q=x%20%26%20y%3Dz", r.eval("@{/owners/{id}(id=o.id, q=term)}", CTX));
   }
@@ -56,8 +59,8 @@ class LinkCompilerTest {
   void valuelessParameterRendersBareName() {
     ExprRunner r = owners("\"a&b\"", "null");
     assertEquals(
-        "ctx.links().build(\"/cart\", new java.lang.String[] {\"add\", \"itemId\"},"
-            + " new java.lang.Object[] {dev.tessera.runtime.Links.NO_VALUE, o.id()})",
+        "ctx.links().encode(ctx.links().contextPath() + \"/cart?add&itemId=\""
+            + " + dev.tessera.runtime.UrlEncoding.queryValue(o.id()))",
         r.compile("@{/cart(add,itemId=o.id)}").code());
     assertEquals("/cart?add&itemId=a%26b", r.eval("@{/cart(add,itemId=o.id)}", CTX));
     assertEquals("/app/accounts/create?form", r.eval("@{/accounts/create(form)}", CTX_PATH));
@@ -74,6 +77,54 @@ class LinkCompilerTest {
     assertEquals("/s?tag=a&tag&tag=b%26c&x=1", r.eval("@{/s(tag=t.all, x=1)}", CTX));
     assertEquals("/s?x=1", r.eval("@{/s(tag=t.none, x=1)}", CTX));
     assertEquals("/s/a,,b%26c", r.eval("@{/s/{tag}(tag=t.all)}", CTX));
+    // A collection first decides the '?' at render time: an empty one renders nothing.
+    assertEquals("/s?x=1#top", r.eval("@{/s#top(tag=t.none, x=1)}", CTX));
+    assertEquals("/s?tag=a&tag&tag=b%26c&x=1#top", r.eval("@{/s#top(tag=t.all, x=1)}", CTX));
+    assertEquals("/s", r.eval("@{/s(tag=t.none)}", CTX));
+    assertEquals("/s?a=1&tag=a&tag&tag=b%26c", r.eval("@{/s?a=1(tag=t.all)}", CTX));
+    assertTrue(r.compile("@{/s(tag=t.all)}").code().contains("UrlEncoding.firstQuery(dev.tessera.runtime"
+        + ".UrlEncoding.queryValues(\"tag\", t.all()))"));
+  }
+
+  /** Links compile to concatenation: an int is written as is, with no arrays, boxing or parsing. */
+  @Test
+  void primitivesAreConcatenatedDirectly() {
+    ExprRunner r = owners("\"1\"", "null");
+    assertEquals("ctx.links().encode(ctx.links().contextPath() + \"/o/\" + (o.num()) + \"?m=\" + (o.num()))",
+        r.compile("@{/o/{n}(n=o.num, m=o.num)}").code());
+    assertEquals("ctx.links().encode(\"\" + (o.num()) + \"/x\")", r.compile("@{{n}/x(n=o.num)}").code());
+    assertEquals("7/x", r.eval("@{{n}/x(n=o.num)}", CTX));
+    assertEquals("/app/a/7/b/7?q=7", r.eval("@{/a/{n}/b/{n}(n=o.num, q=o.num)}", CTX_PATH));
+  }
+
+  @Test
+  void queryGoesBeforeTheFragmentAndAfterAnExistingQuery() {
+    ExprRunner r = owners("\"1\"", "\"t\"");
+    assertEquals("/app/s?a=1&b=t#top", r.eval("@{/s?a=1#top(b=term)}", CTX_PATH));
+    assertEquals("/s?b=t#top", r.eval("@{/s#top(b=term)}", CTX));
+    assertEquals("/s?a=1&form#top", r.eval("@{/s?a=1#top(form)}", CTX));
+    assertEquals("/app/owners?sort=name#top", r.eval("@{/owners?sort=name#top}", CTX_PATH));
+    assertEquals("/app/o/1#p-1", r.eval("@{/o/{id}#p-{id}(id=o.id)}", CTX_PATH));
+  }
+
+  @Test
+  void onlyContextRelativePathsGetTheContextPath() {
+    ExprRunner r = owners("\"1\"", "null");
+    assertEquals("edit?x=7", r.eval("@{edit(x=o.num)}", CTX_PATH));
+    assertEquals("//cdn.example.com/a.js", r.eval("@{//cdn.example.com/a.js}", CTX_PATH));
+    assertEquals("https://example.com/x", r.eval("@{https://example.com/x}", CTX_PATH));
+  }
+
+  @Test
+  void emptyOrDotSegmentPathVariableFailsTheRender() {
+    for (String bad : List.of("\"\"", "\".\"", "\"..\"", "null")) {
+      ExprRunner r = owners(bad, "null");
+      Throwable t = assertThrows(AssertionError.class, () -> r.eval("@{/{id}/evil.com(id=o.id)}", CTX));
+      while (t.getCause() != null) {
+        t = t.getCause();
+      }
+      assertTrue(t instanceof IllegalArgumentException && t.getMessage().contains("'id'"), bad + ": " + t);
+    }
   }
 
   @Test

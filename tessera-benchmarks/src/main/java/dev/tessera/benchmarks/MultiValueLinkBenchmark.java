@@ -1,7 +1,10 @@
 package dev.tessera.benchmarks;
 
-import dev.tessera.runtime.DefaultLinks;
+import dev.tessera.benchmarks.templates.links.MultiPathTemplate;
+import dev.tessera.benchmarks.templates.links.MultiQueryTemplate;
+import dev.tessera.runtime.StringOutput;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -15,7 +18,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-/** Multi-value links, including repeated query-name encoding; run with {@code -prof gc}. */
+/** Multi-value links rendered through a one-link template; run with {@code -prof gc}. */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Warmup(iterations = 3, time = 1)
@@ -29,29 +32,34 @@ public class MultiValueLinkBenchmark {
   @Param({"3", "100"})
   public int size;
 
-  private final DefaultLinks links = new DefaultLinks("/app");
-  private final String[] names = {"selected items"};
-  private Object[] values;
+  private List<String> list;
+  private String[] objects;
+  private int[] ints;
 
   @Setup
   public void setUp() {
-    int[] ints = new int[size];
+    int[] is = new int[size];
     String[] strings = new String[size];
     for (int i = 0; i < size; i++) {
-      ints[i] = 1000 + i;
+      is[i] = 1000 + i;
       strings[i] = "item/" + i + " &é";
     }
-    values = new Object[] {type.equals("ints") ? ints
-        : type.equals("objects") ? strings : Arrays.asList(strings)};
+    list = type.equals("list") ? Arrays.asList(strings) : null;
+    objects = type.equals("objects") ? strings : null;
+    ints = type.equals("ints") ? is : null;
   }
 
   @Benchmark
   public String query() {
-    return links.build("/items?sort=name#top", names, values);
+    StringOutput out = new StringOutput(256);
+    MultiQueryTemplate.render(list, objects, ints, UrlBenchmark.CTX, out);
+    return out.toString();
   }
 
   @Benchmark
   public String path() {
-    return links.build("/items/{selected items}/edit", names, values);
+    StringOutput out = new StringOutput(256);
+    MultiPathTemplate.render(list, objects, ints, UrlBenchmark.CTX, out);
+    return out.toString();
   }
 }

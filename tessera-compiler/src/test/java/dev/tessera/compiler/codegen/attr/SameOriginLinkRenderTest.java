@@ -19,7 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * The compiler checks that the literal path of a link in a same-origin slot starts with a single
  * {@code /}, but the URL is built at render time by {@link Links} (#358): a context path ending in
- * {@code /}, a custom {@code Links} or an empty path variable could turn {@code /a} into the
+ * {@code /}, a custom {@code Links} context path or encode hook, or an empty path variable could turn {@code /a} into the
  * protocol-relative {@code //a}. Every slot that uses {@code LinkCompiler.isSameOriginPath}
  * re-checks the built URL and fails the render rather than leave the origin.
  */
@@ -54,15 +54,18 @@ class SameOriginLinkRenderTest {
     return c.render("page", Map.of("u", u), new RenderContext(Locale.ROOT, Messages.NONE, links, forms));
   }
 
-  /** A naive Links: prepends {@code prefix} and substitutes path variables without checking them. */
+  /** A Links whose context path is not checked, and an encode hook that prepends {@code prefix}. */
   private static Links naive(String prefix) {
-    return (path, names, values) -> {
-      String out = path;
-      for (int i = 0; i < names.length; i++) {
-        out = out.replace("{" + names[i] + "}", String.valueOf(values[i]));
+    return new Links() {
+      @Override
+      public String contextPath() {
+        return prefix;
       }
-      return prefix + out;
     };
+  }
+
+  private static Links naiveEncode(String prefix) {
+    return new DefaultLinks("", u -> prefix + u);
   }
 
   /** Positive: a context path of "/" or "/app/" is normalised, so every slot renders a single '/'. */
@@ -78,7 +81,7 @@ class SameOriginLinkRenderTest {
     }
   }
 
-  /** Negative: a custom Links that makes any slot's link protocol-relative fails the render. */
+  /** Negative: a custom context path or encode hook that makes any slot's link leave the origin fails the render. */
   @ParameterizedTest
   @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
   void customLinksLeavingTheOriginFailsTheRender(int i) {
@@ -86,37 +89,35 @@ class SameOriginLinkRenderTest {
     for (String prefix :
         new String[] {"/", "\\", "/\\", "/\t", " /", "https://evil.example", "//evil.example", "evil.example",
           "javascript:alert(1)//"}) {
-      IllegalStateException e =
-          assertThrows(IllegalStateException.class, () -> render(c, naive(prefix), "x"), "prefix " + prefix);
-      assertTrue(e.getMessage().contains("same-origin path"), e.getMessage());
+      for (Links links : new Links[] {naive(prefix), naiveEncode(prefix)}) {
+        IllegalStateException e =
+            assertThrows(IllegalStateException.class, () -> render(c, links, "x"), "prefix " + prefix);
+        assertTrue(e.getMessage().contains("same-origin path"), e.getMessage());
+      }
     }
   }
 
-  /** Negative: an empty path variable through a Links that does not reject it would give //a. */
+  /** Negative: an empty or dot-segment path variable fails the render whatever the Links (it would give //a). */
   @ParameterizedTest
   @ValueSource(ints = {1, 4, 8, 9, 10})
   void emptyPathVariableFailsTheRender(int i) {
     Compilation c = compile(SLOTS[i]);
-    assertThrows(IllegalStateException.class, () -> render(c, naive(""), ""));
-    assertThrows(IllegalStateException.class, () -> render(c, naive(""), "\\"));
-    // DefaultLinks rejects it itself, as it does '.' and '..'.
     for (String bad : new String[] {"", ".", ".."}) {
+      assertThrows(IllegalArgumentException.class, () -> render(c, naive(""), bad), bad);
       assertThrows(IllegalArgumentException.class, () -> render(c, new DefaultLinks("/"), bad), bad);
     }
   }
 
   /**
-   * Positive: encoded slashes and dot segments stay on the origin: a browser does not decode
-   * {@code %2F} or {@code %5C} before finding the authority, and a {@code ..} only moves within the
-   * path. DefaultLinks encodes a path variable's {@code /} and {@code \}.
+   * Positive: encoded slashes stay paths: a browser does not decode {@code %2F} or {@code %5C}
+   * before finding the authority. A path variable's {@code /}, {@code \} and {@code %} are encoded.
    */
   @ParameterizedTest
   @ValueSource(ints = {1, 4, 8, 9, 10})
-  void encodedSlashesAndDotSegmentsStayPaths(int i) {
+  void encodedSlashesStayPaths(int i) {
     Compilation c = compile(SLOTS[i]);
     assertTrue(render(c, new DefaultLinks("/"), "/evil.example").contains("\"/%2Fevil.example/a\""));
     assertTrue(render(c, new DefaultLinks("/app/"), "\\evil.example").contains("\"/app/%5Cevil.example/a\""));
-    assertTrue(render(c, naive("/app"), "..").contains("\"/app/../a\""));
-    assertTrue(render(c, naive(""), "%2F").contains("\"/%2F/a\""));
+    assertTrue(render(c, naive(""), "%2F").contains("\"/%252F/a\""));
   }
 }
