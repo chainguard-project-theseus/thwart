@@ -3,9 +3,9 @@ package dev.tessera.compiler.oracle;
 import java.util.Objects;
 
 /**
- * Something an oracle check found in a render. The HTML checks (#318), the context check (#323)
- * and the Node job's script check (#319) produce these; the gate (#324) ratchets them against
- * {@link KnownHoles}.
+ * Something an oracle check found in a render. The seeds' 0dda2f1 expectations (#320) name these
+ * kinds, and the Node job (#322) reports and ratchets them by the same names in {@code
+ * known-holes.txt}.
  *
  * @param kind what was found
  * @param engine the parser that saw it, exactly as named in {@code known-holes.txt}: {@code vnu-26}

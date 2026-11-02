@@ -1,9 +1,7 @@
 // The normalized tree both the parse5 checks and the browser checks compare (#322).
 //
-// A node is {t: 'el', name, ns, attrs: [[name, value]], kids} or {t: 'text', v, runs}. Comments
-// are dropped and the text around them merged into v: the TEXT escaper breaks `{{` with `<!---->`,
-// so a hostile value may add comments the benign render doesn't have, and that is not a structure
-// change. runs keeps the text between comments apart, which is what a client framework sees. A
+// A node is {t: 'el', name, ns, attrs: [[name, value]], kids}, {t: 'text', v} or {t: 'comment'}.
+// No escaper writes a comment (#679), so a comment a hostile value adds is a structure change. A
 // <template>'s content is a child named '#content' and an <iframe srcdoc>'s document a child named
 // '#srcdoc'. normalizeDom is stringified into the browser page, so it must stay self-contained.
 
@@ -14,21 +12,12 @@ export const HTML_NS = 'http://www.w3.org/1999/xhtml';
 export function normalizeParse5(doc, parseSrcdoc) {
   const walk = (n) => {
     const kids = [];
-    let comment = false;
-    const push = (k) => {
-      const last = kids[kids.length - 1];
-      if (k.t === 'text' && last && last.t === 'text') {
-        last.v += k.v;
-        if (comment) last.runs.push(k.v);
-        else last.runs[last.runs.length - 1] += k.v;
-      } else kids.push(k.t === 'text' ? { ...k, runs: [k.v] } : k);
-      comment = false;
-    };
+    const push = (k) => kids.push(k);
     const children = n.childNodes || [];
     if (n.content) push({ t: 'el', name: '#content', ns: '', attrs: [], kids: walk(n.content) });
     for (const c of children) {
       if (c.nodeName === '#text') push({ t: 'text', v: c.value });
-      else if (c.nodeName === '#comment') comment = true;
+      else if (c.nodeName === '#comment') push({ t: 'comment' });
       else if (c.tagName) {
         const el = {
           t: 'el',
@@ -53,22 +42,13 @@ export function normalizeParse5(doc, parseSrcdoc) {
 export function normalizeDom(doc) {
   const walk = (n) => {
     const kids = [];
-    let comment = false;
-    const push = (k) => {
-      const last = kids[kids.length - 1];
-      if (k.t === 'text' && last && last.t === 'text') {
-        last.v += k.v;
-        if (comment) last.runs.push(k.v);
-        else last.runs[last.runs.length - 1] += k.v;
-      } else kids.push(k.t === 'text' ? { ...k, runs: [k.v] } : k);
-      comment = false;
-    };
+    const push = (k) => kids.push(k);
     if (n.localName === 'template' && n.namespaceURI === 'http://www.w3.org/1999/xhtml' && n.content) {
       push({ t: 'el', name: '#content', ns: '', attrs: [], kids: walk(n.content) });
     }
     for (const c of n.childNodes) {
       if (c.nodeType === 3) push({ t: 'text', v: c.data });
-      else if (c.nodeType === 8) comment = true;
+      else if (c.nodeType === 8) push({ t: 'comment' });
       else if (c.nodeType === 1) {
         const el = {
           t: 'el',
@@ -106,6 +86,7 @@ export function structureDiff(benign, hostile, path = '') {
     const b = benign[i];
     const h = hostile[i];
     if (b.t !== h.t) return `${path}/[${i}]: ${b.t} became ${h.t}`;
+    if (b.t === 'comment') continue;
     if (b.t === 'text') {
       if (!MARKER.test(b.v) && b.v !== h.v) return `${path}/#text[${i}]: static text changed`;
       continue;
@@ -187,7 +168,7 @@ export function attrFindings(el, p) {
 // The form VnuTrees.java writes for the vnu engine, so a parse5 tree or a browser DOM can be
 // compared with them: a text node is a string, an element [name, ns, attrs, kids] with ns 'html',
 // 'svg', 'math' (or the URI) and attrs [[name, value]] sorted by name. Comments are dropped and the
-// text around them merged (normalizeParse5/normalizeDom already do that); whitespace-only text is
+// text around them merged; whitespace-only text is
 // kept exactly. xmlns and xmlns:* attributes are dropped (vnu's DOM can't hold them). A template's
 // contents are its '#content' child; an <iframe srcdoc>'s document is its '#srcdoc' child unless
 // the frame has a sandbox attribute (not compared). Change VnuTrees.java with this.
@@ -200,16 +181,23 @@ const NS_SHORT = {
 
 /** A normalized tree (normalizeParse5, normalizeDom) in the engine-drift normal form. */
 export function compact(kids) {
-  return kids.flatMap((k) => {
-    if (k.t === 'text') return [k.v];
+  const out = [];
+  for (const k of kids) {
+    if (k.t === 'comment') continue;
+    if (k.t === 'text') {
+      if (typeof out[out.length - 1] === 'string') out[out.length - 1] += k.v;
+      else out.push(k.v);
+      continue;
+    }
     const attrs = k.attrs
       .filter(([n]) => n !== 'xmlns' && !n.startsWith('xmlns:'))
       .map(([n, v]) => [n, v])
       .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
     const sandboxed = k.name === 'iframe' && k.ns === HTML_NS && k.attrs.some(([n]) => n === 'sandbox');
     const children = sandboxed ? k.kids.filter((c) => !(c.t === 'el' && c.name === '#srcdoc')) : k.kids;
-    return [[k.name, k.name.startsWith('#') ? '' : (NS_SHORT[k.ns] ?? String(k.ns)), attrs, compact(children)]];
-  });
+    out.push([k.name, k.name.startsWith('#') ? '' : (NS_SHORT[k.ns] ?? String(k.ns)), attrs, compact(children)]);
+  }
+  return out;
 }
 
 const showText = (s) => JSON.stringify(s.length > 60 ? s.slice(0, 60) + '...' : s);

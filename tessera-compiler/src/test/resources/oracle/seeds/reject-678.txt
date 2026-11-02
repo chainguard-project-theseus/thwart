@@ -14,6 +14,12 @@
 # note: the jobsearch shape (bench run-10 MIGRATION-REPORT item 12); the guide's recipe is a CSS variable on an HTML parent
 <svg><path d="M0 0" t:stroke-dasharray="|${s.length()}, 100|"/></svg>
 ====
+# name: r678-svg-own-attr
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+# note: a hole in the <svg> start tag itself; the verifier's VALUE_IN_FOREIGN doesn't see it (the current node is the HTML parent), the profile rejects it
+<svg t:width="${s}" height="10"></svg>
+====
 # name: r678-math
 # expect-0dda2f1: REJECTED
 # main: REJECTED

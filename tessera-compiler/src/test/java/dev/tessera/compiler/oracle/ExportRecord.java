@@ -8,7 +8,7 @@ import java.util.Objects;
  *
  * <p>Format: {@code {"id":..,"name":..,"template":..,"value":..,"render":..,"verdict":..,"trees":..}},
  * all strings but {@code trees}. {@code value} and {@code render} are null for a rejected case;
- * {@code verdict} is a {@link Verdict#label()}. {@code trees} (#399) is the JSON object {@link
+ * {@code verdict} is {@code ACCEPTED} or {@code REJECTED}. {@code trees} (#399) is the JSON object {@link
  * VnuTrees#json} writes for the render, the vnu engine's trees for the engine-drift check, or
  * absent.
  */
@@ -28,9 +28,9 @@ public record ExportRecord(
   }
 
   /** A record for {@code value} rendered from {@code oracleCase}, with the vnu trees of the render. */
-  public static ExportRecord of(OracleCase oracleCase, String value, String render, Verdict verdict) {
+  public static ExportRecord of(OracleCase oracleCase, String value, String render) {
     return new ExportRecord(
-        oracleCase.id(), oracleCase.name(), oracleCase.template(), value, render, verdict.label(), VnuTrees.json(render));
+        oracleCase.id(), oracleCase.name(), oracleCase.template(), value, render, "ACCEPTED", VnuTrees.json(render));
   }
 
   /** This record as one JSON line, without the trailing newline. */

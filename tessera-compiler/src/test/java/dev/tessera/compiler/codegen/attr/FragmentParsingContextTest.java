@@ -104,7 +104,7 @@ class FragmentParsingContextTest {
         .assertError("page.html:2:", "fragment 'page :: n' is declared in <noscript> content but t:insert puts it in HTML"
             + " content, where a browser parses its markup differently: declare the fragment outside <noscript>");
     page("<svg><noscript><g t:fragment=\"n\"><path/></g></noscript></svg><svg t:insert=\"~{:: n}\"></svg>")
-        .assertError("page.html:2:", "fragment ~{::n} is in or holds an <svg> or <math>");
+        .assertError("page.html:2:", "a value, condition, loop or fragment inside <svg> is not supported");
   }
 
   /** {@code c} has the raw-text rule's error for {@code what} inside {@code <element>}, and no error of this rule. */
@@ -236,33 +236,23 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void svgWithABreakoutTagFitsNothing() {
-    String mixed = "mixed <svg>/<math> (one holding an HTML element such as <p>)";
+  void breakoutsAndComputedEncodingsInForeignContentAreErrors() {
+    // #678: the parser rejects a breakout tag in <svg>/<math>, and nothing inside them is computed,
+    // so no fragment is ever in or holds mixed foreign content.
+    String breakout = "inside <svg> or <math> is HTML in a browser and ends the <svg> or <math> there";
     page("<svg><p>x</p><g t:fragment=\"m\"><path d=\"M0 0\"/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:", "fragment ~{::m} is in or holds an <svg> or <math> with an HTML element such as <p>"
-            + " in it, where a browser leaves foreign content early, so it fits nowhere");
+        .assertError("page.html:2:6", breakout);
     page("<svg><font COLOR=\"red\">x</font><g t:fragment=\"m\"><path/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:", "fragment ~{::m} is in or holds an <svg>");
+        .assertError("page.html:2:6", breakout);
     page("<svg><font t:color=\"v\">x</font><g t:fragment=\"m\"><path/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:", "fragment ~{::m} is in or holds an <svg>");
-    page("<svg><p>x</p><g t:insert=\"~{frags :: paths}\"></g></svg>")
-        .assertError("page.html:2:", "fragment 'frags :: paths' is declared in <svg> content but t:insert puts it in "
-            + mixed + " content, where a browser parses its markup differently: no fragment fits in mixed content:"
-            + " move the HTML element out of the <svg> or <math> or into a <foreignObject>");
-  }
-
-  @Test
-  void computedAnnotationXmlEncodingFitsNothing() {
+        .assertError("page.html:2:6", breakout);
     page("<math><annotation-xml t:encoding=\"'text/html'\"><t:block t:replace=\"~{::payload(v)}\"></t:block></annotation-xml>"
-            + "<annotation-xml><mrow t:fragment=\"payload(String s)\"><svg><title><script>[[s]]</script></title></svg></mrow>"
-            + "</annotation-xml></math>")
-        .assertError("page.html:2:", "fragment 'page :: payload' is declared in <annotation-xml> content but t:replace puts"
-            + " it in mixed <svg>/<math>");
+            + "<annotation-xml><mrow t:fragment=\"payload(String s)\"><mi>x</mi></mrow></annotation-xml></math>")
+        .assertError("page.html:2:23", "t:encoding is not allowed");
     page("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${v}, encoding=${v}\"><t:block"
             + " t:replace=\"~{::payload(v)}\"></t:block></annotation-xml><annotation-xml><mrow t:fragment=\"payload(String s)\">"
             + "[[s]]</mrow></annotation-xml></math>")
-        .assertError("page.html:2:", "fragment 'page :: payload' is declared in <annotation-xml> content but t:replace puts"
-            + " it in mixed <svg>/<math>");
+        .assertError("page.html:2:", "inside <math> is not supported");
   }
 
   @Test
@@ -299,23 +289,22 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void htmlAnnotationXmlHoldsHtml() {
+  void fragmentDeclaredInMathFitsOnlyInMath() {
+    // Even in an HTML integration point: nothing inside <math> is an insertion point (#678).
+    page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
+            + "<div t:insert=\"~{:: h}\"></div>")
+        .assertError("page.html:2:", "fragment 'page :: h' is declared in <math> content but t:insert puts it in HTML"
+            + " content");
     page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
             + "<math><mrow t:insert=\"~{:: h}\"></mrow></math>")
-        .assertError("page.html:2:", "fragment 'page :: h' is declared in HTML content but t:insert puts it in <math>"
-            + " content");
-    // A t:attr that names only other attributes keeps the static encoding.
-    page("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${v}\"><div t:fragment=\"h\">x</div></annotation-xml>"
-            + "</math><math><mrow t:insert=\"~{:: h}\"></mrow></math>")
-        .assertError("page.html:2:", "fragment 'page :: h' is declared in HTML content but t:insert puts it in <math>"
-            + " content");
+        .assertError("page.html:2:", "a value, condition, loop or fragment inside <math> is not supported");
   }
 
   @Test
   void annotationXmlEncodingNameFoldsOnlyAscii() {
-    // encod\u0131ng and encod\u0130ng are not encoding to a browser, so the annotation-xml holds MathML: there
+    // encodıng and encodİng are not encoding to a browser, so the annotation-xml holds MathML: there
     // <title> holds markup and <mi> holds HTML, so the HTML fragment's RCDATA <script> would run s.
-    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
+    for (String name : List.of("encodıng", "encodİng")) {
       Compilation.builder()
           .template("frags.html", "<div " + NS + ">\n<a t:fragment=\"m(String s)\"><title><mi><script>[[s]]</script>"
               + "</mi></title></a></div>")
@@ -323,7 +312,7 @@ class FragmentParsingContextTest {
               + "=\"text/html\" t:insert=\"~{frags :: m(v)}\"></annotation-xml></math></div>")
           .compile()
           .assertError("page.html:2:", "fragment 'frags :: m' is declared in HTML content but t:insert puts it in"
-              + " <annotation-xml> content");
+              + " <math> content");
     }
   }
 

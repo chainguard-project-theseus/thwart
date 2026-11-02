@@ -367,6 +367,7 @@ xss-lines-19    -    ACCEPT
 # #678: constructs rejected instead of modelled (oracle/seeds/reject-678.txt).
 r678-svg-text   -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
 r678-svg-attr   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-svg-own-attr -  PROFILE  # #678: a computed attribute on <svg> itself; the profile rejects it, the verifier does not see it
 r678-math       -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
 r678-cdata-html -    VERIFIER PARSE_ERROR  # #678: the profile rejects it too
 r678-cdata-svg  -    VERIFIER CDATA_SECTION  # #678: the profile rejects it too
