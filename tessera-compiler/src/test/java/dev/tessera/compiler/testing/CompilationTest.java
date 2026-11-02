@@ -97,6 +97,28 @@ class CompilationTest {
   }
 
   @Test
+  void rejectsInvalidPackageOption() {
+    for (String bad : new String[] {"com.my-app.views", "class.views", "com..views", "views."}) {
+      Compilation.builder()
+          .template("a.html", "<p>hi</p>")
+          .option(ProcessorOptions.PACKAGE, bad)
+          .compile()
+          .assertError("-Atessera.package=" + bad + " is not a Java package name");
+    }
+  }
+
+  @Test
+  void acceptsValidPackageOption() {
+    Compilation c =
+        Compilation.builder()
+            .template("a.html", "<p>hi</p>")
+            .option(ProcessorOptions.PACKAGE, "com.example.views")
+            .compile()
+            .assertSuccess();
+    assertNotNull(c.generatedSource("com.example.views.ATemplate"));
+  }
+
+  @Test
   void callbackSeesSourceTypes() {
     AtomicReference<TypeElement> found = new AtomicReference<>();
     Compilation.builder()
