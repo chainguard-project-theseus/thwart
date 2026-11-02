@@ -41,6 +41,17 @@ public final class HtmlPolicy {
           "blockquote", "ul", "ol", "li", "div", "hr");
 
   /**
+   * Elements an inline policy ({@link #inlineBuilder()}, for {@link SafeInlineHtml}) may allow:
+   * phrasing elements that close nothing open around them in a paragraph, heading, link or button.
+   * No {@code a}, no interactive or form content, nothing the parser treats specially. The inline
+   * builder throws for any other name.
+   */
+  public static final Set<String> INLINE_ELEMENTS =
+      Ascii.set(
+          "b", "i", "em", "strong", "small", "s", "u", "sub", "sup", "code", "kbd", "mark", "abbr", "cite",
+          "q", "dfn", "time", "span", "br", "wbr", "img");
+
+  /**
    * Attributes a policy may allow, besides {@code a[href]}, {@code img[src]} and {@code class}
    * ({@link Builder#allowClasses}). Each is kept only on the elements listed here, and only with
    * a value of the stated form: {@code title} on any element and {@code alt} on {@code img} (any
@@ -120,7 +131,11 @@ public final class HtmlPolicy {
 
   final boolean linkTarget;
 
+  /** Built by {@link #inlineBuilder()}: only {@link #INLINE_ELEMENTS}. */
+  final boolean inline;
+
   private HtmlPolicy(Builder b) {
+    this.inline = b.inline;
     this.elements = Collections.unmodifiableSet(new HashSet<>(b.elements));
     this.attributes = Collections.unmodifiableSet(new HashSet<>(b.attributes));
     Set<String> names = new HashSet<>();
@@ -168,7 +183,15 @@ public final class HtmlPolicy {
 
   /** A builder that allows nothing but text; add what the content needs. */
   public static Builder builder() {
-    return new Builder();
+    return new Builder(false);
+  }
+
+  /**
+   * A builder for an inline policy, the only kind {@link SafeInlineHtml#sanitize} takes: as
+   * {@link #builder()}, but {@link Builder#allowElements} accepts only {@link #INLINE_ELEMENTS}.
+   */
+  public static Builder inlineBuilder() {
+    return new Builder(true);
   }
 
   /** Builds an {@link HtmlPolicy}. Every method rejects names outside the closed sets above. */
@@ -178,8 +201,11 @@ public final class HtmlPolicy {
     private final Set<String> classes = new LinkedHashSet<>();
     private final Set<String> rel = new LinkedHashSet<>(Arrays.asList("nofollow", "noopener"));
     private boolean linkTarget;
+    private final boolean inline;
 
-    private Builder() {}
+    private Builder(boolean inline) {
+      this.inline = inline;
+    }
 
     /**
      * Allows elements from {@link #ELEMENTS} (lower case); any other name throws. {@code li} needs
@@ -187,7 +213,7 @@ public final class HtmlPolicy {
      */
     public Builder allowElements(String... names) {
       for (String name : names) {
-        elements.add(check(name, ELEMENTS, "element"));
+        elements.add(check(name, inline ? INLINE_ELEMENTS : ELEMENTS, inline ? "inline element" : "element"));
       }
       return this;
     }

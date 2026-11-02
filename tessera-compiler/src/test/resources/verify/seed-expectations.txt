@@ -411,3 +411,11 @@ T22-b-misnest                -    PROFILE # no tree: </p> closes the <b> out of 
 T23-table-in-p-quirks        -    VERIFIER PARSE_ERROR
 pr351-text-before-row        -    VERIFIER TEXT_IN_TABLE
 pr351-ttext-on-tr            -    VERIFIER TEXT_IN_TABLE
+i397-p                       -    ACCEPT # #397: a SafeInlineHtml is PHRASING
+i397-safehtml-p              -    VERIFIER RAW_CLOSES_ELEMENT
+i397-a                       -    ACCEPT # #397: PHRASING without links stands in a link
+i397-safehtml-a              -    VERIFIER RAW_CLOSES_ELEMENT
+i397-h1                      -    ACCEPT
+i397-safehtml-h1             -    VERIFIER RAW_CLOSES_ELEMENT
+i397-button                  -    ACCEPT
+i397-safehtml-button         -    VERIFIER RAW_CLOSES_ELEMENT

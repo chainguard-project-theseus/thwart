@@ -82,8 +82,11 @@ final class VerifierMessages {
         return rawNotFlow(f.source, s);
       case RAW_CLOSES_ELEMENT:
         return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it"
-            + closedBy(f.detail) + ", so the rest of the page would parse differently; insert it in a <div> instead,"
-            + " outside the open element";
+            + closedBy(f.detail) + ", so the rest of the page would parse differently; "
+            + (f.source == Skeleton.Source.SAFE_HTML && f.detail != null && !f.detail.matches(".*<(select|opt).*")
+                ? "if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide section"
+                    + " 4.4, Inline HTML); otherwise insert it outside the open element"
+                : "insert it outside the open element");
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";
@@ -472,6 +475,8 @@ final class VerifierMessages {
     switch (source) {
       case SAFE_HTML:
         return "this SafeHtml value";
+      case SAFE_INLINE_HTML:
+        return "this SafeInlineHtml value";
       case HTML_MESSAGE:
       case LINKED_HTML_MESSAGE:
         return "this HTML message";

@@ -37,7 +37,7 @@ public final class Seeds {
   public static final List<String> FILES =
       List.of(
           "oracle/seeds/306-probes.txt", "oracle/seeds/open-prs.txt", "oracle/seeds/xss-context.txt",
-          "oracle/seeds/reject-678.txt", "oracle/seeds/review-probes.txt");
+          "oracle/seeds/reject-678.txt", "oracle/seeds/review-probes.txt", "oracle/seeds/inline-397.txt");
 
   /**
    * One seed.

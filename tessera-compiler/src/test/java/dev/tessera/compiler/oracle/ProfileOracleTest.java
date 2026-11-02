@@ -296,6 +296,7 @@ class ProfileOracleTest {
         case "String" -> m.put(p.name(), value.apply(++slot));
         case "int", "Integer", "long" -> m.put(p.name(), -1);
         case "SafeHtml" -> m.put(p.name(), SafeHtml.sanitize("<b>safe</b>"));
+        case "SafeInlineHtml" -> m.put(p.name(), dev.tessera.runtime.SafeInlineHtml.escape("safe"));
         case "java.util.List<String>" -> m.put(p.name(), List.of(value.apply(++slot), value.apply(++slot)));
         default -> throw new IllegalArgumentException("the gate can't fill a " + p.type() + " parameter");
       }
