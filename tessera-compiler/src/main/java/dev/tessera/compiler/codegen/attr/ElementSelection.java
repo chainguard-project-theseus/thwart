@@ -46,6 +46,14 @@ final class ElementSelection {
           .error(ref.pos(), "~{::" + ref.selector() + "} selects an element, which takes no arguments");
       return null;
     }
+    String place = ctx.template().parsingContexts().place(target);
+    if (!place.equals(ParsingContexts.HTML)) {
+      // As for t:fragment (TemplateGenerator): rendered elsewhere, it must parse like HTML content.
+      ctx.diagnostics().error(ref.pos(), "~{::" + ref.selector() + "} selects an element in "
+          + ParsingContexts.describe(place) + " content, which a browser parses there by other rules than where it"
+          + " is inserted; select an element outside it (directly under <body>) instead");
+      return null;
+    }
     if (contains(target, host)) {
       ctx.diagnostics()
           .error(
