@@ -168,34 +168,30 @@ public final class Emitted {
   }
 
   /**
-   * A statically resolved fragment call: {@code <method>(<args>..., <ctxCode>, out);}, writing
-   * {@code target}'s skeleton with {@code fragmentArgs} bound. {@code ctxCode} is the render
-   * context passed on ({@code CodegenContext#insertionContext}).
+   * A statically resolved fragment call: {@code <method>(<args>..., ctx, out);}, writing
+   * {@code target}'s skeleton with {@code fragmentArgs} bound.
    */
   public static Emitted call(
       Skeleton.FragmentId target,
       Map<String, Skeleton.Seq> fragmentArgs,
       SourcePos pos,
       String method,
-      List<String> args,
-      String ctxCode) {
+      List<String> args) {
     List<String> all = new ArrayList<>(args);
-    all.add(ctxCode);
+    all.add("ctx");
     all.add("out");
     return of(method + "(" + String.join(", ", all) + ");", new Skeleton.Call(target, fragmentArgs, pos));
   }
 
   /**
    * A {@code Fragment} value: {@code { <type> <local> = <valueCode>; if (<local> != null) {
-   * <local>.render(<ctxCode>, out); } }}. {@code candidates} is the skeleton of what the value may
-   * write (#561). {@code ctxCode} is the render context passed on ({@code
-   * CodegenContext#insertionContext}).
+   * <local>.render(ctx, out); } }}. {@code candidates} is the skeleton of what the value may
+   * write (#561).
    */
-  public static Emitted fragmentValue(
-      String type, String local, String valueCode, Skeleton.Node candidates, String ctxCode) {
+  public static Emitted fragmentValue(String type, String local, String valueCode, Skeleton.Node candidates) {
     return of(
         "{ " + type + " " + local + " = " + valueCode + "; if (" + local + " != null) { " + local
-            + ".render(" + ctxCode + ", out); } }",
+            + ".render(ctx, out); } }",
         candidates);
   }
 
