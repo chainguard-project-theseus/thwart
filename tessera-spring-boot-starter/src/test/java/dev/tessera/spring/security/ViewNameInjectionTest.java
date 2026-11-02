@@ -59,7 +59,8 @@ class ViewNameInjectionTest {
 
   /**
    * View names that Thymeleaf evaluated as expressions (Spring View Manipulation, CVE-2021-43466,
-   * CVE-2026-40478), plus fragment selectors.
+   * CVE-2026-40478), plus fragment selectors. {@code TesseraViewResolverTest} also runs them
+   * against the resolver itself, over a registry of the same names.
    */
   static final List<String> PAYLOADS =
       Arrays.asList(
@@ -135,7 +136,28 @@ class ViewNameInjectionTest {
           "greeting#x",
           "greeting\u0000",
           "forward:greeting",
-          "redirect:greeting");
+          "redirect:greeting",
+          // More near misses of the registered page and fragment names.
+          "nope",
+          "x?y",
+          "../x",
+          "x :: frag",
+          "__${T(java.lang.Runtime)}__::.x",
+          "~{greeting :: row",
+          "greeting ::",
+          "greeting :: r ow",
+          "greeting :: row\u0000x",
+          "greeting :: row.html",
+          "greeting :: owners/details",
+          "Greeting :: row",
+          "./greeting :: row",
+          "greeting/ :: row",
+          "owners :: details :: row",
+          "redirect:greeting :: row",
+          "//owners/details",
+          "/ greeting",
+          "/greeting/",
+          "\\greeting");
 
   @Autowired WebApplicationContext context;
   @Autowired RecordingRegistry registry;

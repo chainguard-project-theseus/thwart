@@ -36,6 +36,23 @@
     <!-- The javax modules set javax.servlet; the shared sources are written against jakarta. -->
     <servlet.package>jakarta.servlet</servlet.package>
     <argLine></argLine>
+    <!-- The starter test sources a module copies, as Ant includes. The modules without Boot copy
+         boot.free.tests: the Boot-free tests and the controller and model they share with the
+         Boot tests. -->
+    <shared.tests>**</shared.tests>
+    <boot.free.tests>
+      dev/tessera/spring/plain/**,
+      dev/tessera/spring/OldEngineWarningTest.java,
+      org/thymeleaf/test/**,
+      org/springframework/web/servlet/view/tiles2/test/**,
+      org/springframework/web/servlet/view/tiles3/test/**,
+      com/mitchellbosecke/pebble/test/**,
+      io/pebbletemplates/test/**,
+      dev/tessera/spring/e2e/Cart.java,
+      dev/tessera/spring/e2e/Line.java,
+      dev/tessera/spring/e2e/Signup.java,
+      dev/tessera/spring/e2e/SmokeController.java
+    </boot.free.tests>
   </properties>
 
   <dependencyManagement>
@@ -104,7 +121,7 @@
                 <target>
                   <delete dir="${project.build.testSourceDirectory}" />
                   <copy todir="${project.build.testSourceDirectory}" encoding="UTF-8">
-                    <fileset dir="${starter.dir}/src/test/java" />
+                    <fileset dir="${starter.dir}/src/test/java" includes="${shared.tests}" />
                     <filterchain>
                       <replacestring from="jakarta.servlet." to="${servlet.package}." />
                       <replacestring from="org.springframework.boot.webmvc.test.autoconfigure."

@@ -68,16 +68,21 @@ class AuthTest {
             "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
     assertFalse(Auth.isAuthenticated());
     assertFalse(Auth.hasRole("USER"));
+    assertFalse(Auth.hasAuthority("PERM_EDIT"));
+    assertTrue(Auth.hasAuthority("ROLE_ANONYMOUS"));
     assertEquals("anonymousUser", Auth.name());
   }
 
   @Test
   void unauthenticatedTokenGrantsNothing() {
-    TestingAuthenticationToken token = new TestingAuthenticationToken("mallory", "pw", "ROLE_ADMIN");
+    TestingAuthenticationToken token =
+        new TestingAuthenticationToken("mallory", "pw", "ROLE_ADMIN", "PERM_ADMIN");
     token.setAuthenticated(false);
     login(token);
     assertFalse(Auth.isAuthenticated());
     assertFalse(Auth.hasRole("ADMIN"));
+    assertFalse(Auth.hasAuthority("PERM_ADMIN"));
+    assertFalse(Auth.hasAnyAuthority("PERM_ADMIN"));
   }
 
   @Test
@@ -125,24 +130,5 @@ class AuthTest {
             name + ", " + other);
       }
     }
-  }
-
-  @Test
-  void anonymousHasOnlyItsOwnAuthority() {
-    login(
-        new AnonymousAuthenticationToken(
-            "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
-    assertFalse(Auth.hasAuthority("PERM_EDIT"));
-    assertTrue(Auth.hasAuthority("ROLE_ANONYMOUS"));
-  }
-
-  @Test
-  void unauthenticatedTokenGrantsNoAuthority() {
-    TestingAuthenticationToken token =
-        new TestingAuthenticationToken("mallory", "pw", "PERM_ADMIN");
-    token.setAuthenticated(false);
-    login(token);
-    assertFalse(Auth.hasAuthority("PERM_ADMIN"));
-    assertFalse(Auth.hasAnyAuthority("PERM_ADMIN"));
   }
 }
