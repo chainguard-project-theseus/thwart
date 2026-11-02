@@ -422,3 +422,5 @@ i397-h1                      -    ACCEPT
 i397-safehtml-h1             -    VERIFIER RAW_CLOSES_ELEMENT
 i397-button                  -    ACCEPT
 i397-safehtml-button         -    VERIFIER RAW_CLOSES_ELEMENT
+i397-option                  -    PROFILE # #754: t:utext is rejected in <select> content, inline or not; ContextVerifierRulesTest pins the verifier's RAW_CLOSES_ELEMENT; hole not emitted
+i397-safehtml-option         -    PROFILE # #754: as i397-option, for a SafeHtml; hole not emitted

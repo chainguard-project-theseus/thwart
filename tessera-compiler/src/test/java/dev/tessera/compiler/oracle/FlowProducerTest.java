@@ -161,8 +161,9 @@ class FlowProducerTest {
     List<String> unlinked = new ArrayList<>(linked);
     unlinked.add("<!DOCTYPE html><a href=\"/x\">");
     unlinked.add("<!DOCTYPE html><p><a href=\"/x\"><b>");
-    for (Skeleton.Source source : new Skeleton.Source[] {Skeleton.Source.HTML_MESSAGE, Skeleton.Source.LINKED_HTML_MESSAGE}) {
-      List<String> contexts = source == Skeleton.Source.HTML_MESSAGE ? unlinked : linked;
+    for (Skeleton.Source source : new Skeleton.Source[] {Skeleton.Source.SAFE_INLINE_HTML, Skeleton.Source.LINKED_HTML_MESSAGE}) {
+      boolean links = source == Skeleton.Source.LINKED_HTML_MESSAGE;
+      List<String> contexts = links ? linked : unlinked;
       for (String context : contexts) {
         for (Parser p : entries(context)) {
           assertNull(ContentKinds.problem(p.state(), source), () -> source + " in " + context);
@@ -170,7 +171,9 @@ class FlowProducerTest {
       }
       for (String input : inputs) {
         RenderContext ctx = new RenderContext(Locale.ROOT, (k, a) -> input, new DefaultLinks(""), Forms.NONE);
-        String html = Escapers.htmlMessage(ctx, "k", new Object[0], source == Skeleton.Source.LINKED_HTML_MESSAGE).html();
+        String html = links
+            ? Escapers.linkedHtmlMessage(ctx, "k", new Object[0]).html()
+            : Escapers.htmlMessage(ctx, "k", new Object[0]).html();
         assertSameState(source + " of " + input, html, contexts.toArray(new String[0]));
       }
     }

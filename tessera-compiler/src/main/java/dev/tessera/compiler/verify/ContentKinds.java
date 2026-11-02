@@ -131,11 +131,11 @@ public final class ContentKinds {
   }
 
   /**
-   * As {@link #closer(ParserState)} for HTML from {@code source}. An HTML message is PHRASING:
-   * the message policy writes only {@code b i em strong u s sub sup small mark code kbd
-   * span br}, balanced and without nesting a formatting element in one of its name, and, for a
-   * {@link Skeleton.Source#LINKED_HTML_MESSAGE}, {@code a}. A {@code SafeInlineHtml} is PHRASING
-   * without links too: escaped text, and the sanitizer's inline mode, which writes only {@code
+   * As {@link #closer(ParserState)} for HTML from {@code source}. A
+   * {@link Skeleton.Source#LINKED_HTML_MESSAGE} is PHRASING: the message policy writes only
+   * {@code a b i em strong u s sub sup small mark code kbd span br}, balanced and without nesting a
+   * formatting element in one of its name. A {@code SafeInlineHtml}, which a message without links
+   * is, is PHRASING without links: escaped text, and the sanitizer's inline mode, which writes only {@code
    * HtmlPolicy.INLINE_ELEMENTS} ({@code b i em strong small s u sub sup code kbd mark abbr cite q dfn
    * time span br wbr img}), balanced, under the same nesting rule. None of those closes an open
    * {@code p}, heading, {@code button}, {@code nobr} or {@code ruby}, so only an open {@code select}
@@ -148,7 +148,7 @@ public final class ContentKinds {
         return "an open <" + e.localName() + ">";
       }
     }
-    if (source == Skeleton.Source.HTML_MESSAGE || source == Skeleton.Source.SAFE_INLINE_HTML) {
+    if (source == Skeleton.Source.SAFE_INLINE_HTML) {
       return null;
     }
     if (source == Skeleton.Source.LINKED_HTML_MESSAGE) {
