@@ -55,7 +55,7 @@ class FormActionTest {
       compile(body).assertError("t.html:1:", "t:action is not allowed", NOT_A_LINK, "@{/items/",
           "or a static action if another site is meant");
     }
-    compile("<form t:attr=\"action=s\"></form>").assertError("t.html:1:", "t:attr action is not allowed", NOT_A_LINK);
+    compile("<form t:action=\"s\"></form>").assertError("t.html:1:", "t:action is not allowed", NOT_A_LINK);
   }
 
   /** Negative: a link that leaves the origin is a build error. */
@@ -65,7 +65,7 @@ class FormActionTest {
       compile("<form t:action=\"@{" + path + "}\"></form>")
           .assertError("t.html:1:", "t:action is not allowed", "the action of a form must be a same-origin path");
     }
-    compile("<form t:attr=\"action=@{//evil.example}\"></form>").assertError("t:attr action is not allowed", "same-origin path");
+    compile("<form t:action=\"@{//evil.example}\"></form>").assertError("t:action is not allowed", "same-origin path");
   }
 
   /** Negative: a static POST form keeps the closed shape (#285). */
@@ -80,7 +80,7 @@ class FormActionTest {
   @Test
   void sameOriginLinkCompiles() {
     Compilation c =
-        compile("<form t:action=\"@{/owners/{id}(id=${s})}\"></form><form t:attr=\"action=@{/find(q=${s})}\"></form>")
+        compile("<form t:action=\"@{/owners/{id}(id=${s})}\"></form><form t:action=\"@{/find(q=${s})}\"></form>")
             .assertSuccess();
     assertEquals("<div><form action=\"/owners/%2F%2Fevil.example%3F\"></form>"
         + "<form action=\"/find?q=//evil.example%3F\"></form></div>", render(c, "//evil.example?"));
@@ -98,7 +98,7 @@ class FormActionTest {
     String[] bodies = {
       "<form method=\"get\" t:action=\"s\"></form>",
       "<form t:action=\"${s}\"></form>",
-      "<main hx-boost=\"true\"><form t:attr=\"action=s\"></form></main>",
+      "<main hx-boost=\"true\"><form t:action=\"s\"></form></main>",
       "<form method=\"dialog\" t:action=\"b ? @{/x} : s\"></form>",
     };
     for (String body : bodies) {
@@ -121,7 +121,7 @@ class FormActionTest {
     String[] bodies = {
       "<form><button t:formaction=\"s\">x</button></form>",
       "<main hx-boost=\"true\"><form><input type=\"submit\" t:formaction=\"s\"></form></main>",
-      "<form hx-get=\"/find\"><button t:attr=\"formaction=s\">x</button></form>",
+      "<form hx-get=\"/find\"><button t:formaction=\"s\">x</button></form>",
     };
     for (String body : bodies) {
       compile(body).assertError("t.html:1:", "formaction is not allowed", "to its formaction");
@@ -148,8 +148,6 @@ class FormActionTest {
     for (String name : new String[] {"data-hx-boost", "DATA-HX-Boost"}) {
       compile("<main t:" + name + "=\"s\">x</main>")
           .assertError("t.html:1:", "t:" + name + " is not allowed", "framework-neutral");
-      compile("<main t:attr=\"" + name + "=s\">x</main>")
-          .assertError("t.html:1:", "t:attr " + name + " is not allowed", "framework-neutral");
     }
   }
 

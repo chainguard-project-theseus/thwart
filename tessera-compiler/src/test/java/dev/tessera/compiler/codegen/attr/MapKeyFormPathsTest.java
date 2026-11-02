@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Map key segments in form paths ({@code *{prices[key]}}, {@code *{prices['x']}}) in t:field,
- * t:errors, t:errorclass and fields.* (#190): Spring's unquoted {@code prices[x]} name and
+ * t:errors and fields.* (#190): Spring's unquoted {@code prices[x]} name and
  * Thymeleaf's bracket-free id {@code pricesx}.
  */
 class MapKeyFormPathsTest {
@@ -80,7 +80,7 @@ class MapKeyFormPathsTest {
   void valuesAndErrorsGoThroughFormsWithTheConcretePath() {
     Compilation c =
         compile(
-                "<div t:each=\"e : owner.prices\"><input t:field=\"*{prices[e.key]}\" t:errorclass=\"bad\">"
+                "<div t:each=\"e : owner.prices\"><input t:field=\"*{prices[e.key]}\" t:classappend=\"fields.hasErrors(*{prices[e.key]}) ? 'bad'\">"
                     + "<span t:errors=\"*{prices[e.key]}\">e</span>"
                     + "<b t:if=\"fields.hasErrors(*{prices[e.key]})\">!</b>"
                     + "<i t:text=\"fields.value(*{prices[e.key]})\">v</i></div>"

@@ -51,7 +51,7 @@ public final class ExpressionParser {
     });
   }
 
-  /** {@code t:with} / {@code t:attr}: {@code a=expr, b=expr}. */
+  /** {@code t:with}: {@code a=expr, b=expr}. */
   public List<Assignment> parseAssignments(String text, SourcePos start, DiagnosticSink diagnostics) {
     return run(text, start, diagnostics, p -> {
       List<Assignment> out = new ArrayList<>();

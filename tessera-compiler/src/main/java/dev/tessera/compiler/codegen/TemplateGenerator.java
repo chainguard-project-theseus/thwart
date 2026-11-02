@@ -256,13 +256,6 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
-  public Emitted renderNode(Node node, Scope scope) {
-    Emitted.Builder c = builder();
-    node(c, node, scope);
-    return c.build();
-  }
-
-  @Override
   public Emitted renderFragment(TemplateIndex.FragmentInfo f, Scope scope) {
     TemplateIndex.FragmentInfo outer = fragment;
     fragment = f;
@@ -444,7 +437,7 @@ public final class TemplateGenerator implements CodegenContext {
     String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
     // In raw text the tag is text, so nothing is dropped (and the content is static).
     boolean leadingLineFeed = outer == null && !e.foreign() && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
-    // Processors (t:remove="all-but-first") and emit generate the content.
+    // Processors and emit generate the content.
     rawTextHost = host;
     boolean svgOrMath = HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
         || HtmlParser.asciiEqualsIgnoreCase(e.name(), "math");

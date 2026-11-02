@@ -44,7 +44,7 @@ class CsrfComputedMethodTest {
         "t:method=\"edit ? 'post' : 'get'\"",
         "method=\"get\" t:method=\"'post'\"",
         "method=\"post\" t:method=\"'get'\"",
-        "action=\"/a\" t:attr=\"method='post'\"",
+        "action=\"/a\" t:method=\"'post'\"",
         "t:METHOD=\"m\"",
       })
   void computedMethodFails(String attrs) {

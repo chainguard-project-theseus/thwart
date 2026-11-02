@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Indexed form paths ({@code *{items[i].name}}) in t:field, t:errors, t:errorclass and fields.* (#123). */
+/** Indexed form paths ({@code *{items[i].name}}) in t:field, t:errors and fields.* (#123). */
 class IndexedFormPathsTest {
   // The form object is named "owner" so that FormFixture.TestForms applies.
   private static final String HEAD =
@@ -68,7 +68,7 @@ class IndexedFormPathsTest {
   void valuesAndErrorsGoThroughFormsWithTheConcretePath() {
     Compilation c =
         compile(
-                "<div t:each=\"item : owner.items\"><input t:field=\"*{items[itemStat.index].name}\" t:errorclass=\"bad\">"
+                "<div t:each=\"item : owner.items\"><input t:field=\"*{items[itemStat.index].name}\" t:classappend=\"fields.hasErrors(*{items[itemStat.index].name}) ? 'bad'\">"
                     + "<span t:errors=\"*{items[itemStat.index].name}\">e</span>"
                     + "<b t:if=\"fields.hasErrors(*{items[itemStat.index].name})\">!</b>"
                     + "<i t:text=\"fields.errors(*{items[itemStat.index].name}).size()\">0</i></div>"
@@ -156,11 +156,5 @@ class IndexedFormPathsTest {
         .assertError("form.html:1:", "'nope' is not a property of com.example.Item");
     compile("<b t:if=\"fields.hasErrors('items[0].nope')\">x</b>")
         .assertError("'nope' is not a property of com.example.Item");
-  }
-
-  @Test
-  void errorClassStaysQuietWhenFieldReports() {
-    Compilation c = compile("<input t:field=\"*{items[owner.note].name}\" t:errorclass=\"bad\">");
-    assertEquals(1, c.errors().size(), c.errors().toString());
   }
 }

@@ -3,7 +3,7 @@
 <body>
   <!-- Computed names outside HTML are converted as they are: the compiler checks their values (#587). -->
   <button th:hx-get="@{/owners}" th:hx-target="${'#owner-' + owner.id}" th:hx-swap="${swap}">load</button>
-  <div th:attr="hx-select=${selector},title=${owner.lastName}">attr</div>
+  <div th:hx-select="${selector}" th:title="${owner.lastName}">attr</div>
   <div th:up-on-loaded="${callback}">unpoly</div>
   <div th:data-hx-target="${selector}" th:aria-label="${owner.lastName}">known names</div>
   <!-- A missing space between attributes is added. -->

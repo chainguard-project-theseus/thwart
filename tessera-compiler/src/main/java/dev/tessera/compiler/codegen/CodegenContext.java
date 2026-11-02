@@ -6,7 +6,6 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
-import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
@@ -52,15 +51,11 @@ public interface CodegenContext {
   String freshName(String hint);
 
   /**
-   * Java statements that render {@code node} and its subtree in {@code scope}, with their skeleton
-   * (everything generated code writes goes through {@link Emitted}).
-   */
-  Emitted renderNode(Node node, Scope scope);
-
-  /**
-   * Like {@link #renderNode} for an element, ignoring the listed {@code t:} attributes (local
-   * names), e.g. {@code Set.of("fragment")} for a {@code ~{::tag}} selection helper. The element is
-   * rendered standalone: where it lands is checked where it is inserted.
+   * Java statements that render {@code element} and its subtree in {@code scope}, with their
+   * skeleton (everything generated code writes goes through {@link Emitted}), ignoring the listed
+   * {@code t:} attributes (local names), e.g. {@code Set.of("fragment")} for a {@code ~{::tag}}
+   * selection helper. The element is rendered standalone: where it lands is checked where it is
+   * inserted.
    */
   Emitted renderElement(Element element, Scope scope, Set<String> ignoredAttributes);
 

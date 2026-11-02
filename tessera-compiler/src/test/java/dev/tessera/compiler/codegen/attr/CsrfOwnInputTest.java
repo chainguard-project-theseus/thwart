@@ -106,7 +106,7 @@ class CsrfOwnInputTest {
       "<input type=\"hidden\" name=\"_csrf\" value=\"v\" t:unless=\"!b\" />",
       "<input type=\"hidden\" name=\"_csrf\" value=\"v\" t:remove=\"all\" />",
       "<input type=\"hidden\" t:name=\"n\" value=\"v\" />",
-      "<input type=\"hidden\" name=\"x\" t:attr=\"name=${n}\" value=\"v\" />",
+      "<input type=\"hidden\" name=\"x\" t:name=\"${n}\" value=\"v\" />",
       "<input type=\"text\" name=\"_csrf\" value=\"v\" />",
       "<input name=\"_csrf\" value=\"v\" />",
       "<input type=\" hidden\" name=\"_csrf\" value=\"v\" />",
@@ -125,9 +125,7 @@ class CsrfOwnInputTest {
   void replacedBodyDoesNotCount() {
     assertEquals(
         "<div><form method=\"post\">" + AUTO + "</form></div>",
-        render("<form method=\"post\" t:remove=\"body\">" + OWN + "</form>"));
-    String out = render("<form method=\"post\" t:remove=\"all-but-first\"><p>a</p>" + OWN + "</form>");
-    assertEquals(1, count(out, AUTO), out);
+        render("<form method=\"post\" t:text=\"''\">" + OWN + "</form>"));
   }
 
   /** Negative: a GET form never gets the automatic token, with or without its own input. */

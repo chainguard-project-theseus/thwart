@@ -7,8 +7,8 @@ import java.util.Objects;
  * {@code t:fragment="input(String label, Field name, String type)"} called as
  * {@code ~{fragments/inputField :: input(#{firstName}, 'firstName', 'text')}}. The argument is a
  * string literal checked at build time against the caller's {@code t:object} type; generated code
- * creates the {@code Field}. Inside the fragment {@code t:field="name"}, {@code t:errors="name"},
- * {@code t:errorclass} and {@code fields.hasErrors(name)} accept it. Output as text it is its
+ * creates the {@code Field}. Inside the fragment {@code t:field="name"}, {@code t:errors="name"}
+ * and {@code fields.hasErrors(name)} accept it. Output as text it is its
  * element id ({@code t:for="name"}), the path without brackets. Templates cannot read its value.
  *
  * <p>Declared with its type, {@code Field<Criterion> name}, the fragment can also bind the

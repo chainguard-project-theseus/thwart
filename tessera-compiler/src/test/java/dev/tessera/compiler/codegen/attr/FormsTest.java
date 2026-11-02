@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
-/** t:object, t:field, t:errors, t:errorclass and CSRF injection, end to end. */
+/** t:object, t:field, t:errors and CSRF injection, end to end. */
 class FormsTest {
   private static final String HEAD =
       "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"owner\"";
@@ -150,7 +150,7 @@ class FormsTest {
 
   @Test
   void checkboxDisabledThroughAttrHasNoMarker() {
-    Compilation c = compile("<input type=\"checkbox\" t:attr=\"disabled=${true}\" t:field=\"*{active}\">");
+    Compilation c = compile("<input type=\"checkbox\" t:disabled=\"${true}\" t:field=\"*{active}\">");
     assertFalse(render(c, owner(c, "Ann", null), new TestForms()).contains("_active"));
   }
 
@@ -300,27 +300,12 @@ class FormsTest {
     Compilation c =
         compile(
             "<select t:field=\"*{pet}\"><option t:value=\"${owner.pet}\">same</option></select>"
-                + "<input class=\"a\" t:classappend=\"'b'\" t:field=\"*{age}\" t:errorclass=\"err\">");
+                + "<input class=\"a\" t:classappend=\"fields.hasErrors('age') ? 'b err' : 'b'\" t:field=\"*{age}\">");
     TestForms forms = new TestForms();
     forms.errors.put("age", List.of("bad"));
     assertEquals(
         "<form><select id=\"pet\" name=\"pet\"><option value=\"dog\" selected=\"selected\">same</option></select>"
             + "<input class=\"a b err\" id=\"age\" name=\"age\" value=\"42\"></form>",
-        render(c, owner(c, "Ann", null), forms));
-  }
-
-  /** The class t:errorclass writes keeps every token (#586: no ng-like stripping any more). */
-  @Test
-  void errorClassKeepsEveryToken() {
-    Compilation c =
-        compile("<input class=\"a\" t:classappend=\"'b ng-bind'\" t:field=\"*{age}\" t:errorclass=\"'ng-show err'\">");
-    assertEquals(
-        "<form><input class=\"a b ng-bind\" id=\"age\" name=\"age\" value=\"42\"></form>",
-        render(c, owner(c, "Ann", null), new TestForms()));
-    TestForms forms = new TestForms();
-    forms.errors.put("age", List.of("bad"));
-    assertEquals(
-        "<form><input class=\"a b ng-bind ng-show err\" id=\"age\" name=\"age\" value=\"42\"></form>",
         render(c, owner(c, "Ann", null), forms));
   }
 
@@ -661,12 +646,13 @@ class FormsTest {
         .assertError("t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
   }
 
+  /** The recipe for Thymeleaf's th:errorclass (#766). */
   @Test
-  void errorClassAppendsWhenFieldHasErrors() {
+  void classAppendAddsAClassWhenFieldHasErrors() {
     Compilation c =
         compile(
-            "<input class=\"form-control\" t:field=\"*{firstName}\" t:errorclass=\"is-invalid\">"
-                + "<input t:field=\"*{age}\" t:errorclass=\"'bad field'\">");
+            "<input class=\"form-control\" t:field=\"*{firstName}\" t:classappend=\"fields.hasErrors('firstName') ?"
+                + " 'is-invalid'\"><input t:field=\"*{age}\" t:classappend=\"fields.hasErrors('age') ? 'bad field'\">");
     assertEquals(
         "<form><input class=\"form-control\" id=\"firstName\" name=\"firstName\" value=\"Ann\">"
             + "<input id=\"age\" name=\"age\" value=\"42\"></form>",
@@ -681,12 +667,13 @@ class FormsTest {
   }
 
   @Test
-  void errorClassNegative() {
-    compileForm(HEAD + "><input t:errorclass=\"err\"></form>").assertError("t:errorclass needs t:field");
-    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"x&quot; onclick=&quot;y\"></form>")
-        .assertError("t:errorclass needs literal class names");
-    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"${owner.firstName}\"></form>")
-        .assertError("t:errorclass needs literal class names");
+  void errorClassIsRemoved() {
+    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"'bad field'\"></form>")
+        .assertError("form.html:1:", "t:errorclass is not supported; write t:classappend=\"fields.hasErrors(*{age}) ?"
+            + " 'bad field'\" (if the element has a t:classappend already, join both conditions into that one)");
+    compileForm(HEAD + "><input t:errorclass=\"${owner.firstName}\"></form>")
+        .assertError("t:errorclass is not supported; write t:classappend=\"fields.hasErrors('<path>') ?"
+            + " '<classes>'\" (if the element has a t:classappend already, join both conditions into that one)");
   }
 
   @Test

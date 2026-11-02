@@ -42,7 +42,7 @@ class FrameworkDirectivesTest {
   @Test
   void computedClassIsWrittenAsItIs() {
     Compilation c =
-        compile("<p t:class=\"s\">1</p><p class=\"a\" t:classappend=\"s\">2</p><p t:attr=\"class=s\">3</p>"
+        compile("<p t:class=\"s\">1</p><p class=\"a\" t:classappend=\"s\">2</p><p t:class=\"s\">3</p>"
                 + "<p t:CLASS=\"s\">4</p>")
             .assertSuccess();
     String value = "x ng-init:alert(document.domain) a.ng-bind DATA_NG-SHOW y";
@@ -72,8 +72,8 @@ class FrameworkDirectivesTest {
             .assertError("t.html:1:", "t:" + name + " is not allowed", "same-origin path");
       }
     }
-    compile("<button t:attr=\"data-hx-get=@{//evil.example}\">x</button>")
-        .assertError("t:attr data-hx-get is not allowed", "same-origin path");
+    compile("<button t:data-hx-get=\"@{//evil.example}\">x</button>")
+        .assertError("t:data-hx-get is not allowed", "same-origin path");
     compile("<button t:data-hx-get=\"@{${s}}\">x</button>").assertError("t.html:1:", "dynamic link paths");
   }
 

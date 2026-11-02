@@ -49,7 +49,7 @@ class InertAttributesTest {
     "<my-el t:target=\"s\"></my-el>",
     // A browser may load a <param name=src> value as the object's resource URL.
     "<object type=\"application/pdf\"><param name=\"src\" t:value=\"s\"></object>",
-    "<a t:attr=\"target=${s}\">x</a>",
+    "<a t:target=\"${s}\">x</a>",
     "<a t:target=\"k\">x</a>",
   })
   void typedAttributesRejectPlainValues(String body) {
@@ -96,7 +96,7 @@ class InertAttributesTest {
   @ValueSource(strings = {
     "<a t:rel=\"s\">x</a>",
     "<a t:rel=\"b ? 'noopener' : 'nofollow'\">x</a>",
-    "<a t:attr=\"rel=${s}\">x</a>",
+    "<a t:rel=\"${s}\">x</a>",
     "<iframe t:sandbox=\"s\"></iframe>",
     "<iframe t:allow=\"s\"></iframe>",
     "<img t:crossorigin=\"s\">",
@@ -106,7 +106,7 @@ class InertAttributesTest {
     "<img t:loading=\"'lazy'\">",
     "<meta name=\"description\" t:content=\"s\">",
     "<meta NAME=\" Author \" t:content=\"s\">",
-    "<meta name=\"keywords\" t:attr=\"content=${s}\">",
+    "<meta name=\"keywords\" t:content=\"${s}\">",
     "<meta name=\"viewport\" t:content=\"'width=device-width'\">",
     "<meta name=\"referrer\" t:content=\"b ? 'no-referrer' : 'origin'\">",
     "<meta property=\"og:title\" t:content=\"'T'\">",
@@ -115,7 +115,7 @@ class InertAttributesTest {
     "<meta http-equiv=\"content-security-policy\" t:content=\"s\">",
     "<meta http-equiv=\"default-style\" t:content=\"s\">",
     "<meta t:name=\"'description'\" t:content=\"s\">",
-    "<meta t:attr=\"name='description', content=${s}\">",
+    "<meta t:name=\"'description'\" t:content=\"${s}\">",
     "<meta name=\"description\" t:property=\"s\">",
     "<meta t:content=\"s\">",
     "<p t:content=\"s\">x</p>",
