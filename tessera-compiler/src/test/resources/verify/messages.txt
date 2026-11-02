@@ -102,17 +102,17 @@
 == RAW_CLOSES_ELEMENT: sanitized HTML in a paragraph, which a <p> or <div> in it would close
 -- t.html
 <p>Note: <span t:utext="html.sanitize(s)">x</span></p>
-=> t.html:1:80: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, list, table or heading in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+=> t.html:1:80: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, list, table or heading in the value ends it), so the rest of the page would parse differently; if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide section 4.4, Inline HTML); otherwise insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == RAW_CLOSES_ELEMENT: a Fragment value in a link
 -- t.html
 <div $NS><a t:fragment="link(Fragment f)" href="/x"><span t:insert="f">x</span></a></div>
-=> t.html:1:95: error: a browser lets the markup of this Fragment value close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+=> t.html:1:95: error: a browser lets the markup of this Fragment value close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == RAW_CLOSES_ELEMENT: an HTML message with a link, in a link
 -- messages.properties
 m=See <a href="/docs">the docs</a>.
 -- t.html
 <a $NS href="/x"><span t:utext="#{m}">x</span></a>
-=> t.html:1:59: error: a browser lets the markup of this HTML message close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+=> t.html:1:59: error: a browser lets the markup of this HTML message close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == FRAMESET: a frameset page
 -- t.html
 <!DOCTYPE html>

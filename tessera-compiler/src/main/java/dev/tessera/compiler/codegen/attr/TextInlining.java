@@ -17,6 +17,7 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.SafeInlineHtml;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +37,8 @@ public final class TextInlining {
   private TextInlining() {}
 
   private static final String SAFE_HTML = SafeHtml.class.getName();
+
+  private static final String SAFE_INLINE_HTML = SafeInlineHtml.class.getName();
 
   /**
    * Statements that render {@code text}, or {@code null} if it has no inlined expressions (the
@@ -440,7 +443,8 @@ public final class TextInlining {
     if (c == null) {
       return Emitted.EMPTY;
     }
-    if (!isDeclared(c.type(), SAFE_HTML)) {
+    boolean inline = isDeclared(c.type(), SAFE_INLINE_HTML);
+    if (!inline && !isDeclared(c.type(), SAFE_HTML)) {
       String type = c.type().getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(c.type());
       ctx.diagnostics()
           .error(
@@ -450,6 +454,6 @@ public final class TextInlining {
                   + " text); or build a SafeHtml in trusted Java code");
       return Emitted.EMPTY;
     }
-    return Emitted.safeHtml(c.pos(), c.code()).then("\n");
+    return Emitted.safeHtml(c.pos(), c.code(), inline).then("\n");
   }
 }

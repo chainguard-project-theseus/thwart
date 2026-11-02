@@ -219,6 +219,31 @@ class HtmlPolicyTest {
     assertEquals("<a>x</a>", rich("<a href=javascript:alert(1) target=_blank>x</a>"));
   }
 
+  /** #397: an inline policy can narrow the inline list, never extend it; SafeInlineHtml takes no other policy. */
+  @Test
+  void inlinePolicyAllowsOnlyTheInlineList() {
+    for (String e : HtmlPolicy.ELEMENTS) {
+      if (!HtmlPolicy.INLINE_ELEMENTS.contains(e)) {
+        assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.inlineBuilder().allowElements(e), e);
+      }
+    }
+    for (String e : new String[] {"a", "nobr", "ruby", "rt", "button", "input", "select", "label", "p", "div", "li",
+        "script", "svg", "math", "table", "td", "B", "", "del", "ins"}) {
+      assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.inlineBuilder().allowElements(e), e);
+    }
+    HtmlPolicy inline = HtmlPolicy.inlineBuilder().allowElements(HtmlPolicy.INLINE_ELEMENTS.toArray(new String[0])).build();
+    assertEquals("x<b>y</b>z<q>q</q><wbr><time>t</time>", SafeInlineHtml.sanitize(
+        "<p>x<b>y</b></p><div>z<a href=/x><q>q</q></a><wbr></div><time datetime=1>t</time>", inline).html());
+    assertEquals("", SafeInlineHtml.sanitize(null, inline).html());
+    assertEquals("a<i>bc</i>", SafeInlineHtml.sanitize("a<i>b<b>c</b></i>", HtmlPolicy.inlineBuilder().allowElements("i").build()).html());
+    for (HtmlPolicy p : new HtmlPolicy[] {HtmlPolicy.BASIC, HtmlPolicy.RICH, HtmlPolicy.MESSAGE_NO_LINKS,
+        HtmlPolicy.builder().allowElements("b").build()}) {
+      assertThrows(IllegalArgumentException.class, () -> SafeInlineHtml.sanitize("<b>x</b>", p));
+    }
+    assertEquals("&lt;p&gt;a<b>b</b>", SafeInlineHtml.concat(SafeInlineHtml.escape("<p>a"), null,
+        SafeInlineHtml.sanitize("<b>b", inline)).html());
+  }
+
   @Test
   void builderRejectsAnythingOutsideTheClosedSets() {
     for (String e : new String[] {"script", "style", "svg", "math", "iframe", "object", "embed", "form", "input",

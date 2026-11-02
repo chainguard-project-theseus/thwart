@@ -23,7 +23,9 @@ import java.util.Set;
  *       and {@code p h1-h6 pre blockquote ul ol div hr};
  *   <li>{@code p}, headings, {@code pre} and phrasing elements hold only phrasing elements;
  *   <li>{@code ul} and {@code ol} hold only {@code li}, and {@code li} goes only there;
- *   <li>the {@link #FORMATTING} elements never go inside an open element of their own name.
+ *   <li>the {@link #FORMATTING} elements never go inside an open element of their own name;
+ *   <li>in inline mode (a policy from {@link HtmlPolicy#inlineBuilder()}) only
+ *       {@link HtmlPolicy#INLINE_ELEMENTS} are written: balanced phrasing content.
  * </ul>
  *
  * <p>A start tag that doesn't fit, or that would nest deeper than {@link #MAX_DEPTH}, is
@@ -43,12 +45,12 @@ final class HtmlSanitizer {
   /** Kept elements beyond this nesting depth are unwrapped. */
   private static final int MAX_DEPTH = 100;
 
-  private static final Set<String> VOID = Ascii.set("br", "hr", "img");
+  private static final Set<String> VOID = Ascii.set("br", "hr", "img", "wbr");
 
   /** Phrasing elements: may appear wherever phrasing content may. */
   private static final Set<String> PHRASING =
       Ascii.set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
-          "code", "kbd", "span", "br", "img");
+          "code", "kbd", "span", "br", "img", "abbr", "cite", "q", "dfn", "time", "wbr");
 
   /** Flow elements that are not phrasing (and are not {@code li}). */
   private static final Set<String> BLOCK =
@@ -253,6 +255,9 @@ final class HtmlSanitizer {
    * it stays within {@link #MAX_DEPTH}. Otherwise it is unwrapped.
    */
   private boolean fits(String name) {
+    if (policy.inline && !HtmlPolicy.INLINE_ELEMENTS.contains(name)) {
+      return false; // inline mode: phrasing elements from the inline list only, never a block
+    }
     if (FORMATTING.contains(name) && open.contains(name)) {
       return false;
     }
