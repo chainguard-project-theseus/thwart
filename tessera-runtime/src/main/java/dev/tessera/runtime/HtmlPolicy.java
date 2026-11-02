@@ -18,7 +18,7 @@ import java.util.TreeSet;
  * {@code html.sanitizeRich}. {@link #builder()} makes others from the same closed set of
  * elements and attributes: a policy can only switch on things the sanitizer knows how to write
  * safely. Whatever the policy, the output never has {@code style}, {@code on*} handlers,
- * framework directive attributes, comments (but the empty ones that break {@code {{}), or
+ * framework directive attributes, comments, or
  * script-capable, raw-text or foreign elements, and
  * it is balanced {@code FLOW} content in a closed content model: it closes everything it opens
  * and nests elements only as that model allows, so a browser parses it as written (#329, #592).

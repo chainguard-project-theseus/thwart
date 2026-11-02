@@ -20,11 +20,8 @@ class SafeHtmlTest {
   }
 
   @Test
-  void escapeBreaksMustacheDelimiters() {
-    // #248: SafeHtml.escape is element text, like t:text.
-    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", SafeHtml.escape("{{x}}").html());
-    assertEquals(
-        "a<!---->{<!----><!---->{<!---->b<!---->}<!---->}<!---->",
-        SafeHtml.concat(SafeHtml.escape("a{"), SafeHtml.escape("{b}}")).html());
+  void escapeKeepsBracesAsText() {
+    // #679: SafeHtml.escape is element text, like t:text; braces are plain text.
+    assertEquals("{{x}} &amp;", SafeHtml.escape("{{x}} &").html());
   }
 }

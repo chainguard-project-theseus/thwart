@@ -79,41 +79,20 @@ class ContextVerifierRulesTest {
   }
 
   @Test
-  void rcdataEscapingOnlyInRcdata() {
-    accept(st("<title>"), hole(Escaper.RCDATA, null), st("</title>"));
-    accept(st("<textarea>"), hole(Escaper.RCDATA, null), st("</textarea>"));
-    reject(Problem.RCDATA_NOT_IN_RCDATA, st("<svg><title>"), hole(Escaper.RCDATA, null)); // #306 A7
-    reject(Problem.RCDATA_NOT_IN_RCDATA, st("<p>"), hole(Escaper.RCDATA, null));
-  }
-
-  @Test
-  void theParserStateNamesTheTextEscaper() { // #378
-    // RCDATA takes rcdata, not text: the comments that break {{ would show in the title.
-    assertEquals(Escaper.RCDATA, textEscaper(st("<title>"), text(), st("</title>")));
-    assertEquals(Escaper.RCDATA, textEscaper(st("<textarea>"), text(), st("</textarea>")));
-    assertEquals(Escaper.RCDATA, textEscaper(st("<svg><foreignObject><title>"), text()));
-    assertEquals(Escaper.RCDATA, textEscaper(st("<math><mi><textarea>"), text()));
-    assertEquals(Escaper.RCDATA, textEscaper(st("<svg></svg><textarea>"), text()));
-    assertEquals(Escaper.TEXT, textEscaper(st("<p>"), text(), st("</p>")));
-    assertEquals(Escaper.TEXT, textEscaper(st("<svg><title>"), text())); // foreign content: data, text
-    assertEquals(Escaper.TEXT, textEscaper(st("<svg><textarea>"), text()));
-    accept(st("<svg><foreignObject><title>"), hole(Escaper.RCDATA, null));
+  void textIsOneEscaperInDataAndRcdata() { // #679: no escaper selection by parser state
+    accept(st("<title>"), text(), st("</title>"));
+    accept(st("<textarea>"), text(), st("</textarea>"));
+    accept(st("<svg><foreignObject><title>"), text());
     accept(st("<svg><title>"), text());
+    accept(alt(seq(st("<p>")), seq(st("<title>"))), text());
+    Map<String, Seq> f = Map.of("f", seq(text()));
+    accept(f, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
   }
 
   @Test
   void aHoleWhosePathsNameDifferentEscapersIsRejected() { // #378, the branch rule
-    reject(Problem.TEXT_IN_RCDATA, alt(seq(st("<p>")), seq(st("<title>"))), text());
-    reject(Problem.RCDATA_NOT_IN_RCDATA, alt(seq(st("<p>")), seq(st("<title>"))), hole(Escaper.RCDATA, null));
     reject(Problem.JSON_NOT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), json());
     reject(Problem.TEXT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), text());
-    Map<String, Seq> f = Map.of("f", seq(text()));
-    accept(f, st("<p>"), call("f"), st("</p>"));
-    reject(f, Problem.TEXT_IN_RCDATA, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
-    // Element text takes the escaper of the first state that names one; the other is rejected.
-    reject(Problem.RCDATA_NOT_IN_RCDATA, alt(seq(st("<title>")), seq(st("<p>"))), text());
-    reject(f, Problem.RCDATA_NOT_IN_RCDATA, st("<title>"), call("f"), st("</title><p>"), call("f"), st("</p>"));
-    accept(f, st("<title>"), call("f"), st("</title><textarea>"), call("f"), st("</textarea>"));
   }
 
   @Test
@@ -184,20 +163,19 @@ class ContextVerifierRulesTest {
 
   /**
    * No value in the raw text of {@code <noscript>} (scripting on), {@code <xmp>}, {@code <iframe>},
-   * {@code <noembed>} or {@code <noframes>}, whatever its escaper (#583, #586): an empty comment is
-   * text there and can't break a value's {{. The generator reports it first; the verifier is the
+   * {@code <noembed>} or {@code <noframes>}, whatever its escaper (#583, #586): raw text decodes no
+   * character reference. The generator reports it first; the verifier is the
    * boundary.
    */
   @Test
   void anyValueInRawTextIsRejected() {
     for (String el : List.of("noscript", "xmp", "iframe", "noembed", "noframes")) {
       reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), text());
-      reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), hole(Escaper.RCDATA, null));
       reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), json());
       reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + "><i title=\""), attr("title"));
     }
     // Markup with scripting off, raw text with it on: rejected on the scripting-on parse.
-    reject(Problem.VALUE_IN_RAW_TEXT, st("<p><noscript><title>"), hole(Escaper.RCDATA, null));
+    reject(Problem.VALUE_IN_RAW_TEXT, st("<p><noscript><title>"), text());
     reject(Problem.VALUE_IN_RAW_TEXT, st("<noscript><script>var a = "), json(), st(";</script></noscript>"));
     // The CSRF input a <form> inside <noscript> gets: an attribute hole in raw text (#577).
     reject(Problem.VALUE_IN_RAW_TEXT,
@@ -584,16 +562,6 @@ class ContextVerifierRulesTest {
 
   private static Seq seq(Node... nodes) {
     return new Seq(List.of(nodes));
-  }
-
-  /** The escaper the verifier names for the only element-text hole in {@code nodes}, which it accepts. */
-  private static Escaper textEscaper(Node... nodes) {
-    Skeleton.TemplateSkeleton t = new Skeleton.TemplateSkeleton("t", seq(nodes), Map.of());
-    List<String> errors = new ArrayList<>();
-    Map<Skeleton.Hole, Escaper> escapers = ContextVerifier.verify(Map.of("t", t), d -> errors.add(d.toString()));
-    assertEquals(List.of(), errors, seq(nodes).toString());
-    assertEquals(1, escapers.size(), seq(nodes).toString());
-    return escapers.values().iterator().next();
   }
 
   private static List<Finding> check(Seq body) {

@@ -142,17 +142,6 @@ class HtmlMessageTest {
     assertTrue(html.startsWith("<div>\n<p>") && html.endsWith("</p></div>"), html);
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"k=&#123;\n", "k=&#x7b;{0}\n", "k=&lbrace;\n"})
-  void braceReferenceAtAMessageEdgeIsBroken(String bundle) {
-    // #336: a reference for '{' is decoded and written as a text brace, broken from its neighbours.
-    String arg = bundle.contains("{0}") ? "(s)" : "";
-    Compilation c =
-        compile(bundle, "<div t:params=\"String s\">\n<p>[(#{k" + arg + "})][[s]]</p></div>").assertSuccess();
-    String html = c.render("page", Map.of("s", "{"), ctx(bundle));
-    assertFalse(html.contains("{{"), html);
-  }
-
   @Test
   void runtimeMessageTheBuildDidNotSeeIsSanitized() {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();

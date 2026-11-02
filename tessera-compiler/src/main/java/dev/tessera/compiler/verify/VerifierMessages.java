@@ -67,15 +67,6 @@ final class VerifierMessages {
                 + " or <th>";
       case TEXT_OUTSIDE_BODY:
         return textOutsideBody(value, s);
-      case RCDATA_NOT_IN_RCDATA:
-        return "this value is escaped for the text of <title> or <textarea>, but a browser reads it " + reading(s)
-            + ", where a {{ in it could run in Vue; " + (foreign(s)
-                ? "insert the <title> or <textarea> outside <svg> and <math>"
-                : "check the markup before it");
-      case TEXT_IN_RCDATA:
-        return "this value is escaped as text, with comments that break {{, but a browser reads it " + reading(s)
-            + ", where the comments show as text; declare the <title> or <textarea> in HTML content, not inside"
-            + " <svg> or <math>, or check the markup before it";
       case ATTRIBUTE_NOT_IN_VALUE:
         return "a browser reads " + value + " " + reading(s) + ", not inside the double-quoted value of '"
             + f.attribute + "'; check the markup before the tag: a browser ended the tag, or started raw text, there";
@@ -142,7 +133,7 @@ final class VerifierMessages {
       case VALUE_IN_RAW_TEXT:
         return "a browser reads " + value + " as the raw text of "
             + (s == null || s.currentNode() == null ? "the element" : element(s.currentNode()))
-            + ", where nothing can break a {{ in a value that a client template would run; write the content as"
+            + ", which decodes no escaping; write the content as"
             + " static text, or move the value outside the element";
       default:
         throw new AssertionError(f.problem);
@@ -302,8 +293,6 @@ final class VerifierMessages {
     switch (f.escaper) {
       case TEXT:
         return "this value";
-      case RCDATA:
-        return "this value (escaped for <title> or <textarea>)";
       case JSON:
       case JAVASCRIPT:
         return "this value (written as JSON for a script)";

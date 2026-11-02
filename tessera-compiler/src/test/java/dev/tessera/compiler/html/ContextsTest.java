@@ -186,8 +186,8 @@ class ContextsTest {
     "div, ws-connect, NEUTRAL",
     "div, data-ws-connect, NEUTRAL",
     // htmx history URLs
-    "div, hx-sse, FORBIDDEN",
-    "div, data-hx-ws, FORBIDDEN",
+    "div, hx-sse, NEUTRAL",
+    "div, data-hx-ws, NEUTRAL",
     "a, hx-push-url, NEUTRAL",
     "a, hx-replace-url, NEUTRAL",
     "a, data-hx-push-url, NEUTRAL",
@@ -379,7 +379,7 @@ class ContextsTest {
     assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("my-el"), "target"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "a=b"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), ":title"));
-    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "hx-ws"));
+    assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("div"), "hx-ws"));
   }
 
   /** A static is names a custom element or nothing (HTML 4.13.3; #272). */

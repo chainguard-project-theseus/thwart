@@ -24,8 +24,8 @@ import org.w3c.dom.Node;
  * must keep the benign tree's structure. Text and attribute values that hold a marker in the benign
  * tree may differ; nothing else may. On the hostile tree, a marker must not be in an element or
  * attribute name, an {@code on*} attribute, a {@code javascript:}/{@code vbscript:}/{@code data:}
- * URL, a script the benign tree doesn't have, or {@code {{ ... }}} in text a client framework
- * interpolates; a resource URL must not leave the origin by shape; and a slot in a name outside
+ * URL, or a script the benign tree doesn't have; a resource URL must not leave the origin by shape;
+ * and a slot in a name outside
  * HTML must hold a framework-neutral value (#583 rule 3, #611). Scripts that hold a marker
  * in the benign tree are returned as {@link ScriptSlot}s, so the gate can tell a marker in a script
  * the page already runs (family C) from one that reached a script through markup (A/B).
@@ -36,8 +36,8 @@ import org.w3c.dom.Node;
  * <p>An {@code <iframe srcdoc>} value is a document of its own: both values are parsed and checked
  * the same way, with paths such as {@code /html/body/iframe/@srcdoc/html/body/script}.
  *
- * <p>Not checked here: a value with no payload call has no marker, so it can't show up in a handler,
- * a script or <code>{{ }}</code> (the JS_URL check still catches its script scheme in a URL slot).
+ * <p>Not checked here: a value with no payload call has no marker, so it can't show up in a handler
+ * or a script (the JS_URL check still catches its script scheme in a URL slot).
  * And a slot the parser drops from both trees can't be told apart from static text: after
  * {@code </frameset>} a parser keeps only the whitespace of text, so a benign marker vanishes and a
  * hostile value with whitespace gives a STRUCTURE_CHANGED that isn't a security finding (#320's
@@ -375,10 +375,6 @@ public final class HtmlInvariant {
   private static final Set<String> URL_ATTRIBUTES =
       Set.of("href", "src", "action", "formaction", "xlink:href", "data", "poster", "cite", "background");
 
-  /** HTML elements whose text Tessera doesn't break <code>{{</code> in: RCDATA and raw text. */
-  private static final Set<String> NOT_FLOW_TEXT =
-      Set.of("title", "textarea", "script", "style", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext");
-
   private static final Set<String> RESOURCE_RELS = Set.of("stylesheet", "preload", "modulepreload", "import");
 
   /** Whether {@code e} is a {@code <script>} a browser runs (HTML or SVG, JavaScript type). */
@@ -522,9 +518,6 @@ public final class HtmlInvariant {
             add(Finding.Kind.LIVE_SCRIPT, path);
           }
         }
-        if (flowText(e) && csti(e)) {
-          add(Finding.Kind.CSTI, path);
-        }
       }
     }
   }
@@ -651,43 +644,5 @@ public final class HtmlInvariant {
 
   private static boolean asciiDigit(char c) {
     return c >= '0' && c <= '9';
-  }
-
-  /** Whether the text directly in {@code e} is text Tessera breaks <code>{{</code> in (#248). */
-  private static boolean flowText(Element e) {
-    String ns = e.getNamespaceURI();
-    if (HTML.equals(ns)) {
-      return !NOT_FLOW_TEXT.contains(e.getLocalName());
-    }
-    return !(SVG.equals(ns) && (e.getLocalName().equals("script") || e.getLocalName().equals("style")));
-  }
-
-  /** Whether a run of adjacent text nodes in {@code e} holds {@code {{ ... marker ... }}}. */
-  private static boolean csti(Element e) {
-    StringBuilder run = new StringBuilder();
-    for (Node c = e.getFirstChild(); ; c = c.getNextSibling()) {
-      if (c != null && (c.getNodeType() == Node.TEXT_NODE || c.getNodeType() == Node.CDATA_SECTION_NODE)) {
-        run.append(c.getNodeValue());
-        continue;
-      }
-      if (interpolates(run.toString())) {
-        return true;
-      }
-      run.setLength(0);
-      if (c == null) {
-        return false;
-      }
-    }
-  }
-
-  /** Whether a marker is between a <code>{{</code> and the first <code>}}</code> after it, as Vue reads it. */
-  private static boolean interpolates(String text) {
-    for (int open = text.indexOf("{{"); open >= 0; open = text.indexOf("{{", open + 1)) {
-      int close = text.indexOf("}}", open + 2);
-      if (close >= 0 && hasMarker(text.substring(open + 2, close))) {
-        return true;
-      }
-    }
-    return false;
   }
 }

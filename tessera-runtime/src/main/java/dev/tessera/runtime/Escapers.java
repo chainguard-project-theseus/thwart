@@ -52,31 +52,12 @@ public final class Escapers {
   }
 
   /**
-   * Written on both sides of every {@code {} and {@code }} of a value in element text, so that
-   * client-side frameworks that compile the page's DOM as a template (Vue 2/3, petite-vue) never see a {@code {{}
-   * interpolation in the value (#248). An empty comment is a node boundary: the text that the
-   * page shows, {@code textContent} and copied text are unchanged. Only {@link #appendText} and
-   * {@link #rawEdges} write it.
-   */
-  static final String BRACE_BREAK = "<!---->";
-
-  /**
-   * HTML element text (OutputContext.TEXT). Encodes {@code & < > " '}. A {@link SafeHtml}
-   * argument is escaped like any other value: {@code t:text} always escapes.
-   *
-   * <p>Also breaks client-side template delimiters (#248), through {@link #appendText}.
+   * HTML element text, the RCDATA of {@code <title>} and {@code <textarea>} included
+   * (OutputContext.TEXT). Encodes {@code & < > " '}, as {@link #attr} does. A {@link SafeHtml}
+   * argument is escaped like any other value: {@code t:text} always escapes. Client-side
+   * frameworks that compile the page's DOM as a template are not supported (guide section 5).
    */
   public static void text(Output out, Object value) {
-    escapeText(out, toText(value));
-  }
-
-  /**
-   * Text in {@code <title>} or {@code <textarea>} (OutputContext.RCDATA). Encodes
-   * {@code & < > " '} like {@link #attr}. A comment cannot be written there (the browser shows it
-   * as text), so {@code {{} is not broken: the compiler adds {@code v-pre} to a computed
-   * {@code <title>} or {@code <textarea>} for Vue and petite-vue instead (#549); see guide section 5.
-   */
-  public static void rcdata(Output out, Object value) {
     escapeHtml(out, toText(value));
   }
 
@@ -160,26 +141,11 @@ public final class Escapers {
     return value == null ? null : requireJdkNumber(value).toString();
   }
 
-  /**
-   * Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. Like any value in
-   * element text, its edges are written as {@link #rawEdges} writes them.
-   */
+  /** Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. */
   public static void html(Output out, SafeHtml value) {
     if (value != null) {
-      out.write(rawEdges(value.html()));
+      out.write(value.html());
     }
-  }
-
-  /**
-   * Markup written into element text as a value (a {@link SafeHtml}, an HTML message): with
-   * {@link #BRACE_BREAK} before a leading and after a trailing {@code {}, as {@link #appendText}
-   * writes a value's edges, so it never forms {@code {{} with the text around it (#336).
-   */
-  static String rawEdges(String html) {
-    if (html.isEmpty() || html.charAt(0) != '{' && html.charAt(html.length() - 1) != '{') {
-      return html;
-    }
-    return (html.charAt(0) == '{' ? BRACE_BREAK : "") + html + (html.charAt(html.length() - 1) == '{' ? BRACE_BREAK : "");
   }
 
   /** How far from the decimal point a {@link BigDecimal} message argument may reach; see {@link #messageArgs}. */
@@ -244,7 +210,7 @@ public final class Escapers {
   public static SafeHtml htmlMessage(RenderContext ctx, String key, Object[] args, boolean links) {
     HtmlPolicy policy = links ? HtmlPolicy.MESSAGE : HtmlPolicy.MESSAGE_NO_LINKS;
     if (args.length > 0) {
-      return SafeHtml.sanitize(ctx.messages().get(key, escapeTextArgs(messageTextArgs(args))), policy);
+      return SafeHtml.sanitize(ctx.messages().get(key, escapeArgs(messageTextArgs(args))), policy);
     }
     String message = ctx.messages().get(key, args);
     if (message == null) {
@@ -262,11 +228,11 @@ public final class Escapers {
   }
 
   /** A copy of {@code text} with each {@code String} escaped as HTML text. */
-  private static Object[] escapeTextArgs(Object[] text) {
+  private static Object[] escapeArgs(Object[] text) {
     Object[] escaped = text.clone();
     for (int i = 0; i < escaped.length; i++) {
       if (escaped[i] instanceof String) {
-        escaped[i] = escapeText((String) escaped[i]);
+        escaped[i] = escapeHtml((String) escaped[i]);
       }
     }
     return escaped;
@@ -297,7 +263,7 @@ public final class Escapers {
    * {@link #javaScript}). Serializes as JSON: null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
    * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element,
-   * {@code {} so petite-vue never reads a {@code {{} in it, and {@code /}, {@code `} and
+   * and {@code {}, {@code /}, {@code `} and
    * {@code $} as defence in depth: the compiler never places a value inside a JS string, comment,
    * regex or template literal. Other types throw IllegalArgumentException (the
    * compiler only allows the types above).
@@ -357,79 +323,42 @@ public final class Escapers {
     }
   }
 
-  private static void escapeText(Output out, String s) {
-    if (out instanceof StringOutput) {
-      appendText(((StringOutput) out).sb, s);
-    } else {
-      out.write(escapeText(s));
-    }
-  }
-
-  /** Escapes an attribute value or RCDATA: {@code & < > " '}, nothing else. */
-  static void appendHtml(StringBuilder sb, String s) {
-    append(sb, s, false);
-  }
-
   /**
-   * The one way a value reaches element text (#248, #336): escaped as {@link #appendHtml}, with
-   * an empty comment on both sides of every {@code {} and {@code }} (#571), so that a brace in the
-   * value never meets another one, inside it or next to it. {@link #text}, {@link SafeHtml#escape}, the
-   * sanitizer's text and HTML message arguments all call it, and
-   * {@code TextChokePointTest} fails if runtime code escapes text another way.
+   * The one HTML escaper (element text, RCDATA and attribute values alike): {@code & < > " '},
+   * and {@link #forbiddenCodePoint forbidden code points} as U+FFFD, nothing else.
    */
-  static void appendText(StringBuilder sb, String s) {
-    append(sb, s, true);
-  }
-
-  private static void append(StringBuilder sb, String s, boolean text) {
+  static void appendHtml(StringBuilder sb, String s) {
     int i = 0;
-    while (i < s.length() && !needsHtmlEscape(s, i, text)) {
+    while (i < s.length() && !needsHtmlEscape(s.charAt(i))) {
       i++;
     }
     if (i == s.length()) {
       sb.append(s);
     } else {
-      appendEscapedHtml(sb, s, i, text);
+      appendEscapedHtml(sb, s, i);
     }
   }
 
+  /** Escapes {@code s} as {@link #appendHtml} does. */
   static String escapeHtml(String s) {
-    return escape(s, false);
-  }
-
-  /** Escapes element text as {@link #appendText} does. */
-  static String escapeText(String s) {
-    return escape(s, true);
-  }
-
-  private static String escape(String s, boolean text) {
     int i = 0;
     int n = s.length();
-    while (i < n && !needsHtmlEscape(s, i, text)) {
+    while (i < n && !needsHtmlEscape(s.charAt(i))) {
       i++;
     }
     if (i == n) {
       return s;
     }
     StringBuilder sb = new StringBuilder(n + 16);
-    appendEscapedHtml(sb, s, i, text);
+    appendEscapedHtml(sb, s, i);
     return sb.toString();
   }
 
-  private static void appendEscapedHtml(StringBuilder sb, String s, int i, boolean text) {
+  private static void appendEscapedHtml(StringBuilder sb, String s, int i) {
     int n = s.length();
     sb.append(s, 0, i);
     for (; i < n; i++) {
       char c = s.charAt(i);
-      if ((c == '{' || c == '}') && text) {
-        // Every brace stands alone (#571): it never meets another one, inside the value or next
-        // to it, whatever is written around the value and even when the value is empty.
-        if (i == 0 || s.charAt(i - 1) != '{' && s.charAt(i - 1) != '}') {
-          sb.append(BRACE_BREAK);
-        }
-        sb.append(c).append(BRACE_BREAK);
-        continue;
-      }
       switch (c) {
         case '&':
           sb.append("&amp;");
@@ -475,12 +404,8 @@ public final class Escapers {
         || (cp & 0xFFFE) == 0xFFFE;
   }
 
-  private static boolean needsHtmlEscape(String s, int i, boolean text) {
-    char c = s.charAt(i);
+  private static boolean needsHtmlEscape(char c) {
     switch (c) {
-      case '{':
-      case '}':
-        return text;
       case '&':
       case '<':
       case '>':
@@ -900,7 +825,6 @@ public final class Escapers {
         case '\'':
         case '`':
         case '$':
-        // petite-vue interpolates script text, so a string never writes '{' (no '{{', #248).
         case '{':
         case '\u2028':
         case '\u2029':

@@ -94,7 +94,7 @@ class FragmentsTest {
         .compile()
         .assertSuccess();
     for (String page : List.of("a", "b")) {
-      assertEquals("<div><div><title v-pre>{{x}}&lt;/title&gt;</title><i>i</i></div><i>i</i></div>",
+      assertEquals("<div><div><title>{{x}}&lt;/title&gt;</title><i>i</i></div><i>i</i></div>",
           c.render(page, Map.of("v", "{{x}}</title>")));
     }
   }
@@ -408,8 +408,8 @@ class FragmentsTest {
             .assertSuccess();
     Object u = c.newInstance("com.example.User", "<x>");
     assertEquals(
-        "<div><title v-pre><script>&lt;x&gt;</script></title></div><textarea v-pre><script>&lt;x&gt;</script></textarea>"
-            + "<title v-pre><script>&lt;x&gt;</script></title>",
+        "<div><title><script>&lt;x&gt;</script></title></div><textarea><script>&lt;x&gt;</script></textarea>"
+            + "<title><script>&lt;x&gt;</script></title>",
         c.render("page", Map.of("u", u)).split("\n")[1]);
   }
 

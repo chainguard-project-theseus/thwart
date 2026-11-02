@@ -36,7 +36,7 @@ public record Finding(Kind kind, String engine, String where, String value) {
     JS_UNPARSABLE,
     /** The escaper the compiler chose doesn't match where the parser put the value (#323). */
     CONTEXT_MISMATCH,
-    /** A marker inside {@code {{ ... }}} in text a client framework would interpolate (#318). */
+    /** Retired (#679), no longer reported: a marker inside {@code {{ ... }}} in element text (#318). */
     CSTI,
     /**
      * A Node engine (parse5, a browser) builds a tree for an accepted render that the vnu engine
