@@ -18,11 +18,12 @@ checks:
   verify:
     description: Runtime and compiler tests at Java 21, and the compiler's ShadedJarIT.
     trigger: [presubmit, postsubmit]
-    resources: medium
+    # The slowest shard: its tests in two surefire forks on a large runner (#699).
+    resources: large
     timeout: 20m
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
-    vars: {MAVEN_ARGS: "-pl tessera-compiler -am -Dtessera.skipRelease8=true"}
+    vars: {MAVEN_ARGS: "-pl tessera-compiler -am -Dtessera.skipRelease8=true -DforkCount=2 -DreuseForks=true"}
     cmd: [mvn, -B, -ntp, verify]
   verify-release8:
     description: The compiler's template tests again with generated code compiled at javac release 8.
