@@ -28,22 +28,24 @@ final class Rules {
   /** HTML elements whose raw text a browser never runs or renders as markup. */
   private static final Set<String> INERT_RAWTEXT = Backports.setOf("iframe", "xmp", "noembed", "noframes");
 
-  /** MathML text integration points: their character tokens go through the insertion mode. */
-  private static final Set<String> MATHML_TEXT_POINTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
-
   /**
    * The problem with {@code hole} in state {@code s}, or null if it is accepted.
    *
-   * <p>The state names the one escaper a hole there may have (#378): the script data of an HTML
-   * {@code <script>}, {@code json}; a double-quoted attribute value, an attribute escaper for that
-   * attribute (which one is policy, {@code Contexts.attribute}); element text, data or RCDATA alike,
-   * {@code text}. A hole with another escaper is rejected, so a hole whose paths reach states that
-   * name different escapers is rejected on one of them (the branch rule). No hole is accepted in raw
-   * text (#586): {@code <noscript>} (scripting on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>}
-   * and {@code <noframes>} decode no character reference, so no escaper fits; {@code <style>} raw
-   * text is rejected below.
+   * <p>No hole is accepted while the current node is SVG or MathML (#678, {@link Problem#VALUE_IN_FOREIGN}):
+   * foreign content, its integration points and CDATA sections are not modelled. The state names the one
+   * escaper a hole there may have (#378): the script data of an HTML {@code <script>}, {@code json}; a
+   * double-quoted attribute value, an attribute escaper for that attribute (which one is policy,
+   * {@code Contexts.attribute}); element text, data or RCDATA alike, {@code text}. A hole with another
+   * escaper is rejected, so a hole whose paths reach states that name different escapers is rejected on
+   * one of them (the branch rule). No hole is accepted in raw text (#586): {@code <noscript>} (scripting
+   * on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>} and {@code <noframes>} decode no character
+   * reference, so no escaper fits; {@code <style>} raw text is rejected below.
    */
   static Problem hole(Skeleton.Hole hole, ParserState s) {
+    OpenElement current = s.currentNode();
+    if (current != null && !OpenElement.HTML.equals(current.namespace())) {
+      return Problem.VALUE_IN_FOREIGN;
+    }
     if (s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s)) {
       return Problem.VALUE_IN_RAW_TEXT;
     }
@@ -54,7 +56,6 @@ final class Rules {
       case JAVASCRIPT:
         // Right after '<' too: JSON, parenthesized or not, never starts with '/' or '!', so its first character returns
         // the tokenizer to script data (the verifier feeds one, see ContextVerifier#hole).
-        OpenElement current = s.currentNode();
         return (s.tokenizer() == TokenizerState.SCRIPT_DATA || s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN)
                 && current != null && current.isHtml("script")
             ? null
@@ -65,18 +66,8 @@ final class Rules {
   }
 
   private static Problem text(ParserState s) {
-    OpenElement current = s.currentNode();
     switch (s.tokenizer()) {
       case DATA:
-        if (current != null && !OpenElement.HTML.equals(current.namespace())
-            && (current.localName().equals("script") || current.localName().equals("style"))) {
-          // An SVG <script> runs its text and an SVG <style> applies it: no HTML escaper helps.
-          return Problem.TEXT_IN_SCRIPT;
-        }
-        if (foreignCharacters(current)) {
-          // In foreign content every character is appended as it is, whatever the mode.
-          return null;
-        }
         // Formatting elements to reopen first, or a foster-parented element in a table mode, are
         // reached only by error recovery: parse errors (#406, #410).
         if (!TEXT_MODES.contains(s.mode())) {
@@ -105,17 +96,6 @@ final class Rules {
         && (INERT_RAWTEXT.contains(current.localName()) || current.localName().equals("noscript") && s.scripting());
   }
 
-  /**
-   * Whether character tokens go to the foreign content rules: the current node is SVG or MathML,
-   * and not an HTML or MathML text integration point.
-   */
-  private static boolean foreignCharacters(OpenElement current) {
-    if (current == null || OpenElement.HTML.equals(current.namespace()) || current.htmlIntegrationPoint()) {
-      return false;
-    }
-    return !(OpenElement.MATHML.equals(current.namespace()) && MATHML_TEXT_POINTS.contains(current.localName()));
-  }
-
   private static Problem attribute(Skeleton.Hole hole, ParserState s) {
     if (s.tokenizer() != TokenizerState.ATTRIBUTE_VALUE_DOUBLE_QUOTED) {
       return Problem.ATTRIBUTE_NOT_IN_VALUE;
@@ -124,11 +104,6 @@ final class Rules {
     String name = s.attributeName() == null ? null : asciiLower(s.attributeName());
     if (name == null || hole.attribute() == null || !name.equals(asciiLower(hole.attribute()))) {
       return Problem.ATTRIBUTE_WRONG_NAME;
-    }
-    // A MathML encoding decides whether an <annotation-xml> is an HTML integration point.
-    OpenElement current = s.currentNode();
-    if (name.equals("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
-      return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
   }
@@ -245,19 +220,6 @@ final class Rules {
       }
     }
     return null;
-  }
-
-  /**
-   * The problem with a CDATA section the parser starts while {@code current} (not HTML) is the
-   * current node, or null: exclusion (d), {@link Problem#CDATA_IN_INTEGRATION_POINT} (#441). In an
-   * HTML integration point ({@code foreignObject}, {@code desc} and {@code title} in SVG, an HTML
-   * {@code annotation-xml}) or a MathML text integration point, the engine and Firefox read a CDATA
-   * section, as the standard does, but parse5 and Chromium read a comment that ends at the
-   * first {@code >}. Coarse on purpose: any CDATA section there, whatever is in it. Elsewhere in
-   * SVG and MathML (a {@code <style>}, a {@code <script>}, a {@code <text>}) they agree.
-   */
-  static Problem cdata(OpenElement current) {
-    return foreignCharacters(current) ? null : Problem.CDATA_IN_INTEGRATION_POINT;
   }
 
   /** The local name of HTML element {@code i} on the stack ({@code -1}: the fragment context), else null. */

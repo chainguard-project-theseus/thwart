@@ -56,10 +56,6 @@ class InertAttributesTest {
     "<object type=\"application/pdf\"><param name=\"src\" t:value=\"s\"></object>",
     "<a t:attr=\"rel=${s}\">x</a>",
     "<a t:rel=\"k\">x</a>",
-    "<svg><rect t:x=\"s\"/></svg>",
-    "<svg><g t:transform=\"s\"></g></svg>",
-    "<svg><rect t:stroke-width=\"s\"/></svg>",
-    "<math><mi t:mathcolor=\"s\">x</mi></math>",
   })
   void otherStandardAttributesRejectPlainValues(String body) {
     // The fix-it points at a JSON block, not a data-* attribute, which takes no String since #584.
@@ -77,35 +73,28 @@ class InertAttributesTest {
     assertEquals(
         "<a rel=\"nofollow\" target=\"_blank\">x</a>",
         render("<a t:rel=\"b ? 'noopener' : 'nofollow'\" t:target=\"'_blank'\">x</a>"));
-    assertEquals(
-        "<svg><rect x=\"3\" stroke-width=\"3px\"/><g transform=\"translate(3 0)\"></g></svg>",
-        render("<svg><rect t:x=\"n\" t:stroke-width=\"|${n}px|\"/><g t:transform=\"|translate(${n} 0)|\"></g></svg>",
-            "n", 3));
   }
 
-  /** #565: a safe type is the wrong kind for a typed attribute, on HTML and on SVG or MathML. */
+  /** #565: a safe type is the wrong kind for a typed attribute. */
   @ParameterizedTest
   @ValueSource(strings = {
     "<iframe t:sandbox=\"u\"></iframe>",
     "<p t:itemtype=\"u\">x</p>",
     "<a t:rel=\"b ? u : 'nofollow'\">x</a>",
-    "<svg><rect t:stroke-width=\"v\"/></svg>",
-    "<svg><g t:transform=\"|scale(${v})|\"></g></svg>",
-    "<math><mi t:mathcolor=\"v\">x</mi></math>",
   })
   void safeTypesAreRejected(String body) {
     compile("\n" + body).assertError("t.html:2:", "is not allowed", "only combine string literals and numbers");
   }
 
   /**
-   * A boolean attribute that is not inert text (declare on HTML; hidden, disabled on SVG, where
+   * A boolean attribute that is not inert text (declare on HTML, where
    * the inert scope is html) keeps the condition handling: present or absent, never a value.
    */
   @Test
   void typedBooleanAttributesTakeACondition() {
-    String body = "<object t:declare=\"b\"></object><svg><rect t:hidden=\"b\" t:disabled=\"!b\"/></svg>";
-    assertEquals("<object declare=\"declare\"></object><svg><rect hidden=\"hidden\"/></svg>", render(body, "b", true));
-    assertEquals("<object></object><svg><rect disabled=\"disabled\"/></svg>", render(body, "b", false));
+    String body = "<object t:declare=\"b\"></object>";
+    assertEquals("<object declare=\"declare\"></object>", render(body, "b", true));
+    assertEquals("<object></object>", render(body, "b", false));
     // A String next to it, in a non-boolean typed attribute, still fails.
     compile("<object t:declare=\"b\"></object>\n<iframe t:sandbox=\"s\"></iframe>")
         .assertError("t.html:2:", "t:sandbox is not allowed", "is not an inert-text attribute");

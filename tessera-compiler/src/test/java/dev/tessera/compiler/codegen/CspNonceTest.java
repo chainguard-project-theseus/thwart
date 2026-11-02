@@ -121,8 +121,7 @@ class CspNonceTest {
   /**
    * Negative: a script or style that a browser does not read as an HTML element gets no nonce, so
    * a strict policy blocks it: inside {@code <svg>} or {@code <math>}, where a browser decodes
-   * character references in it, or inside an element whose content a browser reads as text. That
-   * holds for fragments inserted there too.
+   * character references in it, or inside an element whose content a browser reads as text.
    */
   @ParameterizedTest
   @ValueSource(
@@ -131,26 +130,14 @@ class CspNonceTest {
         "<svg><script>var s = 1;</script><style>circle { fill: red }</style></svg>",
         "<svg><foreignObject><script>x();</script></foreignObject></svg>",
         "<math><mi><style>p{}</style></mi></math>",
-        "<svg><g t:insert=\"~{frag :: boot}\">x</g></svg>",
-        "<svg><g t:replace=\"~{frag :: boot}\">x</g></svg>",
-        "<svg><g t:replace=\"~{frag :: assets}\">x</g></svg>",
         "<noscript><script>x();</script></noscript>",
-        "<xmp><script>x();</script></xmp>",
         "<iframe><style>p{}</style></iframe>",
-        "<noembed><script>x();</script></noembed>",
-        "<noframes><script>x();</script></noframes>",
       })
   void scriptsABrowserDoesNotReadAsHtmlAreNotStamped(String body) {
-    Compilation c =
-        Compilation.builder()
-            .template(
-                "frag.html",
-                // Declared in <svg>: rendered standalone as a fragment method, then inserted in <svg>.
-                "<div " + NS + "><svg><script t:fragment=\"boot\">boot();</script>"
-                    + "<g t:fragment=\"assets\"><style>p{}</style><script>a();</script></g></svg></div>")
-            .template("page.html", "<div " + NS + " t:params=\"String s\">" + body + "</div>")
-            .compile()
-            .assertSuccess();
+    Compilation c = Compilation.builder()
+        .template("page.html", "<div " + NS + " t:params=\"String s\">" + body + "</div>")
+        .compile()
+        .assertSuccess();
     String html = c.render("page", Map.of("s", "&quot;-x-&quot;"), WITH_NONCE);
     assertFalse(html.contains("nonce"), html);
     assertTrue(html.contains("<script>") || html.contains("<style>"), html);

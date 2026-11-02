@@ -59,7 +59,9 @@ public final class Seeds {
 
   /** The seed files, classpath resources. */
   public static final List<String> FILES =
-      List.of("oracle/seeds/306-probes.txt", "oracle/seeds/open-prs.txt", "oracle/seeds/xss-context.txt");
+      List.of(
+          "oracle/seeds/306-probes.txt", "oracle/seeds/open-prs.txt", "oracle/seeds/xss-context.txt",
+          "oracle/seeds/reject-678.txt");
 
   /** The main commit the {@code main} verdicts were recorded on. */
   public static final String MAIN_SNAPSHOT = "1c4b2b3";

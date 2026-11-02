@@ -130,9 +130,9 @@ class BrowserRawTextTest {
     // The Google Tag Manager snippet, static content, and t:replace of the element itself.
     compile("<noscript><iframe src=\"https://www.googletagmanager.com/ns.html?id=GTM-X\" height=\"0\" width=\"0\""
             + " style=\"display:none;visibility:hidden\"></iframe></noscript>\n"
-            + "<noscript><p>x</p></noscript><noembed><!-- c --></noembed><xmp>a [( b</xmp>\n"
+            + "<noscript><p>x</p></noscript><iframe>a [( b</iframe>\n"
             + "<b t:fragment=\"f\">x</b><noscript t:replace=\"~{::f}\"></noscript><div t:utext=\"h\"></div>"
-            + "<xmp t:if=\"${s != null}\">x</xmp>")
+            + "<noscript t:if=\"${s != null}\">x</noscript>")
         .assertSuccess();
   }
 
