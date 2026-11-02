@@ -124,8 +124,7 @@ public final class Skeleton {
     ERRORS,
     /**
      * The CSP nonce of a {@code <script>} or {@code <style>} start tag: {@code [ nonce="<hole>"]},
-     * written when the render context has a nonce (not where a fragment is inserted in svg, math or
-     * raw text, #335).
+     * written when the render context has a nonce (#335).
      */
     CSP_NONCE
   }
