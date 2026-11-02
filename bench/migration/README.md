@@ -116,9 +116,11 @@ the starter now registers that filter too, #122, so these can go once a bench ro
 the segment matches), JobSearch's `<span text-bg-...">`, an
 attribute built from an unbalanced quote in the original template, and its
 `+ (spring.status.error?then(...))` left as literal attribute text in two inputs, the Mustache
-petclinic's `<span">` typo on the pagination pages, and order timestamps (jpetstore:
-stamped from the clock; no seeded order has one). Held-out: the request timestamp and the webjar
-version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
+petclinic's `<span">` typo on the pagination pages, order timestamps (jpetstore:
+stamped from the clock; no seeded order has one), and order numbers, times of day and
+month-name dates (posters-demo-store: order numbers are `ORD-` plus the clock in milliseconds,
+and orders, users and the audit log are stamped at request time). Held-out: the request
+timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
 the webjar version segment (budgetmaster, as above), the free-memory figures on the admin
@@ -189,3 +191,13 @@ Per-app environment fixes (in the app's commands, not its code):
   trusts only that one), gives it a fresh git working copy, in-memory H2 and the SMTP sink, and
   opens port 8080 (forwarded to the app on 8081) only after every manifest source has been fetched
   once, since the app fetches them in the background after it starts answering.
+- posters-demo-store (Xceptance's demo shop, Boot 4.0, Thymeleaf with htmx, added for #760: its
+  templates compute `hx-*` attributes, which the computed-attribute allow-list of #761 rejects):
+  the Maven project is in `implementation/`. `start.sh` makes the app's H2 file database
+  in-memory and puts its Lucene index under `/tmp`. The app answers while its startup runners
+  still import the catalog and build the search index, so `start.sh` runs it on 8081 and opens
+  8080 (forwarded) only after the last runner has started. Its customer import gives each demo
+  customer a random UUID, which backoffice URLs carry, so `seed.sql` inserts the same ten
+  customers with fixed ids first (`spring.jpa.defer-datasource-initialization`, after Hibernate
+  creates the tables); the import skips them. The JSON APIs, the `hx-delete` endpoints and the backoffice's credit-card form post
+  (it fails in the app itself) are not in `pages.txt`.
