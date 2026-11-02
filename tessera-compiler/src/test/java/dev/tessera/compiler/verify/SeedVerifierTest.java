@@ -89,7 +89,8 @@ class SeedVerifierTest {
     assertEquals(names, new TreeSet<>(e.keySet()));
     // #367: the <select> seeds are rejected, since #406 by exclusion (c) (ErrorFreeTest); and these three
     // must be rejected by the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
-    for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7")) {
+    for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7",
+        "pr305-8", "pr305-9")) {
       assertTrue(e.get(n).rules().contains("SELECT_CONTENT"), n);
     }
     for (String n : List.of("pr304-9", "pr305-4", "306-A29")) {

@@ -42,7 +42,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The oracle gate (#324; security-architecture.md §11.3, §11.7): tests the two assumptions the
+ * The oracle gate (#324; security-architecture.md §11.3): tests the two assumptions the
  * build-time context verifier (#367) rests on, over every seed (#320).
  *
  * <p>The seeds are compiled in batches with the real processor, verifier included. For every seed
@@ -68,7 +68,7 @@ import org.junit.jupiter.api.Test;
  * writes the JSONL the Node job (#322) reads ({@link ExportRecord}, with each render's vnu trees
  * for the engine-drift check, #399); {@code -Dtessera.oracle.export.values=<n>} keeps the first
  * {@code n} hostile values per case there (default {@link #EXPORT_DEFAULT}: the #320 values, then
- * the {@link #STRUCTURE_VALUES}), to fit the browsers' time budget.
+ * the {@link #BREAKOUT_VALUES}), to fit the browsers' time budget.
  */
 class ProfileOracleTest {
 
@@ -84,30 +84,26 @@ class ProfileOracleTest {
           "\\evil.example", "/evil.example", "//evil.example", "img src=x onerror=PWN()");
 
   /**
-   * Values the tree builder reads (#399): {@code input type=hidden} stays in a table where any other
-   * input is foster-parented; {@code annotation-xml encoding=text/html} or {@code
-   * application/xhtml+xml} makes it an HTML integration point; {@code font} with {@code
-   * color}/{@code face}/{@code size} breaks out of foreign content (the attribute's presence decides,
-   * these are ordinary values for it). Then two that break out with {@code </}: the #320 values
-   * have none.
+   * Two values that try to break out of their element with {@code </}: the #320 values have none.
+   * (The attributes the tree builder reads, such as {@code input type} or {@code annotation-xml
+   * encoding}, are build errors since #678, so no value of theirs is exported.)
    */
-  static final List<String> STRUCTURE_VALUES =
-      List.of("hidden", "text/html", "application/xhtml+xml", "red", "Arial", "7",
-          "</td></tr></table><img src=x onerror=PWN()>",
+  static final List<String> BREAKOUT_VALUES =
+      List.of("</td></tr></table><img src=x onerror=PWN()>",
           "</textarea></title></style></noscript></script></svg></math><script>PWN()</script>");
 
   /**
-   * The hostile values: the #320 values, the {@link #STRUCTURE_VALUES}, then {@link
+   * The hostile values: the #320 values, the {@link #BREAKOUT_VALUES}, then {@link
    * HostileStrings#VECTORS} with {@code alert(1)} written {@code PWN()}. {@code PWN} becomes each
    * String slot's marker. The export takes the first {@code tessera.oracle.export.values}, so the
    * Node job gets the first two groups ({@link #EXPORT_DEFAULT}).
    */
   static final List<String> HOSTILE;
 
-  /** How many hostile values the Node job's export takes by default: the #320 and structure values. */
-  static final int EXPORT_DEFAULT = SEED_VALUES.size() + STRUCTURE_VALUES.size();
+  /** How many hostile values the Node job's export takes by default: the #320 and break-out values. */
+  static final int EXPORT_DEFAULT = SEED_VALUES.size() + BREAKOUT_VALUES.size();
 
-  /** The prototype's stand-ins ({@code Validator.STANDINS}, research memo §3). */
+  /** The prototype's stand-ins ({@code Validator.STANDINS}). */
   static final List<String> STANDINS =
       List.of("", "x", " ", "{", "{{a}}", "<script>alert(1)</script>&amp", "\"'`/-->]]>", "\u0000\n\r");
 
@@ -116,7 +112,7 @@ class ProfileOracleTest {
 
   static {
     Set<String> hostile = new LinkedHashSet<>(SEED_VALUES);
-    hostile.addAll(STRUCTURE_VALUES);
+    hostile.addAll(BREAKOUT_VALUES);
     for (String v : HostileStrings.VECTORS) {
       hostile.add(v.replace("alert(1)", "PWN()"));
     }
@@ -289,7 +285,8 @@ class ProfileOracleTest {
 
   /**
    * A model for {@code params}: String slot {@code i} (1-based, in declaration order) gets {@code
-   * value(i)}, an {@code int} -1, and a {@code SafeHtml} fixed benign markup.
+   * value(i)}, a {@code List<String>} two such slots, an {@code int} -1, and a {@code SafeHtml} fixed
+   * benign markup.
    */
   static Map<String, Object> model(List<Param> params, java.util.function.IntFunction<String> value) {
     Map<String, Object> m = new HashMap<>();
@@ -299,6 +296,7 @@ class ProfileOracleTest {
         case "String" -> m.put(p.name(), value.apply(++slot));
         case "int", "Integer", "long" -> m.put(p.name(), -1);
         case "SafeHtml" -> m.put(p.name(), SafeHtml.sanitize("<b>safe</b>"));
+        case "java.util.List<String>" -> m.put(p.name(), List.of(value.apply(++slot), value.apply(++slot)));
         default -> throw new IllegalArgumentException("the gate can't fill a " + p.type() + " parameter");
       }
     }
