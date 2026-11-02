@@ -178,8 +178,9 @@ message file `tessera.messages` names.
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the template
 registry and a `TemplateAvailabilityProvider`, on Boot 1.5 through 4, including `@WebMvcTest`
 slices. Tessera's resolver runs first and falls through for view names it doesn't know, so the old
-engine can stay while you migrate. While another engine's view resolver is configured, the starter
-logs `Tessera: another template engine is still configured` naming it (JSP is not reported).
+engine can stay while you migrate. While another engine's view resolver is a bean, the starter logs
+`Tessera: another template engine is still configured` naming it. JSP, and resolvers added only
+through `ViewResolverRegistry` or inside a `ContentNegotiatingViewResolver`, are not reported.
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration` (or declare it as a
 bean in XML). It also registers a resolver for `redirect:` and `forward:` names, which the old
@@ -851,7 +852,8 @@ leading `/` is dropped; other names fall through to other resolvers). Path varia
 parameters of the same name. A model value of the wrong type fails with `TemplateModelException`.
 `return "owners/list :: rows";` renders only the fragment `rows`, its parameters filled from the
 model, for an htmx or Turbo partial response; arguments and selectors in the view name aren't
-supported. A controller can also return `ListTemplate.of(owners)`.
+supported. Don't return a `Template` from a controller: no handler takes it, so Spring stores it as a
+model attribute and renders a view name derived from the URL. Return the view name.
 
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
