@@ -55,6 +55,11 @@ class AttributesEndToEndTest {
             + " static Object raw(String s) { return dev.tessera.runtime.TrustedUrl.unchecked(s); } }")
         .compile()
         .assertError("cannot find symbol", "TrustedUrl");
+  }
+
+  /** Negative (#668): nor can a template take one as a parameter. */
+  @Test
+  void trustedUrlParamIsABuildError() {
     Compilation.builder()
         .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"TrustedUrl u\"><a t:href=\"u\">x</a></div>")
         .compile()
