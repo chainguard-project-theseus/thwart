@@ -84,9 +84,12 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         }
         String origin = call.contexts.place(call.root);
         String fix = fitsNothing(point);
-        if (fix == null && ParsingContexts.isRawText(origin)) {
-          // Nothing fits in raw text, so a fragment declared there fits nowhere.
-          fix = "declare the fragment outside " + ParsingContexts.describe(origin);
+        // Nothing fits in raw text, and nothing inside <svg> or <math> is an insertion point (#678): a fix-it
+        // never suggests inserting or declaring a fragment there.
+        if (fix == null && (ParsingContexts.isRawText(origin) || isForeign(origin))) {
+          fix = "declare the fragment outside " + ParsingContexts.describe(origin) + icon(origin);
+        } else if (fix == null && isForeign(point)) {
+          fix = "insert it in " + ParsingContexts.describe(origin) + " content" + icon(point);
         } else if (fix == null) {
           fix = "insert it in " + ParsingContexts.describe(origin) + " content, or "
               + (point.equals(ParsingContexts.HTML)
@@ -148,6 +151,15 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   /** What to do where no fragment fits ({@code point} is unwrapped content), or null. */
   private static String fitsNothing(String point) {
     return ParsingContexts.isUnwrapped(point) ? "no fragment fits there: drop the t:remove=\"tag\"" : null;
+  }
+
+  private static boolean isForeign(String context) {
+    return context.equals("svg") || context.equals("math");
+  }
+
+  /** The icon hint for a fragment that meets {@code <svg>} content. */
+  private static String icon(String context) {
+    return context.equals("svg") ? "; an icon fragment is a whole static <svg>" : "";
   }
 
   /**

@@ -175,7 +175,12 @@ public final class ContextVerifier {
     }
   }
 
-  /** Fragment parsing contexts for fragments declared outside HTML content, by declared context. */
+  /**
+   * Fragment parsing contexts for fragments declared outside HTML content, by declared context.
+   * Nothing inside {@code <svg>} or {@code <math>} is an insertion point (#678): the svg and math
+   * entries exist only for the {@code <svg t:replace>} case, where the fragment root is itself an
+   * {@code <svg>}, so that such a fragment is checked in the content it was compiled in.
+   */
   private static final Map<String, OpenElement> DECLARED_CONTEXTS = new HashMap<>();
 
   static {

@@ -41,8 +41,7 @@ class FragmentParsingContextTest {
   @Test
   void htmlFragmentInsideSvgIsRejected() {
     String message = "fragment 'frags :: x' is declared in HTML content but t:insert puts it in <svg> content, where a"
-        + " browser parses its markup differently: insert it in HTML content, or declare the fragment inside <svg>"
-        + " in its template";
+        + " browser parses its markup differently: insert it in HTML content; an icon fragment is a whole static <svg>";
     page("<svg><g t:insert=\"~{frags :: x(v)}\"></g></svg>").assertError("page.html:2:19", message);
     page("<svg t:insert=\"~{frags :: x(v)}\"></svg>").assertError("page.html:2:16", message);
     page("<svg><g t:replace=\"~{frags :: x(v)}\"></g></svg>")
@@ -52,10 +51,10 @@ class FragmentParsingContextTest {
             + " <math> content");
     page("<math><mrow t:insert=\"~{frags :: check}\"></mrow></math>")
         .assertError("page.html:2:23", "fragment 'frags :: check' is declared in HTML content but t:insert puts it in"
-            + " <math> content");
+            + " <math> content, where a browser parses its markup differently: insert it in HTML content");
     page("<math><mi t:insert=\"~{frags :: row}\"></mi></math>")
         .assertError("page.html:2:21", "fragment 'frags :: row' is declared in <math> content but t:insert puts it in"
-            + " HTML content");
+            + " HTML content, where a browser parses its markup differently: declare the fragment outside <math>");
   }
 
   @Test
@@ -77,7 +76,8 @@ class FragmentParsingContextTest {
         .assertError(
             "page.html:2:16",
             "fragment 'frags :: r' is declared in <svg> content but t:insert puts it in HTML content, where a browser"
-                + " parses its markup differently: insert it in <svg> content, or declare the fragment outside <svg>");
+                + " parses its markup differently: declare the fragment outside <svg>; an icon fragment is a whole"
+                + " static <svg>");
     page("<p t:replace=\"~{frags :: paths}\"></p>")
         .assertError("page.html:2:15", "fragment 'frags :: paths' is declared in <svg> content but t:replace puts it in"
             + " HTML content");

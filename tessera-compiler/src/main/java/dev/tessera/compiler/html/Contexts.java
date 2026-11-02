@@ -34,20 +34,21 @@ public final class Contexts {
   /**
    * The attributes that hold URLs but are not exactly one URL (#414, #539, #567): {@code ping} is
    * space-separated URLs, {@code srcset} and {@code imagesrcset} comma-separated image candidates.
-   * A computed one is FORBIDDEN (#678): {@link #URL_LIST}.
+   * A computed one is FORBIDDEN (#678): {@link #forbidden}.
    */
   private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
-  /** Why a computed attribute of an SVG or MathML element is a build error, with the fix-it (#678). */
-  public static final String FOREIGN =
-      "a browser parses SVG and MathML by rules Tessera doesn't check, so nothing inside <svg> or <math> is computed;"
-          + " write it as static markup and set what changes outside it: a t:class or t:style on an HTML parent with"
-          + " CSS (fill: currentColor, a CSS variable), or one static <svg> per case under t:if or t:switch";
-
-  /** Why a computed {@link #isUrlList URL list} is a build error, with the fix-it. */
-  public static final String URL_LIST =
-      "it holds a list of URLs, which Tessera doesn't check; write it as a static value, or compute a single"
-          + " src or href instead";
+  /**
+   * Why nothing inside {@code <svg>} or {@code <math>} is computed, with the fix-it (#678), naming
+   * {@code root} when it is one of them (null or another name: both).
+   */
+  public static String foreign(String root) {
+    String n = root == null ? "" : HtmlParser.asciiLower(root);
+    String r = n.equals("svg") || n.equals("math") ? "<" + n + ">" : "<svg> or <math>";
+    return "a browser parses SVG and MathML by rules Tessera doesn't check, so nothing inside " + r + " is computed;"
+        + " write it as static markup and set what changes outside it: a t:class or t:style on an HTML parent with"
+        + " CSS (fill: currentColor, a CSS variable), or one static " + r + " per case under t:if or t:switch";
+  }
 
   /** {@code <script type>} values whose content is JavaScript or JSON. */
   private static final Set<String> SCRIPT_TYPES =
@@ -66,21 +67,19 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: names
-   * that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code on*} EVENT_HANDLER;
-   * {@code style} STYLE; a
-   * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc},
-   * {@link #isUrlList URL lists} and {@link #isTreeBuilderInput tree-builder inputs} FORBIDDEN (#678);
-   * {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL; other standard names
-   * that are not inert ({@code inert-attributes.txt}) and a {@code content} of a {@code <meta>} that
-   * does not {@link #isNamedMetaContent name plain metadata} TYPED_ATTRIBUTE; the other
-   * {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and every other name NEUTRAL (#583
-   * rule 3): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, {@code :x}, {@code @x}, a custom
-   * element's own attributes, any name outside HTML. Every attribute of an SVG or MathML element is
-   * FORBIDDEN ({@link #FOREIGN}, #678).
+   * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: what
+   * {@link #forbidden} gives a reason for FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} STYLE;
+   * a refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@link #isResourceUrl
+   * resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL; other standard names that are not
+   * inert ({@code inert-attributes.txt}) and a {@code content} of a {@code <meta>} that does not
+   * {@link #isNamedMetaContent name plain metadata} TYPED_ATTRIBUTE; the other
+   * {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and every other plain name NEUTRAL
+   * (#583 rule 3): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own
+   * attributes, any other name outside HTML. {@code :x} and {@code @x} are not plain names, so they
+   * are FORBIDDEN.
    */
   public static OutputContext attribute(Element element, String attributeName) {
-    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches() || element.foreign()) {
+    if (forbidden(element, attributeName) != null) {
       return OutputContext.FORBIDDEN;
     }
     String el = HtmlParser.asciiLower(element.name());
@@ -93,9 +92,6 @@ public final class Contexts {
     }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
-    }
-    if (attr.equals("srcdoc") || isUrlList(attr) || isTreeBuilderInput(element, attributeName)) {
-      return OutputContext.FORBIDDEN;
     }
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
@@ -110,9 +106,29 @@ public final class Contexts {
     return KnownAttributes.isStandard(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
   }
 
-  /** Whether {@code attributeName} (any case) is a {@link #URL_LIST_ATTRIBUTES URL list}, FORBIDDEN computed (#678). */
-  public static boolean isUrlList(String attributeName) {
-    return URL_LIST_ATTRIBUTES.contains(HtmlParser.asciiLower(attributeName));
+  /**
+   * Why a computed attribute {@code attributeName} on {@code element} is FORBIDDEN, with the fix-it,
+   * or null if it is not: every attribute of an SVG or MathML element (#678); a name that is not
+   * {@code [A-Za-z_][A-Za-z0-9_.:-]*}; {@code srcdoc}; a {@link #URL_LIST_ATTRIBUTES URL list}
+   * (#678); and a {@link #treeBuilderInput tree-builder input} (#678). The only place that decides
+   * an attribute is FORBIDDEN.
+   */
+  public static String forbidden(Element element, String attributeName) {
+    if (element.foreign()) {
+      return foreign(null);
+    }
+    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
+      return "attribute name '" + attributeName + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
+    }
+    String attr = HtmlParser.asciiLower(attributeName);
+    if (attr.equals("srcdoc")) {
+      return "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL";
+    }
+    if (URL_LIST_ATTRIBUTES.contains(attr)) {
+      return "it holds a list of URLs, which Tessera doesn't check; write it as a static value, or compute a single"
+          + " src or href instead";
+    }
+    return treeBuilderInput(element, attributeName, attr);
   }
 
   /**
@@ -206,36 +222,61 @@ public final class Contexts {
   }
 
   /**
-   * Whether the HTML tree builder reads attribute {@code attributeName} of {@code element} while it
-   * builds the page (HTML 13.2.6), or that decides how other content is read, so a computed value is
-   * FORBIDDEN (#678): {@code is} (which custom element to create), {@code xmlns*} (checked against the
-   * namespace) and {@code encoding} (whether a MathML {@code annotation-xml} holds HTML) on any
-   * element; {@code type} on {@code <input>} (a hidden input stays in a table) and {@code <script>}
-   * (whether its content is JavaScript); {@code color}, {@code face} and {@code size} on
-   * {@code <font>} (they end foreign content); a {@code <template>}'s {@code shadowroot*} attributes
-   * (a declarative shadow root) and {@code for}; a {@code <meta>}'s {@code charset} and
-   * {@code http-equiv}, and its {@code content} when its static {@code http-equiv} is
-   * {@code Content-Type} (the encoding the page is read in). Case-insensitive.
+   * Why a computed {@code name} ({@code attr} A-Z folded) on {@code element} is FORBIDDEN because
+   * the HTML tree builder reads it while it builds the page (HTML 13.2.6), or it decides how other
+   * content is read (#678), or null if it is neither: {@code is} (which custom element to create),
+   * {@code xmlns*} (checked against the namespace) and {@code encoding} (whether a MathML
+   * {@code annotation-xml} holds HTML) on any element; {@code type} on {@code <input>} (a hidden
+   * input stays in a table) and {@code <script>} (whether its content is JavaScript); {@code color},
+   * {@code face} and {@code size} on {@code <font>} (they end foreign content); a
+   * {@code <template>}'s {@code shadowroot*} attributes (a declarative shadow root) and {@code for};
+   * a {@code <meta>}'s {@code charset} and {@code http-equiv}, and its {@code content} when its
+   * static {@code http-equiv} is {@code Content-Type} (the encoding the page is read in).
    */
-  public static boolean isTreeBuilderInput(Element element, String attributeName) {
-    String el = HtmlParser.asciiLower(element.name());
-    String attr = HtmlParser.asciiLower(attributeName);
-    if (attr.equals("is") || attr.startsWith("xmlns") || attr.equals("encoding")) {
-      return true;
+  private static String treeBuilderInput(Element element, String name, String attr) {
+    String computed = "a computed '" + name + "' ";
+    if (attr.equals("is")) {
+      return computed + "decides which custom element a browser creates; write it as a static value";
     }
-    switch (el) {
+    if (attr.startsWith("xmlns")) {
+      return computed + "must name the element's namespace, which a browser checks while it parses; write it"
+          + " as a static value, or omit it";
+    }
+    if (attr.equals("encoding")) {
+      return computed + "decides whether a browser parses MathML <annotation-xml> content as HTML; write it as a"
+          + " static value";
+    }
+    switch (HtmlParser.asciiLower(element.name())) {
       case "input":
+        return !attr.equals("type") ? null
+            : "the type of an <input> cannot be computed; a browser reads it while it builds the page,"
+                + " so write a static type attribute, or one <input> per type under t:if";
       case "script":
-        return attr.equals("type");
+        return !attr.equals("type") ? null
+            : "the type of a <script> cannot be computed; its content type must be known at"
+                + " build time, so write a static type attribute";
       case "font":
-        return attr.equals("color") || attr.equals("face") || attr.equals("size");
+        return !(attr.equals("color") || attr.equals("face") || attr.equals("size")) ? null
+            : computed + "on a <font> decides whether a browser ends <svg> or <math> content there; use a <span>"
+                + " with t:class or t:style instead";
       case "template":
-        return attr.startsWith("shadowroot") || attr.equals("for");
+        return !(attr.startsWith("shadowroot") || attr.equals("for")) ? null
+            : computed + "on a <template> decides whether a browser attaches its content as a shadow root, or"
+                + " where it moves it; write it as a static value";
       case "meta":
-        return attr.equals("charset") || attr.equals("http-equiv")
-            || (attr.equals("content") && hasHttpEquiv(element, "content-type"));
+        if (attr.equals("http-equiv")) {
+          return "the http-equiv of a <meta> cannot be computed; it decides whether content is"
+              + " a refresh URL, so write a static http-equiv attribute";
+        }
+        if (attr.equals("charset")) {
+          return computed + "on a <meta> sets the encoding a browser reads the page in; write it as a static value,"
+              + " such as <meta charset=\"utf-8\">";
+        }
+        return !(attr.equals("content") && hasHttpEquiv(element, "content-type")) ? null
+            : computed + "on a <meta http-equiv=\"Content-Type\"> sets the encoding a browser reads the page in;"
+                + " write it as a static value, or set the encoding in the Content-Type response header";
       default:
-        return false;
+        return null;
     }
   }
 
