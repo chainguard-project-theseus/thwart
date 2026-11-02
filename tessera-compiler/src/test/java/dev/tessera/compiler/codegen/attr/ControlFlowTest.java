@@ -21,9 +21,9 @@ class ControlFlowTest {
   private static String page(String params, String body) {
     return "<html xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\""
         + params
-        + "\">"
+        + "\"><body>"
         + body
-        + "</html>";
+        + "</body></html>";
   }
 
   private static Compilation compile(String params, String body, String... java) {
@@ -36,8 +36,8 @@ class ControlFlowTest {
 
   private static String render(Compilation c, Map<String, ?> model) {
     String out = c.assertSuccess().render("page", model);
-    assertEquals("<html>", out.substring(0, 6), out);
-    return out.substring(6, out.length() - 7);
+    assertEquals("<html><body>", out.substring(0, 12), out);
+    return out.substring(12, out.length() - 14);
   }
 
   // ---- t:if / t:unless ----

@@ -435,13 +435,16 @@ every fragment's holes are reached.
 | `SELECT_CONTENT` (#406) | any element other than `option`, `optgroup` or `hr` open above `select`, in composed output (void elements too) | option, optgroup, hr and text |
 | `CDATA_IN_INTEGRATION_POINT` (#441) | a CDATA section the parser starts while the current node is an HTML integration point or a MathML text integration point, exclusion (d) | CDATA in other SVG and MathML elements (`style`, `script`, `text`, `g`, `mrow`) |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` (#461) | a fragment no template calls, declared where no fragment fits (raw text, mixed `svg`/`math`, `t:remove="tag"` content). Every other fragment no template calls is checked on its own: declared in HTML content, in the fragment contexts its root elements imply (as a document only if it is a page); in `svg`, `math` or `select` content, in that element | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
-| `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |
-| `TOO_MANY_STATES` | more than 24 distinct parser states at a join | |
+| `UNBALANCED` (#682) | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole (in its fragment contexts only). The state is compared without a stale original insertion mode. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
+| `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states (on the call stack 4 times, or entered in more than 24 states while it recurses); anything reached only through recursion | recursion into the state its call started in |
+| `LOOP_NO_FIXED_POINT`, `TOO_MANY_STATES` | retired (#682): with state-neutral control flow there are no joins and no fixed points | |
 | `VALUE_IN_RAW_TEXT` (#586) | any hole, whatever its escaper, in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes`, which decodes no character reference (the CSRF input of a `<form>` inside `<noscript>` included) | static content; the value outside the element |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
 
-A computed attribute (`[ name="..."]`) inside a start tag is one path: writing it or not leaves the
-tokenizer in states that parse what follows alike, except for `type`, `encoding`, `color`, `face`
-and `size`, which stay two paths. A partial (a view whose output doesn't start with a doctype or
+A computed attribute (`[ name="..."]`) inside a start tag is one state: writing it or not leaves the
+tokenizer in states that parse what follows alike, except for `encoding` and a tag the static
+markup leaves in another state, where the two must be the same state (`UNBALANCED`). A partial (a
+view whose output doesn't start with a doctype or
 `<html>`) is also checked by fragment parsing in the context its first element implies (`tr`:
-`tbody`; `td`, `th`: `tr`; `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`).
+`tbody`; `td`, `th`: `tr`; `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`), where it must
+also end in the state it starts in.

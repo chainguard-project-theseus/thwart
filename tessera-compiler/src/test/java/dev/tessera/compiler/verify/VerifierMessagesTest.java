@@ -48,11 +48,12 @@ class VerifierMessagesTest {
 
   /** Rule ids no template reaches today; {@link #rulesNoTemplateReaches} checks their messages. */
   private static final Set<Problem> UNREACHABLE_FROM_TEMPLATES =
-      EnumSet.of(Problem.ATTRIBUTE_WRONG_NAME, Problem.LOOP_NO_FIXED_POINT, Problem.UNKNOWN_NODE, Problem.ENGINE_FAILURE);
+      EnumSet.of(Problem.ATTRIBUTE_WRONG_NAME, Problem.UNKNOWN_NODE, Problem.ENGINE_FAILURE);
 
-  /** Retired rule ids (#410, #444, #678): the verifier no longer reports them, so they have no message. */
+  /** Retired rule ids (#410, #444, #678, #682): the verifier no longer reports them, so they have no message. */
   private static final Set<Problem> RETIRED = EnumSet.of(Problem.TEXT_RECONSTRUCTS, Problem.NOAHS_ARK,
-      Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, Problem.CDATA_IN_INTEGRATION_POINT);
+      Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, Problem.CDATA_IN_INTEGRATION_POINT, Problem.LOOP_NO_FIXED_POINT,
+      Problem.TOO_MANY_STATES);
 
   record Case(String rule, String title, Map<String, String> templates, List<String> expected) {}
 
@@ -154,11 +155,6 @@ class VerifierMessagesTest {
     assertEquals("a browser keeps only the first 'title' attribute of a tag and drops this one; write the attribute"
         + " once [verifier:ATTRIBUTE_WRONG_NAME]",
         only(Problem.ATTRIBUTE_WRONG_NAME, st("<p title=\"a\" title=\""), attr("title")));
-    assertEquals("each pass of this loop leaves a browser with more elements open (it doesn't settle in 4 passes);"
-        + " close inside the loop every element the loop opens [verifier:LOOP_NO_FIXED_POINT]",
-        only(Problem.LOOP_NO_FIXED_POINT, new Skeleton.Rep(Skeleton.RepKind.EACH,
-            new Skeleton.Seq(List.of(st("<div>"), new Skeleton.Hole(Skeleton.Escaper.TEXT, null, null, at))),
-            Skeleton.Seq.empty(), at)));
     assertEquals("Tessera can't check what a browser does here: fragment t :: missing is unknown to the verifier;"
         + " this is a compiler bug, report it with the template [verifier:UNKNOWN_NODE]",
         only(Problem.UNKNOWN_NODE, new Skeleton.Call(new Skeleton.FragmentId("t", "missing"), Map.of(), at)));

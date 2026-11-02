@@ -764,6 +764,16 @@ parameters.
 - The compiler checks each fragment where it is inserted, so a `~{::tr}` goes into a `<tbody>`
   but not a `<div>`. An SVG icon fragment is declared inside an `<svg>` (or is a whole `<svg>`).
   Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
+- Every `t:if`, `t:unless`, `t:case` and `t:each` body, and every fragment, must close what it
+  opens and leave open what it finds open, so what follows parses the same however often it is
+  written (`[verifier:UNBALANCED]`). Two shapes need a change when porting:
+  - Rows directly in a `<table>`: a browser opens a `<tbody>` before the first row only. Write the
+    `<tbody>` (`<table><tbody><tr t:each="...">`), or put the `t:each` on the `<tbody>`.
+  - A fragment library wrapped in `<html>`, with a fragment call or `t:if` before its `<body>`:
+    that content makes a browser open the `<body>` (or `<head>`). Make the library's root a
+    `<t:block>` instead of `<html>`, or move the fragments into the `<body>`.
+
+  A layout call on the page's `<html>` (below) is fine: it ends the document.
 
 **Layouts.** A layout is a fragment with `Fragment` parameters. Each page replaces itself with the
 layout and passes its `<body>`, marked `t:remove="tag"` so that only the body's children are

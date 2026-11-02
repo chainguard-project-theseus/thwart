@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class UnusedLoopStatusTest {
   private static Compilation.Builder page(String params, String body) {
     return Compilation.builder().template("page.html",
-        "<html xmlns:t=\"https://tessera.dev\" t:params=\"" + params + "\">" + body + "</html>");
+        "<html xmlns:t=\"https://tessera.dev\" t:params=\"" + params + "\"><body>" + body + "</body></html>");
   }
 
   private static String source(Compilation c) {
@@ -35,10 +35,10 @@ class UnusedLoopStatusTest {
           "\n  <p t:each=\"" + declaration + "\" t:text=\"item\"></p>").compile();
       assertFalse(source(c).contains("new java.util.ArrayList"));
       assertFalse(source(c).contains("LoopStatus.of"));
-      assertEquals("<html>\n  <p>&lt;script&gt;</p>\n  <p>&amp;</p></html>",
+      assertEquals("<html><body>\n  <p>&lt;script&gt;</p>\n  <p>&amp;</p></body></html>",
           c.render("page", model("items", once("<script>", "&"))));
-      assertEquals("<html>\n  </html>", c.render("page", model("items", once())));
-      assertEquals("<html>\n  </html>", c.render("page", model("items", null)));
+      assertEquals("<html><body>\n  </body></html>", c.render("page", model("items", once())));
+      assertEquals("<html><body>\n  </body></html>", c.render("page", model("items", null)));
     }
   }
 
@@ -48,7 +48,7 @@ class UnusedLoopStatusTest {
       Compilation c = page(type + " items", "<p t:each=\"item : items\">[[item]]</p>").compile();
       assertFalse(source(c).contains("LoopStatus.of"));
       Object items = type.startsWith("List") ? List.of("a", "b") : new String[] {"a", "b"};
-      assertEquals("<html><p>a</p><p>b</p></html>", c.render("page", model("items", items)));
+      assertEquals("<html><body><p>a</p><p>b</p></body></html>", c.render("page", model("items", items)));
     }
   }
 
@@ -58,7 +58,7 @@ class UnusedLoopStatusTest {
         "<p t:each=\"item : items\" t:data-last=\"item&#83;tat.last\">[[itemStat.count]]/[[itemStat.size]]</p>")
         .compile();
     assertTrue(source(c).contains("new java.util.ArrayList"));
-    assertEquals("<html><p data-last=\"false\">1/2</p><p data-last=\"true\">2/2</p></html>",
+    assertEquals("<html><body><p data-last=\"false\">1/2</p><p data-last=\"true\">2/2</p></body></html>",
         c.render("page", model("items", once("a", "b"))));
   }
 
@@ -67,7 +67,7 @@ class UnusedLoopStatusTest {
     Compilation c = page("Iterable<String> items",
         "<a t:each=\"item, status : items\" t:with=\"s=status\" t:href=\"@{/row(n=s.index)}\">[[s.last]]</a>")
         .compile();
-    assertEquals("<html><a href=\"/row?n=0\">false</a><a href=\"/row?n=1\">true</a></html>",
+    assertEquals("<html><body><a href=\"/row?n=0\">false</a><a href=\"/row?n=1\">true</a></body></html>",
         c.assertSuccess().render("page", model("items", once("a", "b"))));
   }
 
@@ -78,7 +78,7 @@ class UnusedLoopStatusTest {
     dev.tessera.runtime.RenderContext defaults = dev.tessera.runtime.RenderContext.defaults();
     dev.tessera.runtime.RenderContext ctx = new dev.tessera.runtime.RenderContext(defaults.locale(),
         (key, args) -> key + args[0], defaults.links(), defaults.forms());
-    assertEquals("<html><p>row1</p><p>row2</p></html>",
+    assertEquals("<html><body><p>row1</p><p>row2</p></body></html>",
         c.assertSuccess().render("page", model("items", once("a", "b")), ctx));
   }
 
@@ -87,7 +87,7 @@ class UnusedLoopStatusTest {
     Compilation c = page("Iterable<String> items, List<String> inner",
         "<p t:each=\"item : items\"><i t:each=\"x : inner\">[[itemStat.count]]</i>"
             + "<b t:each=\"item : inner\">[[itemStat.count]]</b></p>").compile();
-    assertEquals("<html><p><i>1</i><b>1</b></p><p><i>2</i><b>1</b></p></html>",
+    assertEquals("<html><body><p><i>1</i><b>1</b></p><p><i>2</i><b>1</b></p></body></html>",
         c.assertSuccess().render("page", model("items", once("a", "b"), "inner", List.of("x"))));
   }
 
@@ -96,7 +96,7 @@ class UnusedLoopStatusTest {
     Compilation c = page("Iterable<String> items",
         "<b t:fragment=\"badge(LoopStatus status)\">[[status.count]]/[[status.size]]</b>"
             + "<p t:each=\"item : items\"><i t:replace=\"~{::badge(itemStat)}\"></i></p>").compile();
-    assertEquals("<html><p><b>1/2</b></p><p><b>2/2</b></p></html>",
+    assertEquals("<html><body><p><b>1/2</b></p><p><b>2/2</b></p></body></html>",
         c.assertSuccess().render("page", model("items", once("a", "b"))));
   }
 
@@ -107,8 +107,8 @@ class UnusedLoopStatusTest {
             + "<div t:fragment=\"wrap(Fragment body)\"><i t:replace=\"body\"></i></div>"
             + "<section t:each=\"item : items\"><i t:replace=\"~{::wrap(~{::aside})}\"></i></section>").compile();
     assertTrue(source(c).contains("new java.util.ArrayList"));
-    assertEquals("<html><aside>1</aside><section><div><aside>1</aside></div></section>"
-            + "<section><div><aside>2</aside></div></section></html>",
+    assertEquals("<html><body><aside>1</aside><section><div><aside>1</aside></div></section>"
+            + "<section><div><aside>2</aside></div></section></body></html>",
         c.render("page", model("items", once("a", "b"), "itemStat", dev.tessera.runtime.LoopStatus.of(0, 1))));
   }
 
@@ -123,7 +123,7 @@ class UnusedLoopStatusTest {
               + "return () -> new java.util.Iterator<String>() { public boolean hasNext() { return seen < 2; }"
               + "public String next() { return Integer.toString(++seen); } }; }}")
           .compile().assertSuccess();
-      assertEquals(status ? "<html><p>2:1:2</p><p>2:2:2</p></html>" : "<html><p>1:1</p><p>2:2</p></html>",
+      assertEquals(status ? "<html><body><p>2:1:2</p><p>2:2:2</p></body></html>" : "<html><body><p>1:1</p><p>2:2</p></body></html>",
           c.render("page", model("rows", c.newInstance("com.example.Rows"))));
     }
   }
