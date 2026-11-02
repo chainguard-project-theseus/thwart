@@ -115,8 +115,7 @@ class TableTextTest {
       strings = {
         "<table><tr><td><tr></tr>[[s]]</td></tr></table>|" + PARSE_ERROR,
         "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>|" + PARSE_ERROR,
-        // The profile's closed <select> content model rejects it first.
-        "<table><tr><td><select><tr></tr>[[s]]</select></td></tr></table>|<tr> inside <select> is not supported",
+        "<table><tr><td><select><tr></tr>[[s]]</select></td></tr></table>|" + PARSE_ERROR,
         "<table><tr><td><tbody></tbody>[[s]]</td></tr></table>|" + PARSE_ERROR,
         "<table><tr><td><th></th>[[s]]</td></tr></table>|" + PARSE_ERROR,
         "<table><tr><td><col>[[s]]</td></tr></table>|" + PARSE_ERROR,

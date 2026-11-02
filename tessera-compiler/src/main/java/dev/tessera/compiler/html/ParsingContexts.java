@@ -18,17 +18,14 @@ import java.util.Set;
  * hold markup and {@code <![CDATA[} starts a CDATA section), inside a {@code <select>} (where
  * some browsers ignore {@code <title>} and {@code <style>} tags and parse their content as
  * markup), or as the raw text of an HTML {@code <title>}, {@code <textarea>}, {@code <noscript>},
- * ... A fragment's markup reads the same only where it is parsed in the context it was compiled
- * in, so {@code t:insert} and {@code t:replace} compare these contexts.
+ * ... Callers use these contexts to reject runtime HTML ({@code t:utext}, {@code [(...)]}, a
+ * {@code Fragment} value) outside HTML content and to find uncalled fragments declared where none
+ * renders. Whether a called fragment's markup reads the same where it lands is the verifier's
+ * check ({@code ContextVerifier}), which replays it in the caller's real parser state.
  *
  * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code select}, or the name of the
  * raw-text element. SVG {@code foreignObject}, {@code desc} and {@code title} and MathML {@code mi
- * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is an insertion point
- * and a fragment declared there holds only static markup, and a breakout tag such as {@code
- * <p>} there is a parse error, so the contexts inside them only tell a fragment declared there
- * from one declared in HTML. The svg and math contexts exist only for the {@code <svg t:replace>}
- * case, where the fragment root is itself an {@code <svg>}; every other placement in them is
- * rejected, so a fix-it never suggests declaring or inserting a fragment there.
+ * mo mn ms mtext} hold HTML.
  *
  * <p>Contexts follow the tags as written, which is how the template is compiled: the children of
  * {@code <svg t:replace>} are SVG content, since they only render as fragments declared there. A
@@ -36,8 +33,6 @@ import java.util.Set;
  * t:remove="tag"} renders its children without the tag, so where its tag would change the context
  * (an {@code <svg>}, {@code <foreignObject>}, {@code <title>}, ...) its content is {@link
  * #UNWRAPPED}: a browser parses it differently from how it is compiled.
- *
- * <p>No fragment fits in or comes from {@link #UNWRAPPED} content, or fits in raw text.
  *
  * <p>Runtime HTML inside a {@link #rawTextElement} is the raw-text rule's error (TemplateGenerator):
  * callers report nothing of their own there ({@link #insideRawText}).
@@ -53,8 +48,6 @@ public final class ParsingContexts {
   private static final Set<String> RAW_TEXT =
       Backports.setOf(
           "title", "textarea", "script", "style", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext");
-  /** Tags a browser ignores inside {@code <select>}, parsing their content as markup, or that start foreign content. */
-  private static final Set<String> NOT_IN_SELECT = Backports.setOf("title", "style", "svg", "math");
 
   private final Map<Element, String> content = new IdentityHashMap<>();
   private final Map<Element, String> place = new IdentityHashMap<>();
@@ -116,26 +109,6 @@ public final class ParsingContexts {
     return context;
   }
 
-  /**
-   * Whether {@code element}, declared in this template, parses the same way in {@code context}: its
-   * content is in the same context there as where it is compiled. Its tag reads the same in any
-   * context, so a whole {@code <svg>} also fits in {@code <svg>} content; an element with {@code
-   * t:replace} renders as its replacement, which was checked where the element is. An element
-   * declared in HTML content also fits in {@code <select>} content if it holds no {@code <title>},
-   * {@code <style>}, {@code <svg>}, {@code <math>}, {@code t:insert}, {@code t:replace}, {@code
-   * t:utext} or {@code [(...)]}. Nothing fits in raw text.
-   */
-  public boolean fits(Element element, String context) {
-    String declared = hasReplace(element) ? place(element) : content(element);
-    if (isUnwrapped(context) || isUnwrapped(declared) || isRawText(context)) {
-      return false;
-    }
-    if (outputContentOf(context, element).equals(declared)) {
-      return true;
-    }
-    return context.equals(SELECT) && declared.equals(HTML) && place(element).equals(HTML) && selectSafe(element);
-  }
-
   /** {@code HTML}, or the element that sets {@code context}, e.g. {@code <svg>}. */
   public static String describe(String context) {
     if (context.equals(UNWRAPPED)) {
@@ -152,34 +125,6 @@ public final class ParsingContexts {
   /** Whether {@code context} is the raw text of an HTML {@code <title>}, {@code <noscript>}, ... */
   public static boolean isRawText(String context) {
     return RAW_TEXT.contains(context);
-  }
-
-  /** Whether {@code context} is {@code <select>} content. */
-  public static boolean isSelect(String context) {
-    return context.equals(SELECT);
-  }
-
-  // What a fragment root, t:remove or <template> actually puts into a <select> is checked on the
-  // composed output by the verifier's exclusion (c), SELECT_CONTENT.
-  private static boolean selectSafe(Element e) {
-    if (NOT_IN_SELECT.contains(HtmlParser.asciiLower(e.name()))) {
-      return false;
-    }
-    for (Attribute a : e.attributes()) {
-      String n = a.localName();
-      if (a.isTessera() && (n.equals("insert") || n.equals("replace") || n.equals("utext"))) {
-        return false;
-      }
-    }
-    for (Node n : e.children()) {
-      if (n instanceof Text && ((Text) n).raw().contains("[(")) {
-        return false;
-      }
-      if (n instanceof Element && !selectSafe((Element) n)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /**
@@ -208,11 +153,6 @@ public final class ParsingContexts {
     }
   }
 
-  /** The context of {@code e}'s content where its output lands in {@code context}. */
-  private static String outputContentOf(String context, Element e) {
-    return omitsTag(e) ? context : contentOf(context, e);
-  }
-
   /** The context {@code e}'s content is compiled in, for {@code e} in {@code context}: its tag as written. */
   private static String contentOf(String context, Element e) {
     if (e.name().equals(Attribute.PREFIX + "block")) {
@@ -233,23 +173,5 @@ public final class ParsingContexts {
         // Inside raw text a browser sees no elements at all; inside <select> it stays in select.
         return context;
     }
-  }
-
-  /**
-   * Whether the output has no tag for {@code e} but its children (or what replaces it): {@code
-   * <t:block>}, {@code t:remove="tag"} (trimmed as RemoveProcessor does), and {@code t:replace},
-   * whose fragment lands where {@code e} is.
-   */
-  private static boolean omitsTag(Element e) {
-    return hasReplace(e) || HtmlParser.omitsTag(e.name(), e.attributes());
-  }
-
-  private static boolean hasReplace(Element e) {
-    for (Attribute a : e.attributes()) {
-      if (a.name().equals(Attribute.PREFIX + "replace")) {
-        return true;
-      }
-    }
-    return false;
   }
 }

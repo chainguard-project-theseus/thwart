@@ -259,7 +259,7 @@ pr305-6         AB   VERIFIER SELECT_CONTENT
 pr305-7         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
 pr305-8         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), <template> unwrapped into a <select>
 pr305-9         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), t:remove unwrapped into a <select>
-pr305-10        -    ACCEPT  # hole not emitted
+pr305-10        -    ACCEPT  # #758: builds; t:remove="all-but-first" drops the static <title>, so the page holds <option>s only
 pr340-1         E    ACCEPT  # hole not emitted
 pr340-2         -    ACCEPT  # hole not emitted
 pr340-3         -    ACCEPT  # hole not emitted
