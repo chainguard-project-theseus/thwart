@@ -149,24 +149,7 @@ class StyleAttributeTest {
         .assertError("t.html:1:", "is not allowed", "not a java.lang.Character");
   }
 
-  // ------------------------------------------------------------- SVG presentation attributes
-
-  /** An SVG attribute that takes a CSS url() is CSS: it takes what t:style takes. */
-  @Test
-  void svgCssUrlAttributesTakeCssValues() {
-    assertEquals(
-        "<svg><rect fill=\"#ff8800\" stroke=\"url(&quot;/p.svg#g&quot;)\"/></svg>",
-        render("<svg><rect t:fill=\"css.color(s)\" t:stroke=\"css.url('/p.svg#g')\"/></svg>", "s", "#ff8800"));
-    assertEquals(
-        "<svg><g clip-path=\"url(#c)\" cursor=\"pointer\"/></svg>",
-        render("<svg><g t:clip-path=\"'url(#c)'\" t:cursor=\"b ? 'move' : 'pointer'\"/></svg>"));
-    assertEquals(
-        "<svg><rect fill=\"null\"/></svg>",
-        render("<svg><rect t:fill=\"|${css.color(s)}|\"/></svg>", "s", "url(javascript:alert(1))"));
-    assertEquals("<svg><rect/></svg>", render("<svg><rect t:mask=\"css.url(s)\"/></svg>", "s", "javascript:alert(1)"));
-  }
-
-  /** #429: colour functions and custom properties from data, in style and in SVG presentation attributes. */
+  /** #429: colour functions and custom properties from data, in style. */
   @Test
   void colorFunctionsAndCustomProperties() {
     String color = "<p t:style=\"|color: ${css.color(s)}|\">x</p>";
@@ -177,142 +160,24 @@ class StyleAttributeTest {
     assertEquals("<p style=\"border-color: null\">x</p>", render(var, "s", "--a);background:url(//evil"));
     // Numbers from the model need no css.* function: the literal holds the function.
     assertEquals("<p style=\"color: rgb(7, 0, 0)\">x</p>", render("<p t:style=\"|color: rgb(${n}, 0, 0)|\">x</p>", "n", 7));
-    assertEquals(
-        "<svg><rect fill=\"hsl(120deg, 50%, 50%)\" stroke=\"var(--line)\"/></svg>",
-        render("<svg><rect t:fill=\"css.color(s)\" t:stroke=\"css.var('--line')\"/></svg>", "s", "hsl(120deg, 50%, 50%)"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<svg><rect t:fill=\"s\"/></svg>",
-        "<svg><rect t:stroke=\"|url(${s})|\"/></svg>",
-        "<svg><g t:clip-path=\"'url(' + s + ')'\"/></svg>",
-        "<svg><g t:mask=\"s\"/></svg>",
-        "<svg><g t:filter=\"s\"/></svg>",
-        "<svg><path t:marker-start=\"s\" /></svg>",
-        "<svg><path t:marker-mid=\"s\" /></svg>",
-        "<svg><path t:marker-end=\"s\" /></svg>",
-        "<svg><path t:marker=\"s\" /></svg>",
-        "<svg t:cursor=\"s\"></svg>",
-        "<svg><RECT t:FILL=\"s\"/></svg>",
-        "<svg><rect t:attr=\"fill=s\"/></svg>",
-        "<svg><rect><animate t:stroke=\"s\"/></rect></svg>",
-      })
-  void svgCssUrlAttributesRejectStrings(String body) {
-    compile(body).assertError("t.html:1:", "is not allowed", "style value");
+    // The guide's recipe for a computed SVG value (#678): a CSS variable set on an HTML parent.
+    assertEquals("<div style=\"--progress: 7\"><svg><path d=\"M0 0\"/></svg></div>",
+        render("<div t:style=\"|--progress: ${n}|\"><svg><path d=\"M0 0\"/></svg></div>", "n", 7));
   }
 
   /**
-   * Outside SVG, and on an animation's timing fill, the names are not STYLE, but they are not
-   * inert-text attributes either (#539): literals and numbers compile, a String does not.
+   * #678: SVG presentation attributes and animation values are no longer modelled as CSS: no computed
+   * attribute goes inside an svg (UnmodelledMarkupTest), so outside SVG fill is an ordinary typed attribute.
    */
   @Test
-  void otherFillAttributesStayOrdinary() {
+  void svgAttributesAreNotStyle() {
     assertEquals("<p fill=\"url(x)\">x</p>", render("<p t:fill=\"'url(x)'\">x</p>"));
     compile("<p t:fill=\"s\">x</p>").assertError("t.html:1:", "t:fill is not allowed", "inert-text", "String");
-    compile("<svg><rect><animate t:fill=\"s\"/></rect></svg>").assertError("t:fill is not allowed", "inert-text");
-    assertEquals(
-        "<svg><rect><animateMotion fill=\"freeze\"/><animateTransform fill=\"remove\"/></rect></svg>",
-        render("<svg><rect><animateMotion t:fill=\"b ? 'remove' : 'freeze'\"/><animateTransform t:fill=\"'remove'\"/></rect></svg>",
-            "b", false));
-    assertEquals(
-        "<svg><rect fill-opacity=\"0.5\"/></svg>", render("<svg><rect t:fill-opacity=\"d\"/></svg>", "d", 0.5));
-  }
-
-  /** An animation of one of those attributes sets CSS: its values take what t:fill takes. */
-  @Test
-  void animatedSvgCssUrlAttributesTakeCssValues() {
-    assertEquals(
-        "<svg><rect><animate attributeName=\"fill\" values=\"red;#ff8800\" to=\"url(&quot;/p.svg#g&quot;)\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${css.color(s)}|\""
-            + " t:to=\"css.url('/p.svg#g')\"/></rect></svg>", "s", "#ff8800"));
-    assertEquals(
-        "<svg><rect><set attributeName=\"mask\" to=\"url(#m)\"/></rect></svg>",
-        render("<svg><rect><set attributeName=\"mask\" t:to=\"b ? 'none' : 'url(#m)'\"/></rect></svg>"));
-    // css.url keeps the URL in one quoted url(): a ';' in it cannot start another list item's url(.
-    assertEquals(
-        "<svg><rect><animate attributeName=\"fill\" values=\"url(&quot;/a;url%28//evil/x%29&quot;)\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill\" t:values=\"css.url(s)\"/></rect></svg>",
-            "s", "/a;url(//evil/x)"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<svg><rect><animate attributeName=\"fill\" t:values=\"s\"/></rect></svg>",
-        "<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${s}|\"/></rect></svg>",
-        "<svg><rect><animate attributeName=\"fill\" t:to=\"s\"/></rect></svg>",
-        "<svg><rect><animate attributeName=\"stroke\" t:from=\"s\"/></rect></svg>",
-        "<svg><rect><animate attributeName=\"clip-path\" t:by=\"s\"/></rect></svg>",
-        "<svg><rect><set attributeName=\"mask\" t:to=\"s\"/></rect></svg>",
-        "<svg><g><set attributeName=\"filter\" t:attr=\"to=s\"/></g></svg>",
-        "<svg><path><set attributeName=\"marker-end\" t:to=\"s\"/></path></svg>",
-        "<svg><rect><animateColor attributeName=\"fill\" t:values=\"s\"/></rect></svg>",
-        "<svg><rect><ANIMATE ATTRIBUTENAME=\" FILL \" t:VALUES=\"s\"/></rect></svg>",
-        "<svg><rect><set attributeName=\"cursor\" t:to=\"s\"/></rect></svg>",
-        "<svg><path><set attributeName=\"marker\" t:to=\"s\"/></path></svg>",
-      })
-  void animatedSvgCssUrlAttributesRejectStrings(String body) {
-    compile(body).assertError("t.html:1:", "is not allowed", "style value");
-  }
-
-  /** A computed attributeName could retarget an href animation's URL-checked values to CSS. */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<svg><a><animate t:attributeName=\"s\" values=\"red\"/></a></svg>",
-        "<svg><a><set t:attributeName=\"b ? 'href' : 'fill'\" t:to=\"s\"/></a></svg>",
-        "<svg><a><set t:attr=\"attributeName='fill'\"/></a></svg>",
-        "<svg><a><animateTransform t:attributeName=\"s\"/></a></svg>",
-        "<svg><a><animateMotion t:AttributeName=\"s\"/></a></svg>",
-        "<svg><a><animateColor t:attributeName=\"s\"/></a></svg>",
-      })
-  void animationAttributeNameCannotBeComputed(String body) {
-    compile(body).assertError("t.html:1:", "attributeName of an SVG animation cannot be computed");
-  }
-
-  /**
-   * Other animations keep their contexts: their values hold URLs and take only literals and numbers
-   * (TYPED_ATTRIBUTE, #539, #668), not a CssValue or a String.
-   */
-  @Test
-  void otherAnimationsTakeOnlyLiteralsAndNumbers() {
-    compile("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>").assertError("t.html:1:", "t:to is not allowed",
-        "holds URLs but is not exactly one URL");
-    compile("<svg><a><set attributeName=\"href\" t:to=\"css.url(s)\"/></a></svg>").assertError("t.html:1:",
-        "t:to is not allowed", "holds URLs but is not exactly one URL", "CssValue");
-    assertEquals(
-        "<svg><rect><animate attributeName=\"fill-opacity\" values=\"0;1\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"|0;${n}|\"/></rect></svg>", "n", 1));
-    assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"'fill'\">x</p>"));
-    compile("<p t:attributeName=\"s\">x</p>").assertError("t:attributeName is not allowed", "inert-text");
-  }
-
-  /**
-   * A browser folds A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
-   * unknown attributes, so the animation animates href, which the real attributeName names, and splits its
-   * values at ';'. They stay TYPED_ATTRIBUTE: a decoy naming fill must not make them CSS, so a CssValue or a
-   * String there is a build error.
-   */
-  @Test
-  void attributeNameFoldsOnlyAscii() {
-    String hostile = "/a;javascript:alert(1)//";
-    for (String decoy : List.of("attr\u0131buteName=\"fill\"", "attr\u0130buteName=\"fill\"")) {
-      for (String names : List.of("attributeName=\"href\" " + decoy, decoy + " attributeName=\"href\"")) {
-        compile("<svg><a href=\"/x\"><animate " + names + " t:values=\"css.url(s)\"/>x</a></svg>")
-            .assertError("t.html:1:", "t:values is not allowed", "holds URLs but is not exactly one URL", "CssValue");
-        compile("<svg><a href=\"/x\"><set " + names + " t:to=\"s\"/>x</a></svg>")
-            .assertError("t.html:1:", "t:to is not allowed", "holds URLs but is not exactly one URL", "String");
-      }
+    for (String body : List.of("<svg><rect t:fill=\"css.color(s)\"/></svg>", "<svg t:cursor=\"'move'\"></svg>",
+        "<svg><rect><animate attributeName=\"fill\" t:values=\"'red'\"/></rect></svg>",
+        "<svg><a><set t:attributeName=\"'href'\"/></a></svg>")) {
+      compile(body).assertError("t.html:1:", "SVG and MathML by rules Tessera doesn't check");
     }
-    // The real attributeName still makes the values CSS, in any ASCII case; an ASCII-case duplicate is an error.
-    assertEquals(
-        "<svg><rect><animate ATTRIBUTENAME=\"fill\" values=\"url(&quot;/a;javascript:alert%281%29//&quot;)\"/>"
-            + "</rect></svg>",
-        render("<svg><rect><animate ATTRIBUTENAME=\"fill\" t:values=\"css.url(s)\"/></rect></svg>", "s", hostile));
-    compile("<svg><a><animate attributeName=\"href\" ATTRIBUTENAME=\"fill\" t:values=\"css.url(s)\"/></a></svg>")
-        .assertError("t.html:1:", "duplicate attribute 'ATTRIBUTENAME'");
   }
 
   @Test

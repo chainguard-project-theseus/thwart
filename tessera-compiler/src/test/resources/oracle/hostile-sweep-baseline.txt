@@ -15,6 +15,3 @@
 # line"), so this list only shrinks. A real hole is fixed in the compiler or the sanitizer, never
 # listed here. Lines starting with # are comments.
 
-# SVG <use> loads only same-origin documents (browsers refuse cross-origin and data: references,
-# and scripts in the cloned subtree never run), so a computed href there loads no code.
-svg:use href URL_CROSS_ORIGIN_CODE <use> fetches same-origin documents only; scripts in its shadow tree never run

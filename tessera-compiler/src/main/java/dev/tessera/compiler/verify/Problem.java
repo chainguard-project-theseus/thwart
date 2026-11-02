@@ -8,7 +8,7 @@ package dev.tessera.compiler.verify;
 public enum Problem {
   /** A text or RCDATA hole where the tokenizer isn't in data, RCDATA or never-executed raw text. */
   TEXT_NOT_IN_TEXT,
-  /** A text or RCDATA hole in script data, style raw text, or an SVG/MathML {@code script}/{@code style}. */
+  /** A text or RCDATA hole in script data or style raw text. */
   TEXT_IN_SCRIPT,
   /** A text hole in a table mode: the parser foster-parents the value (or holds it back) out of the table. */
   TEXT_IN_TABLE,
@@ -23,7 +23,10 @@ public enum Problem {
   ATTRIBUTE_NOT_IN_VALUE,
   /** An attribute hole in a value of a different attribute than the compiler wrote (or a dropped duplicate). */
   ATTRIBUTE_WRONG_NAME,
-  /** An attribute hole whose value decides how the rest parses (MathML {@code encoding}). */
+  /**
+   * Retired (#678), no longer reported: an attribute hole whose value decides how the rest parses (MathML
+   * {@code encoding}). No value is accepted in MathML ({@link #VALUE_IN_FOREIGN}).
+   */
   ATTRIBUTE_VALUE_CHANGES_PARSE,
   /** A JSON hole outside the script data of an HTML {@code <script>}. */
   JSON_NOT_IN_SCRIPT,
@@ -69,8 +72,8 @@ public enum Problem {
   /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
   SELECT_CONTENT,
   /**
-   * A CDATA section in an HTML or MathML text integration point (#441, exclusion (d), {@link
-   * Rules#cdata}): some browsers read a comment there that ends at the first {@code >}.
+   * Retired (#678), no longer reported: a CDATA section in an HTML or MathML text integration point
+   * (#441). Every CDATA section is a {@link #CDATA_SECTION}.
    */
   CDATA_IN_INTEGRATION_POINT,
   /**
@@ -84,5 +87,15 @@ public enum Problem {
    * {@code <iframe>}, {@code <noembed>} or {@code <noframes>} (#586): raw text decodes no character
    * reference, so no escaper fits.
    */
-  VALUE_IN_RAW_TEXT
+  VALUE_IN_RAW_TEXT,
+  /**
+   * A value (any escaper) while the current node is SVG or MathML (#678): foreign content, its
+   * integration points and presentation attributes are not modelled, so only static markup goes there.
+   */
+  VALUE_IN_FOREIGN,
+  /**
+   * A CDATA section anywhere (#678, exclusion (d)): a browser reads one only in SVG and MathML, and
+   * some read it as a comment that ends at the first {@code >} in an integration point.
+   */
+  CDATA_SECTION
 }

@@ -49,9 +49,13 @@ class ContextVerifierTest {
   void aValueABrowserRunsIsAnErrorAtItsPosition() {
     // The profile lets JSON into an SVG <script>; a browser runs it as script that isn't an HTML
     // script's data, so the escaper doesn't apply (security-architecture.md §11.2).
-    compile("\n<svg><script>var a = [[${s}]];</script></svg>")
+    // #678: the profile rejects any value in SVG; the verifier rejects it too, whatever the escaper.
+    Compilation.builder()
+        .template("t.html", "<div " + NS + " t:params=\"String s\">\n<svg><script>var a = [[${s}]];</script></svg></div>")
+        .verifierOnly()
+        .compile()
         .assertError("t.html:2:26: error: a browser reads this value (written as JSON for a script) inside SVG <script>",
-            "[verifier:JSON_NOT_IN_SCRIPT]");
+            "[verifier:VALUE_IN_FOREIGN]");
   }
 
   @Test
@@ -156,7 +160,7 @@ class ContextVerifierTest {
         .compile()
         .assertError("t.html:1:", "[verifier:FOREIGN_IN_TABLE]");
     // The same SVG outside the table compiles.
-    compile("<svg><foreignObject><div>[[${s}]]</div></foreignObject></svg>"
+    compile("<svg><foreignObject><div>x</div></foreignObject></svg>"
         + "<table><tbody><tr><td t:title=\"s\">x</td></tr></tbody></table>").assertSuccess();
   }
 }

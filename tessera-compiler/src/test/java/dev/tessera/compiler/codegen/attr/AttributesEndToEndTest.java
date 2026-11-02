@@ -66,52 +66,6 @@ class AttributesEndToEndTest {
         .assertError("t.html:1:", "TrustedUrl");
   }
 
-  /**
-   * The {@code values to from by} of an SVG {@code <animate>} or {@code <set>} are not exactly one
-   * URL (#539): {@code values} is a {@code ;}-separated list, and what any of them holds depends on
-   * the {@code attributeName}. A String is a build error, wherever it sits in the value.
-   */
-  @Test
-  void animationValuesRejectStrings() {
-    for (String t : new String[] {
-      "<svg><a><animate attributeName=\"href\" t:values=\"s\"/></a></svg>",
-      "<svg><a><animate attributeName=\"href\" t:values=\"|/a;${s}|\"/></a></svg>",
-      "<svg><a><animate attributeName=\"href\" t:values=\"'/a;' + s\"/></a></svg>",
-      "<svg><a><set attributeName=\"href\" t:attr=\"values=s\"/></a></svg>",
-      "<svg><a><ANIMATE attributeName=\"href\" t:VALUES=\"s\"/></a></svg>",
-      "<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>",
-      "<svg><a><animate attributeName=\"href\" t:from=\"s\"/></a></svg>",
-      "<svg><a><animate attributeName=\"href\" t:by=\"s\"/></a></svg>",
-      "<svg><a><set attributeName=\"href\" t:to=\"@{/x}\"/></a></svg>",
-      "<svg><rect><animate attributeName=\"opacity\" t:values=\"|0;${s}|\"/></rect></svg>",
-      "<svg><rect><set attributeName=\"width\" t:to=\"${b} ? s : '1'\"/></rect></svg>",
-    }) {
-      compile(t).assertError("t.html:1:", "is not allowed", "holds URLs but is not exactly one URL",
-          "only combine string literals and numbers", "String", "choose between literals");
-    }
-  }
-
-  /**
-   * What an animation value may still be: literals, numbers and a choice between literals. A
-   * colour animation's values are CSS, like the attribute it animates: literals and css values.
-   */
-  @Test
-  void animationValuesTakeLiteralsAndNumbers() {
-    assertEquals(
-        "<svg><rect><animate attributeName=\"opacity\" values=\"0;5\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"opacity\" t:values=\"|0;${n}|\"/></rect></svg>", model("n", 5)));
-    assertEquals(
-        "<svg><rect><set attributeName=\"width\" to=\"7\"/></rect></svg>",
-        render("<svg><rect><set attributeName=\"width\" t:to=\"n\"/></rect></svg>", model("n", 7)));
-    assertEquals(
-        "<svg><rect><animate attributeName=\"opacity\" from=\"1\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"opacity\" t:from=\"${b} ? '0' : '1'\"/></rect></svg>", model()));
-    assertEquals(
-        "<svg><rect><animate attributeName=\"fill\" values=\"red;#00f\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${css.color(c)}|\"/></rect></svg>",
-            model("c", "#00f")));
-  }
-
   /** {@code usemap} is a hash-name reference, not a URL (#539): literals only, like other typed attributes. */
   @Test
   void usemapIsNotAUrl() {
@@ -163,39 +117,16 @@ class AttributesEndToEndTest {
   }
 
   /**
-   * Negative: {@code srcset} and {@code imagesrcset} are lists of image candidates: no String or
-   * link compiles, and no type vouches for one (#415, #539, #668).
+   * Negative: {@code srcset}, {@code imagesrcset} and {@code ping} are lists of URLs, which Tessera doesn't
+   * check: nothing computed compiles, not even a literal (#678; before, TYPED_ATTRIBUTE, #539, #668).
    */
   @Test
-  void srcsetRejectsStrings() {
-    compile("<img t:srcset=\"s\">").assertError(
-        "t.html:1:", "t:srcset is not allowed: 'srcset' on <img> holds URLs but is not exactly one URL",
-        "only combine string literals and numbers, not a java.lang.String");
-    compile("<img t:srcset=\"'/a.png 1x, ' + s\">").assertError("'srcset' on <img>", "String");
-    compile("<img t:srcset=\"@{/a.png}\">").assertError("'srcset' on <img>", "String");
-    compile("<source t:attr=\"srcset=s\">").assertError("t:attr srcset is not allowed: 'srcset' on <source>");
-    compile("<link t:imagesrcset=\"s\">").assertError("'imagesrcset' on <link>", "String");
-    compile("<img t:SrcSet=\"s\">").assertError("'SrcSet' on <img>", "String");
-  }
-
-  /** A literal list is the template author's own, so it compiles, as a static attribute does (#539). */
-  @Test
-  void urlListAttributesAcceptLiteralsAndNumbers() {
-    assertEquals("<img srcset=\"/a.png 1x, /b.png 2x\">", render("<img t:srcset=\"'/a.png 1x, /b.png 2x'\">", model()));
-    assertEquals("<img srcset=\"/a.png 640w\">", render("<img t:srcset=\"|/a.png ${n}w|\">", model("n", 640)));
-    assertEquals("<a ping=\"/b\">x</a>", render("<a t:ping=\"${b} ? '/a' : '/b'\">x</a>", model()));
-  }
-
-  /** Negative: {@code ping} is a whitespace-separated list of URLs: no String compiles (#414, #539). */
-  @Test
-  void pingRejectsStrings() {
-    compile("<a t:ping=\"s\">x</a>").assertError(
-        "t.html:1:", "t:ping is not allowed: 'ping' on <a> holds URLs but is not exactly one URL", "String");
-    compile("<a t:ping=\"'/a ' + s\">x</a>").assertError("'ping' on <a>", "String");
-    compile("<a t:ping=\"@{/track}\">x</a>").assertError("'ping' on <a>", "String");
-    compile("<area t:attr=\"ping=s\">").assertError("t:attr ping is not allowed: 'ping' on <area>");
-    compile("<a t:PING=\"s\">x</a>").assertError("'PING' on <a>", "String");
-    compile("<svg><a t:ping=\"s\"></a></svg>").assertError("'ping' on <a>", "String");
+  void urlListsCannotBeComputed() {
+    for (String t : new String[] {"<img t:srcset=\"s\">", "<img t:srcset=\"'/a.png 1x'\">", "<img t:srcset=\"@{/a.png}\">",
+        "<source t:attr=\"srcset=s\">", "<link t:imagesrcset=\"s\">", "<img t:SrcSet=\"s\">", "<a t:ping=\"'/a'\">x</a>",
+        "<area t:attr=\"ping=s\">", "<a t:PING=\"${b} ? '/a' : '/b'\">x</a>"}) {
+      compile(t).assertError("t.html:1:", "is not allowed: it holds a list of URLs", "compute a single src or href");
+    }
   }
 
   /** Negative: a type-use annotation does not change the type: the RESOURCE_URL gate still sees a String. */
@@ -272,8 +203,8 @@ class AttributesEndToEndTest {
     // A browser reads these values while it builds the page, before any escaping applies.
     compile("\n<p t:is=\"s\">x</p>").assertError("t.html:2:4", "t:is is not allowed", "custom element");
     compile("\n<p t:attr=\"is=s\">x</p>").assertError("t.html:2:", "t:attr is is not allowed", "custom element");
-    compile("\n<svg t:xmlns=\"s\"></svg>").assertError("t.html:2:", "t:xmlns is not allowed", "namespace");
-    compile("\n<svg t:xmlns:xlink=\"s\"></svg>").assertError("t.html:2:", "t:xmlns:xlink is not allowed", "namespace");
+    compile("\n<p t:xmlns=\"s\">x</p>").assertError("t.html:2:", "t:xmlns is not allowed", "namespace");
+    compile("\n<p t:xmlns:xlink=\"s\">x</p>").assertError("t.html:2:", "t:xmlns:xlink is not allowed", "namespace");
     compile("\n<template t:shadowrootmode=\"s\"><p>x</p></template>")
         .assertError("t.html:2:", "t:shadowrootmode is not allowed", "shadow root");
     compile("\n<template shadowrootmode=\"open\" t:shadowrootclonable=\"b\"><p>x</p></template>")
@@ -324,8 +255,9 @@ class AttributesEndToEndTest {
     compile("<script t:type=\"s\"></script>").assertError("t:type", "<script>", "static type attribute");
     compile("<script t:attr=\"type=s\"></script>").assertError("t:attr type", "<script>");
     compile("<script type=\"application/json\" t:attr=\"type=s\"></script>").assertError("t:attr type");
-    // type on other elements is an ordinary attribute.
-    assertEquals("<input type=\"text\">", render("<input t:type=\"s\">", model("s", "text")));
+    // #678: on an <input> too; on other elements type is an ordinary attribute.
+    compile("<input t:type=\"s\">").assertError("t:type", "<input>", "static type attribute");
+    assertEquals("<ol type=\"i\"></ol>", render("<ol t:type=\"${b} ? 'a' : 'i'\"></ol>", model()));
   }
 
   @Test

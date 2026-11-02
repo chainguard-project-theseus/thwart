@@ -76,9 +76,6 @@ final class VerifierMessages {
                 + " the attribute once"
             : "a browser reads " + value + " as the value of '" + (s == null ? "?" : s.attributeName())
                 + "', not of '" + f.attribute + "'; check the markup before it in the tag";
-      case ATTRIBUTE_VALUE_CHANGES_PARSE:
-        return "a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML"
-            + " or as MathML; write the encoding as a static value";
       case JSON_NOT_IN_SCRIPT:
         return jsonNotInScript(value, s);
       case RAW_NOT_FLOW:
@@ -121,11 +118,10 @@ final class VerifierMessages {
             + " <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently;"
             + " insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove=\"tag\" and"
             + " <template>)";
-      case CDATA_IN_INTEGRATION_POINT:
-        return "a CDATA section in " + f.detail + ", an integration point: Firefox reads a CDATA section there, as the"
-            + " standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would"
-            + " differ; write the text without"
-            + " <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt;";
+      case CDATA_SECTION:
+        return "a CDATA section in " + f.detail + ": a browser reads <![CDATA[ by different rules inside and outside"
+            + " <svg> and <math>, which Tessera doesn't check; write the text without <![CDATA[ and ]]>, with '<' as"
+            + " &lt; and '&' as &amp;";
       case UNCALLED_FRAGMENT_FITS_NOWHERE:
         return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text, in"
             + " an <svg> or <math> that holds an HTML element, or under t:remove=\"tag\"), so Tessera can't check what it"
@@ -135,6 +131,11 @@ final class VerifierMessages {
             + (s == null || s.currentNode() == null ? "the element" : element(s.currentNode()))
             + ", which decodes no escaping; write the content as"
             + " static text, or move the value outside the element";
+      case VALUE_IN_FOREIGN:
+        return "a browser reads " + value + " inside "
+            + (s == null || s.currentNode() == null ? "<svg> or <math>" : element(s.currentNode()))
+            + ", SVG or MathML content, which Tessera doesn't check; write the <svg> or <math> as static markup and"
+            + " set what changes outside it, with a t:class on an HTML parent and CSS";
       default:
         throw new AssertionError(f.problem);
     }
@@ -143,7 +144,7 @@ final class VerifierMessages {
   /** Problems a parser reports while it parses (#406), not found in a state at a hole. */
   private static boolean reportedByParser(Problem p) {
     return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
-        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET || p == Problem.CDATA_IN_INTEGRATION_POINT;
+        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET || p == Problem.CDATA_SECTION;
   }
 
   /** A second {@code <html>}, {@code <head>} or {@code <body>}, as the parser words it. */

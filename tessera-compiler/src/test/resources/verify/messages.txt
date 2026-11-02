@@ -23,28 +23,15 @@
 -- t.html
 <plaintext>[[${s}]]
 => t.html:1:71: error: a browser reads this value as plain text after <plaintext>, not as text; remove the <plaintext>, which makes the rest of the page plain text; use <pre> instead; a browser opened the <plaintext> it is in at t.html:1:56 [verifier:TEXT_NOT_IN_TEXT]
-== TEXT_NOT_IN_TEXT: in a CDATA section in SVG
--- t.html
-<svg><![CDATA[ [[${s}]] ]]></svg>
-=> t.html:1:75: error: a browser reads this value inside a CDATA section, not as text; move the expression out of the CDATA section [verifier:TEXT_NOT_IN_TEXT]
 == TEXT_NOT_IN_TEXT: <![CDATA[ outside SVG and MathML is a comment up to the next '>'
 -- t.html
 <p><![CDATA[ [[${s}]] ]]></p>
 => t.html:1:73: error: a browser reads this value inside a comment that a '<!' or '<?' started and the next '>' ends, not as text; write the '<' of the '<!' or '<?' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
 => t.html:1:59: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
-== TEXT_NOT_IN_TEXT: <svg><textarea> isn't raw text, so the expression is inside a tag
--- t.html
-<svg><textarea><img src="x" alt=[[${s}]]></textarea></svg>
-=> t.html:1:92: error: a browser reads this value inside an unquoted attribute value, not as text; check the markup before it: a browser started a tag there [verifier:TEXT_NOT_IN_TEXT]
-=> t.html:1:96: error: the HTML parser reports "Attribute value missing." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == TEXT_IN_SCRIPT: <script> inside SVG <title> is an HTML script
 -- t.html
 <svg><title><script>var a = [[${s}]];</script></title></svg>
 => t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; this <script> starts in the markup before it, where the template shows none: move a <script> out of a <title> inside <svg>, <math> or <select>, and write a literal '<' in attribute values, comments and CDATA sections as &lt;; a browser opened the <script> it is in at t.html:1:68 [verifier:TEXT_IN_SCRIPT]
-== TEXT_IN_SCRIPT: <svg><textarea> isn't raw text, so the <script> is an SVG script
--- t.html
-<svg><textarea><script>var a = [[${s}]];</script></textarea></svg>
-=> t.html:1:91: error: a browser runs this value as the code of SVG <script>, where escaping for text doesn't keep it inert; write the script as an HTML <script> outside <svg> and <math>, with data as [[${...}]]; a browser opened the <svg> it is in at t.html:1:56 [verifier:TEXT_IN_SCRIPT]
 == TEXT_IN_SCRIPT: <style> inside SVG <title> is an HTML style sheet
 -- t.html
 <svg><title><style>[[${s}]]</style></title></svg>
@@ -84,14 +71,19 @@
 => t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:61: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
-== ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding (a number: a String or a safe type is already a profile error, not inert-text)
+== VALUE_IN_FOREIGN: a value in SVG text (#678: no value in SVG or MathML)
 -- t.html
-<div $NS t:params="int s"><math><annotation-xml t:encoding="s"></annotation-xml></math></div>
-=> t.html:1:75: error: a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML or as MathML; write the encoding as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
-== JSON_NOT_IN_SCRIPT: [[...]] in an SVG script
+<svg><text>[[${s}]]</text></svg>
+=> t.html:1:71: error: a browser reads this value inside SVG <text>, SVG or MathML content, which Tessera doesn't check; write the <svg> or <math> as static markup and set what changes outside it, with a t:class on an HTML parent and CSS; a browser opened the <svg> it is in at t.html:1:56 [verifier:VALUE_IN_FOREIGN]
+== VALUE_IN_FOREIGN: [[...]] in an SVG script
 -- t.html
 <svg><script>var a = [[${s}]];</script></svg>
-=> t.html:1:81: error: a browser reads this value (written as JSON for a script) inside SVG <script>, where a browser decodes character references and reads tags; JSON is safe only as the code of an HTML <script>; write the script as an HTML <script> outside <svg> and <math>; a browser opened the <svg> it is in at t.html:1:56 [verifier:JSON_NOT_IN_SCRIPT]
+=> t.html:1:81: error: a browser reads this value (written as JSON for a script) inside SVG <script>, SVG or MathML content, which Tessera doesn't check; write the <svg> or <math> as static markup and set what changes outside it, with a t:class on an HTML parent and CSS; a browser opened the <svg> it is in at t.html:1:56 [verifier:VALUE_IN_FOREIGN]
+== JSON_NOT_IN_SCRIPT: [[...]] in a <script> whose tag is not written
+-- t.html
+<script t:remove="tag"><img src=x onerror=[[${s}]]></script>
+=> t.html:1:102: error: a browser reads this value (written as JSON for a script) inside an unquoted attribute value; JSON is safe only as the code of an HTML <script>; check the markup before it: a browser ended the <script>, or never started it, there [verifier:JSON_NOT_IN_SCRIPT]
+=> t.html:1:106: error: the HTML parser reports "Attribute value missing." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == RAW_NOT_FLOW: SafeHtml in the head
 -- t.html
 <!DOCTYPE html>
@@ -185,10 +177,10 @@ m=See <a href="/docs">the docs</a>.
 -- t.html
 <select><option t:insert="~{:: label(s)}">o</option></select><span t:fragment="label(String v)" t:text="v">l</span>
 => t.html:1:82: error: in fragment t :: label, inserted here, at t.html:1:117: <span> in a <select>: browsers that parse <select> the classic way (Firefox ESR) drop everything in it but <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently; insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove="tag" and <template>) [verifier:SELECT_CONTENT]
-== CDATA_IN_INTEGRATION_POINT: a CDATA section in an SVG <title>, which some browsers read as a comment that ends at the first '>'
+== CDATA_SECTION: a CDATA section in an SVG <title> (#678: any CDATA section)
 -- t.html
 <svg><title><![CDATA[ > <script> ]]></title></svg><p>[[${s}]]</p>
-=> t.html:1:68: error: a CDATA section in SVG <title>, an integration point: Firefox reads a CDATA section there, as the standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would differ; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:CDATA_IN_INTEGRATION_POINT]
+=> t.html:1:68: error: a CDATA section in SVG <title>: a browser reads <![CDATA[ by different rules inside and outside <svg> and <math>, which Tessera doesn't check; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '&' as &amp; [verifier:CDATA_SECTION]
 == UNCALLED_FRAGMENT_FITS_NOWHERE: a fragment declared in a <noscript> that no template inserts
 -- t.html
 <noscript><p t:fragment="g(String v)" t:text="v">x</p></noscript>

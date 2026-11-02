@@ -35,7 +35,7 @@ class ContextVerifierRulesTest {
     accept(st("<table><tr><td>"), text(), st("</td></tr></table>"));
     accept(st("<table><caption>"), text());
     accept(st("<template>"), text());
-    accept(st("<svg><text>"), text()); // foreign content appends every character as is
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><text>"), text()); // #678: no value in SVG or MathML
     reject(Problem.TEXT_OUTSIDE_BODY, st("<noscript>"), text()); // in the head without scripting
     accept(st("<select><option>"), text());
     accept(st("<pre>"), text(), st("\nx</pre>"));
@@ -52,15 +52,15 @@ class ContextVerifierRulesTest {
     reject(Problem.TEXT_NOT_IN_TEXT, st("<p "), text());
     reject(Problem.TEXT_NOT_IN_TEXT, st("<title><"), text()); // '</' + the value could end the title
     reject(Problem.TEXT_NOT_IN_TEXT, st("<plaintext>"), text());
-    reject(Problem.TEXT_NOT_IN_TEXT, st("<svg><![CDATA["), text());
+    reject(Problem.CDATA_SECTION, st("<svg><![CDATA["), text());
   }
 
   @Test
   void textThatABrowserRunsIsRejected() {
     reject(Problem.TEXT_IN_SCRIPT, st("<script>"), text());
     reject(Problem.TEXT_IN_SCRIPT, st("<style>"), text());
-    reject(Problem.TEXT_IN_SCRIPT, st("<svg><script>"), text());
-    reject(Problem.TEXT_IN_SCRIPT, st("<svg><style>"), text());
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><script>"), text());
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><style>"), text());
     reject(Problem.TEXT_IN_SCRIPT, st("<script><!--<script>"), text());
   }
 
@@ -83,7 +83,7 @@ class ContextVerifierRulesTest {
     accept(st("<title>"), text(), st("</title>"));
     accept(st("<textarea>"), text(), st("</textarea>"));
     accept(st("<svg><foreignObject><title>"), text());
-    accept(st("<svg><title>"), text());
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><title>"), text()); // #678
     accept(alt(seq(st("<p>")), seq(st("<title>"))), text());
     Map<String, Seq> f = Map.of("f", seq(text()));
     accept(f, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
@@ -136,12 +136,8 @@ class ContextVerifierRulesTest {
     onlyParseErrors(st("<table><input type=\""), attr("type"), st("\">"));
     onlyParseErrors(st("<table><tr><input type=\""), attr("type"), st("\">"));
     onlyParseErrors(st("<table><input type=\"hidden\">"));
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml encoding=\""), attr("encoding"));
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml ENCODING=\""), attr("ENCODING"));
-    // encod\u0131ng and encod\u0130ng are not encoding to a browser: their value decides nothing.
-    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
-      accept(st("<math><annotation-xml " + name + "=\""), attr(name), st("\"></annotation-xml></math>"));
-    }
+    // #678: no value in MathML, so a computed encoding never decides how annotation-xml content parses.
+    reject(Problem.VALUE_IN_FOREIGN, st("<math><annotation-xml encoding=\""), attr("encoding"));
   }
 
   @Test
@@ -149,12 +145,12 @@ class ContextVerifierRulesTest {
     accept(st("<script>var a = "), json(), st(";</script>"));
     accept(st("<script>if (1<"), json(), st(") {}</script>")); // no JSON starts with '/' or '!'
     accept(st("<script>if (1<"), json(), st("/2) {}</script>")); // ... so '<' + value + '/' is no end tag
-    reject(Problem.JSON_NOT_IN_SCRIPT, st("<svg><script>var a = "), json());
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><script>var a = "), json());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<p>"), json());
     // A JavaScript value, (-1.5) for a negative number, follows the same rules.
     accept(st("<script>var a = "), javaScript(), st(";</script>"));
     accept(st("<script>if (1<"), javaScript(), st("/2) {}</script>"));
-    reject(Problem.JSON_NOT_IN_SCRIPT, st("<svg><script>var a = "), javaScript());
+    reject(Problem.VALUE_IN_FOREIGN, st("<svg><script>var a = "), javaScript());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<p>"), javaScript());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<script><!--<script>"), json());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<script>a<!"), json());
@@ -387,10 +383,6 @@ class ContextVerifierRulesTest {
     // An <input> in a table is a parse error with or without its computed type (#410).
     onlyParseErrors(st("<table><input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" type=\""), attr("type"), st("\"")), pos()), st(">"));
-    // A computed encoding is kept as a branch: whether it is there decides how the content parses.
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml"),
-        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" encoding=\""), attr("encoding"), st("\"")), pos()),
-        st("><div>"));
   }
 
   @Test

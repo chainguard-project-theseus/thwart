@@ -33,20 +33,20 @@ public final class Contexts {
   /**
    * The attributes that hold URLs but are not exactly one URL (#414, #539, #567): {@code ping} is
    * space-separated URLs, {@code srcset} and {@code imagesrcset} comma-separated image candidates.
-   * TYPED_ATTRIBUTE (#668): literals, numbers and a choice between them.
+   * A computed one is FORBIDDEN (#678): {@link #URL_LIST}.
    */
   private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
-  /**
-   * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
-   * ({@code fill}, {@code stroke}), a reference ({@code clip-path}, {@code mask}, {@code filter},
-   * {@code marker-*}) or a cursor image. A browser reads them as the CSS property of the same name.
-   * The {@code marker} shorthand is not a presentation attribute (SVG 2 section 6.6) but is
-   * animatable (SVG 1.1 section 11.6.3), so its animations set CSS too; as an attribute it fails closed.
-   */
-  private static final Set<String> SVG_CSS_URL_ATTRIBUTES =
-      Backports.setOf(
-          "fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end", "marker", "cursor");
+  /** Why a computed attribute of an SVG or MathML element is a build error, with the fix-it (#678). */
+  public static final String FOREIGN =
+      "a browser parses SVG and MathML by rules Tessera doesn't check, so nothing inside <svg> or <math> is computed;"
+          + " write it as static markup and set what changes outside it: a t:class or t:style on an HTML parent with"
+          + " CSS (fill: currentColor, a CSS variable), or one static <svg> per case under t:if or t:switch";
+
+  /** Why a computed {@link #isUrlList URL list} is a build error, with the fix-it. */
+  public static final String URL_LIST =
+      "it holds a list of URLs, which Tessera doesn't check; write it as a static value, or compute a single"
+          + " src or href instead";
 
   /** {@code <script type>} values whose content is JavaScript or JSON. */
   private static final Set<String> SCRIPT_TYPES =
@@ -67,20 +67,19 @@ public final class Contexts {
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: names
    * that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code on*} EVENT_HANDLER;
-   * {@code style} and the {@link #isSvgCssUrl SVG attributes that take a CSS url()} (also
-   * {@link #animatesSvgCssUrl animated}) STYLE; a
-   * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
-   * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
-   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
-   * {@link #URL_LIST_ATTRIBUTES URL lists}, {@link #ANIMATION_VALUES animation values}, other
-   * standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
-   * of a {@code <meta>} that does not {@link #isNamedMetaContent name plain metadata}
-   * TYPED_ATTRIBUTE; the other {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and
-   * every other name NEUTRAL (#583 rule 3): {@code data-*}, {@code hx-*}, {@code x-*},
-   * {@code v-*}, {@code :x}, {@code @x}, a custom element's own attributes, any name outside HTML.
+   * {@code style} STYLE; a
+   * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc},
+   * {@link #isUrlList URL lists} and {@link #isTreeBuilderInput tree-builder inputs} FORBIDDEN (#678);
+   * {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL; other standard names
+   * that are not inert ({@code inert-attributes.txt}) and a {@code content} of a {@code <meta>} that
+   * does not {@link #isNamedMetaContent name plain metadata} TYPED_ATTRIBUTE; the other
+   * {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and every other name NEUTRAL (#583
+   * rule 3): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, {@code :x}, {@code @x}, a custom
+   * element's own attributes, any name outside HTML. Every attribute of an SVG or MathML element is
+   * FORBIDDEN ({@link #FOREIGN}, #678).
    */
   public static OutputContext attribute(Element element, String attributeName) {
-    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
+    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches() || element.foreign()) {
       return OutputContext.FORBIDDEN;
     }
     String el = HtmlParser.asciiLower(element.name());
@@ -88,19 +87,13 @@ public final class Contexts {
     if (attr.startsWith("on")) {
       return OutputContext.EVENT_HANDLER;
     }
-    if (attr.equals("style") || isSvgCssUrl(element, el, attr) || animatesSvgCssUrl(element, el, attr)) {
+    if (attr.equals("style")) {
       return OutputContext.STYLE;
     }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
     }
-    // A <script>'s type decides whether its content is JavaScript, a <meta>'s http-equiv whether
-    // content is a refresh URL, an animation's attributeName whether values, to, from, by are CSS.
-    if (attr.equals("srcdoc")
-        || (el.equals("script") && attr.equals("type"))
-        || (el.equals("meta") && attr.equals("http-equiv"))
-        || (TIMED_ANIMATIONS.contains(el) && attr.equals("attributename"))
-        || isTreeBuilderInput(element, attributeName)) {
+    if (attr.equals("srcdoc") || isUrlList(attr) || isTreeBuilderInput(element, attributeName)) {
       return OutputContext.FORBIDDEN;
     }
     if (isResourceUrl(el, attr)) {
@@ -109,24 +102,16 @@ public final class Contexts {
     if (URL_ATTRIBUTES.contains(attr)) {
       return OutputContext.URL;
     }
-    if (holdsUrls(element, attr)
-        || KnownAttributes.needsSafeValue(element, attr)
+    if (KnownAttributes.needsSafeValue(element, attr)
         || (el.equals("meta") && attr.equals("content") && !isNamedMetaContent(element))) {
       return OutputContext.TYPED_ATTRIBUTE;
     }
     return KnownAttributes.isStandard(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
   }
 
-  /**
-   * Whether {@code attributeName} on {@code element} holds URLs but is not exactly one URL: a
-   * {@link #URL_LIST_ATTRIBUTES URL list} or an {@link #ANIMATION_VALUES animation value}. Such an
-   * attribute is TYPED_ATTRIBUTE (#668) unless an earlier rule of {@link #attribute} applies, and its
-   * build error says why.
-   */
-  public static boolean holdsUrls(Element element, String attributeName) {
-    String attr = HtmlParser.asciiLower(attributeName);
-    return URL_LIST_ATTRIBUTES.contains(attr)
-        || (isAnimation(HtmlParser.asciiLower(element.name())) && ANIMATION_VALUES.contains(attr));
+  /** Whether {@code attributeName} (any case) is a {@link #URL_LIST_ATTRIBUTES URL list}, FORBIDDEN computed (#678). */
+  public static boolean isUrlList(String attributeName) {
+    return URL_LIST_ATTRIBUTES.contains(HtmlParser.asciiLower(attributeName));
   }
 
   /**
@@ -200,57 +185,6 @@ public final class Contexts {
     return false;
   }
 
-  /** SVG animation elements, lower-cased, whose {@code fill} is a timing attribute. */
-  private static final Set<String> TIMED_ANIMATIONS =
-      Backports.setOf("animate", "set", "animatemotion", "animatetransform", "animatecolor");
-
-  /**
-   * Whether {@code attr} on {@code element} is an SVG presentation attribute whose CSS value may
-   * hold a {@code url()} ({@link #SVG_CSS_URL_ATTRIBUTES}): on a {@link Element#foreign foreign}
-   * element (SVG, and also MathML, which has no such attributes: failing closed there is harmless),
-   * except {@code fill} on a {@link #TIMED_ANIMATIONS timed animation element}, where it is the
-   * timing attribute ({@code freeze}, {@code remove}).
-   */
-  private static boolean isSvgCssUrl(Element element, String el, String attr) {
-    return element.foreign() && SVG_CSS_URL_ATTRIBUTES.contains(attr)
-        && !(attr.equals("fill") && TIMED_ANIMATIONS.contains(el));
-  }
-
-  /**
-   * The attributes of an SVG animation element that hold the values it sets. On {@code <animate>}
-   * and {@code <set>} they are TYPED_ATTRIBUTE (#539, #668), not URL: what they hold depends on the
-   * {@code attributeName} ({@code values} is a {@code ;}-separated list, and an animated
-   * {@code href} can be set to {@code javascript:}). STYLE when {@link #animatesSvgCssUrl the
-   * animation sets CSS}, which is why a computed {@code attributeName} is FORBIDDEN.
-   */
-  private static final Set<String> ANIMATION_VALUES = Backports.setOf("values", "to", "from", "by");
-
-  /**
-   * Whether {@code attr} on {@code element} is a value ({@code values to from by}) of a
-   * {@link #TIMED_ANIMATIONS timed animation element} whose static {@code attributeName} names one
-   * of the {@link #SVG_CSS_URL_ATTRIBUTES}: the animation sets that CSS, so the value is CSS too.
-   * The {@code attributeName} attribute is found folding A-Z only, as in a browser: {@code
-   * attr\u0131buteName} is not {@code attributeName}, so the browser animates what the real one names.
-   * The name it holds is compared stripped and ASCII case-insensitively, after any {@code prefix:},
-   * which fails closed for names a browser would not match. A {@code values} list is CSS as a
-   * whole: a {@code CssValue} cannot start a {@code url(} after a {@code ;} (it percent-encodes
-   * {@code (}). The {@code attributeName} itself cannot be computed ({@link #attribute}).
-   */
-  private static boolean animatesSvgCssUrl(Element element, String el, String attr) {
-    if (!TIMED_ANIMATIONS.contains(el) || !ANIMATION_VALUES.contains(attr)) {
-      return false;
-    }
-    for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && HtmlParser.asciiLower(a.name()).equals("attributename") && a.value() != null) {
-        String target = HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
-        if (SVG_CSS_URL_ATTRIBUTES.contains(target.substring(target.lastIndexOf(':') + 1))) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   /** ASCII valid custom element names (HTML 4.13.3); a non-ASCII character fails closed. */
   private static final Pattern CUSTOM_ELEMENT_NAME = Pattern.compile("[a-z][a-z0-9._]*-[a-z0-9._-]*");
 
@@ -272,28 +206,36 @@ public final class Contexts {
 
   /**
    * Whether the HTML tree builder reads attribute {@code attributeName} of {@code element} while it
-   * builds the page (HTML 13.2.6), so a computed value is FORBIDDEN: {@code is} (which custom
-   * element to create), {@code xmlns} and {@code xmlns:xlink} (checked against the namespace) on any
-   * element; a {@code <template>}'s {@code shadowroot*} attributes (a declarative shadow root) and
-   * {@code for}; a {@code <meta>}'s {@code charset}, and its {@code content} when its static
-   * {@code http-equiv} is {@code Content-Type} (the encoding the page is read in; a computed
-   * {@code http-equiv} is FORBIDDEN itself). Case-insensitive.
+   * builds the page (HTML 13.2.6), or that decides how other content is read, so a computed value is
+   * FORBIDDEN (#678): {@code is} (which custom element to create), {@code xmlns*} (checked against the
+   * namespace) and {@code encoding} (whether a MathML {@code annotation-xml} holds HTML) on any
+   * element; {@code type} on {@code <input>} (a hidden input stays in a table) and {@code <script>}
+   * (whether its content is JavaScript); {@code color}, {@code face} and {@code size} on
+   * {@code <font>} (they end foreign content); a {@code <template>}'s {@code shadowroot*} attributes
+   * (a declarative shadow root) and {@code for}; a {@code <meta>}'s {@code charset} and
+   * {@code http-equiv}, and its {@code content} when its static {@code http-equiv} is
+   * {@code Content-Type} (the encoding the page is read in). Case-insensitive.
    */
   public static boolean isTreeBuilderInput(Element element, String attributeName) {
     String el = HtmlParser.asciiLower(element.name());
     String attr = HtmlParser.asciiLower(attributeName);
-    if (attr.equals("is") || attr.equals("xmlns") || attr.equals("xmlns:xlink")) {
+    if (attr.equals("is") || attr.startsWith("xmlns") || attr.equals("encoding")) {
       return true;
     }
-    if (el.equals("template")) {
-      return attr.startsWith("shadowroot") || attr.equals("for");
+    switch (el) {
+      case "input":
+      case "script":
+        return attr.equals("type");
+      case "font":
+        return attr.equals("color") || attr.equals("face") || attr.equals("size");
+      case "template":
+        return attr.startsWith("shadowroot") || attr.equals("for");
+      case "meta":
+        return attr.equals("charset") || attr.equals("http-equiv")
+            || (attr.equals("content") && hasHttpEquiv(element, "content-type"));
+      default:
+        return false;
     }
-    return el.equals("meta")
-        && (attr.equals("charset") || (attr.equals("content") && hasHttpEquiv(element, "content-type")));
-  }
-
-  private static boolean isAnimation(String el) {
-    return el.equals("animate") || el.equals("set");
   }
 
   private static boolean isResourceUrl(String element, String attr) {

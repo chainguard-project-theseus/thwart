@@ -41,9 +41,10 @@ class UncalledFragmentTest {
 
   @Test
   void anUncalledFragmentIsCheckedInTheContextItIsDeclaredIn() {
-    // Declared in <svg>, its <title> is SVG: text, not the RCDATA of an HTML <title>.
-    compile("<svg><title t:fragment=\"f(String s)\">[[${s}]]</title><g t:fragment=\"g\"><path d=\"M0 0\"/></g></svg>"
-        + "<math><mrow t:fragment=\"m(String s)\"><mi>[[${s}]]</mi></mrow></math>").assertSuccess();
+    // Declared in <svg> or <math>: a static fragment compiles; a value in one is an error there (#678).
+    compile("<svg><g t:fragment=\"g\"><path d=\"M0 0\"/></g></svg><math><mrow t:fragment=\"m\"><mi>x</mi></mrow></math>")
+        .assertSuccess();
+    compile("<svg><title t:fragment=\"f(String s)\">[[${s}]]</title></svg>").assertError("inside <title> is not supported");
   }
 
   @Test

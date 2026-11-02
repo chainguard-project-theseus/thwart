@@ -486,11 +486,9 @@ class ControlFlowTest {
     Compilation c =
         compile(
             "String s",
-            "<svg t:remove=\"body\"><g></g></svg>|<svg t:remove=\"all\"><g></g></svg>|"
-                + "<svg t:remove=\"none\"><g t:remove=\"all-but-first\"><text>[[s]]</text><g></g></g></svg>|"
-                + "<math><mtext t:remove=\"none\">[[s]]</mtext></math>|<svg></svg><i t:remove=\"tag\">[[s]]</i>");
+            "<svg t:remove=\"body\"><g></g></svg>|<svg t:remove=\"all\"><g></g></svg>|<svg></svg><i t:remove=\"tag\">[[s]]</i>");
     assertEquals(
-        "<svg></svg>||<svg><g><text>&lt;x&gt;</text></g></svg>|<math><mtext>&lt;x&gt;</mtext></math>|<svg></svg>&lt;x&gt;",
+        "<svg></svg>||<svg></svg>&lt;x&gt;",
         render(c, model("s", "<x>")));
   }
 

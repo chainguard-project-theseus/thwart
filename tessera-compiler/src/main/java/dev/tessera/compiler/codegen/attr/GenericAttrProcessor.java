@@ -89,15 +89,19 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         return;
       case FORBIDDEN:
         hint =
-            lower.equals("type")
+            plan.element().foreign()
+                ? Contexts.FOREIGN
+                : lower.equals("type") && HtmlParser.asciiEqualsIgnoreCase(element, "script")
                 ? "the type of a <script> cannot be computed; its content type must be known at"
                     + " build time, so write a static type attribute"
+                : lower.equals("type") && HtmlParser.asciiEqualsIgnoreCase(element, "input")
+                ? "the type of an <input> cannot be computed; a browser reads it while it builds the page,"
+                    + " so write a static type attribute, or one <input> per type under t:if"
                 : lower.equals("http-equiv")
                 ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
                     + " a refresh URL, so write a static http-equiv attribute"
-                : lower.equals("attributename")
-                ? "the attributeName of an SVG animation cannot be computed; it decides whether values, to,"
-                    + " from and by are CSS or a URL, so write a static attributeName attribute"
+                : Contexts.isUrlList(name)
+                ? Contexts.URL_LIST
                 : Contexts.isTreeBuilderInput(plan.element(), name)
                 ? treeBuilderInput(name, lower)
                 : lower.equals("srcdoc")
@@ -108,8 +112,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         hint = null;
     }
     if (hint != null) {
-      boolean computedType = context == OutputContext.FORBIDDEN
-          && (lower.equals("type") || lower.equals("http-equiv") || lower.equals("attributename"));
+      boolean computedType = context == OutputContext.FORBIDDEN && !plan.element().foreign()
+          && (lower.equals("type") || lower.equals("http-equiv"));
       ctx.diagnostics().error(pos, label + (computedType ? ": " : " is not allowed: ") + hint);
       return;
     }
@@ -287,6 +291,14 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (lower.startsWith("xmlns")) {
       return computed + "must name the element's namespace, which a browser checks while it parses; write it"
           + " as a static value, or omit it";
+    }
+    if (lower.equals("encoding")) {
+      return computed + "decides whether a browser parses MathML <annotation-xml> content as HTML; write it as a"
+          + " static value";
+    }
+    if (lower.equals("color") || lower.equals("face") || lower.equals("size")) {
+      return computed + "on a <font> decides whether a browser ends <svg> or <math> content there; use a <span>"
+          + " with t:class or t:style instead";
     }
     if (lower.startsWith("shadowroot") || lower.equals("for")) {
       return computed + "on a <template> decides whether a browser attaches its content as a shadow root, or"
@@ -546,19 +558,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     String type = t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
     if (context == OutputContext.TYPED_ATTRIBUTE) {
-      boolean urls = Contexts.holdsUrls(plan.element(), name);
       ctx.diagnostics()
           .error(
               e.pos(),
-              label + " is not allowed: '" + name + "'"
-                  + (urls
-                      ? " on <" + plan.element().name() + "> holds URLs but is not exactly one URL (a list, or an"
-                          + " animation value whose meaning depends on attributeName)"
-                      : " is not an inert-text attribute on <" + plan.element().name() + ">")
-                  + ", so a computed value can only combine string literals and numbers, not a "
-                  + type + "; write a static attribute" + (urls ? " or" : ",")
-                  + " choose between literals such as ${c} ? 'a' : 'b'"
-                  + (urls ? "" : ", or if a script reads it, put the data in a <script type=\"application/json\"> block"));
+              label + " is not allowed: '" + name + "' is not an inert-text attribute on <" + plan.element().name()
+                  + ">, so a computed value can only combine string literals and numbers, not a " + type
+                  + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or if a script"
+                  + " reads it, put the data in a <script type=\"application/json\"> block");
       return false;
     }
     ctx.diagnostics()
