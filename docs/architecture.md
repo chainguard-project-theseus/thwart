@@ -17,7 +17,7 @@ JDK 21+. The table names the main classes only. The public API of the runtime an
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
 | `tessera-runtime` | `dev.tessera.runtime` | the API apps and templates name: `Template`, `RenderContext`, `SafeHtml`/`HtmlSanitizer`/`HtmlPolicy`, `CssValue`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `TemplateRegistry`, `TemplateModelException`, `LoopStatus`, `TemplateView`, `TemplateFunction(s)` | none |
-| | `dev.tessera.runtime.internal` | what only generated code and Tessera's modules call: `Output`/`StringOutput`, `Escapers`, `Attributes`, `Conditions`, `Values`, `UrlEncoding`, `TemplateEntry`, `Ascii`, `Checks`; public but not API | |
+| | `dev.tessera.runtime.internal` | what only generated code and Tessera's modules call: `Output`/`StringOutput`, `Escapers`, `Attributes`, `Conditions`, `Values`, `UrlEncoding`, `TemplateEntry`, `Ascii`, `Checks`; public but not API. Some public signatures still name these types (`Template.render(ctx, Output)`, `Fragment.Body`, `TemplateRegistry`'s `TemplateEntry`, `TesseraView.of`) because generated code and the starter implement or call them; apps call `renderToString` and the view name instead | |
 | | `dev.tessera.runtime.internal.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |

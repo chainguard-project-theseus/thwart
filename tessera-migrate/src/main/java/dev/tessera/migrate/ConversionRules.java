@@ -263,8 +263,8 @@ final class ConversionRules {
       "_csrf",
       "%1$s reads Spring Security's CSRF token request attribute, which a Tessera template cannot see; the starter"
           + " already adds the `_csrf` hidden input to every same-origin POST form, so delete a hand-written one;"
-          + " anywhere else (a `<meta>` for JavaScript) add the token (`CsrfToken.getToken()`) to the model from "
-          + EVERY_PAGE + ", " + TO_MODEL);
+          + " for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from " + EVERY_PAGE
+          + ", " + TO_MODEL + " in a script declaration (`var %2$s = [[${%2$s}]];`, guide section 4.4), not a `<meta>`");
 
   /** The model name suggested for an ambient read without a property ({@code ${session}}). */
   static final String AMBIENT_VALUE = "value";

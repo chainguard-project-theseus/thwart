@@ -60,7 +60,7 @@ inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. A message key computed from data is resolved in Java and passed as a string. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"`. Markup built in Java: a `SafeHtml`. A bundle message with markup: `t:utext="#{key}"` (section 4.5). |
-| puts expressions in `style`, a `data-*` or a framework attribute (`th:hx-get`) | Section 4.4: `t:style` takes literals, numbers and `css.*` values; `data-*` attributes take only framework-neutral values; any other non-standard name is a build error (use `t:data-hx-get`, which htmx also reads). |
+| puts expressions in `style`, a `data-*` or a framework attribute (`th:hx-get`) | Section 4.4: computed attributes are a closed list, each with a fixed context. |
 | has an event handler (`onclick="..."`, any `on*`, static or computed) or a `javascript:` URL | Build errors: a strict CSP blocks inline script. Mark the element (`data-action="save"`) and attach one listener from a `<script>`: `document.addEventListener('click', e => { const el = e.target.closest('[data-action=save]'); if (el) save(el); });`. A `href="javascript:void(0)"` link becomes a `<button type="button">`, or `href="#"` with `e.preventDefault()` in the listener. `tessera-migrate` flags both. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
@@ -389,13 +389,12 @@ that runs code. What differs:
   element: put it on an enclosing element or a `<t:block>`.
 - `t:each` iterates an `Iterable`, array or `Map` (`e.key`, `e.value`), with status `index`,
   `count`, `size`, `first`, `last`, `even`, `odd` (implicit name `xStat`). `t:with` locals are
-  immutable. `t:remove` takes `all` or `tag`.
+  immutable. `t:remove` takes `all` or `tag` (other values: section 5's table).
 - Any `t:<name>` sets that attribute, and `null` omits it, where Thymeleaf's `th:value`,
   `th:href`, `th:src`, `th:action`, `th:name` and `th:type` wrote it empty. Where the empty
   attribute matters, write `x ?: ''`. Boolean attributes (`t:checked`, ...) take a condition.
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
-  `th:include` (use `t:insert`) and `th:inline`; `th:attr`, `th:errorclass` and `th:remove`'s
-  `body`, `all-but-first` and `none` (recipes in section 5's table).
+  `th:include` (use `t:insert`), `th:inline`; `th:attr` and `th:errorclass` (section 5's table).
 
 ### 4.4 Output contexts
 
@@ -422,22 +421,13 @@ accepts:
 
 | The attribute is | Recipe |
 |---|---|
-| read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. Its value is neutral (below). |
-| one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`) | A static attribute, or one element per value under `t:if`/`t:switch`. |
+| read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A number, boolean or link in a `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. A string goes in a script declaration or a JSON block (Scripts, below). |
+| one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`, `<input type>`) | A static attribute, or one element per value under `t:if`/`t:switch` (the `fields` example in 4.8). |
 | `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Tessera stamps the CSP nonce itself (section 4.9). |
-| `content` of a named `<meta>` (`description`, Open Graph `property`) | A static `content`, or one `<meta>` per case under `t:if`. |
+| `content` of a named `<meta>` (`description`, Open Graph `property`, `_csrf`) | A static `content`, or one `<meta>` per case under `t:if`. Page data for JavaScript, such as the CSRF token, goes in a script declaration (4.7). |
+| `srcset`, `<font color>` | One `src` (or a static `srcset`); a `<span>` with a `t:class`. |
 
-**SVG, MathML and markup Tessera doesn't model.** An `<svg>` or `<math>` must be static: no
-`t:*` attribute, `[[...]]` or fragment inside it, and no computed attribute on it (control flow on the
-element itself, `<svg t:if="...">` or `t:replace`, is fine). Set what changes outside it: a `t:class` on
-an HTML parent with CSS (`fill: currentColor`, or a CSS variable such as
-`<div t:style="|--progress: ${n}|">` read by `stroke-dasharray: var(--progress) 100` in the stylesheet),
-one static `<svg>` per case under `t:if`/`t:switch`, or an `<img t:src="@{/icons/...svg}">`. For a
-computed `srcset`, write one `src` (or a static `srcset`); for `<font color>` from data, write a `<span>`
-with a `t:class`; for a computed `<input type>`, write one `<input>` per type under `t:if` or
-`t:switch` (the `fields` example in 4.8). CDATA sections, `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>` and `<frameset>` are
-build errors: write the text escaped (`&lt;`) in a `<pre>`, or use `<noscript>`, an ordinary layout or an
-`<iframe>`. Inside `<noscript>` and `<iframe>`, only static text.
+SVG, MathML, CDATA and the obsolete raw-text elements are static or rejected: section 5's table.
 
 **Scripts.** In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
 the top of the script, before any other code: `const roles = [[${account.roles}]];`. The value is
@@ -464,16 +454,11 @@ read with `JSON.parse`; inside it, write `{"name": [[${x}]]}` without quotes aro
 </div>
 ```
 
-**Framework-neutral values.** Many client-side frameworks run attribute values as code (Vue's
-`v-html`, Alpine's `x-data`, htmx's `hx-on`, Knockout's `data-bind`), and in several `data-*` is the
-code channel. Tessera models none of them, so a computed `data-*` attribute (the only computed name
-outside HTML; `hx-*`, `x-*`, `v-*` are build errors) takes only a value no framework can run: a number, a boolean, a
-same-origin link `@{/items/{id}(id=${item.id})}` (literal path, every parameter a path variable, no
-query), or a choice between those and literals. `t:data-id="${item.id}"` compiles;
-`t:data-name="${item.name}"` doesn't. Static attributes are copied as written, so
-`<api-entry :security="security" @click="open">` stays as it was.
-
-**Migration recipes.** Port a computed string in such an attribute by what it is for:
+**Framework-neutral values.** In many client frameworks `data-*` is a code channel (Knockout's
+`data-bind`, htmx's `data-hx-on`), and Tessera models none of them. So a computed `data-*` takes only
+a number, a boolean, a same-origin link with a literal path and no query, or a choice between those
+and literals: `t:data-id="${item.id}"` compiles, `t:data-name="${item.name}"` doesn't. Static
+attributes are copied as written. Port a computed string by what it is for:
 
 | The string is | Recipe |
 |---|---|
@@ -486,12 +471,9 @@ query), or a choice between those and literals. `t:data-id="${item.id}"` compile
 | an id with a prefix (`"hint-" + id`) | The number; the script adds the prefix. |
 | a URL held in a variable | A link with a literal path, `@{/items/{id}(id=${id})}`. |
 
-These workarounds compile but break the page or bring back what the rule prevents, so don't use
-them: a choice of literals that lists the values of an open-ended range (`row-0`, `row-1`, ...), a
-message hard-coded per locale, or a script that copies a value from a JSON block back into a
-`data-*` attribute so an unchanged plugin finds it. A `#{key}` in a neutral attribute is an error.
-A recipe changes the page, and `compare` shows it: write down which recipe caused each difference.
-If it edits a content-hashed asset, mask the hash narrowly.
+Don't list an open-ended range as literals (`row-0`, `row-1`, ...), hard-code a message per locale,
+or copy a JSON value back into a `data-*` attribute for an unchanged plugin. A recipe changes the
+page: write down which recipe caused each `compare` difference, and mask a changed asset hash narrowly.
 
 <!-- compile: template guide/recipes/hidden-inputs.html -->
 ```html
@@ -558,10 +540,9 @@ public final class NoticeFunctions {
 
 The builder accepts only names from a closed set, `HtmlPolicy.ELEMENTS` and
 `HtmlPolicy.ATTRIBUTES`, and class names or prefixes, never `"*"`. Whatever the policy, images stay
-same-origin paths and ids get the prefix `user-content-`.
-Don't parse stored HTML in Java into records and
-rebuild it with a fragment that inserts itself: the compiler rejects it, because the page's
-structure would depend on data.
+same-origin paths and ids get the prefix `user-content-`. A kept `img` makes the browser send a
+same-origin GET with the user's cookies, so don't serve state-changing GETs. Don't parse stored
+HTML in Java into records and rebuild it with a self-inserting fragment (`STRUCTURE_DEPENDS_ON_DATA`).
 
 **Inline HTML in a paragraph, heading, link or button.** A `SafeHtml` may hold blocks, so the
 compiler rejects it inside an open `<p>`, heading, `<a>` or `<button>` (`RAW_CLOSES_ELEMENT`): a
@@ -779,8 +760,11 @@ link with a literal path starting with `/` (or a choice of such links); `method`
 nest. Any other form's computed `action` is held to the link rule too, since client code may submit
 it and swap in the response. A static action to another origin is allowed and gets no token. The
 compiler's error names the fix in each case. A form that writes its own `_csrf` hidden input as a
-direct, unconditional child keeps it and gets no second one. htmx requests are outside the
-guarantee: use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
+direct, unconditional child keeps it and gets no second one. For htmx or `fetch`, put the token in
+the model (a `@ControllerAdvice` `@ModelAttribute("csrfToken")` reading the request's `CsrfToken`),
+declare it at the top of a script, `const csrfToken = [[${csrfToken}]];`, and send it as the
+`X-CSRF-TOKEN` header (htmx: in an `htmx:configRequest` listener). Use htmx 2 or set
+`htmx.config.selfRequestsOnly = true`.
 
 ### 4.8 Fragments and layouts
 
@@ -821,8 +805,7 @@ parameters.
   `.class` selectors.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
 - The compiler checks each fragment where it is inserted, so a `~{::tr}` goes into a `<tbody>`
-  but not a `<div>`. An SVG icon fragment is a whole, static `<svg>`: nothing inside an `<svg>`
-  is computed (4.4). Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
+  but not a `<div>`. Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
 - Every `t:if`, `t:unless`, `t:case` and `t:each` body, and every fragment, must close what it
   opens and leave open what it finds open, so what follows parses the same however often it is
   written (`[verifier:UNBALANCED]`). Two shapes need a change when porting:
@@ -960,8 +943,10 @@ leading `/` is dropped; other names fall through to other resolvers). Path varia
 parameters of the same name. A model value of the wrong type fails with `TemplateModelException`.
 `return "owners/list :: rows";` renders only the fragment `rows`, its parameters filled from the
 model, for an htmx or Turbo partial response; arguments and selectors in the view name aren't
-supported. Don't return a `Template` from a controller: no handler takes it, so Spring stores it as a
-model attribute and renders a view name derived from the URL. Return the view name.
+supported. A partial of `<option>`s is declared outside the `<select>`, in its own template
+(`<t:block t:fragment="options(List<Team> teams)"><option t:each="...">`); the page's `<select>`
+holds `<t:block t:replace="~{teams/options :: options(teams)}">`; the htmx handler returns
+`"teams/options :: options"`. Don't return a `Template` from a controller: return the view name.
 
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
@@ -971,17 +956,14 @@ templates: Java can't build one, and a page (`t:params`) or a function can't tak
 took one becomes a fragment its callers pass `~{...}`.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
-writes gets the request's nonce, and the page is sent with `Content-Security-Policy: script-src
-'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`, with or without Spring Security.
-A policy the application sets wins: Spring Security's `contentSecurityPolicy(...)` or your own
-filter's header (use `CspNonce.get(request)` for the nonce). The starter's filter,
-`dev.tessera.spring.view.CspFilter`, runs first and adds the default only when the response commits
-without one. Boot registers it; a servlet container finds it as a `WebApplicationInitializer`.
-Where neither happens (an embedded server you start yourself, a `metadata-complete` `web.xml`, or
-a Boot app importing `TesseraConfiguration`), register it yourself, first, for REQUEST, ASYNC and
-ERROR dispatches; until then the starter logs `CspFilter is not in the filter chain`.
-`tessera.csp.enabled=false` turns the default off. Delete Thymeleaf's `th:nonce`; a nonce
-attribute in a template is an error.
+writes gets the request's nonce, and by default the page is sent with `Content-Security-Policy:
+script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`. A policy the
+application sets wins (Spring Security's `contentSecurityPolicy(...)`, or your filter's header with
+`CspNonce.get(request)`): `dev.tessera.spring.view.CspFilter` adds the default only when the
+response commits without one. Boot and servlet containers register it; elsewhere (your own embedded
+server, a `metadata-complete` `web.xml`, Boot importing `TesseraConfiguration`) register it first,
+for REQUEST, ASYNC and ERROR, or the starter logs `CspFilter is not in the filter chain`. The one
+off switch is `tessera.csp.enabled=false`. Delete `th:nonce`.
 
 ### 4.10 Notes for specific engines
 
@@ -1103,28 +1085,19 @@ Gaps in Tessera today, with what to do instead.
 - **Types.** `java.util.Date` and `Calendar` aren't view-safe: declare `Instant`, `ZonedDateTime`
   or `LocalDate`. `[[...]]` serializes only the properties of the static type and ignores Jackson
   annotations.
-- **Client-side code.** Tessera guarantees what the browser's HTML parser does with the page. What
-  page JavaScript or a client framework later does with the DOM, static markup and standard
-  attribute values is outside that guarantee. Computed text is plain-escaped, so a `{{` in a value
-  renders as `{{`: client frameworks that compile the server's DOM as a template (Vue in-DOM
-  templates, petite-vue, AngularJS) are unsupported, and a strict CSP without `'unsafe-eval'` is
-  the backstop. Pass data to scripts through `[[...]]` declarations or JSON blocks, use htmx 2,
-  and don't mount a client template compiler over server-rendered user data.
-- **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
-  names, the layout dialect, `th:inline`, collection selection and projection, expressions in
-  `<style>` and `on*`, and Kotlin.
+- **Client-side code.** What page JavaScript or a client framework does with the DOM is outside
+  the guarantee (security-model.md §9). Client frameworks that compile the server's DOM as a
+  template (Vue in-DOM templates, petite-vue, AngularJS) are unsupported.
+- **Not supported, by design:** runtime template loading and Kotlin.
 - **Expected output differences:** attributes set by `t:` may move within the tag; a `null`
   attribute value omits the attribute; `<script>` and `<style>` get a CSP
   nonce. `compare` ignores these.
 - **Runtime errors** are model type mismatches, missing primitive parameters, reading a property
   of `null`, `null` link path variables, `first`/`last` of an empty list and `ids.prev` before any
   input. Everything else is a build error.
-- **Verifier errors** end with `[verifier:RULE]`. After its other checks, the compiler runs every
-  template through a spec HTML parser and rejects markup that a browser reads only by error
-  recovery (a second `<body>`, a `<div>` inside a `<p>`, a stray end tag) or where browsers build
-  different trees. The message says what a browser would do and the smallest fix. For an
-  expression inside a fragment, the error is at the call site and names the fragment. Each rule
-  and its fix:
+- **Markup rejections** and their fixes are in this table. Verifier errors end with `[verifier:RULE]`:
+  a spec HTML parser rejects markup a browser reads only by error recovery or where browsers
+  build different trees. For an expression inside a fragment, the error is at the call site.
 
 | Rule | What it means | Fix |
 |---|---|---|
@@ -1136,9 +1109,10 @@ Gaps in Tessera today, with what to do instead.
 | `TEXT_NOT_IN_TEXT` | A value inside a comment, a tag, or right after `&` or `<` | Move it into element text or a `t:` attribute; finish the character reference |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | Static markup around a computed attribute changes which attribute it lands in (an unclosed quote, a duplicate) | Fix the static tag; one attribute per name |
 | `RAW_NOT_FLOW`, `RAW_CLOSES_ELEMENT` | A `SafeHtml`, HTML message or `Fragment` where its markup would leave its place: in a table part, in a `<p>` or heading, inside a link (for a message with links), in a `<select>` | Inline-only HTML in a `<p>`, heading, link or button: a `SafeInlineHtml` (4.4, Inline HTML); otherwise a `<div>` or a cell; split the message (4.5) |
-| `VALUE_IN_FOREIGN` | A value, condition, loop or fragment inside `<svg>` or `<math>` | Static SVG; set what changes outside it with a `t:class` or a CSS variable, one `<svg>` per case, or an `<img>` (4.4) |
+| `VALUE_IN_FOREIGN` | A value, condition, loop, fragment or computed attribute inside or on `<svg>` or `<math>` (`t:if` or `t:replace` on the element itself is fine) | Static SVG. Set what changes outside it: a `t:class` on an HTML parent (`fill: currentColor`), a CSS variable (`<div t:style="\|--progress: ${n}\|">`), one `<svg>` per case under `t:if`, or `<img t:src="@{/icons/x.svg}">` |
 | `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
-| `VALUE_IN_RAW_TEXT` | A value inside `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` | Static content; move the value outside the element |
+| `VALUE_IN_RAW_TEXT` | A value inside `<noscript>` or `<iframe>` | Static content; move the value outside the element |
+| (build error) `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>`, `<frameset>` | Obsolete elements whose parsing Tessera doesn't model | Escaped text (`&lt;`) in a `<pre>`; `<noscript>`; an ordinary layout or an `<iframe>` |
 | `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img>` with the SVG file, or the SVG outside the table |
 | `TABLE_IN_TEMPLATE` | A table part directly in `<template>` | Put the whole `<table>` in the `<template>` |
 | `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |

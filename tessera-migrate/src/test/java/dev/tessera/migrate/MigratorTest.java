@@ -87,7 +87,7 @@ class MigratorTest {
    * #587: migrate has no copy of the compiler's attribute-name rules. A computed name outside HTML
    * (data-*, htmx, Vue, Alpine, AngularJS spellings, a custom element's prop, any other name) is
    * converted like any other attribute, with no rename and no report: the compiler's neutral-value
-   * error and fix-it (guide section 4.4, Migration recipes) are the single source.
+   * error and fix-it (guide section 4.4, Framework-neutral values) are the single source.
    */
   @Test
   void namesOutsideHtmlAreConvertedWithoutRenameOrReport() throws Exception {
