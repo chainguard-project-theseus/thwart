@@ -1,6 +1,5 @@
 package dev.tessera.compiler.html;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
@@ -44,10 +43,6 @@ public final class ParsingContexts {
   static final String UNWRAPPED = "unwrapped";
 
   private static final String SELECT = "select";
-
-  private static final Set<String> RAW_TEXT =
-      Backports.setOf(
-          "title", "textarea", "script", "style", "iframe", "noscript");
 
   private final Map<Element, String> content = new IdentityHashMap<>();
   private final Map<Element, String> place = new IdentityHashMap<>();
@@ -116,9 +111,12 @@ public final class ParsingContexts {
     return context.equals(HTML) ? HTML : "<" + context + ">";
   }
 
-  /** Whether {@code context} is the raw text of an HTML {@code <title>}, {@code <noscript>}, ... */
+  /**
+   * Whether {@code context} is the raw text of an HTML {@code <title>}, {@code <noscript>}, ...: an
+   * element {@link HtmlParser#isRawText} or {@link Contexts#browserRawText} names.
+   */
   public static boolean isRawText(String context) {
-    return RAW_TEXT.contains(context);
+    return HtmlParser.isRawText(context) || Contexts.browserRawText(context);
   }
 
   /**
@@ -158,7 +156,7 @@ public final class ParsingContexts {
         if (name.equals("svg") || name.equals("math") || name.equals(SELECT)) {
           return name;
         }
-        return RAW_TEXT.contains(name) ? name : HTML;
+        return isRawText(name) ? name : HTML;
       default:
         // Inside raw text a browser sees no elements at all; inside <select> it stays in select, and
         // under <svg> or <math> in foreign content (by tag: see HtmlParser).

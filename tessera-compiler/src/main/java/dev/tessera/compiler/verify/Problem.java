@@ -14,20 +14,17 @@ public enum Problem {
   TEXT_IN_TABLE,
   /** A text hole where only head content, whitespace or nothing may appear (before or in head, after body). */
   TEXT_OUTSIDE_BODY,
-  /** An attribute hole that isn't in a double-quoted attribute value. */
+  /**
+   * An attribute hole that isn't in the double-quoted value of the attribute the compiler wrote: outside a
+   * double-quoted value, in another attribute's value, or in a duplicate a browser drops.
+   */
   ATTRIBUTE_NOT_IN_VALUE,
-  /** An attribute hole in a value of a different attribute than the compiler wrote (or a dropped duplicate). */
-  ATTRIBUTE_WRONG_NAME,
   /** A JSON hole outside the script data of an HTML {@code <script>}. */
   JSON_NOT_IN_SCRIPT,
   /** A {@code SafeHtml}, {@code Fragment} value or HTML message outside flow content. */
   RAW_NOT_FLOW,
   /** A fragment that calls itself in ever new parser states (deeper nesting each time), or reaches a bad state only through recursion. */
   STRUCTURE_DEPENDS_ON_DATA,
-  /** A parser engine failed. */
-  ENGINE_FAILURE,
-  /** A skeleton node the verifier can't interpret (an unknown fragment). */
-  UNKNOWN_NODE,
   /**
    * A {@code SafeHtml}, {@code Fragment} value or HTML message where its markup would close, reopen
    * or adopt an element open around it (an open {@code <p>}, {@code <a>}, heading, {@code <form>},

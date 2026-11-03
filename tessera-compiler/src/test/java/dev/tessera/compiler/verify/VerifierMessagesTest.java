@@ -17,7 +17,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,10 +45,6 @@ class VerifierMessagesTest {
   private static final boolean UPDATE = Boolean.getBoolean("tessera.golden.update");
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
 
-  /** Rule ids no template reaches today; {@link #rulesNoTemplateReaches} checks their messages. */
-  private static final Set<Problem> UNREACHABLE_FROM_TEMPLATES =
-      EnumSet.of(Problem.ATTRIBUTE_WRONG_NAME, Problem.UNKNOWN_NODE, Problem.ENGINE_FAILURE);
-
   record Case(String rule, String title, Map<String, String> templates, List<String> expected) {}
 
   @Test
@@ -58,9 +53,7 @@ class VerifierMessagesTest {
     Set<String> covered = cases.stream().map(Case::rule).collect(Collectors.toCollection(TreeSet::new));
     Set<String> want = new TreeSet<>();
     for (Problem p : Problem.values()) {
-      if (!UNREACHABLE_FROM_TEMPLATES.contains(p)) {
-        want.add(p.name());
-      }
+      want.add(p.name());
     }
     StringBuilder out = new StringBuilder();
     List<String> failures = new ArrayList<>();
@@ -131,28 +124,25 @@ class VerifierMessagesTest {
   }
 
   /**
-   * The rule ids no template reaches today, on hand-built skeletons: a duplicate or misread
-   * attribute name (codegen writes each attribute once, and the profile rejects the markup that
-   * could shift a name), a loop that doesn't settle (the profile's balanced elements settle), an
-   * unknown fragment, and an engine that throws.
+   * Messages no template reaches today, on hand-built skeletons: a value in another attribute's value or in a
+   * duplicate a browser drops (codegen writes each attribute once, and the profile rejects the markup that could
+   * shift a name). A skeleton the verifier can't interpret (an unknown fragment) or an engine that fails has no
+   * rule id: it is an internal compiler error.
    */
   @Test
-  void rulesNoTemplateReaches() {
+  void messagesNoTemplateReaches() {
     SourcePos at = new SourcePos("t.html", 1, 1);
     assertEquals("a browser reads this value of 'title' as the value of 'alt', not of 'title'; check the markup"
-        + " before it in the tag [verifier:ATTRIBUTE_WRONG_NAME]",
-        only(Problem.ATTRIBUTE_WRONG_NAME, st("<p alt=\""), attr("title")));
+        + " before it in the tag [verifier:ATTRIBUTE_NOT_IN_VALUE]",
+        only(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p alt=\""), attr("title")));
     assertEquals("a browser keeps only the first 'title' attribute of a tag and drops this one; write the attribute"
-        + " once [verifier:ATTRIBUTE_WRONG_NAME]",
-        only(Problem.ATTRIBUTE_WRONG_NAME, st("<p title=\"a\" title=\""), attr("title")));
-    assertEquals("Tessera can't check what a browser does here: fragment t :: missing is unknown to the verifier;"
-        + " this is a compiler bug, report it with the template [verifier:UNKNOWN_NODE]",
-        only(Problem.UNKNOWN_NODE, new Skeleton.Call(new Skeleton.FragmentId("t", "missing"), Map.of(), at)));
-    String engine = VerifierMessages.message(new Finding(Problem.ENGINE_FAILURE, at, null, null, null, null, null,
-        List.of(), 2, "boom", false));
-    assertEquals("Tessera can't check what a browser does here: the HTML parser it checks with failed (boom);"
-        + " this is a compiler bug, report it with the template [verifier:ENGINE_FAILURE]", engine);
-    checkPlain(engine);
+        + " once [verifier:ATTRIBUTE_NOT_IN_VALUE]",
+        only(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title=\"a\" title=\""), attr("title")));
+    Skeleton.TemplateSkeleton t = new Skeleton.TemplateSkeleton("t",
+        new Skeleton.Seq(List.of(new Skeleton.Call(new Skeleton.FragmentId("t", "missing"), Map.of(), at))), Map.of());
+    IllegalStateException e = assertThrows(IllegalStateException.class, () -> new ContextVerifier(Map.of("t", t)).check(t));
+    assertEquals("t.html:1:1: Tessera can't check what a browser does here: fragment t :: missing is unknown to the"
+        + " verifier; this is a compiler bug, report it with the template", e.getMessage());
   }
 
   private static Skeleton.Static st(String s) {

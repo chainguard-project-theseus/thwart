@@ -118,8 +118,12 @@ class ExitStateTest {
   private void run(String[] wrapper, Node region, Map<String, Seq> frags) throws EngineException {
     cases++;
     Seq whole = seq(st(wrapper[0]), region, st(wrapper[1]));
-    if (!check(whole, frags, null).isEmpty()) {
-      return;
+    try {
+      if (!check(whole, frags, null).isEmpty()) {
+        return;
+      }
+    } catch (IllegalStateException e) {
+      return; // markup right after a computed attribute: a skeleton codegen never writes, rejected (ContextVerifier)
     }
     accepted++;
     // (C) compares the state right after the region: the wrapper's closer would reset most of it.

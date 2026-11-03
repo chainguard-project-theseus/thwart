@@ -269,7 +269,7 @@ escapers is rejected.
 | `TEXT_IN_SCRIPT` | a `text` value in script data or `style` | as above |
 | `TEXT_IN_TABLE` | a `text` value in a table, table body, row or column group | in a cell or caption |
 | `TEXT_OUTSIDE_BODY` | a `text` value before `<html>`, in or after the head, after the body | in body, cell, caption, `template` |
-| `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute value outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote |
+| `ATTRIBUTE_NOT_IN_VALUE` | an attribute value outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote |
 | `JSON_NOT_IN_SCRIPT` | a script value outside the script data of an HTML `<script>` | script data |
 | `RAW_NOT_FLOW` | `SafeHtml`, an HTML message or an unbound `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where its markup would close, reopen or adopt an open element | flow content (section 5) |
@@ -283,7 +283,10 @@ escapers is rejected.
 | `UNBALANCED` | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
 | `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states, or reaches a bad state only through recursion | recursion into the state its call started in |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content); verifier-only, since a fragment declared outside HTML content is a build error first (#776) | a fragment declared in HTML content |
-| `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws; a fragment the skeleton doesn't define; markup right after a computed attribute that isn't whitespace, `/` or `>` | |
+
+A parser that throws, or a skeleton the verifier can't interpret (a fragment it doesn't define, markup
+right after a computed attribute that isn't whitespace, `/` or `>`), has no id: it is an internal
+compiler error, a compiler bug, and the build fails.
 
 A partial (a view whose output doesn't start with a doctype or `<html>`) is checked by fragment
 parsing in the context its first element implies (`tr`: `tbody`; `td`, `th`: `tr`; `option`,

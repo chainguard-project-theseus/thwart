@@ -68,14 +68,16 @@ final class VerifierMessages {
       case TEXT_OUTSIDE_BODY:
         return textOutsideBody(value, s);
       case ATTRIBUTE_NOT_IN_VALUE:
-        return "a browser reads " + value + " " + reading(s) + ", not inside the double-quoted value of '"
-            + f.attribute + "'; check the markup before the tag: a browser ended the tag, or started raw text, there";
-      case ATTRIBUTE_WRONG_NAME:
-        return s != null && s.attributeName() == null
+        if (s == null || s.tokenizer() != TokenizerState.ATTRIBUTE_VALUE_DOUBLE_QUOTED) {
+          return "a browser reads " + value + " " + reading(s) + ", not inside the double-quoted value of '"
+              + f.attribute + "'; check the markup before the tag: a browser ended the tag, or started raw text, there";
+        }
+        // In a double-quoted value, but of another attribute or of a duplicate a browser drops.
+        return s.attributeName() == null
             ? "a browser keeps only the first '" + f.attribute + "' attribute of a tag and drops this one; write"
                 + " the attribute once"
-            : "a browser reads " + value + " as the value of '" + (s == null ? "?" : s.attributeName())
-                + "', not of '" + f.attribute + "'; check the markup before it in the tag";
+            : "a browser reads " + value + " as the value of '" + s.attributeName() + "', not of '" + f.attribute
+                + "'; check the markup before it in the tag";
       case JSON_NOT_IN_SCRIPT:
         return jsonNotInScript(value, s);
       case RAW_NOT_FLOW:
@@ -89,12 +91,6 @@ final class VerifierMessages {
                 : "insert it outside the open element");
       case STRUCTURE_DEPENDS_ON_DATA:
         return structure(f);
-      case ENGINE_FAILURE:
-        return "Tessera can't check what a browser does here: the HTML parser it checks with failed (" + f.detail
-            + "); this is a compiler bug, report it with the template";
-      case UNKNOWN_NODE:
-        return "Tessera can't check what a browser does here: " + f.detail + " is unknown to the verifier;"
-            + " this is a compiler bug, report it with the template";
       case PARSE_ERROR:
         return parseError(f.detail);
       case FOREIGN_IN_TABLE:

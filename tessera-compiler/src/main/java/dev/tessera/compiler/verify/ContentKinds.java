@@ -5,7 +5,6 @@ import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -34,10 +33,6 @@ import java.util.Set;
  */
 public final class ContentKinds {
   private ContentKinds() {}
-
-  /** Modes in which a flow element is handled by the "in body" rules and leaves the mode as it was. */
-  private static final Set<InsertionMode> FLOW_MODES =
-      EnumSet.of(InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
 
   /** HTML elements that end the default scope ("has an element in scope"). */
   private static final Set<String> SCOPE_HTML =
@@ -70,7 +65,7 @@ public final class ContentKinds {
   public static Problem problem(ParserState s, Skeleton.Source source) {
     OpenElement current = s.currentNode();
     if (s.tokenizer() != TokenizerState.DATA || !s.pendingInput().isEmpty() || current == null
-        || !OpenElement.HTML.equals(current.namespace()) || !FLOW_MODES.contains(s.mode())) {
+        || !OpenElement.HTML.equals(current.namespace()) || !Rules.IN_BODY_MODES.contains(s.mode())) {
       return Problem.RAW_NOT_FLOW;
     }
     return closer(s, source) == null ? null : Problem.RAW_CLOSES_ELEMENT;
