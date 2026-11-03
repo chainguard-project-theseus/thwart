@@ -15,6 +15,8 @@ import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -94,6 +96,7 @@ public final class FieldProcessor implements AttributeProcessor {
             content);
         break;
       case "select":
+        insertedOptions(ctx, plan.element());
         nameAndId(plan, attr, name, id);
         marker(ctx, attr, plan, name, true);
         // The options compare with the field's value, path and object name (evaluated once).
@@ -303,6 +306,24 @@ public final class FieldProcessor implements AttributeProcessor {
             + value
             + ") ? \"selected\" : null",
         plan.element().pos());
+  }
+
+  /**
+   * {@link #option} marks only the options written inside the {@code <select t:field>}: an inserted
+   * one (a fragment, a Fragment value) doesn't see the field and would never be selected (#657).
+   */
+  private static void insertedOptions(CodegenContext ctx, Element e) {
+    for (String name : new String[] {"insert", "replace"}) {
+      e.attribute(Attribute.PREFIX + name)
+          .ifPresent(a -> ctx.diagnostics().error(a.pos(), a.name() + " inside a <select t:field> is not supported:"
+              + " inserted options don't see the field, so none would be selected; write the options inside the"
+              + " <select t:field>, e.g. <option t:each=\"i : items\" t:value=\"i\" t:text=\"i\">"));
+    }
+    for (Node child : e.children()) {
+      if (child instanceof Element) {
+        insertedOptions(ctx, (Element) child);
+      }
+    }
   }
 
   /** Java code (type String) for an output attribute's value, or null if absent. */
