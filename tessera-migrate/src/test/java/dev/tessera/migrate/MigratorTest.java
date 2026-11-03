@@ -571,7 +571,11 @@ class MigratorTest {
             + " as `@RequestParam(name = \"error\", required = false) String error`, add it to the model",
         "4: `application.version` reads an application (servlet context) attribute",
         "5: `_csrf.token` reads Spring Security's CSRF token request attribute, which a Tessera template cannot see;"
-            + " the starter already adds the `_csrf` hidden input to every same-origin POST form",
+            + " the starter already adds the `_csrf` hidden input to every same-origin POST form, so delete a"
+            + " hand-written one; for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from"
+            + " a `@ModelAttribute(\"token\")` method in a `@ControllerAdvice`, declare it in `t:params` and read it as"
+            + " `token` (guide section 1) in a script declaration (`var token = [[${token}]];`, guide section 4.4), not a"
+            + " `<meta>`",
         "6: `param['q']` reads a request parameter, which a Tessera template cannot see; in the controller take it"
             + " as `@RequestParam(name = \"q\"",
         "6: `session` reads the HTTP session, which a Tessera template cannot see; in the controller add `value`",
