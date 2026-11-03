@@ -1,6 +1,7 @@
 package dev.tessera.compiler.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.SourcePos;
@@ -106,11 +107,11 @@ class ContextVerifierRulesTest {
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title="), attr("title"));
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p>"), attr("title"));
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title=\"a\" "), attr("title"));
-    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<p alt=\""), attr("title"));
-    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<p title=\"a\" title=\""), attr("title")); // dropped duplicate
+    reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p alt=\""), attr("title"));
+    reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title=\"a\" title=\""), attr("title")); // dropped duplicate
     // A browser folds A-Z only: \u017Frc (long s) is not src, \u212Aind (Kelvin sign) is not kind.
-    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<img \u017Frc=\""), attr("src"));
-    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<track \u212Aind=\""), attr("kind"));
+    reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<img \u017Frc=\""), attr("src"));
+    reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<track \u212Aind=\""), attr("kind"));
   }
 
   @Test
@@ -440,16 +441,21 @@ class ContextVerifierRulesTest {
     nodes.add(text());
     accept(nodes.toArray(new Node[0]));
     // Neither attribute written: what follows the tag name must still end it.
-    reject(Problem.UNKNOWN_NODE, st("<input"),
+    internalError(st("<input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" b=\""), attr("b"), st("\"")), pos()), st("x>"));
+    // A value right after it, text or raw HTML, is no markup codegen writes either.
+    internalError(st("<input"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()), text());
+    internalError(st("<input"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()), raw());
     // After a static boolean attribute: written, a '=' or a name right after it would be a parse
     // error, so the written path is the stricter one (#682).
     accept(st("<input disabled"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(" />"));
     accept(st("<input disabled "),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(">"));
-    reject(Problem.UNKNOWN_NODE, st("<input disabled"),
+    internalError(st("<input disabled"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st("=x>"));
     // Skipped, these give the boolean attribute a value; only the written path's parse error rejects them.
     reject(Problem.PARSE_ERROR, st("<input disabled "),
@@ -540,7 +546,7 @@ class ContextVerifierRulesTest {
 
   @Test
   void anUnknownFragmentFailsClosed() {
-    reject(Problem.UNKNOWN_NODE, call("missing"));
+    internalError(call("missing"));
   }
 
   @Test
@@ -685,5 +691,11 @@ class ContextVerifierRulesTest {
     List<Finding> f = check(fragments, seq(nodes));
     assertTrue(problems(f).contains(expected),
         seq(nodes) + " -> " + f.stream().map(VerifierMessages::message).collect(Collectors.toList()));
+  }
+
+  /** A skeleton codegen never writes: an internal compiler error, with no rule id. */
+  private static void internalError(Node... nodes) {
+    IllegalStateException e = assertThrows(IllegalStateException.class, () -> check(seq(nodes)));
+    assertTrue(e.getMessage().endsWith("this is a compiler bug, report it with the template"), e.getMessage());
   }
 }
