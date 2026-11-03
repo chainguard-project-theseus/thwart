@@ -946,7 +946,9 @@ model, for an htmx or Turbo partial response; arguments and selectors in the vie
 supported. A partial of `<option>`s is declared outside the `<select>`, in its own template
 (`<t:block t:fragment="options(List<Team> teams)"><option t:each="...">`); the page's `<select>`
 holds `<t:block t:replace="~{teams/options :: options(teams)}">`; the htmx handler returns
-`"teams/options :: options"`. Don't return a `Template` from a controller: return the view name.
+`"teams/options :: options"`. A `<select t:field>` can't take inserted options (none would be
+selected): the partial is the whole select, in a `t:fragment` that also holds the `t:object`.
+Don't return a `Template` from a controller: return the view name.
 
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
@@ -1119,6 +1121,7 @@ Gaps in Tessera today, with what to do instead.
 | `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` (4.4, Rich text) |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | Verifier-only: a fragment declared outside HTML content is the build error in the next row first | Declare it in HTML content |
 | (build error) `t:fragment in <svg> content is not supported`, `~{::a} selects an element in <svg> content` | A `t:fragment`, or an element `~{::selector}` picks, inside `<svg>`, `<math>`, `<select>`, raw text (`<noscript>`, `<title>`, ...) or `t:remove="tag"` content | Declare the fragment outside it (directly under `<body>` or in its own file) and insert it there |
+| (build error) `t:insert inside a <select t:field> is not supported` | `t:insert` or `t:replace` in a `<select t:field>`: inserted options would never be selected | Write the options inside the select (a `t:each`); for a partial, see 4.9 |
 | (build error) `t:attr is not supported` | Thymeleaf's `th:attr`, which set several attributes from one value | One `t:<name>` per attribute: `t:attr="title=a, href=b"` becomes `t:title="a" t:href="b"` |
 | (build error) `t:errorclass is not supported` | Thymeleaf's `th:errorclass`, which added a class when the `t:field` had errors | `t:classappend="fields.hasErrors(*{email}) ? 'has-error'"` with the element's `t:field` path; if the element has a `t:classappend` already, join both conditions into that one |
 | (build error) `t:remove="body" is not supported` (also `all-but-first`, `none`) | A `t:remove` value other than `all` and `tag` | Edit the template to the result: delete the content, every child element but the first, or the attribute |
