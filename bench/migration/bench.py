@@ -270,6 +270,8 @@ def browser_report(app, run_dir):
     paths = [os.path.join(RESULTS, app, "baseline", "browser", "browser.json"),
              os.path.join(run_dir, "check", "browser", "browser.json")]
     if not all(os.path.exists(p) for p in paths):
+        if os.path.exists(os.path.join(run_dir, "browser.txt")):
+            os.remove(os.path.join(run_dir, "browser.txt"))  # from an earlier check
         return None
     base, got = ({p["n"]: p for p in json.load(open(path))["pages"]} for path in paths)
     lines, totals = [], {"csp": 0, "exception": 0, "console": 0, "not loaded": 0}
@@ -296,7 +298,6 @@ def browser_report(app, run_dir):
 
 
 def score(app, run_dir):
-    previous = read_text(os.path.join(run_dir, "score.json"))
     base = load_check(os.path.join(RESULTS, app, "baseline"))
     got = load_check(os.path.join(run_dir, "check"))
     engine = config(app)["engine"]
@@ -359,8 +360,9 @@ def score(app, run_dir):
     s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
                  and identical + reordered == len(base["pages"]) and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
-    # Report only. Without browser.json files (gitignored), keep the last result.
-    s["browser"] = browser_report(app, run_dir) or (json.loads(previous).get("browser") if previous else None)
+    # Report only. None (shown as "-") when the browser check left no browser.json, for example
+    # when the app no longer builds: a stale result is never carried over.
+    s["browser"] = browser_report(app, run_dir)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     transcript = os.path.join(run_dir, "transcript.jsonl")
     if os.path.exists(transcript):  # gitignored, so absent in a fresh clone; agent.json has the totals
