@@ -11,10 +11,11 @@ environment:
     MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
 checks:
   example:
-    description: Builds examples/gradle with Gradle against the installed artifacts (#427).
+    description: Builds and tests the Spring Boot app in examples/gradle with Gradle against the installed artifacts (#427, #794).
     trigger: [presubmit, postsubmit]
     resources: medium
     timeout: 15m
     network:
+      # The Spring Boot Gradle plugins resolve from Maven Central (examples/gradle/settings.gradle).
       egress: [repo.maven.apache.org, repo1.maven.org]
-    cmd: [bash, -c, "mvn -B -ntp install -DskipTests -pl tessera-compiler -am && sh examples/gradle/verify.sh"]
+    cmd: [bash, -c, "mvn -B -ntp install -DskipTests -pl tessera-compiler,tessera-spring-boot-starter -am && sh examples/gradle/verify.sh"]
