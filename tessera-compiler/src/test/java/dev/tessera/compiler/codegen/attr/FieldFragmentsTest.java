@@ -98,6 +98,61 @@ class FieldFragmentsTest {
   }
 
   @Test
+  void optionsInsertedIntoFieldSelectAreRejected() {
+    // #657: only the options written inside a <select t:field> see the field; inserted ones would
+    // render with nothing selected, so any t:insert or t:replace in it is a build error.
+    Compilation.Builder b =
+        model()
+            .template(
+                "opts.html",
+                "<div " + NS + "><t:block t:fragment=\"opts(List<String> items)\">"
+                    + "<option t:each=\"i : items\" t:value=\"i\" t:text=\"i\">x</option></t:block></div>");
+    String head =
+        "<form " + NS + " t:import=\"com.example.*\" t:params=\"Owner owner, List<String> pets\" t:object=\"owner\">\n";
+    String rule = " inside a <select t:field> is not supported: inserted options don't see the field";
+    String[][] cases = {
+      {"<select t:field=\"*{pet}\"><t:block t:replace=\"~{opts :: opts(pets)}\"></t:block></select>", "2:35", "t:replace"},
+      {"<select t:field=\"*{pet}\" t:insert=\"~{opts :: opts(pets)}\"></select>", "2:26", "t:insert"},
+      {"<select t:field=\"*{pet}\" t:replace=\"~{opts :: opts(pets)}\"></select>", "2:26", "t:replace"},
+      {"<select t:field=\"*{pet}\"><optgroup label=\"g\"><option t:insert=\"~{opts :: opts(pets)}\"></option>"
+          + "</optgroup></select>", "2:54", "t:insert"},
+      {"<select t:field=\"*{pet}\"><t:block t:if=\"${pets != null}\"><t:block t:insert=\"~{opts :: opts(pets)}\">"
+          + "</t:block></t:block></select>", "2:67", "t:insert"},
+    };
+    // (A Fragment value, a layout's slot, is already an error anywhere in <select> content.)
+    for (String[] c : cases) {
+      Compilation r = b.template("form.html", head + c[0] + "</form>").compile();
+      r.assertError("form.html:" + c[1], c[2] + rule);
+      assertEquals(1, r.errors().size(), r.errors().toString());
+    }
+    // In a Field fragment too, and the error names the fragment's template.
+    model()
+        .template("opts.html", "<div " + NS + "><option t:fragment=\"opt\">a</option></div>")
+        .template(
+            "sel.html",
+            "<div " + NS + ">\n<t:block t:fragment=\"sel(Field name)\"><select t:field=\"${name}\">"
+                + "<option t:replace=\"~{opts :: opt}\"></option></select></t:block></div>")
+        .template("form.html", head + "<div t:replace=\"~{sel :: sel('pet')}\"></div></form>")
+        .compile()
+        .assertError("sel.html:2:", "t:replace" + rule);
+    // The guide's recipe (section 4.9): an htmx partial of a <select t:field> is the whole select
+    // under its t:object, rendered as the view "sel :: sel".
+    Compilation ok =
+        model()
+            .template(
+                "sel.html",
+                "<div " + NS + " t:import=\"com.example.*\"><t:block t:fragment=\"sel(Owner owner, List<String> pets)\""
+                    + " t:object=\"owner\"><select t:field=\"*{pet}\"><option t:each=\"i : pets\" t:value=\"i\""
+                    + " t:text=\"i\">x</option></select></t:block></div>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<select id=\"pet\" name=\"pet\"><option value=\"cat\">cat</option>"
+            + "<option value=\"dog\" selected=\"selected\">dog</option></select>",
+        ok.render("sel :: sel", Map.of("owner", owner(ok, "Ann", null), "pets", List.of("cat", "dog")), ctx(new TestForms())));
+  }
+
+  @Test
   void fieldArgumentAsFragmentValue() {
     // A Field argument inside a ~{...} Fragment argument is evaluated by the caller, in its t:object.
     Compilation c =
