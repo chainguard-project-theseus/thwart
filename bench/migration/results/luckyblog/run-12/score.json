@@ -22,6 +22,17 @@
  "tessera_templates": 20,
  "baseline_templates": 21,
  "pass": false,
+ "browser": {
+  "new": 0,
+  "pages": 0,
+  "loaded": 64,
+  "total": 64,
+  "base_loaded": 64,
+  "csp": 0,
+  "exception": 0,
+  "console": 0,
+  "not loaded": 0
+ },
  "wall_minutes": 11.5,
  "exit": 0,
  "model": "opus",

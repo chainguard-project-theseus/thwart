@@ -6,6 +6,7 @@ usage: bench.py [all|image|baseline|migrate|recheck|rescore|report] [--runs N] [
 """
 
 import argparse
+import collections
 import concurrent.futures
 import json
 import os
@@ -94,9 +95,10 @@ def docker(mounts, env, cmd, out=None, memory="4g"):
     return subprocess.run(args + [IMAGE] + cmd, stdout=out, stderr=subprocess.STDOUT if out else None)
 
 
-def check(app, app_dir, out_dir, recording=None):
+def check(app, app_dir, out_dir, recording=None, browser=False):
     """Build, crawl and test a checkout inside the container. Without a recording the pages are
     recorded into out_dir/pages; with one they are compared against it (out_dir/compare.txt).
+    With browser=True it is the browser smoke check instead (out_dir/browser.json; no tests).
     The original and the migrated app build, test and run on the app's JDK (Tessera supports 8+)."""
     cfg = config(app)
     shutil.rmtree(out_dir, ignore_errors=True)
@@ -104,6 +106,8 @@ def check(app, app_dir, out_dir, recording=None):
     jdk = JDKS[cfg.get("java", 21)]
     env = {k: cfg[k.lower()] for k in ("BUILD", "TEST", "START", "READY", "BASE")}
     env.update(BUILD_JDK=jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
+    if browser:
+        env["BROWSER"] = "1"
     # /bench/app is the app's fixture directory (pages.txt, seed data, helper scripts) for its commands.
     mounts = [(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
               (os.path.join(HERE, "apps", app), "/bench/app:ro"),
@@ -123,6 +127,7 @@ def baseline(app):
     checkout(app, src)
     out = os.path.join(RESULTS, app, "baseline")
     check(app, src, out)
+    check(app, src, os.path.join(out, "browser"), browser=True)
     again = os.path.join(WORK, "determinism", app)
     check(app, src, again, recording=os.path.join(out, "pages"))
     compare = read_text(os.path.join(again, "compare.txt"))
@@ -231,7 +236,67 @@ def agent_usage(transcript):
             "tokens": usage}
 
 
+def baseline_browser(app):
+    """The original app's browser smoke check (results/<app>/baseline/browser/), if it is missing:
+    from the baseline checkout, which is cloned again if work/ doesn't have it."""
+    out = os.path.join(RESULTS, app, "baseline", "browser")
+    if os.path.exists(os.path.join(out, "browser.json")):
+        return
+    src = os.path.join(WORK, "baseline", app)
+    if not os.path.isdir(src):
+        checkout(app, src)
+    check(app, src, out, browser=True)
+
+
+# Line and column numbers move when markup moves; nonces differ per response.
+BROWSER_NOISE = re.compile(r"(?<=\S):\d+(:\d+)?(?=[)\s]|$)|(?<=nonce-)[\w+/=-]+")
+
+
+def browser_messages(page):
+    """A page's browser findings as normalized one-line messages (kind: text)."""
+    msgs = [f"csp: {c['directive']} blocked {c['blocked'] or 'inline'} in {c['source'] or 'attribute'}"
+            for c in page.get("csp", [])]
+    for kind in ("exceptions", "console"):
+        for e in page.get(kind, []):
+            text = (e["text"].strip().splitlines() or [""])[0]
+            msgs.append(f"{kind[:-1] if kind == 'exceptions' else kind}: {text}" + (f" ({e['url']})" if e.get("url") else ""))
+    return [BROWSER_NOISE.sub("", m) for m in msgs]
+
+
+def browser_report(app, run_dir):
+    """What the migrated app's pages log in the browser at load that the original's don't, per
+    page (run_dir/browser.txt). Report only: it doesn't change the Pass verdict. None when either
+    browser.json is missing."""
+    paths = [os.path.join(RESULTS, app, "baseline", "browser", "browser.json"),
+             os.path.join(run_dir, "check", "browser", "browser.json")]
+    if not all(os.path.exists(p) for p in paths):
+        return None
+    base, got = ({p["n"]: p for p in json.load(open(path))["pages"]} for path in paths)
+    lines, totals = [], {"csp": 0, "exception": 0, "console": 0, "not loaded": 0}
+    for n, page in sorted(got.items()):
+        before = base.get(n, {})
+        new = list((collections.Counter(browser_messages(page)) - collections.Counter(browser_messages(before))).elements())
+        if before.get("loaded") and not page.get("loaded"):
+            new.insert(0, f"not loaded: {page.get('error', 'no load event')}")
+        if new:
+            lines.append(f"{n:03d} {page['request']}")
+            lines += [f"   {m}" for m in new]
+            for m in new:
+                totals[m.split(":", 1)[0]] += 1
+    s = {"new": sum(totals.values()), "pages": sum(1 for l in lines if not l.startswith(" ")),
+         "loaded": sum(1 for p in got.values() if p.get("loaded")), "total": len(got),
+         "base_loaded": sum(1 for p in base.values() if p.get("loaded")), **totals}
+    head = [f"# Browser smoke check (lib/browser.py): CSP violations, uncaught exceptions and console errors at",
+            "# page load that the migrated app has and the original doesn't, per page. Report only.",
+            f"# {s['new']} new on {s['pages']} pages ({s['csp']} CSP, {s['exception']} exceptions, {s['console']} console,"
+            f" {s['not loaded']} not loaded); {s['loaded']}/{s['total']} pages loaded (original {s['base_loaded']})"]
+    with open(os.path.join(run_dir, "browser.txt"), "w") as f:
+        f.write("\n".join(head + lines) + "\n")
+    return s
+
+
 def score(app, run_dir):
+    previous = read_text(os.path.join(run_dir, "score.json"))
     base = load_check(os.path.join(RESULTS, app, "baseline"))
     got = load_check(os.path.join(run_dir, "check"))
     engine = config(app)["engine"]
@@ -294,6 +359,8 @@ def score(app, run_dir):
     s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
                  and identical + reordered == len(base["pages"]) and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
+    # Report only. Without browser.json files (gitignored), keep the last result.
+    s["browser"] = browser_report(app, run_dir) or (json.loads(previous).get("browser") if previous else None)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     transcript = os.path.join(run_dir, "transcript.jsonl")
     if os.path.exists(transcript):  # gitignored, so absent in a fresh clone; agent.json has the totals
@@ -349,6 +416,7 @@ def finish(app, k):
         shutil.copy(report, run_dir)
 
     check(app, app_dir, os.path.join(run_dir, "check"), os.path.join(RESULTS, app, "baseline", "pages"))
+    check(app, app_dir, os.path.join(run_dir, "check", "browser"), browser=True)
     s = score(app, run_dir)
     print(f"{app} run-{k}: pass={s['pass']} {summary_line(load_check(os.path.join(run_dir, 'check')))}"
           f" identical={s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} {s['wall_minutes']}min"
@@ -369,7 +437,7 @@ def report():
                 rows.append(s)
                 per_app.setdefault(app, []).append(s)
     out = ["| App | Run | Pass | Build | Tests | Pages identical+reordered | Status diffs | Insecure | Legacy left"
-           " | Skill | Minutes | Cost $ | Output tokens |", "|" + "---|" * 13]
+           " | Browser (report only) | Skill | Minutes | Cost $ | Output tokens |", "|" + "---|" * 14]
     for s in rows:
         t = s["tests"]
         tests = f"{(t['tests'] or 0) - (t['failures'] or 0) - (t['errors'] or 0)}/{t['tests'] or 0} (base {s['baseline_tests']})"
@@ -380,9 +448,11 @@ def report():
         run = s["run"] + (" (crawl.py)" if old else "")
         # Runs before #174 had the guide mounted instead of the plugin: no skill to invoke.
         skill = "-" if "skill_invoked" not in s else "invoked" if s["skill_invoked"] else "no"
+        b = s.get("browser")  # runs before #790 had no browser check
+        browser = f"{b['new']} new errors on {b['pages']} pages" if b else "-"
         out.append(f"| {s['app']} | {run} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
-                   f" | {', '.join(s['insecure']) or '-'} | {legacy} | {skill} | {s['wall_minutes']} | {cost}"
+                   f" | {', '.join(s['insecure']) or '-'} | {legacy} | {browser} | {skill} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
     # Held-out apps ("heldout": true) only measure the guide and tools, and below-floor apps
     # ("belowfloor": true) are older than Tessera supports, so each gets its own table. Apps can
@@ -435,12 +505,18 @@ def main():
             sys.exit("ANTHROPIC_API_KEY is required")
         tasks = [(a, k) for k in range(args.first_run, args.first_run + args.runs) for a in names]
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+            list(ex.map(baseline_browser, names))  # for a baseline recorded before #790
             for f in [ex.submit(migrate, a, k, args) for a, k in tasks]:
                 f.result()
     if args.cmd in ("recheck", "rescore"):
         # recheck: build, crawl and test each migrated checkout again (after a pages.txt change);
         # rescore: score the existing check output again (after a scoring change). Runs scored by
-        # the old Python crawler (#115: pages.diff, no compare.txt) are left as they are.
+        # the old Python crawler (#115: pages.diff, no compare.txt) are left as they are. recheck
+        # also runs the browser smoke check, of the original app first if it has none yet, and
+        # skips runs without a work/runs checkout (README: rebuilding one from diff.patch).
+        if args.cmd == "recheck":
+            with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+                list(ex.map(baseline_browser, names))
         for a in names:
             for run in sorted(os.listdir(os.path.join(RESULTS, a))):
                 d = os.path.join(RESULTS, a, run)
@@ -450,8 +526,12 @@ def main():
                     print(f"{a} {run}: old-format run (pages.diff), left as it is")
                     continue
                 if args.cmd == "recheck":
-                    check(a, os.path.join(WORK, "runs", a, run), os.path.join(d, "check"),
-                          os.path.join(RESULTS, a, "baseline", "pages"))
+                    src = os.path.join(WORK, "runs", a, run)
+                    if not os.path.isdir(src):
+                        print(f"{a} {run}: no checkout in work/runs, not rechecked")
+                        continue
+                    check(a, src, os.path.join(d, "check"), os.path.join(RESULTS, a, "baseline", "pages"))
+                    check(a, src, os.path.join(d, "check", "browser"), browser=True)
                 if os.path.exists(os.path.join(d, "check", "compare.txt")):
                     score(a, d)
                 else:

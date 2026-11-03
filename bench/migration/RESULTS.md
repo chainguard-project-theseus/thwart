@@ -1409,6 +1409,71 @@ Tooling and harness:
 - `hack/corpus.sh` needs `npm` for ewp-registry, which the bench session env lacks.
 - compare cuts long diffs short (budgetmaster, 39 pages).
 
+## Browser smoke check (#790)
+
+`compare` never runs JavaScript, so the round above couldn't show whether the listeners that
+replaced `on*` handlers (#768) still wire up, or whether page scripts survive the default CSP
+(#772/#777). `lib/browser.py` (README, step 4) replays each `pages.txt` in headless Chromium
+against the original and the migrated app and reports, per page, only the CSP violations,
+uncaught exceptions and console errors that are new in the migrated app. It checks load-time
+behaviour only, and it is report only. No agent ran: the five runs of the round above were rebuilt
+from their committed `diff.patch` and rechecked (`bench.py baseline`, then `recheck`) on a fresh
+image. Their compare and test results are unchanged.
+
+Every request was replayed. POSTs are submitted as forms with the page's `_csrf`, as record does,
+so none was skipped. Original and migrated app got the same status and final URL on every page.
+One budgetmaster page (`/keywords/keywordCheck`, a 204) loads no document in either app.
+
+| Run | Pages loaded | New CSP violations | New exceptions | New console errors | Pages with new errors |
+|---|---|---|---|---|---|
+| luckyblog 12 | 64/64 | 0 | 0 | 0 | 0 |
+| purl-server 12 | 92/92 | 0 | 0 | 0 | 0 |
+| fredbet 14 | 169/169 | 3 | 3 | 0 | 3 |
+| budgetmaster 13 | 120/121 | 93 | 0 | 0 | 93 |
+| posters-demo-store 1 | 141/141 | 0 | 0 | 0 | 0 |
+
+The originals have noise of their own (budgetmaster 13 exceptions and 4 console errors,
+posters-demo-store 6 and 1, purl-server 7 console errors, luckyblog 4, fredbet 2), and the
+migrated apps have exactly the same. No listener script throws at load and no data read fails in
+any app. That includes luckyblog's and purl-server's new `data-action` listeners,
+posters-demo-store's htmx setup that reads the CSRF constant, and budgetmaster's chart (Plotly) and
+chart-editor (CodeMirror) pages.
+
+### Triage
+
+| Run | Pages | New finding | Cause | Class |
+|---|---|---|---|---|
+| fredbet 14 | 3 (066 `/image/show`, 074-075 `/image/upload`) | `script-src` blocks `eval`, then an `EvalError` in `js/jquery-rotate.js` | The vendored jQuery Rotate plugin runs `eval('"v"=="\v"')` (an old IE check) at load. Under the default CSP (no `'unsafe-eval'`) it throws, so the plugin never defines `$.fn.rotate`, and the upload page's rotate buttons don't work | CSP-blocked script (real breakage) |
+| budgetmaster 13 | 93 (every page with Materialize) | `base-uri` blocks the page's own URL, from `materialize.min.js` | Materialize's bundled cash-dom `parseHTML` makes an inert document with `createHTMLDocument` and appends a `<base href=location.href>` to it. `base-uri 'none'` blocks that `<base>`. The parsed nodes resolve their URLs against the live page once they are inserted, so nothing visible breaks, but every page logs (and would report) a violation | CSP-blocked `<base>` (harmless, noisy) |
+
+No finding was a CSP-blocked inline script or style, broken listener wiring or missing data.
+One finding was harness noise, fixed before these numbers: with Chromium's cache on, fredbet's
+first-login interceptor (which redirects every request, static files included, until the password
+changes) showed up on a page in one app and not the other, depending on what the cache held. The
+check now disables the cache.
+
+### Gaps
+
+No issues were filed.
+
+Guide:
+- Nothing tells the migrating agent that the default CSP forbids `eval` and `new Function`, or how
+  to check the app's own and vendored scripts for them (fredbet's jQuery Rotate). `compare` can't
+  catch it; only this check does.
+
+Tessera:
+- `base-uri 'none'` flags jQuery-style `parseHTML` helpers (cash-dom in Materialize) on every
+  page. `'self'` would avoid the noise; if `'none'` stays, the guide should say these reports are
+  harmless.
+
+Tooling and harness:
+- Load-time only: a handler that throws only when it fires is not seen, and Chromium reports a
+  CSP-blocked inline `on*` attribute only when it fires (Tessera rejects static ones anyway, #768).
+- A page script that navigates (luckyblog's post form moves on to `/admin/blog_add`, a 404 in both
+  apps) is checked where it ends up.
+- Chromium runs with `--ignore-certificate-errors`, so CDN scripts load behind the session's TLS
+  proxy.
+
 ## Limitations
 
 - **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9, 10, 11 and the post-rewrite round, and two or three on the new engines before run 10; the hard apps vary between runs.

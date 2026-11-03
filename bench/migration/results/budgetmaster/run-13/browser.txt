@@ -1,0 +1,189 @@
+# Browser smoke check (lib/browser.py): CSP violations, uncaught exceptions and console errors at
+# page load that the migrated app has and the original doesn't, per page. Report only.
+# 93 new on 93 pages (93 CSP, 0 exceptions, 0 console, 0 not loaded); 120/121 pages loaded (original 120)
+004 POST /login username=Default&password=BudgetMaster
+   csp: base-uri blocked http://localhost:9000/ in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+005 GET /today?target=/
+   csp: base-uri blocked http://localhost:9000/ in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+006 GET /firstUse
+   csp: base-uri blocked http://localhost:9000/firstUse in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+007 GET /about
+   csp: base-uri blocked http://localhost:9000/about in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+009 GET /hotkeys
+   csp: base-uri blocked http://localhost:9000/hotkeys in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+010 GET /statistics
+   csp: base-uri blocked http://localhost:9000/statistics in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+011 GET /tags
+   csp: base-uri blocked http://localhost:9000/tags in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+013 GET /accounts
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+014 GET /accounts/newAccount
+   csp: base-uri blocked http://localhost:9000/accounts/newAccount in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+015 POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+   csp: base-uri blocked http://localhost:9000/accounts/newAccount in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+016 POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Default Account&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+   csp: base-uri blocked http://localhost:9000/accounts/newAccount in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+017 POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+018 POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Old Wallet&description=&iconImageID=&builtinIconIdentifier=&fontColor=#000000&accountState=READ_ONLY&endDate=
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+019 POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Temp&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+020 GET /accounts/3/edit
+   csp: base-uri blocked http://localhost:9000/accounts/3/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+021 POST /accounts/newAccount ID=3&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund %26 more&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+023 GET /accounts/5/delete
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+024 GET /accounts
+   csp: base-uri blocked http://localhost:9000/accounts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+025 GET /categories
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+026 GET /categories/newCategory
+   csp: base-uri blocked http://localhost:9000/categories/newCategory in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+027 POST /categories/newCategory ID=&type=CUSTOM&name=&color=#eeeeee&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+   csp: base-uri blocked http://localhost:9000/categories/newCategory in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+028 POST /categories/newCategory ID=&type=CUSTOM&name=Food %26 Drinks&color=#4caf50&iconImageID=&builtinIconIdentifier=fas fa-utensils&fontColor=#FFFFFF
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+029 POST /categories/newCategory ID=&type=CUSTOM&name=Salary&color=#2196f3&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+030 POST /categories/newCategory ID=&type=CUSTOM&name=Old <i>&color=#9e9e9e&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+031 GET /categories/4/edit
+   csp: base-uri blocked http://localhost:9000/categories/4/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+032 POST /categories/newCategory ID=4&type=CUSTOM&name=Salary&color=#1976d2&iconImageID=&builtinIconIdentifier=fas fa-money-bill&fontColor=#FFFFFF
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+034 POST /categories/5/delete category=2
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+035 GET /categories
+   csp: base-uri blocked http://localhost:9000/categories in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+036 GET /transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+037 GET /transactions/newTransaction/normal
+   csp: base-uri blocked http://localhost:9000/transactions/newTransaction/normal in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+038 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=&amount=&category=1&date=&description=&account=2&action=
+   csp: base-uri blocked http://localhost:9000/transactions/newTransaction in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+039 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Groceries&amount=2550&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&tags[1].name=weekly&action=continue
+   csp: base-uri blocked http://localhost:9000/transactions/newTransaction/normal in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+040 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=false&name=Salary June&amount=250000&category=4&date=01.06.2025&description=&account=2&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+041 POST /transactions/newTransaction ID=&isRepeating=true&isExpenditure=true&name=Rent&amount=90000&category=2&date=05.05.2025&description=Flat "A"&account=2&repeatingModifierNumber=1&repeatingModifierType=Months&repeatingEndType=afterXTimes&repeatingEndValue=5&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+042 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Coffee&amount=350&category=3&date=14.06.2025&description=&account=2&tags[0].name=food&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+043 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Bookshop&amount=1999&category=1&date=20.05.2025&description=&account=2&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+044 GET /transactions/newTransaction/transfer
+   csp: base-uri blocked http://localhost:9000/transactions/newTransaction/transfer in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+045 POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=To savings&amount=50000&category=1&date=10.06.2025&description=&account=2&transferAccount=3&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+046 GET /transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+047 GET /previousMonth?target=/transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+048 GET /nextMonth?target=/transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+049 GET /nextMonth?target=/transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+050 GET /setDate?target=/transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+051 GET /today?target=/transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+052 GET /transactions/recurringOverview
+   csp: base-uri blocked http://localhost:9000/transactions/recurringOverview in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+053 GET /transactions/1/edit
+   csp: base-uri blocked http://localhost:9000/transactions/1/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+054 POST /transactions/newTransaction ID=1&isRepeating=false&isExpenditure=true&name=Groceries&amount=2750&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&action=
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+055 GET /transactions/1/highlight
+   csp: base-uri blocked http://localhost:9000/transactions/1/highlight in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+057 GET /transactions/1/newFromExisting
+   csp: base-uri blocked http://localhost:9000/transactions/1/newFromExisting in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+058 GET /transactions/3/edit
+   csp: base-uri blocked http://localhost:9000/transactions/3/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+059 GET /transactions/7/edit
+   csp: base-uri blocked http://localhost:9000/transactions/7/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+061 GET /transactions/5/delete
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+064 GET /transactions
+   csp: base-uri blocked http://localhost:9000/transactions in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+065 GET /search?searchText=&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+   csp: base-uri blocked http://localhost:9000/search?searchText=&searchName=true&searchDescription=true&searchCategory=true&searchTags=true in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+066 GET /search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+   csp: base-uri blocked http://localhost:9000/search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+067 GET /search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true
+   csp: base-uri blocked http://localhost:9000/search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+068 GET /search?searchText=nothing-matches&searchName=true
+   csp: base-uri blocked http://localhost:9000/search?searchText=nothing-matches&searchName=true in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+069 GET /templateGroups
+   csp: base-uri blocked http://localhost:9000/templateGroups in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+070 GET /templateGroups/newTemplateGroup
+   csp: base-uri blocked http://localhost:9000/templateGroups/newTemplateGroup in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+071 POST /templateGroups/newTemplateGroup ID=&name=
+   csp: base-uri blocked http://localhost:9000/templateGroups/newTemplateGroup in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+072 POST /templateGroups/newTemplateGroup ID=&name=Monthly
+   csp: base-uri blocked http://localhost:9000/templateGroups in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+073 POST /templateGroups/newTemplateGroup ID=&name=Temp group
+   csp: base-uri blocked http://localhost:9000/templateGroups in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+074 GET /templates
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+075 GET /templates/newTemplate
+   csp: base-uri blocked http://localhost:9000/templates/newTemplate in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+076 POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=&name=&amount=&category=1&description=&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+   csp: base-uri blocked http://localhost:9000/templates/newTemplate in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+077 POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=Lunch <b>&name=Lunch&amount=1200&category=3&description=Canteen&includeAccount=true&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=fas fa-burger&fontColor=#FFFFFF&tags[0].name=food
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+079 GET /templates
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+080 POST /templates/fromTransaction templateName=Rent template&ID=&isExpenditure=true&name=Rent&amount=90000&category=2&description=&account=2&includeCategory=true&includeAccount=false
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+081 GET /templates
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+082 GET /templateGroups
+   csp: base-uri blocked http://localhost:9000/templateGroups in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+083 GET /templateGroups/2/edit
+   csp: base-uri blocked http://localhost:9000/templateGroups/2/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+085 GET /templateGroups/3/delete
+   csp: base-uri blocked http://localhost:9000/templateGroups in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+086 GET /templates/1/edit
+   csp: base-uri blocked http://localhost:9000/templates/1/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+087 GET /templates/1/select
+   csp: base-uri blocked http://localhost:9000/templates/1/select in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+089 GET /templates/2/delete
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+090 GET /templates
+   csp: base-uri blocked http://localhost:9000/templates in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+091 GET /charts
+   csp: base-uri blocked http://localhost:9000/charts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+092 POST /charts displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=
+   csp: base-uri blocked http://localhost:9000/charts in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+094 GET /charts/manage
+   csp: base-uri blocked http://localhost:9000/charts/manage in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+095 GET /charts/newChart
+   csp: base-uri blocked http://localhost:9000/charts/newChart in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+096 POST /charts/newChart ID=&name=&script=
+   csp: base-uri blocked http://localhost:9000/charts/newChart in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+097 POST /charts/newChart ID=&name=My chart&script=var x = 1;
+   csp: base-uri blocked http://localhost:9000/charts/manage in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+098 GET /charts/manage
+   csp: base-uri blocked http://localhost:9000/charts/manage in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+099 GET /charts/1/edit
+   csp: base-uri blocked http://localhost:9000/charts/1/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+100 GET /charts/13/edit
+   csp: base-uri blocked http://localhost:9000/charts/13/edit in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+102 GET /charts/13/delete
+   csp: base-uri blocked http://localhost:9000/charts/manage in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+103 GET /reports
+   csp: base-uri blocked http://localhost:9000/reports in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+104 GET /settings
+   csp: base-uri blocked http://localhost:9000/settings in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+112 GET /settings
+   csp: base-uri blocked http://localhost:9000/settings in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+113 GET /settings/database/requestImport
+   csp: base-uri blocked http://localhost:9000/settings/database/requestImport in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+114 GET /settings/database/requestDelete
+   csp: base-uri blocked http://localhost:9000/settings/database/requestDelete in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+115 POST /settings/database/delete verificationCode=XXXX&verificationUserInput=YYYY
+   csp: base-uri blocked http://localhost:9000/settings/database/requestDelete in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
+117 GET /
+   csp: base-uri blocked http://localhost:9000/ in http://localhost:9000/webjars/materializecss/1.0.0/js/materialize.min.js
