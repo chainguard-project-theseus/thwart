@@ -360,6 +360,30 @@ class ExpressionCompilerTest {
     r.assertError("t.html:2:14", "'DELETED' is not a constant of enum com.example.Status", "ACTIVE, SUSPENDED");
   }
 
+  @Test
+  void equalityOfTypesThatNeverShareAValueIsAnError() {
+    // Objects.equals("ACTIVE", Status.ACTIVE) is false: a String variable never equals an enum.
+    TypesHarness h = users();
+    Result r =
+        h.compile(f -> f.compiler().compile(new Expr.Binary(EQ, prop(v("u"), "name"), prop(v("u"), "status"), at(2, 5)), f.scope));
+    r.assertError("t.html:2:5", "cannot compare java.lang.String with com.example.Status", "always false", "status == 'ACTIVE'");
+    h.compile(bin(EQ, prop(v("u"), "status"), prop(v("u"), "name"))).assertError("cannot compare com.example.Status with java.lang.String");
+    h.compile(bin(NE, prop(v("u"), "name"), prop(v("u"), "status"))).assertError("always true");
+    h.compile(bin(EQ, prop(v("u"), "name"), prop(v("u"), "age"))).assertError("cannot compare java.lang.String with int");
+    h.compile(bin(EQ, prop(v("u"), "score"), lit("7"))).assertError("cannot compare java.lang.Integer with java.lang.String");
+    h.compile(bin(EQ, prop(v("u"), "tags"), lit("t0"))).assertError("cannot compare java.lang.String[] with java.lang.String");
+    h.compile(bin(EQ, prop(v("u"), "manager"), prop(v("u"), "name"))).assertError("cannot compare com.example.User with");
+    // Types that can share a value still compare.
+    assertEquals(true, h.eval(bin(EQ, prop(v("u"), "name"), prop(v("u"), "name"))));
+    assertEquals(true, h.eval(bin(EQ, prop(v("u"), "status"), prop(v("u"), "status"))));
+    assertEquals(false, h.eval(bin(EQ, prop(v("u"), "status"), prop(v("b"), "status"))));
+    assertEquals(true, h.eval(bin(EQ, prop(v("b"), "manager"), prop(v("b"), "manager"))));
+    assertEquals(false, h.eval(bin(EQ, prop(v("b"), "verified"), prop(v("b"), "admin"))));
+    assertEquals(false, h.eval(bin(EQ, prop(v("u"), "score"), prop(v("u"), "age"))));
+    assertEquals(true, h.eval(bin(EQ, safe(prop(v("u"), "manager"), "status"), lit(null))));
+    assertEquals(false, h.eval(bin(EQ, prop(v("u"), "items"), prop(v("u"), "groups"))));
+  }
+
   // ------------------------------------------------------------- selection, routing
 
   @Test
