@@ -444,6 +444,11 @@ class ContextVerifierRulesTest {
     internalError(st("<input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" b=\""), attr("b"), st("\"")), pos()), st("x>"));
+    // A value right after it, text or raw HTML, is no markup codegen writes either.
+    internalError(st("<input"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()), text());
+    internalError(st("<input"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()), raw());
     // After a static boolean attribute: written, a '=' or a name right after it would be a parse
     // error, so the written path is the stricter one (#682).
     accept(st("<input disabled"),
