@@ -377,6 +377,8 @@ that runs code. What differs:
 - Not supported: `T(...)`, `new`, `@bean`, `__...__` preprocessing, assignment, lambdas,
   selection and projection (`.?[...]`, `.![...]`), `div`/`mod` (use `/`, `%`).
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant's name.
+  Comparing types that never share a value (a `String` variable with an enum or a number) is a
+  build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
   `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types.
 - `|...|` and `+` are Java string concatenation, so a `null` prints `null`. To print nothing,
   write `x ?: ''` for a `String` and `x == null ? '' : '' + x` otherwise.

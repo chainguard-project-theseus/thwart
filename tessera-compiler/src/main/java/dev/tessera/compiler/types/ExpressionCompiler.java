@@ -711,6 +711,11 @@ public final class ExpressionCompiler {
       code = "(" + l.code() + " == " + r.code() + ")";
     } else if (isNumber(l.type()) && isNumber(r.type())) {
       code = VALUES + ".numEquals(" + l.code() + ", " + r.code() + ")";
+    } else if (neverEqual(l.type(), r.type())) {
+      // javac's rule for reference ==: no value of one type can be a value of the other.
+      return error(b.pos(), "cannot compare " + describe(l.type()) + " with " + describe(r.type()) + ": no value of one is"
+          + " ever equal to the other, so this is always " + (b.op() == Expr.BinaryOp.NE) + "; compare an enum with a"
+          + " string literal (status == 'ACTIVE'), or give both sides the same type in Java");
     } else {
       code = "java.util.Objects.equals(" + l.code() + ", " + r.code() + ")";
     }
@@ -897,6 +902,32 @@ public final class ExpressionCompiler {
 
   private boolean isEnum(TypeMirror t) {
     return t.getKind() == TypeKind.DECLARED && ((DeclaredType) t).asElement().getKind() == ElementKind.ENUM;
+  }
+
+  /**
+   * Whether two reference types (boxed, erased) can share no value: neither is a subtype of the
+   * other, and no subclass could bridge them (an interface and a non-final class, or two
+   * interfaces, could). A simplified form of javac's "incomparable types" rule.
+   */
+  private boolean neverEqual(TypeMirror a, TypeMirror b) {
+    TypeMirror x = types().erasure(box(a));
+    TypeMirror y = types().erasure(box(b));
+    if (!isReference(x) || !isReference(y) || types().isSubtype(x, y) || types().isSubtype(y, x)) {
+      return false;
+    }
+    return !(openTo(x, y) || openTo(y, x));
+  }
+
+  /** {@code i} is an interface that some subclass of {@code c} could implement. */
+  private static boolean openTo(TypeMirror i, TypeMirror c) {
+    return i.getKind() == TypeKind.DECLARED
+        && c.getKind() == TypeKind.DECLARED
+        && ((DeclaredType) i).asElement().getKind().isInterface()
+        && !((DeclaredType) c).asElement().getModifiers().contains(Modifier.FINAL);
+  }
+
+  private static boolean isReference(TypeMirror t) {
+    return t.getKind() == TypeKind.DECLARED || t.getKind() == TypeKind.ARRAY;
   }
 
   private boolean isComparable(TypeMirror t) {
