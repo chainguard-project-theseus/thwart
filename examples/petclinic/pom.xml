@@ -49,7 +49,7 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <!-- Hot reload (guide section 3): restarts the app when mvn tessera:watch recompiles. -->
+      <!-- Hot reload (guide section 3.1): restarts the app when mvn tessera:watch recompiles. -->
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
       <optional>true</optional>

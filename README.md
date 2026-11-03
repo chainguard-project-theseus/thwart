@@ -49,7 +49,7 @@ It costs:
 - It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
 - Logic and formatting move to Java: getters, records the controller builds, registered functions.
 - Client frameworks that compile the server's DOM as a template are unsupported.
-- Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide.md#hot-reload)).
+- Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide.md#31-hot-reload)).
 - It is not published to any repository yet.
 
 ## Status and contributing

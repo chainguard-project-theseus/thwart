@@ -315,7 +315,7 @@ libraries the application still uses (`spring-context-support` with Boot's Veloc
 `mvn dependency:list` (Gradle: `gradle dependencies --configuration runtimeClasspath`) from
 before and after, and declare what the application still uses.
 
-### Hot reload
+### 3.1 Hot reload
 
 Under Spring Boot, a saved template or message file reaches the browser on the next refresh, a few
 seconds later. The build recompiles the module with the same processor and the same checks, then
@@ -334,11 +334,11 @@ inside the application, and Boot leaves DevTools out of the jar it packages. Add
   the application module's directory. The watch goal checks the templates and the
   `tessera.messages` files every half second and runs `mvn compile` on the module after each
   change, with the watch's own `-o`, `-P` and `-D` options (pass `-s` in `.mvn/maven.config`, not
-  on the command line). It needs the `check` goal and its configuration from section 2. In a
+  on the command line). It needs the `check` goal and its configuration from section 2.1. In a
   multi-module build, `install` the modules the application depends on first.
 - **Gradle:** declare `developmentOnly 'org.springframework.boot:spring-boot-devtools'` instead,
   then run `gradle bootRun` in one terminal and `gradle -t classes` in another. The `inputs` lines
-  from section 2 make each save rerun the processor.
+  from section 2.2 make each save rerun the processor.
 - **IDE:** to run the application from your IDE, keep the watch goal or the continuous build
   running next to it. We haven't tested whether an IDE's own automatic build reruns the processor
   after a template-only save, so don't rely on it.
@@ -1157,7 +1157,7 @@ nothing for `null`. Render the whole page, and compare against an original that 
 Gaps in Tessera today, with what to do instead.
 
 - **Versions and build.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested.
-  Maven and Gradle. Hot reload restarts the application through Spring Boot DevTools (section 3);
+  Maven and Gradle. Hot reload restarts the application through Spring Boot DevTools (section 3.1);
   without Boot there is none.
 - **Messages.** `-Atessera.messages` reads bundles from the file system. Keys that only a jar or a
   database-backed `MessageSource` provides fail the build: give those pages a function that looks
