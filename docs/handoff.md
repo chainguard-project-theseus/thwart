@@ -16,8 +16,9 @@ For security work, follow [security-architecture.md](security-architecture.md) Â
    from the fork, answers the Checks reviewer's findings with pushes before approval, and merges
    as in [Mechanics](#mechanics). For a change to the security core, a fresh agent may add a
    skeptical review first.
-4. **Follow-ups stay in the PR.** List them under "Not done" in its description; don't open new
-   issues for them. Stop once the issue's goal is met.
+4. **Follow-ups stay in the PR.** List them under "Not done" in its description instead of
+   opening issues (AGENTS.md allows either; here the main session decides what becomes an issue).
+   Stop once the issue's goal is met.
 
 ## Fast loop
 
@@ -49,9 +50,10 @@ of a module in a fresh session). CI still runs the full `mvn verify`.
 - CI is Chainguard Checks (`.chainguard/ci/maven.yaml`), not GitHub Actions. Wait with
   `gh pr checks <n> --repo wolfi-dev/tessera --watch` (the check is "Chainguard Checks
   (presubmit)"); read logs with `chainctl checks logs wolfi-dev/tessera#<n> --check verify --errors`.
-- Merge (`gh pr merge <n> --squash --delete-branch`) only when `chainguard[bot]` has APPROVED the
-  current head and the required checks are green. Never `--auto`. After approval, don't push for
-  nits: a push dismisses the approval. Commits are unsigned; ignore the signing check.
+- Merge (`gh pr merge <n> --squash --delete-branch`) only when the current head is approved by an
+  owner in `.chainguard/owners.yaml` (AGENTS.md) and the required checks are green. For agent PRs
+  that approval is `chainguard[bot]`'s (the `bot:tessera` reviewer). Never `--auto`. After
+  approval, don't push for nits: a push dismisses it. Commits are unsigned; ignore the signing check.
 
 ## Known limits relevant to migration work
 
