@@ -33,7 +33,10 @@ public final class FragmentMethods {
   public static Map<String, Skeleton.Seq> generate(CodegenContext ctx) {
     Map<String, Skeleton.Seq> skeletons = new LinkedHashMap<>();
     for (TemplateIndex.FragmentInfo f : ctx.template().fragments().values()) {
-      skeletons.put(f.name(), method(ctx, f, takesFragment(f) ? ctx.privateFragment(ctx.template(), f) : null).seq());
+      Emitted body = method(ctx, f, takesFragment(f) ? ctx.privateFragment(ctx.template(), f) : null);
+      // Here, not in method: the copies other templates make of f are checked once, with f.
+      body.checkMethodSize(ctx.diagnostics(), f.element().pos(), "fragment '" + f.name() + "'");
+      skeletons.put(f.name(), body.seq());
     }
     return skeletons;
   }
