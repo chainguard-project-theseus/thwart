@@ -106,6 +106,19 @@ class WatchMojoTest {
     assertTrue(mojo.command().contains("-o"));
   }
 
+  @Test
+  void passesOnTheCommandLinesProfilesAndProperties() {
+    mojo.activeProfiles = List.of("dev");
+    mojo.inactiveProfiles = List.of("ci");
+    mojo.userProperties.setProperty("tessera.messages", "src/main/resources/i18n/messages");
+    mojo.userProperties.setProperty("maven.repo.local", "/tmp/repo");
+    List<String> cmd = mojo.command();
+    assertEquals(
+        List.of("-Pdev", "-P!ci", "-Dmaven.repo.local=/tmp/repo", "-Dtessera.messages=src/main/resources/i18n/messages",
+            "compile"),
+        cmd.subList(4, cmd.size()));
+  }
+
   private static void write(Path file, String content) throws Exception {
     Files.createDirectories(file.getParent());
     Files.write(file, content.getBytes(StandardCharsets.UTF_8));

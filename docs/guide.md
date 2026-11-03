@@ -333,8 +333,9 @@ inside the application, and Boot leaves DevTools out of the jar it packages. Add
 - **Maven:** run `mvn spring-boot:run` in one terminal and `mvn tessera:watch` in another, both in
   the application module's directory. The watch goal checks the templates and the
   `tessera.messages` files every half second and runs `mvn compile` on the module after each
-  change. It needs the `check` goal and its configuration from section 2. In a multi-module build,
-  `install` the modules the application depends on first.
+  change, with the watch's own `-o`, `-P` and `-D` options (pass `-s` in `.mvn/maven.config`, not
+  on the command line). It needs the `check` goal and its configuration from section 2. In a
+  multi-module build, `install` the modules the application depends on first.
 - **Gradle:** declare `developmentOnly 'org.springframework.boot:spring-boot-devtools'` instead,
   then run `gradle bootRun` in one terminal and `gradle -t classes` in another. The `inputs` lines
   from section 2 make each save rerun the processor.

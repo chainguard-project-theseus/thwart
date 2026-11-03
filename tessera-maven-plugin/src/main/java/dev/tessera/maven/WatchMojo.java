@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
+import java.util.TreeSet;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -17,10 +19,11 @@ import org.apache.maven.plugins.annotations.Parameter;
  *
  * <p>Every half second it compares the files the {@code check} goal fingerprints (the templates
  * directory and the {@code messages} basenames) with the last time it looked. After a change it runs
- * {@code mvn -q -f <this pom> compile} with the Maven that runs this goal ({@code -o} when offline),
- * so the processor, its checks and its {@code file:line:col} errors are the build's own; the
- * project's {@code check} goal makes that compile rerun the processor. A failed compile is reported
- * and the watch goes on. It is a development tool: never bind it to a phase.
+ * {@code mvn -q -f <this pom> compile} with the Maven that runs this goal and its {@code -o},
+ * {@code -P} and {@code -D} options (not {@code -s}; {@code .mvn/maven.config} applies anyway), so
+ * the processor, its checks and its {@code file:line:col} errors are the build's own; the project's
+ * {@code check} goal makes that compile rerun the processor. A failed compile is reported and the
+ * watch goes on. It is a development tool: never bind it to a phase.
  */
 @Mojo(name = "watch", threadSafe = true)
 public class WatchMojo extends AbstractMojo {
@@ -42,6 +45,18 @@ public class WatchMojo extends AbstractMojo {
 
   @Parameter(defaultValue = "${settings.offline}", readonly = true)
   boolean offline;
+
+  /** The command line's {@code -P} profiles, passed on to the compile. */
+  @Parameter(defaultValue = "${session.request.activeProfiles}", readonly = true)
+  List<String> activeProfiles = new ArrayList<>();
+
+  /** The command line's {@code -P !id} profiles, passed on to the compile. */
+  @Parameter(defaultValue = "${session.request.inactiveProfiles}", readonly = true)
+  List<String> inactiveProfiles = new ArrayList<>();
+
+  /** The command line's {@code -D} properties, passed on to the compile. */
+  @Parameter(defaultValue = "${session.userProperties}", readonly = true)
+  Properties userProperties = new Properties();
 
   private byte[] last;
 
@@ -100,6 +115,15 @@ public class WatchMojo extends AbstractMojo {
     cmd.addAll(Arrays.asList("-q", "-f", pom.getPath()));
     if (offline) {
       cmd.add("-o");
+    }
+    for (String id : activeProfiles) {
+      cmd.add("-P" + id);
+    }
+    for (String id : inactiveProfiles) {
+      cmd.add("-P!" + id);
+    }
+    for (String key : new TreeSet<>(userProperties.stringPropertyNames())) {
+      cmd.add("-D" + key + "=" + userProperties.getProperty(key));
     }
     cmd.add("compile");
     return cmd;
