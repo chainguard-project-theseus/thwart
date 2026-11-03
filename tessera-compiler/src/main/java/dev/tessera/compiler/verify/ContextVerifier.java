@@ -280,8 +280,7 @@ public final class ContextVerifier {
           balanced(entry, exit, start, what, false);
         }
       } catch (EngineException e) {
-        found.add(new Finding(Problem.ENGINE_FAILURE, near, null, null, null, null, null,
-            Collections.<ParserState>emptyList(), parserCount, e.getMessage(), false));
+        throw internal(near, "the HTML parser it checks with failed (" + e.getMessage() + ")", e);
       }
       for (Finding f : found) {
         if ((f.problem == Problem.PARSE_ERROR || f.problem == Problem.UNBALANCED) && context == null
@@ -567,8 +566,7 @@ public final class ContextVerifier {
     if (n instanceof Skeleton.Rep) {
       return rep((Skeleton.Rep) n, p, env, pos);
     }
-    add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(), n.getClass().getSimpleName());
-    return p;
+    throw internal(pos, n.getClass().getSimpleName() + " is unknown to the verifier", null);
   }
 
   private static String what(Skeleton.OptKind kind) {
@@ -726,8 +724,7 @@ public final class ContextVerifier {
     if (p.tagBoundary) {
       char c = text.charAt(0);
       if (!isSpace(c) && c != '/' && c != '>') {
-        add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(),
-            "markup right after a computed attribute that isn't whitespace, '/' or '>'");
+        throw internal(pos, "markup right after a computed attribute that isn't whitespace, '/' or '>'", null);
       }
       p.tagBoundary = false;
       p.key = null;
@@ -797,14 +794,20 @@ public final class ContextVerifier {
     return p;
   }
 
-  /** A value right after a computed attribute that stands for its absence too: not interpretable. */
+  /** A value right after a computed attribute that stands for its absence too: a compiler bug. */
   private void boundary(Path p, SourcePos pos) {
     if (p.tagBoundary) {
-      add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(),
-          "a value right after a computed attribute");
-      p.tagBoundary = false;
-      p.key = null;
+      throw internal(pos, "a value right after a computed attribute", null);
     }
+  }
+
+  /**
+   * A compiler bug: a skeleton the verifier can't interpret, or an engine that failed. It has no rule id: the build
+   * fails with an internal compiler error (TesseraProcessor), so nothing is written.
+   */
+  private static IllegalStateException internal(SourcePos pos, String what, Throwable cause) {
+    return new IllegalStateException(pos + ": Tessera can't check what a browser does here: " + what
+        + "; this is a compiler bug, report it with the template", cause);
   }
 
   private void add(Problem problem, SourcePos pos, Skeleton.Escaper escaper, Skeleton.Source source, String attribute,
@@ -892,8 +895,7 @@ public final class ContextVerifier {
   private Path call(Skeleton.Call c, Path p, Env env, SourcePos pos) throws EngineException {
     Skeleton.Seq target = fragments.get(c.target());
     if (target == null) {
-      add(Problem.UNKNOWN_NODE, pos, null, null, null, Collections.<ParserState>emptyList(), "fragment " + c.target());
-      return p;
+      throw internal(pos, "fragment " + c.target() + " is unknown to the verifier", null);
     }
     String what = "fragment " + c.target() + ", inserted here,";
     Env callee = env.bind(c.fragmentArgs());

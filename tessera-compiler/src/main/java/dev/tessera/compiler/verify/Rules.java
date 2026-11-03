@@ -17,15 +17,23 @@ import java.util.Set;
 final class Rules {
   private Rules() {}
 
-  /** Modes whose character tokens are all appended as they are. */
-  private static final Set<InsertionMode> TEXT_MODES = EnumSet.of(
+  /**
+   * Modes that handle character tokens and flow start tags by the "in body" rules: text is appended as it is, and
+   * a flow element leaves the mode as it was ({@link ContentKinds}).
+   */
+  static final Set<InsertionMode> IN_BODY_MODES = EnumSet.of(
       InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
 
   /** Modes where text is table text; also the template modes of exclusion (b). */
   static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
       InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
 
-  /** HTML elements whose raw text a browser never runs or renders as markup. */
+  /**
+   * HTML elements whose raw text a browser never runs or renders as markup. This overlaps the hand parser's tables
+   * ({@code Contexts.browserRawText}, {@code TemplateGenerator.UNSUPPORTED_ELEMENTS}) on purpose: the verifier is the
+   * second HTML model (architecture.md, "Two HTML models is the floor") and keeps its own copy of the browser's
+   * rules, so a mistake in one of those tables is not repeated in the check meant to catch it.
+   */
   private static final Set<String> INERT_RAWTEXT = Backports.setOf("iframe", "xmp", "noembed", "noframes");
 
   /**
@@ -70,7 +78,7 @@ final class Rules {
       case DATA:
         // Formatting elements to reopen first, or a foster-parented element in a table mode, are
         // reached only by error recovery: parse errors.
-        if (!TEXT_MODES.contains(s.mode())) {
+        if (!IN_BODY_MODES.contains(s.mode())) {
           return TABLE_MODES.contains(s.mode()) ? Problem.TEXT_IN_TABLE : Problem.TEXT_OUTSIDE_BODY;
         }
         return null;
@@ -103,7 +111,7 @@ final class Rules {
     // Names fold A-Z only, as in a browser: \u017Frc is not src, encod\u0131ng is not encoding.
     String name = s.attributeName() == null ? null : asciiLower(s.attributeName());
     if (name == null || hole.attribute() == null || !name.equals(asciiLower(hole.attribute()))) {
-      return Problem.ATTRIBUTE_WRONG_NAME;
+      return Problem.ATTRIBUTE_NOT_IN_VALUE;
     }
     return null;
   }
