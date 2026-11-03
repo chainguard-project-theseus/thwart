@@ -4063,7 +4063,7 @@ index 69bb3a39..82139157 100644
 -                                <option th:each="teamView : ${availableTeams}" th:value="${teamView.country()}" th:text="${teamView.teamName()}" th:fragment="favouriteCountryOptions"></option>
 +                            <label for="favouriteCountry" class="form-label" t:text="#{administration.runtime.configuration.favouriteCountry} + ':'"></label>
 +                            <select id="favouriteCountry" t:field="*{runtimeSettings.favouriteCountry}" class="form-select">
-+                                <t:block t:replace="~{::favouriteCountryOptions(availableTeams, runtimeSettingsCommand.runtimeSettings.favouriteCountry)}"></t:block>
++                                <option t:each="teamView : availableTeams" t:value="teamView.country()" t:text="teamView.teamName()"></option>
                              </select>
                          </div>
                      </div>
