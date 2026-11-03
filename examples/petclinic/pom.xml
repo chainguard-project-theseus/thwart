@@ -20,6 +20,8 @@
     <webjars-locator.version>1.1.3</webjars-locator.version>
     <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
     <webjars-font-awesome.version>4.7.0</webjars-font-awesome.version>
+    <!-- Read by the processor option below and by tessera-maven-plugin. -->
+    <tessera.messages>${project.basedir}/src/main/resources/messages/messages</tessera.messages>
   </properties>
 
   <dependencyManagement>
@@ -45,6 +47,12 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-compiler</artifactId>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <!-- Hot reload (guide section 3): restarts the app when mvn tessera:watch recompiles. -->
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <optional>true</optional>
     </dependency>
 
     <!-- From upstream spring-petclinic, minus Thymeleaf, MySQL/Postgres, Testcontainers and Docker. -->
@@ -160,13 +168,20 @@
             <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
             <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
             <!-- Check every #{key} against the default bundle at build time. -->
-            <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages/messages</arg>
+            <arg>-Atessera.messages=${tessera.messages}</arg>
             <!-- Spring MVC binds @PathVariable/@RequestParam by parameter name (spring-boot-starter-parent sets this). -->
             <arg>-parameters</arg>
             <!-- Upstream JPA entities are Serializable without serialVersionUID. -->
             <arg>-Xlint:-serial</arg>
           </compilerArgs>
         </configuration>
+      </plugin>
+      <!-- check: a template- or message-only edit recompiles. mvn tessera:watch: hot reload. -->
+      <plugin>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-maven-plugin</artifactId>
+        <version>${project.version}</version>
+        <executions><execution><goals><goal>check</goal></goals></execution></executions>
       </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
