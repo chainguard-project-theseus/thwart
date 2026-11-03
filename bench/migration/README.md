@@ -105,8 +105,8 @@ and commit from `app.json`).
      rejects static ones anyway, #768). Chromium runs with `--ignore-certificate-errors` so that
      CDN scripts load behind a TLS-intercepting proxy. If the check leaves no `browser.json` (the
      app doesn't build, Chromium fails), the run's Browser column is `-`, never an older result.
-     Like the rest of the harness it has no automated tests; it was checked by hand against a stub
-     page with an inline script, a nonce script that throws and an `onclick` under the policy.
+     Tests: `python3 -m unittest bench/migration/test_browser.py` (its end-to-end test needs
+     Chromium and websocket-client, as in the image, and is skipped without them).
 5. **Report.** `results/summary.md` has a row per run, then a row per app in three tables:
    development apps, held-out apps and below-floor apps, each with its pass count out of all its
    runs.
