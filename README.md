@@ -49,7 +49,7 @@ It costs:
 - It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
 - Logic and formatting move to Java: getters, records the controller builds, registered functions.
 - Client frameworks that compile the server's DOM as a template are unsupported.
-- There is no hot reload: a template change needs a recompile.
+- Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide.md#hot-reload)).
 - It is not published to any repository yet.
 
 ## Status and contributing
@@ -137,7 +137,7 @@ app's pages and compare the new app against them, and its Thymeleaf converter fo
 | `tessera-runtime` | Escapers, safe types, links, messages, forms. No dependencies |
 | `tessera-compiler` | Annotation processor; shades `tessera-html5`, the verifier's HTML parser |
 | `tessera-spring-boot-starter`, `-javax` | Spring MVC integration; `tessera-spring-tests` runs it on older Spring |
-| `tessera-migrate`, `tessera-maven-plugin` | Page record/compare and Thymeleaf converter; `tessera:check` |
+| `tessera-migrate`, `tessera-maven-plugin` | Page record/compare and Thymeleaf converter; `tessera:check`, `tessera:watch` |
 | `tessera-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration benchmark |
 | `examples/`, `plugins/tessera` | PetClinic and Gradle examples; the Claude Code plugin |
 
