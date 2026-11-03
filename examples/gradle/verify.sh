@@ -38,6 +38,7 @@ expect_failure "hello.html:1:"
 expect_failure "'nmae' is not a property of com.example.Greeting"
 echo "ok: a template error fails the build"
 edit 's/greeting\.nmae/greeting.name/' "$template"
+expect_success # so the messages edit below is the only change
 
 edit 's/^hello=/greeting=/' "$messages"
 expect_failure "unknown message key 'hello'"
