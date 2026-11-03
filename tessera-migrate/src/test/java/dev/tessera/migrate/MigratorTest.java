@@ -418,15 +418,6 @@ class MigratorTest {
         "2: `th:type` = `owner.kind`: for a `null` value Thymeleaf wrote `type=\"\"`");
   }
 
-  /** #755: static handlers and javascript: URLs are flagged; href="#" and data-* are not. */
-  @Test
-  void staticInlineScriptIsReported() throws Exception {
-    assertMessages("<div t:params=\"String s\"><a onclick=\"x()\" href=\"#\" data-action=\"save\">a</a>\n"
-            + "<a href=\" JavaScript:void(0)\">b</a></div>",
-        "1: `onclick` is inline script, which Tessera rejects",
-        "2: `href=\"JavaScript:void(0)\"` is inline script, which Tessera rejects");
-  }
-
   @Test
   void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"

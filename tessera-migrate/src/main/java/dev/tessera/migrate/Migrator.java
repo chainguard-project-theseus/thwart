@@ -261,10 +261,6 @@ final class Migrator {
       } else if (lower.startsWith(ConversionRules.TESSERA_PREFIX)) {
         local = lower.substring(ConversionRules.TESSERA_PREFIX.length());
       } else {
-        String script = ConversionRules.staticScriptMessage(name, value);
-        if (script != null) {
-          report(nameLine, script);
-        }
         return; // plain HTML attribute
       }
       if (thymeleaf) {
