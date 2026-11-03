@@ -35,13 +35,21 @@ Two kinds of round:
 
 `report` counts each app's runs, so apps with different numbers of runs sit in the same tables.
 
+`recheck` re-runs the check and the browser smoke check of every run that has a checkout in
+`work/runs/` (others are skipped), against the baseline recording, so `baseline` must have run in
+this clone. To recheck a committed run in a fresh clone, rebuild its checkout from its patch
+first: `git clone -q <repo> work/runs/<app>/run-<k>`, `git -C work/runs/<app>/run-<k> checkout -q -B
+bench <commit>` and `git -C work/runs/<app>/run-<k> apply results/<app>/run-<k>/diff.patch` (repo
+and commit from `app.json`).
+
 ## What happens
 
 1. **Image.** `Dockerfile` builds Tessera 0.1.0-SNAPSHOT from a `git archive` of this repo's
    `HEAD` and installs it into a Maven repository. The final image holds that repository (and
    the same `tessera-migrate` jar at `/opt/tessera-migrate.jar`), the Claude Code plugin from
    `plugins/tessera` at `/opt/tessera-plugin` (same commit), JDK 21 (default) and JDK 8, Maven,
-   Python and the Claude Code CLI, but none of this repo's other sources, docs or history.
+   Python, Chromium (for the browser smoke check; the migrating agent can use it too) and the
+   Claude Code CLI, but none of this repo's other sources, docs or history.
 2. **Baseline.** Each app in `apps/<name>/app.json` is cloned at its pinned commit and checked
    in a container (`lib/check.sh`): template and construct counts (`lib/count.py`), the build,
    `tessera-migrate record` of every request in `apps/<name>/pages.txt` against the running app
@@ -76,6 +84,29 @@ Two kinds of round:
    view-engine dependency is left (Apache Tiles counts as one: a `tiles-*` dependency or a Tiles
    definitions XML file fails the run whatever the app's engine). Runs from #115 were scored by an older Python crawler and
    normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
+   - **Browser smoke check (report only).** `compare` reads HTML and never runs a script, so a
+     page can compare as acceptable while its scripts throw or the starter's CSP blocks them.
+     `lib/browser.py` replays `pages.txt` in one headless Chromium tab (from the image's Wolfi
+     packages, over the DevTools protocol) against a fresh start of the app, in its own container:
+     a GET navigates; a POST submits a form with the line's fields, plus the current page's
+     `_csrf` hidden input as record does, from the current page, so the cookie jar and the data
+     follow the same sequence as the recording. Per request it records, through the load event
+     plus 1.5 s, CSP violations (`securitypolicyviolation`), uncaught exceptions and console
+     errors (`console.error` and the browser's own error log, such as failed loads). It runs on
+     the original app at `baseline` (`results/<app>/baseline/browser/`, gitignored; `migrate` and
+     `recheck` make it when it is missing) and on each migrated checkout after its check.
+     `browser.txt` in the run directory lists, per page, only what is **new** in the migrated app,
+     after line and column numbers and nonces are removed (the originals have their own console
+     noise), and the summary's Browser column counts it. It never changes the Pass verdict.
+     Only load-time behaviour is checked: nothing is clicked and no handler runs. That still
+     catches listener-wiring scripts that throw at load, data reads that fail and anything the
+     CSP blocks at load; a handler that breaks only when it fires is not seen, and neither is an
+     inline `on*` attribute blocked by the CSP, which Chromium reports only when it fires (Tessera
+     rejects static ones anyway, #768). Chromium runs with `--ignore-certificate-errors` so that
+     CDN scripts load behind a TLS-intercepting proxy. If the check leaves no `browser.json` (the
+     app doesn't build, Chromium fails), the run's Browser column is `-`, never an older result.
+     Tests: `python3 -m unittest bench/migration/test_browser.py` (its end-to-end test needs
+     Chromium and websocket-client, as in the image, and is skipped without them).
 5. **Report.** `results/summary.md` has a row per run, then a row per app in three tables:
    development apps, held-out apps and below-floor apps, each with its pass count out of all its
    runs.

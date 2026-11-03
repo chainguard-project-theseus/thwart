@@ -2,6 +2,7 @@ work/
 results/**/*.log
 results/**/transcript.jsonl
 results/*/baseline/pages/
+results/*/baseline/browser/
 results/*/run-*/check/
 __pycache__/
 results/jobsearch/run-*/diff.patch
