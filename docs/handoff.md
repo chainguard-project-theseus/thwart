@@ -12,11 +12,12 @@ For security work, follow [security-architecture.md](security-architecture.md) Â
 2. **Waves with disjoint ownership.** Each issue lists the files it *owns*. Issues in the same
    wave never share files, and shared contracts only change additively, so parallel merges
    don't collide.
-3. **Two agents per issue**, each in its own worktree or develop session: the *implementer*
-   branches off `origin/main` and opens a PR from the fork; a fresh *reviewer/lander* checks it
-   against the principles and for overcomplication, fixes real problems (not nits), rebases,
-   waits for CI and merges as AGENTS.md says.
-4. **Follow-ups become issues** or comments on later-wave issues. The main session routes them.
+3. **One agent per issue**, in its own develop session: it branches off `origin/main`, opens a PR
+   from the fork, answers the Checks reviewer's findings with pushes before approval, and merges
+   as in [Mechanics](#mechanics). For a change to the security core, a fresh agent may add a
+   skeptical review first.
+4. **Follow-ups stay in the PR.** List them under "Not done" in its description; don't open new
+   issues for them. Stop once the issue's goal is met.
 
 ## Fast loop
 
@@ -35,7 +36,8 @@ stay offline:
 - `hack/corpus.sh [app ...]`: for every bench app with a committed `diff.patch`, clone it at
   `app.json`'s commit, apply the latest run's patch and build and test it on the app's JDK
   against the installed 0.1.0-SNAPSHOT. Prints app, run, compile, tests. `JOBS=3` runs three apps
-  at once (all 14 in about 5 minutes); logs are under `/tmp/tessera-corpus/out/<app>/`.
+  at once (all 15 in about 5 minutes); logs are under `/tmp/tessera-corpus/out/<app>/`. The
+  migration bench's headless-browser smoke check is report-only ([bench/migration/README.md](../bench/migration/README.md)).
 
 `quick.sh` runs Maven with `-o`; set `ONLINE=1` when an artifact is missing (the first test run
 of a module in a fresh session). CI still runs the full `mvn verify`.
@@ -47,8 +49,9 @@ of a module in a fresh session). CI still runs the full `mvn verify`.
 - CI is Chainguard Checks (`.chainguard/ci/maven.yaml`), not GitHub Actions. Wait with
   `gh pr checks <n> --repo wolfi-dev/tessera --watch` (the check is "Chainguard Checks
   (presubmit)"); read logs with `chainctl checks logs wolfi-dev/tessera#<n> --check verify --errors`.
-- Merge when the checks are green and the PR is approved by an owner in `.chainguard/owners.yaml`
-  (AGENTS.md). Commits are unsigned; ignore the signing check.
+- Merge (`gh pr merge <n> --squash --delete-branch`) only when `chainguard[bot]` has APPROVED the
+  current head and the required checks are green. Never `--auto`. After approval, don't push for
+  nits: a push dismisses the approval. Commits are unsigned; ignore the signing check.
 
 ## Known limits relevant to migration work
 
