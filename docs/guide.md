@@ -73,7 +73,8 @@ The build needs JDK 8+ and Maven or Gradle; the application runs on Java 8+ with
 upgrade as part of the migration. On Java 8 there are no records, so view types are classes with
 getters annotated `@TemplateView`.
 
-Pick the starter by servlet API and use exactly one; it brings only `tessera-runtime`:
+Pick the starter by servlet API and use exactly one. It brings only `tessera-runtime`; Spring, the
+servlet API and Spring Security come from the application:
 
 | Application | Artifact |
 |---|---|
