@@ -84,7 +84,7 @@ trademark policy.
 
 Depend on one starter, `dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` for
 `jakarta.servlet` (Boot 3+, Spring 6+) or `tessera-spring-boot-starter-javax` for `javax.servlet`
-(Boot 1.5-2.x, Spring 4.3-5.x), and run the annotation processor:
+(Boot 1.5-2.x, Spring 4.3-5.x), and run the annotation processor. With Maven:
 
 ```xml
 <plugin>
@@ -105,9 +105,24 @@ Depend on one starter, `dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` 
 </plugin>
 ```
 
-[Guide §2](docs/guide.md#2-build-setup) has the full setup: other annotation processors, message-key
-checks, and `tessera-maven-plugin`'s `check` goal, which recompiles when only a template changed.
-Gradle needs no plugin ([examples/gradle](examples/gradle/build.gradle), guide §2). Plain Spring
+With Gradle (no plugin; the `inputs` line recompiles when only a template changed):
+
+```groovy
+dependencies {
+  annotationProcessor 'dev.tessera:tessera-compiler:0.1.0-SNAPSHOT'
+}
+
+def templates = file('src/main/resources/templates')
+tasks.named('compileJava') {
+  options.compilerArgs += ["-Atessera.templates=$templates", '-Atessera.package=com.example.templates']
+  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+```
+
+[Guide §2](docs/guide.md#2-build-setup) has the full setup for both: other annotation processors,
+message-key checks, and Maven's `tessera-maven-plugin` `check` goal, which recompiles when only a
+template changed. [examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with
+Gradle in CI. Plain Spring
 MVC without Boot adds `@Import(dev.tessera.spring.TesseraConfiguration.class)`. Tessera's view
 resolver runs before the old engine's, so both run side by side; until it is removed, the old
 engine still renders every view Tessera doesn't know, outside Tessera's guarantees.
