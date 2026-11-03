@@ -96,8 +96,12 @@ public final class CheckMojo extends AbstractMojo {
     }
   }
 
-  /** {@link #messages} parsed like the processor option; relative paths are against the project. */
   List<Path> messagePaths() {
+    return messagePaths(basedir, messages);
+  }
+
+  /** {@code messages} parsed like the processor option; relative paths are against {@code basedir}. */
+  static List<Path> messagePaths(File basedir, String messages) {
     List<Path> out = new ArrayList<>();
     if (messages != null) {
       for (String base : messages.split(",")) {

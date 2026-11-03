@@ -19,7 +19,7 @@ about the other engines come from their official docs and repositories as of Oct
 | **Thymeleaf migration** | `tessera-migrate` converts templates and records/compares the old app's pages. A porting guide covers Thymeleaf, JSP, FreeMarker and Mustache | Manual rewrite | Manual rewrite | Manual rewrite (or from Mustache) | Manual rewrite |
 | **Spring** | Starter for Spring MVC (servlet), Spring Framework 4.3+ / Boot 1.5+, with Spring form binding (`t:object`, `t:field`, `t:errors`), messages and Spring Security helpers. No WebFlux | Starters for Boot 2, 3 and 4 (MVC and WebFlux). Listed on start.spring.io | No integration in its docs | Spring and Boot modules for Web MVC and WebFlux | Built for Quarkus. Usable standalone, without build-time validation. No Spring integration |
 | **Java floor** | Java 8 (apps built with JDK 8+ javac) | Java 17 for jte 3. jte 2 still gets security fixes for older Java | Java 8 | Java 17 | Java 17 (Quarkus 3) |
-| **Build tools** | Maven and Gradle (processor wiring, no Gradle plugin). No hot reload | Maven and Gradle plugins, hot reload | Maven and Gradle, hot reload | Any build that runs annotation processors | Quarkus (Maven or Gradle), or standalone |
+| **Build tools** | Maven and Gradle (processor wiring, no Gradle plugin). Hot reload by DevTools restart after a recompile | Maven and Gradle plugins, hot reload | Maven and Gradle, hot reload | Any build that runs annotation processors | Quarkus (Maven or Gradle), or standalone |
 | **Maturity** | Prototype. `0.1.0-SNAPSHOT`, not published to any repository. One vendor, no outside users, no IDE support | Apache-2.0, on Maven Central (3.2.4, April 2026). About 1.1k GitHub stars. IntelliJ plugin, Kotlin support | Apache-2.0, on Maven Central (v2.4.0, November 2025). About 780 stars | BSD-3-Clause, on Maven Central (1.3.7, March 2025). About 340 stars | Apache-2.0, part of Quarkus (about 16k stars) with Red Hat backing |
 
 ## Where Tessera is weaker
@@ -27,10 +27,11 @@ about the other engines come from their official docs and repositories as of Oct
 - **Maturity and ecosystem.** Tessera is a prototype with no published artifacts, no releases, no
   community, no IDE plugin and no Stack Overflow answers. Every other engine here ships on Maven
   Central, and JTE and Qute have active communities and IDE support.
-- **Features.** No hot reload: a template change needs a recompile, and under Maven
-  `tessera-maven-plugin` to notice it. No Gradle plugin, no Kotlin, no WebFlux, no streaming
-  or async rendering API. The closed HTML profile rejects markup that browsers accept, and the
-  `<script>` rules restrict which JavaScript can come before an inlined value (guide section 4.4).
+- **Features.** Hot reload is a recompile and a Spring Boot DevTools restart (`tessera:watch` or
+  `gradle -t`), a few seconds per save, and only under Boot. No Gradle plugin, no Kotlin, no
+  WebFlux, no streaming or async rendering API. The closed HTML profile rejects markup that
+  browsers accept, and the `<script>` rules restrict which JavaScript can come before an inlined
+  value (guide section 4.4).
 - **Expressiveness.** Templates read getters and call only registered `@TemplateFunction`s. JTE
   and Rocker let a template call any Java. That is a deliberate trade, but it means more code in
   controllers.
