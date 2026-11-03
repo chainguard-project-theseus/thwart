@@ -86,6 +86,7 @@ final class ElementSelection {
     } finally {
       active.remove(target);
     }
+    body.checkMethodSize(ctx.diagnostics(), target.pos(), "the element ~{::" + ref.selector() + "} selects");
     skeleton.addAll(body.nodes());
     String helper = ctx.freshName("select_" + ref.selector());
     List<String> decls = new ArrayList<>();

@@ -1,6 +1,7 @@
 package dev.tessera.compiler.codegen;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.verify.Skeleton;
@@ -34,6 +35,14 @@ public final class Emitted {
   private static final String ESCAPERS = "dev.tessera.runtime.internal.Escapers.";
   /** Longest static text written by one call (and so one class constant). */
   private static final int CHUNK = 8192;
+  /**
+   * Longest method body accepted, in chars of Java (#658). The JVM limits a method to 64 KB of
+   * bytecode, and javac reports only "code too large" on the generated class. The methods generated
+   * for the corpus apps compile to at most 0.25 bytes per char, so a body this long is about 50 KB
+   * or more. Bodies of only conditions (0.5 bytes per char) can pass the limit below it; javac
+   * still fails on those.
+   */
+  static final int MAX_METHOD_CHARS = 200_000;
 
   /** Nothing. */
   public static final Emitted EMPTY = new Emitted(new Parts(), null, Collections.<Skeleton.Node>emptyList());
@@ -94,6 +103,18 @@ public final class Emitted {
   /** The skeleton of what {@link #java} writes. */
   public List<Skeleton.Node> nodes() {
     return nodes;
+  }
+
+  /**
+   * Reports at {@code pos} that the Java method generated for {@code what} would be too large to
+   * compile, if this body is ({@link #MAX_METHOD_CHARS}).
+   */
+  public void checkMethodSize(DiagnosticSink diagnostics, SourcePos pos, String what) {
+    if (java().length() > MAX_METHOD_CHARS) {
+      diagnostics.error(pos, what + " is too large for one Java method: its generated code may exceed the JVM's 64 KB"
+          + " limit per method, and javac would fail with \"code too large\"; split it into smaller fragments"
+          + " (t:fragment, in this file or in other templates) and insert them with t:insert or t:replace");
+    }
   }
 
   public Skeleton.Seq seq() {
