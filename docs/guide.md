@@ -80,6 +80,36 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
 | `jakarta.servlet` (Boot 3+, Spring 6+) | `tessera-spring-boot-starter` |
 | `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `tessera-spring-boot-starter-javax` |
 
+Maven and Gradle are set up the same way: the starter as a dependency, `tessera-compiler` as an
+annotation processor in the application's own javac, and three processor options. There is no
+Gradle plugin. Sections 2.1 and 2.2 give the complete setup for each; what they share:
+
+- `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
+  template. `tessera.package` is the generated package. `tessera.messages` is the Spring message
+  basename as a path without `.properties` (several, comma-separated); with it every `#{key}` is
+  checked at build time. If the base file is partial or missing and the full text is in a locale
+  file, name that file (`.../i18n/messages_en`).
+- The processor path is explicit, so list every processor the build relied on (Lombok,
+  MapStruct, ...), Lombok before Tessera. Templates see Lombok's getters.
+- Templates compile at the application's release level: keep the build's existing Java level
+  rather than setting one for Tessera, or the class files may not load on the runtime JDK. JDK 8's
+  javac has no `--release`; use source and target 1.8 there.
+- The build tool, not javac, decides when to compile, and it doesn't know javac reads the
+  templates and message files. Each needs to be told (Maven with `tessera-maven-plugin`, Gradle
+  with declared inputs), or an edited template or message keeps its old generated class and the
+  build stays green.
+- The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
+  `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
+  templates on the classpath" at startup.
+- Static analysis that runs on compiled classes (SpotBugs, PMD, Checkstyle, Javadoc) sees the
+  generated templates: exclude the `tessera.package` package rather than loosening the rules.
+- Resource filtering (Maven's `<filtering>`, Gradle's `expand` or `filter` in `processResources`)
+  rewrites `${...}` in templates unless `templates/**` is excluded from it.
+- Spring 4.3 and 5.0 need `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including in
+  tests (surefire's `argLine`, Gradle's `test { jvmArgs ... }`).
+
+### 2.1 Maven
+
 ```xml
 <dependency>
   <groupId>dev.tessera</groupId>
@@ -118,41 +148,32 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
 </plugin>
 ```
 
-- `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
-  template. `tessera.package` is the generated package. `tessera.messages` is the Spring message
-  basename as a path without `.properties` (several, comma-separated); with it every `#{key}` is
-  checked at build time. If the base file is partial or missing and the full text is in a locale
-  file, name that file (`.../i18n/messages_en`).
-- `annotationProcessorPaths` turns off processor discovery, so list every processor the build
-  relied on (Lombok, MapStruct, ...), Lombok before Tessera. Templates see Lombok's getters.
+- `annotationProcessorPaths` turns off processor discovery, which is why every other processor
+  must be listed there.
 - After `mvn clean compile`, `target/generated-sources/annotations` holds a `*Template.java` per
   template. If it is empty, the processor didn't run: `annotationProcessorPaths` needs
   `maven-compiler-plugin` 3.5+ (`<parameters>` 3.6.2+). Boot 1.5's parent pins 3.1 and defaults
   `java.version` to 1.6: set `<java.version>1.8</java.version>` and
   `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>` (Boot 1.4 pins the
   version on the plugin itself, so write `<version>` there).
-- Templates compile at the application's release level. Under a Boot parent, set
-  `<java.version>` and leave `<release>` off the plugin, or the class files may not load on the
-  runtime JDK. JDK 8's javac has no `--release`: use `<source>`/`<target>` 1.8.
-- Maven runs javac only when Java sources change, so without `tessera-maven-plugin`'s `check`
-  goal an edited template or message keeps its old generated class and the build stays green. It
-  reads `tessera.messages` from the property of that name, so set the property. The plugin needs
-  Maven 3.6.3+; upgrade an older `mvnw` wrapper.
-- The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
-  `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
-  templates on the classpath" at startup.
-- Static analysis that runs on compiled classes (SpotBugs, PMD, Checkstyle, Javadoc) sees the
-  generated templates: exclude the `tessera.package` package rather than loosening the rules.
-- Resource filtering rewrites `${...}` in templates unless `templates/**` is excluded from it.
-- Spring 4.3 and 5.0 need `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including the
-  surefire `argLine`.
+- Under a Boot parent, set `<java.version>` and leave `<release>` off the plugin. On JDK 8 use
+  `<source>`/`<target>` 1.8.
+- Maven runs javac only when Java sources change: `tessera-maven-plugin`'s `check` goal makes it
+  recompile after a template-only or message-only edit. It reads `tessera.messages` from the
+  property of that name, so set the property. The plugin needs Maven 3.6.3+; upgrade an older
+  `mvnw` wrapper.
 
-**Gradle.** The same processor, with no plugin:
+### 2.2 Gradle
+
+Keep the build's plugins (`org.springframework.boot`, `io.spring.dependency-management` or a
+platform, `java` or `war`) and add the following (Groovy DSL; `examples/gradle` in the Tessera
+repository is a complete Boot app, built in CI):
 
 ```groovy
 dependencies {
-  implementation "dev.tessera:tessera-spring-boot-starter:$tesseraVersion" // javax: -javax
-  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion" // after Lombok and the others
+  implementation "dev.tessera:tessera-spring-boot-starter:$tesseraVersion" // javax: -javax; without Spring: tessera-runtime
+  // every processor the build already uses (Lombok first), then:
+  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion"
 }
 
 def templates = file('src/main/resources/templates')
@@ -164,13 +185,33 @@ tasks.named('compileJava') {
     '-Atessera.package=com.example.templates',
     "-Atessera.messages=$messages",
   ]
+  // javac reads these, not Gradle: without them a template- or message-only edit leaves
+  // compileJava UP-TO-DATE with the old generated classes.
   inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.file("${messages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 ```
 
-The `inputs` lines make a template-only or message-only edit rerun `compileJava`; declare every
-message file `tessera.messages` names.
+- The `annotationProcessor` configuration is the processor path (Gradle ignores processors on
+  the compile classpath), so every other processor goes there too, Lombok before Tessera. Lombok
+  also stays on `compileOnly`.
+- The `inputs` lines are Gradle's equivalent of `tessera:check`: they make a template-only or
+  message-only edit rerun `compileJava`, and they make the build cache key cover the templates.
+  Declare every message file `tessera.messages` names, and the templates directory even if it is
+  outside `src/main/resources`.
+- Tessera doesn't register for Gradle's incremental annotation processing: it generates from
+  template files, not annotated sources, which Gradle's incremental model can't express, so when
+  `compileJava` runs it recompiles the whole source set, which is correct.
+- After `gradle clean compileJava`, `build/generated/sources/annotationProcessor/java/main` holds a
+  `*Template.java` per template. If it is empty, the processor didn't run: check that
+  `tessera-compiler` is on `annotationProcessor`, not `implementation`.
+- Keep the build's Java level (`java { toolchain { ... } }`, `sourceCompatibility` or
+  `options.release`). Gradle 9 itself runs on JDK 17+: to target Java 8, set
+  `options.release = 8`, or compile with a JDK 8 toolchain.
+- `tessera-maven-plugin` is Maven-only; nothing replaces it but the `inputs` lines. Tessera isn't
+  published yet: install it with `mvn install` and add `mavenLocal()` to `repositories`.
+
+### 2.3 Spring
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the template
 registry and a `TemplateAvailabilityProvider`, on Boot 1.5 through 4, including `@WebMvcTest`
@@ -230,7 +271,8 @@ recording, so record again after changing it.
 
 **4. Convert one template at a time**, shared layouts and fragments first, since pages depend on
 them. For each template, find every value it reads and make sure the model provides it, declare the
-parameters with their real types, rewrite the markup, and run `mvn clean compile`.
+parameters with their real types, rewrite the markup, and run `mvn clean compile` (Gradle:
+`gradle compileJava`).
 
 For Thymeleaf, `tessera-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
 mechanical rewrite of a whole directory first: `th:` to `t:`, utility objects, common string-built
@@ -269,7 +311,8 @@ any view name Tessera doesn't know still reaches it. Remove its templates, depen
 configuration, then build, test and compare once more. The old engine's starter often brought in
 libraries the application still uses (`spring-context-support` with Boot's Velocity starter,
 `commons-beanutils` with Tiles), and losing them may show only at runtime: diff
-`mvn dependency:list` from before and after, and declare what the application still uses.
+`mvn dependency:list` (Gradle: `gradle dependencies --configuration runtimeClasspath`) from
+before and after, and declare what the application still uses.
 
 ## 4. Reference
 
