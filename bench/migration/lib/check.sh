@@ -11,6 +11,8 @@
 # with it they are compared against that recording (`tessera-migrate compare`), whose output goes
 # to OUT_DIR/compare.txt and exit code to OUT_DIR/compare.exit (record's to OUT_DIR/record.exit).
 # OUT_DIR also gets counts.json, build.log/build.exit, app.log, test.log/test.exit, tests.json.
+# With BROWSER=1 the check is the browser smoke check instead (a fresh app, so its replay sees
+# the same data as record's): build, start, lib/browser.py into OUT_DIR/browser.json, no tests.
 set -u
 app=$1 pages=$2 out=$3 recording=${4:-}
 lib=$(dirname "$0")
@@ -32,7 +34,9 @@ if [ "$(cat "$out/build.exit")" = 0 ]; then
     [ "$code" != 000 ] && break
     sleep 2
   done
-  if [ -z "$recording" ]; then
+  if [ "${BROWSER:-}" = 1 ]; then
+    python3 "$lib/browser.py" "$BASE" "$pages" "$out/browser.json" > "$out/browser.log" 2>&1
+  elif [ -z "$recording" ]; then
     $migrate record "$BASE" "$pages" "$out/pages" > "$out/record.log" 2>&1
     echo $? > "$out/record.exit"
   else
@@ -43,6 +47,7 @@ if [ "$(cat "$out/build.exit")" = 0 ]; then
   fi
   pkill -f java; sleep 3; pkill -9 -f java
 fi
+[ "${BROWSER:-}" = 1 ] && exit 0
 
 with_jdk "$BUILD_JDK" "$TEST" > "$out/test.log" 2>&1
 echo $? > "$out/test.exit"

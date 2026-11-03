@@ -1,0 +1,12 @@
+# Browser smoke check (lib/browser.py): CSP violations, uncaught exceptions and console errors at
+# page load that the migrated app has and the original doesn't, per page. Report only.
+# 6 new on 3 pages (3 CSP, 3 exceptions, 0 console, 0 not loaded); 169/169 pages loaded (original 169)
+066 GET /image/show
+   csp: script-src blocked eval in http://localhost:8080/js/jquery-rotate.js
+   exception: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-' 'strict-dynamic'". (http://localhost:8080/js/jquery-rotate.js)
+074 POST /image/upload galleryGroup=Holidays&description=&myFileBase64=
+   csp: script-src blocked eval in http://localhost:8080/js/jquery-rotate.js
+   exception: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-' 'strict-dynamic'". (http://localhost:8080/js/jquery-rotate.js)
+075 POST /image/upload galleryGroup=Holidays&description=Beach <day>&myFileBase64=data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAACKADAAQAAAABAAAACAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs%2BEJ%2B/8AAEQgACAAIAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5%2Bv/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5%2Bjp6vLz9PX29/j5%2Bv/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwMDA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQAAf/aAAwDAQACEQMRAD8A%2BQ6KKK/Cz/VQ/9k=
+   csp: script-src blocked eval in http://localhost:8080/js/jquery-rotate.js
+   exception: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-' 'strict-dynamic'". (http://localhost:8080/js/jquery-rotate.js)

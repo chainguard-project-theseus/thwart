@@ -1,0 +1,3 @@
+# Browser smoke check (lib/browser.py): CSP violations, uncaught exceptions and console errors at
+# page load that the migrated app has and the original doesn't, per page. Report only.
+# 0 new on 0 pages (0 CSP, 0 exceptions, 0 console, 0 not loaded); 64/64 pages loaded (original 64)
