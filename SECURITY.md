@@ -17,7 +17,12 @@ Don't open a public issue. Follow the wolfi-dev
   expression evaluator, so nothing at render time turns data into template code.
 - A template sees only its typed `t:params`, view-safe types and registered functions.
 - Every model value is untrusted. The compiler picks each value's escaper from its context.
-- Raw output takes only `SafeHtml` or a compiled `Fragment`; HTML messages are sanitized when rendered.
+- Raw output takes only `SafeHtml`, `SafeInlineHtml` or a compiled `Fragment`; HTML messages are
+  sanitized when rendered.
+- Static markup in a template can't hold an `on*` event handler or a `javascript:` URL in an HTML
+  URL attribute: both are build errors.
+- The Spring starter sends a strict nonce-based Content-Security-Policy with every Tessera page
+  that has none, and the compiler puts the nonce on every script and style it writes.
 - Client frameworks, page JavaScript, a compromised build and unsupported browsers are out of scope.
 
 ## What counts as a vulnerability
