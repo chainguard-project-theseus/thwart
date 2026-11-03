@@ -1,20 +1,17 @@
 # Tessera
 
-Tessera is a compiled, safe-by-design successor to Thymeleaf for Spring MVC applications. It is
-the pilot of Chainguard's secure-by-design library portfolio.
+Tessera is a compiled, safe-by-design successor to Thymeleaf for Spring MVC. It keeps Thymeleaf's
+natural-HTML `t:` attributes, forms, i18n and fragments, but compiles templates to plain Java in
+the application's own `javac`, which makes template injection and XSS impossible by construction.
 
-**Why it exists.** Frontier models make finding vulnerabilities cheap. In libraries whose design
-invites a bug class, CVEs will arrive faster than anyone can triage and patch them. The defense
-that scales is to remove the bug class by design. Thymeleaf's recurring bug class is server-side
-template injection: its expressions are SpEL evaluated at runtime, `__${...}__` re-parses data
-as code, and its sandbox fixes have been deny-list patches that the next bypass gets around. Tessera keeps Thymeleaf's
-natural-HTML `t:` attribute syntax, forms, i18n and fragments. It compiles templates to plain
-Java at build time, so there is no runtime interpreter to inject into. More:
-[strategy](docs/strategy.md).
+## Why
+
+Thymeleaf's recurring bug class is server-side template injection: its expressions are SpEL
+evaluated at runtime, `__${...}__` re-parses data as code, and its sandbox fixes have been
+deny-list patches that the next bypass gets around. Tessera removes the class by design: there is
+no runtime interpreter to inject into ([docs/strategy.md](docs/strategy.md)).
 
 ## What it looks like
-
-A template is HTML with a typed parameter header:
 
 ```html
 <!DOCTYPE html>
@@ -31,62 +28,65 @@ A template is HTML with a typed parameter header:
 </html>
 ```
 
-The application's `javac` compiles `customers/show.html` to a `ShowTemplate` class. A controller
-returns the view name `"customers/show"` with a model, as with Thymeleaf. A mistake such as an
-unknown property, a method that isn't a
-getter, a type that isn't view-safe, or `T(java.lang.Runtime)` is a build error with `file:line:col`.
+`customers/show.html` compiles to a `ShowTemplate` class; the controller still does
+`return "customers/show";` with `customer` and `orders` in the model. Mistakes are build errors.
+Add `<button onclick="newOrder()">New order</button>` after "No orders yet." and `javac` prints:
 
-## Design principles
+```text
+error: customers/show.html:7:55: error: onclick on <button> is not allowed: inline event handlers are not supported: a strict CSP blocks them; remove onclick and attach the listener from a <script> with addEventListener, or mark the element with a data-* attribute and handle it with one delegated listener
+```
 
-The north star: Tessera compiles the templates our target Spring apps actually use into fast,
-plain Java, and makes template injection and XSS impossible by construction. When a feature
-can't be proven safe simply, Tessera rejects it with a `file:line:col` error and a recipe in the
-guide. Each principle removes a class of bugs; the full rules are in [AGENTS.md](AGENTS.md).
+## What you get, and what it costs
 
-1. **Templates are code.**
-2. **No ambient authority.**
-3. **Allow-list everything callable, and everything parseable.**
-4. **No reflection at runtime.**
-5. **Contexts are proven, not guessed; escaping cannot be forgotten.**
-6. **Familiar before novel, inside the profile.**
-7. **The guarantee ends at the HTML parser.**
+You get:
+- No template interpreter at runtime: nothing at render time parses a template or evaluates an expression.
+- Escaping chosen for each output context, with no switch to turn it off.
+- Typed parameters, checked at build time.
+- A strict Content Security Policy by default.
+- Speed: about 20× Thymeleaf or more on the [benchmark pages](tessera-benchmarks/RESULTS.md).
 
-## Requirements
+It costs:
+- It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
+- Logic and formatting move to Java: getters, records the controller builds, registered functions.
+- Client frameworks that compile the server's DOM as a template are unsupported.
+- There is no hot reload: a template change needs a recompile.
+- It is not published to any repository yet.
 
-- **Your application:** builds with JDK 8+ javac and Maven or Gradle, and runs on Java 8+. The runtime, the
-  Spring starters and the annotation processor are Java 8 class files, and the generated code
-  compiles at release 8. CI compiles applications with JDK 8 javac (`Jdk8ProcessorTest`) and JDK
-  21 javac (everything else); newer JDKs are expected to work but are not run in CI.
-- **Spring:** Spring Framework 4.3+ or Spring Boot 1.5+, on Servlet 3.0+. Tested on Boot 1.5,
-  2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 4.3 and 5.0. Below Spring 4.3 is untested. The
-  build needs `maven-compiler-plugin` 3.5+ for `annotationProcessorPaths` (Boot 1.5's parent pins
-  3.1: override it).
-- **Dependencies:** `tessera-runtime` has none. The starters pass on only `tessera-runtime`;
-  Spring, the servlet API and Spring Security come from your application.
-- **Building this repo:** JDK 21+ and Maven 3.9+. CI builds it with JDK 21 and Maven 3.9 (plus a
-  JDK 8 javac for `Jdk8ProcessorTest`). On a newer JDK, `LombokTest` is skipped with a message once
-  the JDK is newer than its test-scope Lombok supports (JDK 27 today).
+## Status and contributing
 
-Artifacts are `0.1.0-SNAPSHOT` and not published to a remote repository yet. Run
-`mvn -B -ntp install` in this repo to put them in your local Maven repository.
+Version `0.1.0-SNAPSHOT`: run `mvn -B -ntp install` in this repo to put it in your local Maven repository.
 
-## Add it to a project
+- Java: applications build with JDK 8+ javac and run on Java 8+ (CI compiles them with JDK 8 and 21).
+- Spring: Framework 4.3+ or Boot 1.5+ on Servlet 3.0+; tested on Boot 1.5, 2.0, 2.7, 3.5, 4.1 and Spring MVC 4.3, 5.0.
 
-Add the starter for your servlet API (use exactly one) and run the annotation processor:
+We're building Tessera in the open at Chainguard. We don't publish it to
+any package registry; it ships only from Chainguard's own repositories.
 
-| Application | Artifact |
+We don't accept pull requests from external contributors. If you and your
+organization would seriously like to get involved, email
+dlorenc@chainguard.dev.
+
+Use of the Tessera and Chainguard names is governed by Chainguard's
+trademark policy.
+
+## Where to go next
+
+| Goal | Read |
 |---|---|
-| `jakarta.servlet` (Boot 3+, Spring 6+) | `dev.tessera:tessera-spring-boot-starter` |
-| `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `dev.tessera:tessera-spring-boot-starter-javax` |
-| No Spring | `dev.tessera:tessera-runtime` |
+| Add Tessera to an app | [Quick start](#quick-start), then [guide §2](docs/guide.md#2-build-setup) |
+| Migrate an existing app | [The Claude Code skill](#migrating) or the [porting guide](docs/guide.md) |
+| Check the security claims | [docs/security-model.md](docs/security-model.md), then [docs/security-architecture.md](docs/security-architecture.md) and [docs/context-model.md](docs/context-model.md) |
+| Compare with other engines | [docs/comparison.md](docs/comparison.md) |
+| Understand the internals | [docs/architecture.md](docs/architecture.md) |
+| Work on this repo | [AGENTS.md](AGENTS.md) |
+
+## Quick start
+
+Depend on one starter, `dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` for
+`jakarta.servlet` (Boot 3+, Spring 6+) or `tessera-spring-boot-starter-javax` for `javax.servlet`
+(Boot 1.5-2.x, Spring 4.3-5.x), and run the annotation processor:
 
 ```xml
-<dependency>
-  <groupId>dev.tessera</groupId>
-  <artifactId>tessera-spring-boot-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
-</dependency>
-
 <plugin>
   <artifactId>maven-compiler-plugin</artifactId>
   <configuration>
@@ -103,140 +103,49 @@ Add the starter for your servlet API (use exactly one) and run the annotation pr
     </compilerArgs>
   </configuration>
 </plugin>
-
-<!-- Recompiles when only a template or message file changed (Maven's incremental compile can't
-     see them). With -Atessera.messages, set the property tessera.messages; this plugin reads it. -->
-<plugin>
-  <groupId>dev.tessera</groupId>
-  <artifactId>tessera-maven-plugin</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
-  <executions>
-    <execution>
-      <goals><goal>check</goal></goals>
-    </execution>
-  </executions>
-</plugin>
 ```
 
-With Gradle there is no plugin either: put `tessera-compiler` on the `annotationProcessor`
-configuration, pass the same `-A` options through `options.compilerArgs`, and declare the
-templates directory as an input of `compileJava` so a template-only edit recompiles. See
-[examples/gradle](examples/gradle/build.gradle) (built in CI) and section 2 of the guide.
+[Guide §2](docs/guide.md#2-build-setup) has the full setup: other annotation processors, message-key
+checks, and `tessera-maven-plugin`'s `check` goal, which recompiles when only a template changed.
+Gradle needs no plugin ([examples/gradle](examples/gradle/build.gradle), guide §2). Plain Spring
+MVC without Boot adds `@Import(dev.tessera.spring.TesseraConfiguration.class)`. Tessera's view
+resolver runs before the old engine's, so both run side by side; until it is removed, the old
+engine still renders every view Tessera doesn't know, outside Tessera's guarantees.
 
-With Spring Boot, auto-configuration registers the view resolver. It runs before Thymeleaf's and
-falls through for names it doesn't know, so both engines can run side by side during a migration.
-Until it is removed, the old engine renders every view Tessera doesn't know, so Tessera's
-guarantees cover only the views Tessera renders; the starter logs a warning at startup while it is
-still configured.
-With plain Spring MVC, import the configuration:
+The starter sends `Content-Security-Policy: script-src 'nonce-N' 'strict-dynamic'; object-src
+'none'; base-uri 'none'` with Tessera pages unless a CSP header is already set (yours or Spring
+Security's wins). Scripts the template writes get the nonce; inline scripts without it, and
+libraries that use `eval` or `new Function`, break. Turn it off with `tessera.csp.enabled=false`
+([guide §4.9](docs/guide.md#49-rendering)).
 
-```java
-@Configuration
-@EnableWebMvc
-@Import(dev.tessera.spring.TesseraConfiguration.class)
-public class WebConfig {}
-```
-
-The details (other processors, message-key checking,
-XML configuration, older Boot versions) are in [section 2 of the guide](docs/guide.md#2-build-setup).
-
-## Migrate an existing app
-
-[docs/guide.md](docs/guide.md) is the porting guide for Thymeleaf, JSP, FreeMarker, Mustache and
-similar engines. It is written so a coding agent can work from it alone. The loop: record every
-page of the old app, convert one template at a time, and compare the new app's pages against the
-recording.
-
-**Claude Code plugin.** `plugins/tessera` packages the guide and the loop as the `migrate` skill.
-Ask Claude Code to move an app's views to Tessera, or run `/tessera:migrate`. Install it from this
-repo's marketplace:
+## Migrating
 
 ```sh
 claude plugin marketplace add wolfi-dev/tessera
 claude plugin install tessera@tessera
 ```
 
-Or try it from a checkout without installing: `claude --plugin-dir plugins/tessera`. The skill
-fetches `tessera-migrate` with Maven, so run `mvn install` here first.
+Or run `claude --plugin-dir plugins/tessera` from a checkout. Then ask Claude Code to move an app's
+views to Tessera, or run `/tessera:migrate`. The skill uses `tessera-migrate` to record the old
+app's pages and compare the new app against them, and its Thymeleaf converter for the mechanical
+`th:` to `t:` rewrite. Everything else is in the [porting guide](docs/guide.md).
 
-**`tessera-migrate`** is a self-contained jar that runs on Java 8+:
-
-```sh
-java -jar tessera-migrate.jar record  http://localhost:8080 pages.txt baseline/   # old app
-java -jar tessera-migrate.jar compare http://localhost:8080 pages.txt baseline/   # new app
-java -jar tessera-migrate.jar old-templates/ new-templates/ --report report.md    # Thymeleaf converter
-```
-
-`pages.txt` lists one request per line (`GET /path` or `POST /path a=1&b=2`), sent in order with
-one cookie jar and following redirects like a browser. `compare` prints `same`, `reordered` or
-`differs` per page. It compares status, final URL and the page as a browser would parse it, and
-`--ignore REGEX` masks volatile text. The converter does the mechanical `th:` to `t:` rewrite of a
-Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
-
-## Repository layout
+## For contributors
 
 | Module | What it is |
 |---|---|
-| `tessera-runtime` | Runtime: escapers, safe types, links, messages, forms. No dependencies |
-| `tessera-html5` | Build only: the pinned validator.nu HTML parser, renamed and compiled for Java 8, for the build-time verifier |
-| `tessera-compiler` | Template compiler and annotation processor. Shades `tessera-html5` and nothing else |
-| `tessera-spring-boot-starter` | Spring MVC integration (`jakarta.servlet`): view resolver, forms, CSRF, i18n, `auth` functions |
-| `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
-| `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
-| `tessera-migrate` | Page record/compare and the Thymeleaf converter (bundles attoparser and jsoup) |
-| `tessera-maven-plugin` | `tessera:check`: recompiles a module when only its templates or message files changed |
-| `tessera-benchmarks` | JMH benchmarks against Thymeleaf ([results](tessera-benchmarks/RESULTS.md)) |
-| `examples/petclinic` | Spring PetClinic ported to Tessera ([porting notes](examples/petclinic/PORTING.md)) |
-| `plugins/tessera` | The Claude Code migration skill ([marketplace](.claude-plugin/marketplace.json)) |
-| `bench/migration` | The migration benchmark |
+| `tessera-runtime` | Escapers, safe types, links, messages, forms. No dependencies |
+| `tessera-compiler` | Annotation processor; shades `tessera-html5`, the verifier's HTML parser |
+| `tessera-spring-boot-starter`, `-javax` | Spring MVC integration; `tessera-spring-tests` runs it on older Spring |
+| `tessera-migrate`, `tessera-maven-plugin` | Page record/compare and Thymeleaf converter; `tessera:check` |
+| `tessera-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration benchmark |
+| `examples/`, `plugins/tessera` | PetClinic and Gradle examples; the Claude Code plugin |
 
-## Build and test
-
-```sh
-mvn -B -ntp verify
-```
-
-Needs JDK 21+. Set `JDK8_HOME` to a JDK 8 home to also run `Jdk8ProcessorTest`, which builds a
-small app with a real JDK 8 javac; without it that test is skipped locally. No module in this
-build applies `tessera-maven-plugin` (its invoker integration test, `tessera-maven-plugin/src/it`,
-exercises it), so Maven doesn't recompile when only a template or message file changes: use
-`mvn clean verify` when in doubt. CI is Chainguard
-Checks running the same command ([.chainguard/ci/maven.yaml](.chainguard/ci/maven.yaml)).
-
-The guide's examples are compiled by `GuideExamplesTest`.
-`plugins/tessera/skills/migrate/references/guide.md` is a copy of
-[docs/guide.md](docs/guide.md): edit the guide, then copy it (`MigrationSkillTest` fails when the
-copy is stale).
-
-## Migration benchmark
-
-`bench/migration` measures whether a coding agent, given only the porting guide and a legacy
-Spring app, can migrate its views to Tessera on its own without breaking anything. Each run is
-scored on the app's build and tests, `tessera-migrate compare` against a recording of the
-original app, and a check that security wasn't weakened. See
-[bench/migration/README.md](bench/migration/README.md) for how it works and
-[bench/migration/RESULTS.md](bench/migration/RESULTS.md) for results.
-
-## Documentation
-
-- [docs/guide.md](docs/guide.md): porting guide and reference (syntax, a recipe for every rejection, every verifier rule, known limitations)
-- [docs/security-architecture.md](docs/security-architecture.md): how injection and XSS are ruled out by construction; [docs/security-model.md](docs/security-model.md): threat model and trust boundaries; [docs/context-model.md](docs/context-model.md): the accepted HTML profile and the verifier's rules as tables
-- [docs/comparison.md](docs/comparison.md): how Tessera compares with JTE, Rocker, JStachio and Qute, and when to pick another engine
-- [docs/architecture.md](docs/architecture.md): how the compiler, runtime and starter work
-- [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
-- [AGENTS.md](AGENTS.md): rules for maintainers, human or agent ([CONTRIBUTING.md](CONTRIBUTING.md) is the summary); [docs/handoff.md](docs/handoff.md): how the work is orchestrated
-
-## Status and contributing
-
-We're building Tessera in the open at Chainguard. We don't publish it to
-any package registry; it ships only from Chainguard's own repositories.
-
-We don't accept pull requests from external contributors. If you and your
-organization would seriously like to get involved, email
-dlorenc@chainguard.dev.
-
-Use of the Tessera and Chainguard names is governed by Chainguard's
-trademark policy.
+Build and test with `mvn -B -ntp verify` (JDK 21+, Maven 3.9+; set `JDK8_HOME` to a JDK 8 to run
+`Jdk8ProcessorTest`). `plugins/tessera/skills/migrate/references/guide.md` must stay a copy of
+`docs/guide.md` (`MigrationSkillTest`). The [migration benchmark](bench/migration/README.md)
+measures whether a coding agent can migrate a real app from the guide alone. Maintainer rules,
+for humans and agents, are in [AGENTS.md](AGENTS.md).
 
 ## License
 
