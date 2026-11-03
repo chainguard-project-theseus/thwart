@@ -383,6 +383,14 @@ class ControlFlowTest {
             "com.example.Role",
             role)
         .assertError("page.html:1:", "NOPE");
+
+    // A String variable never equals an enum constant, so the case could never match.
+    compile(
+            "Role role, String s",
+            "<div t:switch=\"role\"><p t:case=\"${s}\">A</p></div>",
+            "com.example.Role",
+            role)
+        .assertError("page.html:1:", "cannot compare com.example.Role with java.lang.String");
   }
 
   @Test
