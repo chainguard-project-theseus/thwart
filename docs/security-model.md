@@ -162,3 +162,43 @@ accepts. None is modelled.
 | `</table>` in a table mode inside `template` contents uses `findLast("table")`, not table scope, and closes an outer table | validator.nu and Firefox close it; the spec, parse5, Chromium and WebKit ignore the end tag | exclusion (b): no table part directly in `template` (`TABLE_IN_TEMPLATE`; seeds); the repros also report parse errors |
 | Classic and customizable `<select>` parsing | Firefox ESR and parse5 drop elements other than `option`, `optgroup` and `hr`; the pinned parser, Chromium, current Firefox and WebKit keep them | exclusion (c), on composed output (`SELECT_CONTENT`; seeds) |
 | parse5: the end tag of an SVG/MathML integration point while an HTML formatting element is open (`<div><svg><desc><b></desc></svg>X`) | parse5 differs from validator.nu and all three browsers | a parse5 bug, not a browser one. The Node job reports parse5-only drift without failing. The error check rejects it (`ErrorFreeTest`) |
+
+## 8. Proof table
+
+Each context a computed value can reach, what makes it safe, and the test that pins it. Anything
+not in this table is a build error (context-model.md §9; the guide's §5 table gives each fix).
+`ProofTableTest` checks that every test named here exists.
+
+| Accepted context | Escaper or rule | Pinned by |
+|---|---|---|
+| Element text, `t:text`, `[[...]]` | `Escapers.text`; the one text choke point | `EscapersTest`, `TextChokePointTest`, `HostileSweepTest` |
+| Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`) | `Escapers.attr` in a quoted value; any other computed name is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest` |
+| Typed attribute (`target`, some `value` and `for`) | Literals, numbers or a choice of literals, checked at build time | `ContextsTest`, `AttributesEndToEndTest` |
+| `data-*` and non-WAI-ARIA `aria-*` | Neutral values only: a number, a boolean or a literal-path same-origin link | `NeutralValuesTest`, `ClientTemplateInjectionTest` |
+| URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#tessera` | `EscapersTest`, `AttributesEndToEndTest` |
+| Resource URL (`script[src]`, `iframe[src]`, `link[href]`, ...) | A same-origin literal-path `@{...}` with no query (`Escapers.sameOriginLink`, `Escapers.resourceUrl`) | `LinkCompilerTest`, `SameOriginLinkRenderTest` |
+| Form action, `formaction`, `<base href>`, refresh URL | Same-origin link re-checked at render (`Checks.isSameOriginUrl`, `Escapers.refresh`) | `FormActionTest`, `CsrfFormactionTest`, `CsrfBaseTest` |
+| CSRF hidden input | Added only to POST forms that provably post to the page's origin | `CsrfActionOriginTest`, `CsrfOwnInputTest` |
+| JavaScript `<script>` | A JSON value in parentheses as a top-of-script declaration (`Escapers.javaScript`) | `ScriptPreludeTest`, `EscaperFuzzTest` |
+| JSON `<script>` | `Escapers.json` | `ScriptJsonTest` |
+| `style` attribute | Literals, numbers and `CssValue`; nothing in `<style>` | `StyleAttributeTest`, `CssValueTest` |
+| Raw HTML (`t:utext`, `[(...)]`) | `SafeHtml` (flow) or `SafeInlineHtml` (phrasing), inserted only where the parser state meets its kind; producers emit balanced content | `ContentKindsTest`, `FlowProducerTest`, `SanitizerBalanceTest` |
+| HTML message | Arguments escaped, then sanitized at render by a fixed policy | `HtmlMessageTest` |
+| CSP nonce | On compiler-written `<script>`/`<style>` only; the starter's default policy | `CspNonceTest`, `CspFilterTest`, `CspTest` |
+| Every hole, structurally | The verifier: benign and hostile trees equal, error-free parse, every exit state | `SeedVerifierTest`, `ExitStateTest`, `ErrorFreeTest` |
+| Expressions | Allow-listed properties and functions, no runtime evaluator | `SstiPayloadTest` |
+
+Static author markup holds no untrusted data. X1's static rule rejects `on*` handlers and
+`javascript:` in HTML URL attributes (`AttributesEndToEndTest`); the default CSP covers the rest.
+
+## 9. Known gaps
+
+These, and only these, are known ways the guarantee falls short:
+
+1. **Client frameworks over server DOM.** Code that compiles or evaluates the rendered DOM can turn
+   safe output into script. Out of scope (§2, principle 7); the strict CSP mitigates it.
+2. **Same-origin `img` GETs from sanitized HTML.** A policy that keeps `img` lets user content make
+   the browser send a same-origin GET with the user's cookies. Don't serve state-changing GETs.
+3. **Tier1's parser oracle shares the verifier's engine.** `SeedVerifierTest` and
+   `HostileSweepTest` parse with the same pinned htmlparser the verifier uses; the Node postsubmit
+   (parse5, Chromium, Firefox ESR, WebKit) is the independent check.
