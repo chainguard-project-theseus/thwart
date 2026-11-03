@@ -280,6 +280,7 @@ public final class ContextVerifier {
           balanced(entry, exit, start, what, false);
         }
       } catch (EngineException e) {
+        // Untested: making validator.nu throw needs a parser seam only for the test (AGENTS.md, keep it simple).
         throw internal(near, "the HTML parser it checks with failed (" + e.getMessage() + ")", e);
       }
       for (Finding f : found) {
