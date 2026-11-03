@@ -162,8 +162,8 @@ public final class Contexts {
       return "Tessera stamps the CSP nonce itself; delete this attribute";
     }
     return "'" + name + "' is not on Tessera's list of computed attributes (docs/guide.md section 4.4); write it as"
-        + " a static value, or one element per value under t:if, or put data your script reads in a data-* attribute"
-        + " such as t:data-" + attr;
+        + " a static value, or one element per value under t:if; for data your script reads, put a number, boolean or"
+        + " link in t:data-" + attr + ", and any other value in a script declaration such as var x = [[${x}]]";
   }
 
   /**
