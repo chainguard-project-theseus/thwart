@@ -149,6 +149,8 @@ public final class TemplateGenerator implements CodegenContext {
       node(body, n, scope);
     }
     Emitted bodyCode = body.build();
+    bodyCode.checkMethodSize(
+        diagnostics(), new SourcePos(info.document().source().path(), 1, 1), "template '" + info.viewName() + "'");
     Map<String, Skeleton.Seq> fragments = FragmentMethods.generate(this);
     for (int i = 0; i < pending.size(); i++) {
       Skeleton.FragmentId id = pending.get(i);
