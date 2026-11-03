@@ -31,14 +31,16 @@ before you start; look up the rest when you need it.
 ## Your tools
 
 - **The compiler.** Each error names the file, line and column, says what is wrong and how to fix
-  it. Those messages are the documentation for each rule; `mvn compile` is the fastest check you
-  have. An error ending in `[verifier:RULE]` has a row with the fix in guide section 5. Some
-  constructs are rejected rather than supported, each with a recipe in the guide: values inside
-  `<svg>`, `<math>`, `<noscript>` or `<iframe>`, CDATA, `<xmp>`/`<frameset>`, a computed input
-  `type`, `srcset` or `<font color>`, unbalanced `t:if`/`t:each` bodies (4.4, 4.8), and block
-  markup in HTML messages (4.5). Client frameworks that compile the server's DOM as a template
-  are unsupported (section 5). The generated Java is in `target/generated-sources/annotations` if
-  you want to see what a template became.
+  it. Those messages are the documentation for each rule; `mvn compile` (Gradle:
+  `gradle compileJava`) is the fastest check you have. An error ending in `[verifier:RULE]` has a
+  row with the fix in guide section 5. Some constructs are rejected rather than supported, each
+  with a recipe in the guide: values inside `<svg>`, `<math>`, `<noscript>` or `<iframe>`, CDATA,
+  `<xmp>`/`<frameset>`, a computed input `type`, `srcset` or `<font color>`, unbalanced
+  `t:if`/`t:each` bodies (4.4, 4.8), and block markup in HTML messages (4.5). Client frameworks
+  that compile the server's DOM as a template are unsupported (section 5). The generated Java is
+  in `target/generated-sources/annotations` (Gradle:
+  `build/generated/sources/annotationProcessor/java/main`) if you want to see what a template
+  became.
 - **`tessera-migrate`**, a jar that runs on JDK 8+. Fetch it into `.tessera/` (outside `target/`;
   don't commit it):
 
@@ -47,17 +49,19 @@ before you start; look up the rest when you need it.
   java -jar .tessera/tessera-migrate.jar --help
   ```
 
-  Tessera isn't published to a remote repository: it resolves from the local Maven repository,
-  where it was installed with `mvn install`. If the copy fails, the jar may still be there to copy
-  by hand (`~/.m2/repository/dev/tessera/tessera-migrate/<version>/`). If `dev.tessera` is
-  missing from the local repository, say that Tessera has to be installed first.
+  The command needs no `pom.xml`, so it works the same in a Gradle application. Tessera isn't
+  published to a remote repository: it resolves from the local Maven repository, where it was
+  installed with `mvn install` (a Gradle build reads it through `mavenLocal()`). If the copy
+  fails, the jar may still be there to copy by hand
+  (`~/.m2/repository/dev/tessera/tessera-migrate/<version>/`). If `dev.tessera` is missing from
+  the local repository, say that Tessera has to be installed first.
   - `record` and `compare` replay a `pages.txt` against the old app and then the new one and
     compare the pages as a browser builds them. This is how you know a page is right.
   - For Thymeleaf, `tessera-migrate <old-templates-dir> <new-templates-dir> --report report.md`
     does the mechanical rewrite and reports, by `file:line`, what it couldn't convert and every
     value the templates read from outside the model.
 - **`tessera-maven-plugin`**: `check` makes Maven recompile after a template-only or message-only
-  edit (guide section 2).
+  edit. Gradle has no plugin: declared `inputs` on `compileJava` do the same (guide section 2).
 - **The application's own tooling.** Its build, tests, scripts, README and seed data are yours to
   find and use.
 
@@ -78,8 +82,9 @@ start and run it again before deciding time is short.
 
 ## What "done" is checked against
 
-- The application's normal Maven build passes on the JDK it targets, with all existing tests. Don't
-  delete, disable or weaken tests; update a test only where it asserts on the old engine's details.
+- The application's normal Maven or Gradle build passes on the JDK it targets, with all existing
+  tests. Don't delete, disable or weaken tests; update a test only where it asserts on the old
+  engine's details.
 - Page parity: `compare` exits 0 on your `pages.txt`, so every page is `same` or `reordered` with
   its recorded status and final URL, or you can say why a remaining difference is right. A
   `pages.txt` that skips pages or states proves nothing.

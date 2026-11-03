@@ -1,1 +1,8 @@
+pluginManagement {
+  repositories {
+    // The Spring Boot plugins are on Maven Central too; the default (the Gradle Plugin Portal) also works.
+    mavenCentral()
+  }
+}
+
 rootProject.name = 'tessera-gradle-example'
