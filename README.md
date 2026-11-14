@@ -136,7 +136,7 @@ libraries that use `eval` or `new Function`, break. Turn it off with `tessera.cs
 ## Migrating
 
 ```sh
-claude plugin marketplace add wolfi-dev/tessera
+claude plugin marketplace add chainguard-project-theseus/tessera
 claude plugin install tessera@tessera
 ```
 
