@@ -1,6 +1,5 @@
 # Trust and cache policy for Checks. The platform reads this file from main
-# only; a pull request cannot widen it. See mono's
-# ai-cicd/sandbox/docs/identities.md. This repository defines no workload
+# only; a pull request cannot widen it. This repository defines no workload
 # identities.
 version: 1
 
