@@ -15,7 +15,8 @@ pilot of Chainguard's secure-by-design library portfolio.
 
 Decide judgment calls by it: the smallest correct change, delete rather than add, and a rejection
 with a clear `file:line:col` error and a guide recipe beats new machinery. Before calling a
-feature unused, grep `bench/migration/results/*/run-*/diff.patch` for it.
+feature unused, grep the past bench runs' `diff.patch` files for it (see `hack/corpus.sh`'s
+`RESULTS`).
 
 ## Design principles (non-negotiable)
 
@@ -115,9 +116,9 @@ keep the change additive and minimal and call it out in the PR description.
   their dependencies), no tests. `tier1` runs the security core tests (about a minute; run it
   before every PR). `tier2` runs tier0, then the tests of the changed modules. `quick.sh` runs
   Maven with `-o`; set `ONLINE=1` when an artifact is missing. CI still runs the full `mvn verify`.
-- `hack/corpus.sh [app ...]` builds and tests each bench app with a committed `diff.patch`
-  against the installed 0.1.0-SNAPSHOT. `JOBS=3` runs three apps at once. It needs jq, procps,
-  and Node 22 with npm.
+- `hack/corpus.sh [app ...]` builds and tests each bench app that has a past run's
+  `diff.patch` under `RESULTS` against the installed 0.1.0-SNAPSHOT. `JOBS=3` runs three apps
+  at once. It needs jq, procps, and Node 22 with npm.
 
 ## Workflow for agents
 

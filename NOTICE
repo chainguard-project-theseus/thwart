@@ -72,12 +72,3 @@ not part of any Tessera artifact.
   luckyblog       https://github.com/MSUNorg/luckyBlog (Apache-2.0)
   purl-server     https://github.com/ubrostock/purl_server (Apache-2.0)
   jobsearch       https://github.com/AscelOttaku/JobSearch
-
---------------------------------------------------------------------------
-Migration benchmark results (bench/migration/results/)
-
-The benchmark's recorded runs include diffs (diff.patch) and rendered-page
-comparisons of third-party applications migrated by an agent. Their
-context and removed lines are those applications' source, under each
-application's own licence; bench/migration/apps/<app>/app.json names the
-repository and commit. They are not part of any Tessera artifact.

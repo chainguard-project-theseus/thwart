@@ -2,9 +2,9 @@
 # Regression corpus: rebuild and test every migrated bench app against the locally installed
 # Tessera 0.1.0-SNAPSHOT.
 #
-# usage: hack/corpus.sh [APP ...]        (default: every app with a committed diff.patch)
+# usage: hack/corpus.sh [APP ...]        (default: every app with a run under RESULTS)
 #
-# For each app under bench/migration/results/ with a run-*/diff.patch: clone the repo from
+# For each app under RESULTS with a run-*/diff.patch: clone the repo from
 # bench/migration/apps/<app>/app.json at its pinned commit, apply the latest run's diff.patch,
 # then run the app's build and test commands on its JDK ("java": 8 or the default 21). Prints a
 # table of app, run, compile and tests; exits non-zero if any app fails.
@@ -12,18 +12,20 @@
 # Install Tessera first: in a fresh session `mvn -B -q install -DskipTests -Dinvoker.skip` (tier0 installs
 # nothing on a clean checkout), after a change `hack/quick.sh tier0`. Needs git, jq, procps,
 # JDK 21 and 8 under /usr/lib/jvm, network for the apps' own dependencies, and nodejs/npm for
-# ewp-registry. Env: CORPUS_DIR (work dir, default /tmp/tessera-corpus), JOBS (parallel apps,
-# default 2).
+# ewp-registry. Env: RESULTS (bench output to read, default bench/migration/results; point it at
+# an archive of past runs laid out the same way), CORPUS_DIR (work dir, default
+# /tmp/tessera-corpus), JOBS (parallel apps, default 2).
 set -uo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 bench=$root/bench/migration
+RESULTS=${RESULTS:-$bench/results}
 work=${CORPUS_DIR:-/tmp/tessera-corpus}
 jobs=${JOBS:-2}
 # Parallel builds share ~/.m2: lock per artifact, as the bench image does.
 export MAVEN_ARGS="${MAVEN_ARGS:-} -Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"
 
 latest_run() {
-  ls -d "$bench/results/$1"/run-*/diff.patch 2>/dev/null | sed 's|.*/run-\([0-9]*\)/diff.patch|\1|' | sort -n | tail -1
+  ls -d "$RESULTS/$1"/run-*/diff.patch 2>/dev/null | sed 's|.*/run-\([0-9]*\)/diff.patch|\1|' | sort -n | tail -1
 }
 
 # One app: writes $work/out/<app>/{run,build.exit,test.exit,tests} and the logs beside them.
@@ -42,7 +44,7 @@ one() {
     git -C "$cache" fetch -q origin "$commit" &&
       git clone -q --no-checkout "$cache" "$src" &&
       git -C "$src" checkout -q -B bench "$commit" &&
-      git -C "$src" apply --whitespace=nowarn "$bench/results/$app/run-$run/diff.patch"
+      git -C "$src" apply --whitespace=nowarn "$RESULTS/$app/run-$run/diff.patch"
   } > "$out/setup.log" 2>&1 || { echo setup > "$out/build.exit"; return; }
   # The bench container mounts the app's fixtures at /bench/app and lib/ at /bench/lib.
   local build test
@@ -64,18 +66,19 @@ if [ $# -gt 0 ]; then
   apps=("$@")
 else
   apps=()
-  for d in "$bench"/results/*/; do
+  for d in "$RESULTS"/*/; do
     a=$(basename "$d")
     [ -n "$(latest_run "$a")" ] && apps+=("$a")
   done
 fi
+[ ${#apps[@]} -gt 0 ] || { echo "no run-*/diff.patch under $RESULTS" >&2; exit 2; }
 for a in "${apps[@]}"; do
   [ -f "$bench/apps/$a/app.json" ] && [ -n "$(latest_run "$a")" ] || { echo "no app.json or diff.patch for $a" >&2; exit 2; }
 done
 
 mkdir -p "$work/cache" "$work/src" "$work/out"
 export -f one latest_run
-export bench work
+export bench work RESULTS
 printf '%s\n' "${apps[@]}" | xargs -P "$jobs" -I{} bash -c 'one "$1"; echo "done: $1" >&2' _ {}
 
 fail=0
