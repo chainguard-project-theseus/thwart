@@ -3,7 +3,7 @@
 Can one coding agent, given only the Claude Code plugin we ship
 ([plugins/tessera](../../plugins/tessera): the `migrate` skill and its guide) and a legacy Spring
 app, migrate the app's views to Tessera on its own without breaking anything? This directory
-measures that. Results and failure analysis: [RESULTS.md](RESULTS.md).
+measures that. Its output goes to `results/`, which is local and not committed.
 
 ## Run it
 
@@ -29,14 +29,13 @@ Two kinds of round:
 - **Quick round**: after a change to Tessera, `tessera-migrate` or the plugin, run only the apps
   the change affects, one run each (`migrate` with the default `--runs 1` and a `--first-run` past
   the existing runs). Rebuild the image first (`bench.py image`) so the runs use the change.
-- **Milestone round**: all apps, 3 runs each (`run.sh --runs 3`, or `migrate --runs 3`), for a
-  result worth writing up in RESULTS.md.
+- **Milestone round**: all apps, 3 runs each (`run.sh --runs 3`, or `migrate --runs 3`).
 
 `report` counts each app's runs, so apps with different numbers of runs sit in the same tables.
 
 `recheck` re-runs the check and the browser smoke check of every run that has a checkout in
 `work/runs/` (others are skipped), against the baseline recording, so `baseline` must have run in
-this clone. To recheck a committed run in a fresh clone, rebuild its checkout from its patch
+this clone. To recheck a run from another clone or an archive, rebuild its checkout from its patch
 first: `git clone -q <repo> work/runs/<app>/run-<k>`, `git -C work/runs/<app>/run-<k> checkout -q -B
 bench <commit>` and `git -C work/runs/<app>/run-<k> apply results/<app>/run-<k>/diff.patch` (repo
 and commit from `app.json`).
@@ -159,8 +158,8 @@ fetched and the home page's commit and build day (ewp-registry), and the eCertis
 `EcertisHandler(...)` in espd's layout script (the original printed `&amp;` inside a `<script>`, a
 bug a port fixes by writing the URL as JSON; the country argument is still compared).
 
-Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so their runs'
-`diff.patch` files are not committed (`.gitignore`).
+Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so don't publish
+their runs' `diff.patch` files.
 
 The version ladder: old commits of the two petclinics, so differences between rungs come from
 the Spring and Java generation rather than the app. Each rung builds, tests and runs on JDK 8 with

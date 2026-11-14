@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Pairs of snippets that must compare the same, reordered, or different. Each normalization rule
  * has a pair it makes equal and a pair it must not make equal. Cases are from the migration
- * benchmark (bench/migration/lib/crawl.py and RESULTS.md "Harness lessons").
+ * benchmark (bench/migration/README.md).
  */
 class PageNormalizerTest {
 
