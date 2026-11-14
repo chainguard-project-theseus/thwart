@@ -7,8 +7,8 @@
 #        BUILD_JDK, RUN_JDK (JAVA_HOME for BUILD/TEST and for START),
 #        IGNORE (newline-separated regexes passed to compare as --ignore)
 #
-# Without RECORDING_DIR the pages are recorded (`tessera-migrate record`) into OUT_DIR/pages;
-# with it they are compared against that recording (`tessera-migrate compare`), whose output goes
+# Without RECORDING_DIR the pages are recorded (`thwart-migrate record`) into OUT_DIR/pages;
+# with it they are compared against that recording (`thwart-migrate compare`), whose output goes
 # to OUT_DIR/compare.txt and exit code to OUT_DIR/compare.exit (record's to OUT_DIR/record.exit).
 # OUT_DIR also gets counts.json, build.log/build.exit, app.log, test.log/test.exit, tests.json.
 # With BROWSER=1 the check is the browser smoke check instead (a fresh app, so its replay sees
@@ -16,7 +16,7 @@
 set -u
 app=$1 pages=$2 out=$3 recording=${4:-}
 lib=$(dirname "$0")
-migrate="/usr/lib/jvm/default-jvm/bin/java -jar /opt/tessera-migrate.jar"
+migrate="/usr/lib/jvm/default-jvm/bin/java -jar /opt/thwart-migrate.jar"
 mkdir -p "$out"
 cd "$app" || exit 1
 

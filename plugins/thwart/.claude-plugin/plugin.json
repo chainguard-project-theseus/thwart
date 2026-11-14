@@ -1,0 +1,8 @@
+{
+  "name": "thwart",
+  "description": "Migrate server-rendered Java views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, ...) to Thwart, checked page by page against the old app",
+  "author": {
+    "name": "Chainguard"
+  },
+  "repository": "https://github.com/chainguard-project-theseus/thwart"
+}

@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html xmlns:t="https://thwart.chainguard.dev" t:import="dev.chainguard.thwart.benchmarks.*" t:params="List<Owner> owners" t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+<body t:remove="tag">
+<h2>Featured owners</h2>
+<div class="cards"><div class="col" t:each="owner : ${owners}"><div t:replace="~{fragments/cards :: card(${owner})}">Card</div></div>
+</div>
+</body>
+</html>

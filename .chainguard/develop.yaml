@@ -1,4 +1,4 @@
-# The environment a `chainctl develop` session on tessera opens on. CI never
+# The environment a `chainctl develop` session on thwart opens on. CI never
 # reads this file. It starts from maven.yaml's environment, so the JDKs (21
 # and the JDK 8 that Jdk8ProcessorTest needs), Maven and the variables match
 # what the verify check builds with, and adds the tools a person works with.

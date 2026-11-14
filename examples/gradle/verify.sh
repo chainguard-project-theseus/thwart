@@ -1,6 +1,6 @@
 #!/bin/sh
 # CI for the Gradle example (#427, #794), run by .chainguard/ci/gradle.yaml. Builds a copy of it
-# against the tessera artifacts in the local Maven repository (run `mvn install` first) and runs
+# against the thwart artifacts in the local Maven repository (run `mvn install` first) and runs
 # HelloControllerTest, which renders the page through Spring MVC. Then checks that a
 # template-only or message-only edit reruns compileJava and that template errors fail the build.
 set -eu

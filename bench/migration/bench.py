@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tessera migration benchmark. See README.md.
+"""Thwart migration benchmark. See README.md.
 
 usage: bench.py [all|image|baseline|migrate|recheck|rescore|report] [--runs N] [--jobs N] [--minutes N]
                 [--budget-usd N] [--model M] [APP ...]
@@ -20,13 +20,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 WORK = os.path.join(HERE, "work")
 RESULTS = os.path.join(HERE, "results")
-IMAGE = "tessera-migration-bench"
-VOLUME = "tessera-migration-bench-m2"
+IMAGE = "thwart-migration-bench"
+VOLUME = "thwart-migration-bench-m2"
 M2 = "/home/bench/.m2"
 
 # app.json "java" picks the JDK the original app builds and runs with (default 21).
 JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
-# A line of `tessera-migrate compare` output: page number, verdict, request.
+# A line of `thwart-migrate compare` output: page number, verdict, request.
 VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
 
 # Dependencies that mean the old view technology is still on the build.
@@ -99,7 +99,7 @@ def check(app, app_dir, out_dir, recording=None, browser=False):
     """Build, crawl and test a checkout inside the container. Without a recording the pages are
     recorded into out_dir/pages; with one they are compared against it (out_dir/compare.txt).
     With browser=True it is the browser smoke check instead (out_dir/browser.json; no tests).
-    The original and the migrated app build, test and run on the app's JDK (Tessera supports 8+)."""
+    The original and the migrated app build, test and run on the app's JDK (Thwart supports 8+)."""
     cfg = config(app)
     shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir)
@@ -175,19 +175,19 @@ def summary_line(c):
             f"/{t.get('tests', 0)} pages={ok}/{len(c['pages'])}")
 
 
-SKILL = "tessera:migrate"  # plugins/tessera's skill, as Claude Code names a plugin skill
+SKILL = "thwart:migrate"  # plugins/thwart's skill, as Claude Code names a plugin skill
 
 
 def invokes_skill(tool, args):
-    """A Skill tool call for the Tessera skill, or a tool call that opens the skill's SKILL.md
-    directly (an agent that finds /opt/tessera-plugin and reads the file uses the skill too)."""
+    """A Skill tool call for the Thwart skill, or a tool call that opens the skill's SKILL.md
+    directly (an agent that finds /opt/thwart-plugin and reads the file uses the skill too)."""
     if tool == "Skill":
         return str(args.get("skill") or args.get("command") or "").lstrip("/") in (SKILL, "migrate")
-    return "tessera-plugin/skills/migrate/SKILL.md" in json.dumps(args)
+    return "thwart-plugin/skills/migrate/SKILL.md" in json.dumps(args)
 
 
 def skill_use(transcript):
-    """Whether the session listed the Tessera skill (init event) and whether the agent invoked it
+    """Whether the session listed the Thwart skill (init event) and whether the agent invoked it
     (invokes_skill), from claude's stream-json output. Recorded in agent.json by migrate()."""
     listed = invoked = False
     with open(transcript, errors="replace") as f:
@@ -302,7 +302,7 @@ def score(app, run_dir):
     got = load_check(os.path.join(run_dir, "check"))
     engine = config(app)["engine"]
 
-    # Pages: `tessera-migrate compare` against the baseline recording. A page passes as "same" or
+    # Pages: `thwart-migrate compare` against the baseline recording. A page passes as "same" or
     # "reordered" (siblings in another order, such as validation messages from a HashSet) and only
     # with its recorded status and final URL.
     verdicts, mismatch, request = {}, [], None  # verdicts by page number
@@ -354,7 +354,7 @@ def score(app, run_dir):
         "insecure": insecure,
         "legacy_templates": leftover.get("files", []), "legacy_constructs": leftover.get("constructs", {}),
         "legacy_deps": legacy_deps,
-        "tessera_templates": got["counts"].get("tessera", {}).get("templates", 0),
+        "thwart_templates": got["counts"].get("thwart", {}).get("templates", 0),
         "baseline_templates": base["counts"].get(engine, {}).get("templates", 0),
     }
     s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
@@ -383,7 +383,7 @@ def migrate(app, k, args):
     checkout(app, app_dir)
     prompt = open(os.path.join(HERE, "prompt.md")).read().replace("{minutes}", str(args.minutes))
     # The container is the sandbox: its home is empty (no CLAUDE.md, memory, plugins or settings)
-    # and it sees only the checkout and the image's Tessera plugin, which lib/run-agent.sh loads.
+    # and it sees only the checkout and the image's Thwart plugin, which lib/run-agent.sh loads.
     start = time.time()
     with open(os.path.join(run_dir, "transcript.jsonl"), "w") as out:
         env = {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
@@ -405,7 +405,7 @@ def finish(app, k):
     cfg = config(app)
     run_dir = os.path.join(RESULTS, app, f"run-{k}")
     app_dir = os.path.join(WORK, "runs", app, f"run-{k}")
-    # baseline/ is the agent's own page recording (the skill's `tessera-migrate record ... baseline/`).
+    # baseline/ is the agent's own page recording (the skill's `thwart-migrate record ... baseline/`).
     # Reset its index entries to the pinned commit after adding rather than excluding it: an exclude
     # pathspec fails when the agent has gitignored baseline/, and resetting (not `rm --cached`) keeps
     # a baseline/ the app itself tracks out of the diff.
@@ -457,7 +457,7 @@ def report():
                    f" | {', '.join(s['insecure']) or '-'} | {legacy} | {browser} | {skill} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
     # Held-out apps ("heldout": true) only measure the guide and tools, and below-floor apps
-    # ("belowfloor": true) are older than Tessera supports, so each gets its own table. Apps can
+    # ("belowfloor": true) are older than Thwart supports, so each gets its own table. Apps can
     # have different numbers of runs (quick rounds add one), so counts are out of each app's runs.
     def group_of(app):
         c = config(app)

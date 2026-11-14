@@ -1,0 +1,82 @@
+<!doctype html>
+<html t:fragment="layout(Object template, Object menu)" xmlns:t="https://thwart.chainguard.dev">
+
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="shortcut icon" type="image/x-icon" t:href="@{/resources/images/favicon.png}">
+
+  <title>PetClinic :: a Spring Framework demonstration</title>
+
+  <link t:href="@{/webjars/font-awesome/css/font-awesome.min.css}" rel="stylesheet">
+  <link rel="stylesheet" t:href="@{/resources/css/petclinic.css}" />
+
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-dark" role="navigation">
+    <div class="container-fluid">
+      <a class="navbar-brand" t:href="@{/}"><span></span></a>
+      <div class="collapse navbar-collapse" id="main-navbar">
+
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0" t:remove="all">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button">Template</a>
+          </li>
+        </ul>
+
+        <ul class="nav navbar-nav me-auto">
+
+          <li t:fragment="menuItem(Object link, Object active, Object title, Object glyph, Object text)" class="nav-item">
+            <a t:class="active==menu ? 'nav-link active' : 'nav-link'" t:href="@{__${link}__}"
+              t:title="title">
+              <span t:class="'fa fa-'+glyph" class="fa fa-home"></span>
+              <span t:text="text">Template</span>
+            </a>
+          </li>
+
+          <li t:replace="~{::menuItem ('/','home','home page','home','Home')}">
+            <span class="fa fa-home" aria-hidden="true"></span>
+            <span>Home</span>
+          </li>
+
+          <li t:replace="~{::menuItem ('/owners/find','owners','find owners','search','Find owners')}">
+            <span class="fa fa-search" aria-hidden="true"></span>
+            <span>Find owners</span>
+          </li>
+
+          <li t:replace="~{::menuItem ('/vets.html','vets','veterinarians','th-list','Veterinarians')}">
+            <span class="fa fa-th-list" aria-hidden="true"></span>
+            <span>Veterinarians</span>
+          </li>
+
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="container-fluid">
+    <div class="container xd-container">
+
+      <t:block t:insert="template" />
+
+      <br />
+      <div class="container">
+        <div class="row">
+          <div class="col-12 text-center">
+            <img src="../static/resources/images/spring-logo.svg" t:src="@{/resources/images/spring-logo.svg}"
+              alt="VMware Tanzu Logo" class="logo">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script t:src="@{/webjars/bootstrap/dist/js/bootstrap.bundle.min.js}"></script>
+
+</body>
+
+</html>

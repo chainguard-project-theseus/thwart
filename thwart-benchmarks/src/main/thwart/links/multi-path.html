@@ -1,0 +1,1 @@
+<a xmlns:t="https://thwart.chainguard.dev" t:import="java.util.List" t:params="List<String> list, String[] objects, int[] ints" t:href="${list} != null ? @{/items/{selected}/edit(selected=${list})} : (${objects} != null ? @{/items/{selected}/edit(selected=${objects})} : @{/items/{selected}/edit(selected=${ints})})">x</a>

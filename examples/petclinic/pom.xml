@@ -4,15 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>dev.tessera</groupId>
-    <artifactId>tessera-parent</artifactId>
+    <groupId>dev.chainguard.thwart</groupId>
+    <artifactId>thwart-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>tessera-example-petclinic</artifactId>
-  <name>Tessera Example: Spring PetClinic</name>
-  <description>Port of spring-petclinic's Thymeleaf UI to Tessera (end-to-end proof).</description>
+  <artifactId>thwart-example-petclinic</artifactId>
+  <name>Thwart Example: Spring PetClinic</name>
+  <description>Port of spring-petclinic's Thymeleaf UI to Thwart (end-to-end proof).</description>
 
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>
@@ -20,8 +20,8 @@
     <webjars-locator.version>1.1.3</webjars-locator.version>
     <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
     <webjars-font-awesome.version>4.7.0</webjars-font-awesome.version>
-    <!-- Read by the processor option below and by tessera-maven-plugin. -->
-    <tessera.messages>${project.basedir}/src/main/resources/messages/messages</tessera.messages>
+    <!-- Read by the processor option below and by thwart-maven-plugin. -->
+    <thwart.messages>${project.basedir}/src/main/resources/messages/messages</thwart.messages>
   </properties>
 
   <dependencyManagement>
@@ -39,17 +39,17 @@
 
   <dependencies>
     <dependency>
-      <groupId>dev.tessera</groupId>
-      <artifactId>tessera-spring-boot-starter</artifactId>
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-spring-boot-starter</artifactId>
     </dependency>
     <dependency>
       <!-- Only so the reactor builds the processor first (it runs from annotationProcessorPaths). -->
-      <groupId>dev.tessera</groupId>
-      <artifactId>tessera-compiler</artifactId>
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-compiler</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <!-- Hot reload (guide section 3.1): restarts the app when mvn tessera:watch recompiles. -->
+      <!-- Hot reload (guide section 3.1): restarts the app when mvn thwart:watch recompiles. -->
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
       <optional>true</optional>
@@ -152,23 +152,23 @@
 
   <build>
     <plugins>
-      <!-- This is the configuration every Tessera application uses (see docs/architecture.md). -->
+      <!-- This is the configuration every Thwart application uses (see docs/architecture.md). -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <annotationProcessorPaths>
             <path>
-              <groupId>dev.tessera</groupId>
-              <artifactId>tessera-compiler</artifactId>
+              <groupId>dev.chainguard.thwart</groupId>
+              <artifactId>thwart-compiler</artifactId>
               <version>${project.version}</version>
             </path>
           </annotationProcessorPaths>
           <compilerArgs combine.children="append">
-            <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
-            <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
+            <arg>-Athwart.templates=${project.basedir}/src/main/resources/templates</arg>
+            <arg>-Athwart.package=org.springframework.samples.petclinic.templates</arg>
             <!-- Check every #{key} against the default bundle at build time. -->
-            <arg>-Atessera.messages=${tessera.messages}</arg>
+            <arg>-Athwart.messages=${thwart.messages}</arg>
             <!-- Spring MVC binds @PathVariable/@RequestParam by parameter name (spring-boot-starter-parent sets this). -->
             <arg>-parameters</arg>
             <!-- Upstream JPA entities are Serializable without serialVersionUID. -->
@@ -176,10 +176,10 @@
           </compilerArgs>
         </configuration>
       </plugin>
-      <!-- check: a template- or message-only edit recompiles. mvn tessera:watch: hot reload. -->
+      <!-- check: a template- or message-only edit recompiles. mvn thwart:watch: hot reload. -->
       <plugin>
-        <groupId>dev.tessera</groupId>
-        <artifactId>tessera-maven-plugin</artifactId>
+        <groupId>dev.chainguard.thwart</groupId>
+        <artifactId>thwart-maven-plugin</artifactId>
         <version>${project.version}</version>
         <executions><execution><goals><goal>check</goal></goals></execution></executions>
       </plugin>

@@ -1,5 +1,5 @@
 // A Spring Boot app built with Gradle (#427, #794): the same javac annotation processor as under
-// Maven, no Tessera plugin.
+// Maven, no Thwart plugin.
 plugins {
   id 'java'
   id 'org.springframework.boot' version '4.1.1'
@@ -8,19 +8,19 @@ plugins {
 
 repositories {
   mavenCentral()
-  // Tessera isn't published yet: run `mvn install` in the repo root first; it resolves from here.
+  // Thwart isn't published yet: run `mvn install` in the repo root first; it resolves from here.
   mavenLocal {
-    content { includeGroup 'dev.tessera' }
+    content { includeGroup 'dev.chainguard.thwart' }
   }
 }
 
-def tesseraVersion = '0.1.0-SNAPSHOT'
+def thwartVersion = '0.1.0-SNAPSHOT'
 
 dependencies {
   implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-  implementation "dev.tessera:tessera-spring-boot-starter:$tesseraVersion" // javax: -javax
-  // List every other processor the build uses (Lombok, MapStruct, ...) before Tessera.
-  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion"
+  implementation "dev.chainguard.thwart:thwart-spring-boot-starter:$thwartVersion" // javax: -javax
+  // List every other processor the build uses (Lombok, MapStruct, ...) before Thwart.
+  annotationProcessor "dev.chainguard.thwart:thwart-compiler:$thwartVersion"
 
   testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -32,14 +32,14 @@ def messages = file('src/main/resources/messages')
 tasks.named('compileJava') {
   options.release = 17
   options.compilerArgs += [
-    "-Atessera.templates=$templates",
-    '-Atessera.package=com.example.templates',
-    "-Atessera.messages=$messages",
+    "-Athwart.templates=$templates",
+    '-Athwart.package=com.example.templates',
+    "-Athwart.messages=$messages",
   ]
   // javac reads the templates and messages, not Gradle: declare them as inputs, or a template- or
   // message-only edit leaves compileJava UP-TO-DATE with the old generated classes.
-  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
-  inputs.file("${messages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(templates).withPropertyName('thwartTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("${messages}.properties").withPropertyName('thwartMessages').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 tasks.named('test') {

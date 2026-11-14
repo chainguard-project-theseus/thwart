@@ -1,0 +1,4 @@
+<div xmlns:t="https://thwart.chainguard.dev" t:import="de.uni.rostock.ub.purl_server.web.MarkupNode">
+  <!-- Reduced from bench run purl-server/run-4: sanitized markup parsed by markup.parse(...). -->
+  <t:block t:fragment="nodes(List<MarkupNode> nodes)"><t:block t:each="n : nodes"><t:block t:if="n.tag == null" t:text="n.text"></t:block><t:block t:unless="n.tag == null" t:switch="n.tag"><t:block t:case="'a'"><a t:href="n.attrs['href']" t:class="n.attrs['class']" t:insert="~{fragments/markup :: nodes(n.children)}"></a></t:block><t:block t:case="'b'"><b t:class="n.attrs['class']" t:insert="~{fragments/markup :: nodes(n.children)}"></b></t:block><t:block t:case="'p'"><p t:class="n.attrs['class']" t:insert="~{fragments/markup :: nodes(n.children)}"></p></t:block><t:block t:case="'hr'"><hr t:class="n.attrs['class']" /></t:block><t:block t:case="'br'"><br /></t:block></t:block></t:block></t:block>
+</div>

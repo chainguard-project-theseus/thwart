@@ -1,4 +1,4 @@
-Tessera Example: Spring PetClinic
+Thwart Example: Spring PetClinic
 
 This directory contains code and resources from Spring PetClinic
 (https://github.com/spring-projects/spring-petclinic), imported at commit
@@ -9,6 +9,6 @@ Licensed under the Apache License, Version 2.0; see LICENSE.txt in this
 directory or https://www.apache.org/licenses/LICENSE-2.0.
 
 Modifications by Chainguard: removed the Thymeleaf, MySQL, PostgreSQL,
-Testcontainers and Docker parts, and built the app under the Tessera parent
-POM with the Tessera annotation processor. The Thymeleaf templates are kept
+Testcontainers and Docker parts, and built the app under the Thwart parent
+POM with the Thwart annotation processor. The Thymeleaf templates are kept
 for reference under thymeleaf-reference/ and are not part of the application.

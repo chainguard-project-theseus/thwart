@@ -1,21 +1,21 @@
-Tessera
+Thwart
 Copyright (c) Chainguard, Inc.
 
 This product is licensed under the Apache License, Version 2.0 (LICENSE).
 It contains, bundles or is derived in part from the third-party material
-listed below, each under its own licence. Tessera's compiler, runtime and
-Spring starters are written for Tessera; they follow Thymeleaf's template
+listed below, each under its own licence. Thwart's compiler, runtime and
+Spring starters are written for Thwart; they follow Thymeleaf's template
 syntax for compatibility but contain no Thymeleaf source code.
 
 --------------------------------------------------------------------------
-validator.nu htmlparser (MIT; shaded into tessera-compiler)
+validator.nu htmlparser (MIT; shaded into thwart-compiler)
 
-  tessera-html5/ (build) -> tessera-compiler jar,
-  package dev.tessera.compiler.internal.html5.current
+  thwart-html5/ (build) -> thwart-compiler jar,
+  package dev.chainguard.thwart.compiler.internal.html5.current
 
-tessera-html5 fetches the htmlparser sources from
+thwart-html5 fetches the htmlparser sources from
 nu.validator:validator:26.10.12 (Maven Central, pinned by SHA-256),
-renames their packages and compiles them; tessera-compiler shades the
+renames their packages and compiles them; thwart-compiler shades the
 result into its jar for the build-time verifier. The sources are not
 checked into this repository. The licence text ships in the jar as
 META-INF/LICENSE-validator-htmlparser-26.10.12.txt.
@@ -26,12 +26,12 @@ META-INF/LICENSE-validator-htmlparser-26.10.12.txt.
   Foundation, and Opera Software ASA.
 
 --------------------------------------------------------------------------
-attoparser (Apache-2.0; bundled into the tessera-migrate jar)
+attoparser (Apache-2.0; bundled into the thwart-migrate jar)
 
   Copyright (c) The ATTOPARSER team (https://www.attoparser.org)
 
 --------------------------------------------------------------------------
-jsoup (MIT; bundled into the tessera-migrate jar)
+jsoup (MIT; bundled into the thwart-migrate jar)
 
   Copyright (c) 2009-present Jonathan Hedley <https://jsoup.org/>
 
@@ -39,8 +39,8 @@ jsoup (MIT; bundled into the tessera-migrate jar)
 Spring PetClinic (Apache-2.0; example only)
 
   examples/petclinic/
-  tessera-migrate/src/test/resources/golden/petclinic/ (test-only)
-  tessera-migrate/src/test/resources/golden/spring-petclinic-boot/ (test-only)
+  thwart-migrate/src/test/resources/golden/petclinic/ (test-only)
+  thwart-migrate/src/test/resources/golden/spring-petclinic-boot/ (test-only)
 
 Code, templates and resources from
 https://github.com/spring-projects/spring-petclinic, with modifications.
@@ -51,7 +51,7 @@ import and the changes.
 --------------------------------------------------------------------------
 html5lib-tests (MIT; test-only)
 
-  tessera-compiler/src/test/resources/verify/engine/html5lib-sample.dat
+  thwart-compiler/src/test/resources/verify/engine/html5lib-sample.dat
 
 A sample of the tree-construction inputs from
 https://github.com/html5lib/html5lib-tests.
@@ -61,11 +61,11 @@ contributors.
 --------------------------------------------------------------------------
 Application templates used as converter test inputs (test-only)
 
-  tessera-migrate/src/test/resources/golden/<app>/
+  thwart-migrate/src/test/resources/golden/<app>/
 
 Reduced excerpts of templates from open-source applications, used as
-inputs and expected outputs of tessera-migrate's converter tests. They are
-not part of any Tessera artifact.
+inputs and expected outputs of thwart-migrate's converter tests. They are
+not part of any Thwart artifact.
 
   fredbet         https://github.com/fred4jupiter/fredbet (MIT)
   ewp-registry    https://github.com/erasmus-without-paper/ewp-registry-service (MIT)

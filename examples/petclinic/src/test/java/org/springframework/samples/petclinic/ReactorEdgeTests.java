@@ -13,14 +13,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 /**
- * The Tessera processor runs from {@code annotationProcessorPaths}, which Maven does not
+ * The Thwart processor runs from {@code annotationProcessorPaths}, which Maven does not
  * treat as a reactor edge. Without a direct dependency on it, {@code -pl examples/petclinic
  * -am} and parallel builds can compile petclinic before (or without) the processor (#60).
  */
 class ReactorEdgeTests {
 
 	@Test
-	void everyTesseraProcessorPathIsAlsoAProvidedDependency() throws Exception {
+	void everyThwartProcessorPathIsAlsoAProvidedDependency() throws Exception {
 		var factory = DocumentBuilderFactory.newInstance();
 		factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
 		Element project = factory.newDocumentBuilder().parse(Path.of("pom.xml").toFile()).getDocumentElement();
@@ -29,16 +29,16 @@ class ReactorEdgeTests {
 		var paths = project.getElementsByTagName("path");
 		for (int i = 0; i < paths.getLength(); i++) {
 			Element path = (Element) paths.item(i);
-			if ("dev.tessera".equals(text(path, "groupId"))) {
+			if ("dev.chainguard.thwart".equals(text(path, "groupId"))) {
 				processorPaths.add(text(path, "artifactId"));
 			}
 		}
-		assertThat(processorPaths).contains("tessera-compiler");
+		assertThat(processorPaths).contains("thwart-compiler");
 
 		List<String> providedDeps = new ArrayList<>();
 		Element dependencies = child(project, "dependencies");
 		for (Node n = dependencies.getFirstChild(); n != null; n = n.getNextSibling()) {
-			if (n instanceof Element dep && "dev.tessera".equals(text(dep, "groupId"))
+			if (n instanceof Element dep && "dev.chainguard.thwart".equals(text(dep, "groupId"))
 					&& "provided".equals(text(dep, "scope"))) {
 				providedDeps.add(text(dep, "artifactId"));
 			}

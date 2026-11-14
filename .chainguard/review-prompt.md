@@ -1,6 +1,6 @@
-# Reviewer focus: tessera
+# Reviewer focus: thwart
 
-Tessera is a template engine whose job is to make XSS and template injection
+Thwart is a template engine whose job is to make XSS and template injection
 impossible: a template that compiles must not let a value run as code in the
 browser. Review at full depth. Hold the change to the design principles and
 rules in `AGENTS.md`; a break of a principle is Blocking unless the PR says so

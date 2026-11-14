@@ -1,5 +1,0 @@
-<div xmlns:t="https://tessera.dev" t:import="eu.erasmuswithoutpaper.registry.web.view.HtmlNode">
-<!-- Reduced from bench run ewp-registry/run-3: HTML parsed by HtmlTreeParser. -->
-<t:block t:fragment="nodes(List<HtmlNode> nodes)"><t:block t:each="n : nodes"><t:block t:replace="~{fragments/html :: node(n)}"></t:block></t:block></t:block>
-<t:block t:fragment="node(HtmlNode n)" t:switch="n.tag"><t:block t:case="'#text'">[[${n.text}]]</t:block><a t:case="'a'" t:class="n.attrs['class']" t:href="n.attrs['href']"><t:block t:replace="~{fragments/html :: nodes(n.children)}"></t:block></a><br t:case="'br'" t:class="n.attrs['class']"><code t:case="'code'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/html :: nodes(n.children)}"></t:block></code><li t:case="'li'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/html :: nodes(n.children)}"></t:block></li><ul t:case="'ul'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/html :: nodes(n.children)}"></t:block></ul></t:block>
-</div>

@@ -1,311 +1,311 @@
 # Public API: the types apps and templates use. Signatures that name an internal type
 # (Output, StringOutput, TemplateEntry) are for generated code and the starter.
-dev.tessera.runtime.CssValue: public boolean equals(java.lang.Object)
-dev.tessera.runtime.CssValue: public final class dev.tessera.runtime.CssValue
-dev.tessera.runtime.CssValue: public int hashCode()
-dev.tessera.runtime.CssValue: public java.lang.String toString()
-dev.tessera.runtime.CssValue: public java.lang.String value()
-dev.tessera.runtime.CssValue: public static dev.tessera.runtime.CssValue color(java.lang.String)
-dev.tessera.runtime.CssValue: public static dev.tessera.runtime.CssValue length(java.lang.String)
-dev.tessera.runtime.CssValue: public static dev.tessera.runtime.CssValue url(java.lang.String)
-dev.tessera.runtime.CssValue: public static dev.tessera.runtime.CssValue var(java.lang.String)
-dev.tessera.runtime.DefaultLinks: public dev.tessera.runtime.DefaultLinks(java.lang.String)
-dev.tessera.runtime.DefaultLinks: public dev.tessera.runtime.DefaultLinks(java.lang.String,java.util.function.UnaryOperator<java.lang.String>)
-dev.tessera.runtime.DefaultLinks: public final class dev.tessera.runtime.DefaultLinks implements dev.tessera.runtime.Links
-dev.tessera.runtime.DefaultLinks: public java.lang.String contextPath()
-dev.tessera.runtime.DefaultLinks: public java.lang.String encode(java.lang.String)
-dev.tessera.runtime.Field: public T value()
-dev.tessera.runtime.Field: public dev.tessera.runtime.Field(java.lang.String,java.lang.String,T)
-dev.tessera.runtime.Field: public final class dev.tessera.runtime.Field<T>
-dev.tessera.runtime.Field: public java.lang.String id()
-dev.tessera.runtime.Field: public java.lang.String objectName()
-dev.tessera.runtime.Field: public java.lang.String path()
-dev.tessera.runtime.Field: public java.lang.String toString()
-dev.tessera.runtime.Forms$CsrfToken: public boolean equals(java.lang.Object)
-dev.tessera.runtime.Forms$CsrfToken: public dev.tessera.runtime.Forms$CsrfToken(java.lang.String,java.lang.String)
-dev.tessera.runtime.Forms$CsrfToken: public int hashCode()
-dev.tessera.runtime.Forms$CsrfToken: public java.lang.String parameterName()
-dev.tessera.runtime.Forms$CsrfToken: public java.lang.String toString()
-dev.tessera.runtime.Forms$CsrfToken: public java.lang.String token()
-dev.tessera.runtime.Forms$CsrfToken: public static final class dev.tessera.runtime.Forms$CsrfToken
-dev.tessera.runtime.Forms: public abstract interface dev.tessera.runtime.Forms
-dev.tessera.runtime.Forms: public abstract java.lang.String value(java.lang.String,java.lang.String,java.lang.Object)
-dev.tessera.runtime.Forms: public abstract java.util.List<java.lang.String> errors(java.lang.String,java.lang.String)
-dev.tessera.runtime.Forms: public abstract java.util.Optional<dev.tessera.runtime.Forms$CsrfToken> csrfToken()
-dev.tessera.runtime.Forms: public default boolean hasErrors(java.lang.String,java.lang.String)
-dev.tessera.runtime.Forms: public default boolean selected(java.lang.String,java.lang.String,java.lang.Object,java.lang.String)
-dev.tessera.runtime.Forms: public default java.lang.String selectedValue(java.lang.String,java.lang.String,java.lang.Object)
-dev.tessera.runtime.Forms: public static boolean isPathKey(java.lang.String)
-dev.tessera.runtime.Forms: public static final dev.tessera.runtime.Forms NONE
-dev.tessera.runtime.Forms: public static java.lang.String pathKey(java.lang.String)
-dev.tessera.runtime.Fragment$Body: public abstract static interface dev.tessera.runtime.Fragment$Body
-dev.tessera.runtime.Fragment$Body: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
-dev.tessera.runtime.Fragment: public final class dev.tessera.runtime.Fragment
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy build()
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder allowAttributes(java.lang.String...)
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder allowClasses(java.lang.String...)
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder allowElements(java.lang.String...)
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder allowLinkTarget()
-dev.tessera.runtime.HtmlPolicy$Builder: public dev.tessera.runtime.HtmlPolicy$Builder linkRel(java.lang.String...)
-dev.tessera.runtime.HtmlPolicy$Builder: public static final class dev.tessera.runtime.HtmlPolicy$Builder
-dev.tessera.runtime.HtmlPolicy: public final class dev.tessera.runtime.HtmlPolicy
-dev.tessera.runtime.HtmlPolicy: public static dev.tessera.runtime.HtmlPolicy$Builder builder()
-dev.tessera.runtime.HtmlPolicy: public static dev.tessera.runtime.HtmlPolicy$Builder inlineBuilder()
-dev.tessera.runtime.HtmlPolicy: public static final dev.tessera.runtime.HtmlPolicy BASIC
-dev.tessera.runtime.HtmlPolicy: public static final dev.tessera.runtime.HtmlPolicy RICH
-dev.tessera.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> ATTRIBUTES
-dev.tessera.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> ELEMENTS
-dev.tessera.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> INLINE_ELEMENTS
-dev.tessera.runtime.Links: public abstract interface dev.tessera.runtime.Links
-dev.tessera.runtime.Links: public abstract java.lang.String contextPath()
-dev.tessera.runtime.Links: public default java.lang.String encode(java.lang.String)
-dev.tessera.runtime.LoopStatus: public boolean equals(java.lang.Object)
-dev.tessera.runtime.LoopStatus: public boolean isEven()
-dev.tessera.runtime.LoopStatus: public boolean isFirst()
-dev.tessera.runtime.LoopStatus: public boolean isLast()
-dev.tessera.runtime.LoopStatus: public boolean isOdd()
-dev.tessera.runtime.LoopStatus: public final class dev.tessera.runtime.LoopStatus
-dev.tessera.runtime.LoopStatus: public int getCount()
-dev.tessera.runtime.LoopStatus: public int getIndex()
-dev.tessera.runtime.LoopStatus: public int getSize()
-dev.tessera.runtime.LoopStatus: public int hashCode()
-dev.tessera.runtime.LoopStatus: public java.lang.String toString()
-dev.tessera.runtime.LoopStatus: public static dev.tessera.runtime.LoopStatus of(int,int)
-dev.tessera.runtime.Messages: public abstract interface dev.tessera.runtime.Messages
-dev.tessera.runtime.Messages: public abstract java.lang.String get(java.lang.String,java.lang.Object...)
-dev.tessera.runtime.Messages: public static final dev.tessera.runtime.Messages NONE
-dev.tessera.runtime.Messages: public static final java.lang.Object[] NO_ARGS
-dev.tessera.runtime.RenderContext: public boolean equals(java.lang.Object)
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.Forms forms()
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.Links links()
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.Messages messages()
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.RenderContext withCspNonce(java.lang.String)
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.RenderContext(java.util.Locale,dev.tessera.runtime.Messages,dev.tessera.runtime.Links,dev.tessera.runtime.Forms)
-dev.tessera.runtime.RenderContext: public dev.tessera.runtime.RenderContext(java.util.Locale,dev.tessera.runtime.Messages,dev.tessera.runtime.Links,dev.tessera.runtime.Forms,java.lang.String)
-dev.tessera.runtime.RenderContext: public final class dev.tessera.runtime.RenderContext
-dev.tessera.runtime.RenderContext: public int hashCode()
-dev.tessera.runtime.RenderContext: public java.lang.String nextSequenceId(java.lang.String)
-dev.tessera.runtime.RenderContext: public java.lang.String previousSequenceId(java.lang.String)
-dev.tessera.runtime.RenderContext: public java.lang.String sequenceId(java.lang.String)
-dev.tessera.runtime.RenderContext: public java.lang.String toString()
-dev.tessera.runtime.RenderContext: public java.util.Locale locale()
-dev.tessera.runtime.RenderContext: public java.util.Optional<java.lang.String> cspNonce()
-dev.tessera.runtime.RenderContext: public static dev.tessera.runtime.RenderContext defaults()
-dev.tessera.runtime.ResourceBundleMessages: public dev.tessera.runtime.ResourceBundleMessages(java.lang.String,java.util.Locale)
-dev.tessera.runtime.ResourceBundleMessages: public final class dev.tessera.runtime.ResourceBundleMessages implements dev.tessera.runtime.Messages
-dev.tessera.runtime.ResourceBundleMessages: public java.lang.String get(java.lang.String,java.lang.Object...)
-dev.tessera.runtime.SafeHtml: public boolean equals(java.lang.Object)
-dev.tessera.runtime.SafeHtml: public final class dev.tessera.runtime.SafeHtml
-dev.tessera.runtime.SafeHtml: public int hashCode()
-dev.tessera.runtime.SafeHtml: public java.lang.String html()
-dev.tessera.runtime.SafeHtml: public java.lang.String toString()
-dev.tessera.runtime.SafeHtml: public static dev.tessera.runtime.SafeHtml concat(dev.tessera.runtime.SafeHtml...)
-dev.tessera.runtime.SafeHtml: public static dev.tessera.runtime.SafeHtml escape(java.lang.String)
-dev.tessera.runtime.SafeHtml: public static dev.tessera.runtime.SafeHtml sanitize(java.lang.String)
-dev.tessera.runtime.SafeHtml: public static dev.tessera.runtime.SafeHtml sanitize(java.lang.String,dev.tessera.runtime.HtmlPolicy)
-dev.tessera.runtime.SafeHtml: public static final dev.tessera.runtime.SafeHtml EMPTY
-dev.tessera.runtime.SafeInlineHtml: public boolean equals(java.lang.Object)
-dev.tessera.runtime.SafeInlineHtml: public final class dev.tessera.runtime.SafeInlineHtml
-dev.tessera.runtime.SafeInlineHtml: public int hashCode()
-dev.tessera.runtime.SafeInlineHtml: public java.lang.String html()
-dev.tessera.runtime.SafeInlineHtml: public java.lang.String toString()
-dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml concat(dev.tessera.runtime.SafeInlineHtml...)
-dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml escape(java.lang.String)
-dev.tessera.runtime.SafeInlineHtml: public static dev.tessera.runtime.SafeInlineHtml sanitize(java.lang.String,dev.tessera.runtime.HtmlPolicy)
-dev.tessera.runtime.Template: public abstract interface dev.tessera.runtime.Template
-dev.tessera.runtime.Template: public abstract java.lang.String templateName()
-dev.tessera.runtime.Template: public abstract void render(dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
-dev.tessera.runtime.Template: public default java.lang.String renderToString(dev.tessera.runtime.RenderContext)
-dev.tessera.runtime.TemplateFunction: public abstract @interface dev.tessera.runtime.TemplateFunction extends java.lang.annotation.Annotation
-dev.tessera.runtime.TemplateFunctions: public abstract @interface dev.tessera.runtime.TemplateFunctions extends java.lang.annotation.Annotation
-dev.tessera.runtime.TemplateFunctions: public abstract java.lang.String value()
-dev.tessera.runtime.TemplateModelException: public dev.tessera.runtime.TemplateModelException(java.lang.String)
-dev.tessera.runtime.TemplateModelException: public final class dev.tessera.runtime.TemplateModelException extends java.lang.RuntimeException
-dev.tessera.runtime.TemplateRegistry: public abstract interface dev.tessera.runtime.TemplateRegistry
-dev.tessera.runtime.TemplateRegistry: public abstract java.util.Collection<dev.tessera.runtime.internal.TemplateEntry> all()
-dev.tessera.runtime.TemplateRegistry: public abstract java.util.Optional<dev.tessera.runtime.internal.TemplateEntry> find(java.lang.String)
-dev.tessera.runtime.TemplateRegistry: public default java.util.Collection<dev.tessera.runtime.internal.TemplateEntry> fragments()
-dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry load(java.lang.ClassLoader)
-dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.internal.TemplateEntry>)
-dev.tessera.runtime.TemplateRegistry: public static dev.tessera.runtime.TemplateRegistry of(java.util.List<dev.tessera.runtime.internal.TemplateEntry>,java.util.List<dev.tessera.runtime.internal.TemplateEntry>)
-dev.tessera.runtime.TemplateView: public abstract @interface dev.tessera.runtime.TemplateView extends java.lang.annotation.Annotation
-dev.tessera.spring.CspNonce: public final class dev.tessera.spring.CspNonce
-dev.tessera.spring.CspNonce: public static final java.lang.String ATTRIBUTE
-dev.tessera.spring.CspNonce: public static java.lang.String get(jakarta.servlet.ServletRequest)
-dev.tessera.spring.TesseraAutoConfiguration: public class dev.tessera.spring.TesseraAutoConfiguration
-dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.runtime.TemplateRegistry tesseraTemplateRegistry(org.springframework.context.ApplicationContext)
-dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.TesseraAutoConfiguration()
-dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.view.RenderContextFactory tesseraRenderContextFactory()
-dev.tessera.spring.TesseraAutoConfiguration: public dev.tessera.spring.view.TesseraViewResolver tesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
-dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton tesseraOldEngineWarning()
-dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean tesseraCspFilter()
-dev.tessera.spring.TesseraAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean tesseraResourceUrlEncodingFilter()
-dev.tessera.spring.TesseraConfiguration: public class dev.tessera.spring.TesseraConfiguration
-dev.tessera.spring.TesseraConfiguration: public dev.tessera.runtime.TemplateRegistry tesseraTemplateRegistry(org.springframework.context.ApplicationContext)
-dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.TesseraConfiguration()
-dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.CspFilter tesseraCspFilter()
-dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.RenderContextFactory tesseraRenderContextFactory()
-dev.tessera.spring.TesseraConfiguration: public dev.tessera.spring.view.TesseraViewResolver tesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
-dev.tessera.spring.TesseraConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton tesseraOldEngineWarning()
-dev.tessera.spring.TesseraConfiguration: public org.springframework.web.servlet.view.UrlBasedViewResolver tesseraRedirectViewResolver()
-dev.tessera.spring.context.SpringRenderContexts: public final class dev.tessera.spring.context.SpringRenderContexts
-dev.tessera.spring.context.SpringRenderContexts: public static dev.tessera.runtime.RenderContext create(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,java.util.Map<java.lang.String, ?>)
-dev.tessera.spring.fn.Auth: public final class dev.tessera.spring.fn.Auth
-dev.tessera.spring.fn.Auth: public static boolean hasAnyAuthority(java.lang.String...)
-dev.tessera.spring.fn.Auth: public static boolean hasAnyRole(java.lang.String...)
-dev.tessera.spring.fn.Auth: public static boolean hasAuthority(java.lang.String)
-dev.tessera.spring.fn.Auth: public static boolean hasRole(java.lang.String)
-dev.tessera.spring.fn.Auth: public static boolean isAuthenticated()
-dev.tessera.spring.fn.Auth: public static java.lang.String name()
-dev.tessera.spring.view.CspFilter: public dev.tessera.spring.view.CspFilter()
-dev.tessera.spring.view.CspFilter: public final class dev.tessera.spring.view.CspFilter implements jakarta.servlet.Filter, org.springframework.web.WebApplicationInitializer
-dev.tessera.spring.view.CspFilter: public void destroy()
-dev.tessera.spring.view.CspFilter: public void doFilter(jakarta.servlet.ServletRequest,jakarta.servlet.ServletResponse,jakarta.servlet.FilterChain) throws java.io.IOException,jakarta.servlet.ServletException
-dev.tessera.spring.view.CspFilter: public void init(jakarta.servlet.FilterConfig)
-dev.tessera.spring.view.CspFilter: public void onStartup(jakarta.servlet.ServletContext)
-dev.tessera.spring.view.RenderContextFactory: public abstract dev.tessera.runtime.RenderContext create(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,java.util.Map<java.lang.String, ?>)
-dev.tessera.spring.view.RenderContextFactory: public abstract interface dev.tessera.spring.view.RenderContextFactory
-dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public boolean isTemplateAvailable(java.lang.String,org.springframework.core.env.Environment,java.lang.ClassLoader,org.springframework.core.io.ResourceLoader)
-dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public dev.tessera.spring.view.TesseraTemplateAvailabilityProvider()
-dev.tessera.spring.view.TesseraTemplateAvailabilityProvider: public final class dev.tessera.spring.view.TesseraTemplateAvailabilityProvider implements org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider
-dev.tessera.spring.view.TesseraView: public final class dev.tessera.spring.view.TesseraView implements org.springframework.web.servlet.View
-dev.tessera.spring.view.TesseraView: public java.lang.String getContentType()
-dev.tessera.spring.view.TesseraView: public static dev.tessera.spring.view.TesseraView of(dev.tessera.runtime.internal.TemplateEntry,dev.tessera.spring.view.RenderContextFactory)
-dev.tessera.spring.view.TesseraView: public static final java.lang.String CONTENT_TYPE
-dev.tessera.spring.view.TesseraView: public void render(java.util.Map<java.lang.String, ?>,jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse) throws java.lang.Exception
-dev.tessera.spring.view.TesseraViewResolver: public dev.tessera.spring.view.TesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
-dev.tessera.spring.view.TesseraViewResolver: public final class dev.tessera.spring.view.TesseraViewResolver implements org.springframework.web.servlet.ViewResolver, org.springframework.core.Ordered, org.springframework.context.EnvironmentAware
-dev.tessera.spring.view.TesseraViewResolver: public int getOrder()
-dev.tessera.spring.view.TesseraViewResolver: public org.springframework.web.servlet.View resolveViewName(java.lang.String,java.util.Locale)
-dev.tessera.spring.view.TesseraViewResolver: public static final int ORDER
-dev.tessera.spring.view.TesseraViewResolver: public void setEnvironment(org.springframework.core.env.Environment)
+dev.chainguard.thwart.runtime.CssValue: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.CssValue: public final class dev.chainguard.thwart.runtime.CssValue
+dev.chainguard.thwart.runtime.CssValue: public int hashCode()
+dev.chainguard.thwart.runtime.CssValue: public java.lang.String toString()
+dev.chainguard.thwart.runtime.CssValue: public java.lang.String value()
+dev.chainguard.thwart.runtime.CssValue: public static dev.chainguard.thwart.runtime.CssValue color(java.lang.String)
+dev.chainguard.thwart.runtime.CssValue: public static dev.chainguard.thwart.runtime.CssValue length(java.lang.String)
+dev.chainguard.thwart.runtime.CssValue: public static dev.chainguard.thwart.runtime.CssValue url(java.lang.String)
+dev.chainguard.thwart.runtime.CssValue: public static dev.chainguard.thwart.runtime.CssValue var(java.lang.String)
+dev.chainguard.thwart.runtime.DefaultLinks: public dev.chainguard.thwart.runtime.DefaultLinks(java.lang.String)
+dev.chainguard.thwart.runtime.DefaultLinks: public dev.chainguard.thwart.runtime.DefaultLinks(java.lang.String,java.util.function.UnaryOperator<java.lang.String>)
+dev.chainguard.thwart.runtime.DefaultLinks: public final class dev.chainguard.thwart.runtime.DefaultLinks implements dev.chainguard.thwart.runtime.Links
+dev.chainguard.thwart.runtime.DefaultLinks: public java.lang.String contextPath()
+dev.chainguard.thwart.runtime.DefaultLinks: public java.lang.String encode(java.lang.String)
+dev.chainguard.thwart.runtime.Field: public T value()
+dev.chainguard.thwart.runtime.Field: public dev.chainguard.thwart.runtime.Field(java.lang.String,java.lang.String,T)
+dev.chainguard.thwart.runtime.Field: public final class dev.chainguard.thwart.runtime.Field<T>
+dev.chainguard.thwart.runtime.Field: public java.lang.String id()
+dev.chainguard.thwart.runtime.Field: public java.lang.String objectName()
+dev.chainguard.thwart.runtime.Field: public java.lang.String path()
+dev.chainguard.thwart.runtime.Field: public java.lang.String toString()
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public dev.chainguard.thwart.runtime.Forms$CsrfToken(java.lang.String,java.lang.String)
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public int hashCode()
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public java.lang.String parameterName()
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public java.lang.String toString()
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public java.lang.String token()
+dev.chainguard.thwart.runtime.Forms$CsrfToken: public static final class dev.chainguard.thwart.runtime.Forms$CsrfToken
+dev.chainguard.thwart.runtime.Forms: public abstract interface dev.chainguard.thwart.runtime.Forms
+dev.chainguard.thwart.runtime.Forms: public abstract java.lang.String value(java.lang.String,java.lang.String,java.lang.Object)
+dev.chainguard.thwart.runtime.Forms: public abstract java.util.List<java.lang.String> errors(java.lang.String,java.lang.String)
+dev.chainguard.thwart.runtime.Forms: public abstract java.util.Optional<dev.chainguard.thwart.runtime.Forms$CsrfToken> csrfToken()
+dev.chainguard.thwart.runtime.Forms: public default boolean hasErrors(java.lang.String,java.lang.String)
+dev.chainguard.thwart.runtime.Forms: public default boolean selected(java.lang.String,java.lang.String,java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.Forms: public default java.lang.String selectedValue(java.lang.String,java.lang.String,java.lang.Object)
+dev.chainguard.thwart.runtime.Forms: public static boolean isPathKey(java.lang.String)
+dev.chainguard.thwart.runtime.Forms: public static final dev.chainguard.thwart.runtime.Forms NONE
+dev.chainguard.thwart.runtime.Forms: public static java.lang.String pathKey(java.lang.String)
+dev.chainguard.thwart.runtime.Fragment$Body: public abstract static interface dev.chainguard.thwart.runtime.Fragment$Body
+dev.chainguard.thwart.runtime.Fragment$Body: public abstract void render(dev.chainguard.thwart.runtime.RenderContext,dev.chainguard.thwart.runtime.internal.Output)
+dev.chainguard.thwart.runtime.Fragment: public final class dev.chainguard.thwart.runtime.Fragment
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy build()
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy$Builder allowAttributes(java.lang.String...)
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy$Builder allowClasses(java.lang.String...)
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy$Builder allowElements(java.lang.String...)
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy$Builder allowLinkTarget()
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public dev.chainguard.thwart.runtime.HtmlPolicy$Builder linkRel(java.lang.String...)
+dev.chainguard.thwart.runtime.HtmlPolicy$Builder: public static final class dev.chainguard.thwart.runtime.HtmlPolicy$Builder
+dev.chainguard.thwart.runtime.HtmlPolicy: public final class dev.chainguard.thwart.runtime.HtmlPolicy
+dev.chainguard.thwart.runtime.HtmlPolicy: public static dev.chainguard.thwart.runtime.HtmlPolicy$Builder builder()
+dev.chainguard.thwart.runtime.HtmlPolicy: public static dev.chainguard.thwart.runtime.HtmlPolicy$Builder inlineBuilder()
+dev.chainguard.thwart.runtime.HtmlPolicy: public static final dev.chainguard.thwart.runtime.HtmlPolicy BASIC
+dev.chainguard.thwart.runtime.HtmlPolicy: public static final dev.chainguard.thwart.runtime.HtmlPolicy RICH
+dev.chainguard.thwart.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> ATTRIBUTES
+dev.chainguard.thwart.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> ELEMENTS
+dev.chainguard.thwart.runtime.HtmlPolicy: public static final java.util.Set<java.lang.String> INLINE_ELEMENTS
+dev.chainguard.thwart.runtime.Links: public abstract interface dev.chainguard.thwart.runtime.Links
+dev.chainguard.thwart.runtime.Links: public abstract java.lang.String contextPath()
+dev.chainguard.thwart.runtime.Links: public default java.lang.String encode(java.lang.String)
+dev.chainguard.thwart.runtime.LoopStatus: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.LoopStatus: public boolean isEven()
+dev.chainguard.thwart.runtime.LoopStatus: public boolean isFirst()
+dev.chainguard.thwart.runtime.LoopStatus: public boolean isLast()
+dev.chainguard.thwart.runtime.LoopStatus: public boolean isOdd()
+dev.chainguard.thwart.runtime.LoopStatus: public final class dev.chainguard.thwart.runtime.LoopStatus
+dev.chainguard.thwart.runtime.LoopStatus: public int getCount()
+dev.chainguard.thwart.runtime.LoopStatus: public int getIndex()
+dev.chainguard.thwart.runtime.LoopStatus: public int getSize()
+dev.chainguard.thwart.runtime.LoopStatus: public int hashCode()
+dev.chainguard.thwart.runtime.LoopStatus: public java.lang.String toString()
+dev.chainguard.thwart.runtime.LoopStatus: public static dev.chainguard.thwart.runtime.LoopStatus of(int,int)
+dev.chainguard.thwart.runtime.Messages: public abstract interface dev.chainguard.thwart.runtime.Messages
+dev.chainguard.thwart.runtime.Messages: public abstract java.lang.String get(java.lang.String,java.lang.Object...)
+dev.chainguard.thwart.runtime.Messages: public static final dev.chainguard.thwart.runtime.Messages NONE
+dev.chainguard.thwart.runtime.Messages: public static final java.lang.Object[] NO_ARGS
+dev.chainguard.thwart.runtime.RenderContext: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.Forms forms()
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.Links links()
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.Messages messages()
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.RenderContext withCspNonce(java.lang.String)
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.RenderContext(java.util.Locale,dev.chainguard.thwart.runtime.Messages,dev.chainguard.thwart.runtime.Links,dev.chainguard.thwart.runtime.Forms)
+dev.chainguard.thwart.runtime.RenderContext: public dev.chainguard.thwart.runtime.RenderContext(java.util.Locale,dev.chainguard.thwart.runtime.Messages,dev.chainguard.thwart.runtime.Links,dev.chainguard.thwart.runtime.Forms,java.lang.String)
+dev.chainguard.thwart.runtime.RenderContext: public final class dev.chainguard.thwart.runtime.RenderContext
+dev.chainguard.thwart.runtime.RenderContext: public int hashCode()
+dev.chainguard.thwart.runtime.RenderContext: public java.lang.String nextSequenceId(java.lang.String)
+dev.chainguard.thwart.runtime.RenderContext: public java.lang.String previousSequenceId(java.lang.String)
+dev.chainguard.thwart.runtime.RenderContext: public java.lang.String sequenceId(java.lang.String)
+dev.chainguard.thwart.runtime.RenderContext: public java.lang.String toString()
+dev.chainguard.thwart.runtime.RenderContext: public java.util.Locale locale()
+dev.chainguard.thwart.runtime.RenderContext: public java.util.Optional<java.lang.String> cspNonce()
+dev.chainguard.thwart.runtime.RenderContext: public static dev.chainguard.thwart.runtime.RenderContext defaults()
+dev.chainguard.thwart.runtime.ResourceBundleMessages: public dev.chainguard.thwart.runtime.ResourceBundleMessages(java.lang.String,java.util.Locale)
+dev.chainguard.thwart.runtime.ResourceBundleMessages: public final class dev.chainguard.thwart.runtime.ResourceBundleMessages implements dev.chainguard.thwart.runtime.Messages
+dev.chainguard.thwart.runtime.ResourceBundleMessages: public java.lang.String get(java.lang.String,java.lang.Object...)
+dev.chainguard.thwart.runtime.SafeHtml: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.SafeHtml: public final class dev.chainguard.thwart.runtime.SafeHtml
+dev.chainguard.thwart.runtime.SafeHtml: public int hashCode()
+dev.chainguard.thwart.runtime.SafeHtml: public java.lang.String html()
+dev.chainguard.thwart.runtime.SafeHtml: public java.lang.String toString()
+dev.chainguard.thwart.runtime.SafeHtml: public static dev.chainguard.thwart.runtime.SafeHtml concat(dev.chainguard.thwart.runtime.SafeHtml...)
+dev.chainguard.thwart.runtime.SafeHtml: public static dev.chainguard.thwart.runtime.SafeHtml escape(java.lang.String)
+dev.chainguard.thwart.runtime.SafeHtml: public static dev.chainguard.thwart.runtime.SafeHtml sanitize(java.lang.String)
+dev.chainguard.thwart.runtime.SafeHtml: public static dev.chainguard.thwart.runtime.SafeHtml sanitize(java.lang.String,dev.chainguard.thwart.runtime.HtmlPolicy)
+dev.chainguard.thwart.runtime.SafeHtml: public static final dev.chainguard.thwart.runtime.SafeHtml EMPTY
+dev.chainguard.thwart.runtime.SafeInlineHtml: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.SafeInlineHtml: public final class dev.chainguard.thwart.runtime.SafeInlineHtml
+dev.chainguard.thwart.runtime.SafeInlineHtml: public int hashCode()
+dev.chainguard.thwart.runtime.SafeInlineHtml: public java.lang.String html()
+dev.chainguard.thwart.runtime.SafeInlineHtml: public java.lang.String toString()
+dev.chainguard.thwart.runtime.SafeInlineHtml: public static dev.chainguard.thwart.runtime.SafeInlineHtml concat(dev.chainguard.thwart.runtime.SafeInlineHtml...)
+dev.chainguard.thwart.runtime.SafeInlineHtml: public static dev.chainguard.thwart.runtime.SafeInlineHtml escape(java.lang.String)
+dev.chainguard.thwart.runtime.SafeInlineHtml: public static dev.chainguard.thwart.runtime.SafeInlineHtml sanitize(java.lang.String,dev.chainguard.thwart.runtime.HtmlPolicy)
+dev.chainguard.thwart.runtime.Template: public abstract interface dev.chainguard.thwart.runtime.Template
+dev.chainguard.thwart.runtime.Template: public abstract java.lang.String templateName()
+dev.chainguard.thwart.runtime.Template: public abstract void render(dev.chainguard.thwart.runtime.RenderContext,dev.chainguard.thwart.runtime.internal.Output)
+dev.chainguard.thwart.runtime.Template: public default java.lang.String renderToString(dev.chainguard.thwart.runtime.RenderContext)
+dev.chainguard.thwart.runtime.TemplateFunction: public abstract @interface dev.chainguard.thwart.runtime.TemplateFunction extends java.lang.annotation.Annotation
+dev.chainguard.thwart.runtime.TemplateFunctions: public abstract @interface dev.chainguard.thwart.runtime.TemplateFunctions extends java.lang.annotation.Annotation
+dev.chainguard.thwart.runtime.TemplateFunctions: public abstract java.lang.String value()
+dev.chainguard.thwart.runtime.TemplateModelException: public dev.chainguard.thwart.runtime.TemplateModelException(java.lang.String)
+dev.chainguard.thwart.runtime.TemplateModelException: public final class dev.chainguard.thwart.runtime.TemplateModelException extends java.lang.RuntimeException
+dev.chainguard.thwart.runtime.TemplateRegistry: public abstract interface dev.chainguard.thwart.runtime.TemplateRegistry
+dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> all()
+dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Optional<dev.chainguard.thwart.runtime.internal.TemplateEntry> find(java.lang.String)
+dev.chainguard.thwart.runtime.TemplateRegistry: public default java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> fragments()
+dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry load(java.lang.ClassLoader)
+dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry of(java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry>)
+dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry of(java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry>,java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry>)
+dev.chainguard.thwart.runtime.TemplateView: public abstract @interface dev.chainguard.thwart.runtime.TemplateView extends java.lang.annotation.Annotation
+dev.chainguard.thwart.spring.CspNonce: public final class dev.chainguard.thwart.spring.CspNonce
+dev.chainguard.thwart.spring.CspNonce: public static final java.lang.String ATTRIBUTE
+dev.chainguard.thwart.spring.CspNonce: public static java.lang.String get(jakarta.servlet.ServletRequest)
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public class dev.chainguard.thwart.spring.ThwartAutoConfiguration
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public dev.chainguard.thwart.runtime.TemplateRegistry thwartTemplateRegistry(org.springframework.context.ApplicationContext)
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public dev.chainguard.thwart.spring.ThwartAutoConfiguration()
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public dev.chainguard.thwart.spring.view.RenderContextFactory thwartRenderContextFactory()
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public dev.chainguard.thwart.spring.view.ThwartViewResolver thwartViewResolver(dev.chainguard.thwart.runtime.TemplateRegistry,dev.chainguard.thwart.spring.view.RenderContextFactory)
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton thwartOldEngineWarning()
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean thwartCspFilter()
+dev.chainguard.thwart.spring.ThwartAutoConfiguration: public org.springframework.boot.web.servlet.FilterRegistrationBean thwartResourceUrlEncodingFilter()
+dev.chainguard.thwart.spring.ThwartConfiguration: public class dev.chainguard.thwart.spring.ThwartConfiguration
+dev.chainguard.thwart.spring.ThwartConfiguration: public dev.chainguard.thwart.runtime.TemplateRegistry thwartTemplateRegistry(org.springframework.context.ApplicationContext)
+dev.chainguard.thwart.spring.ThwartConfiguration: public dev.chainguard.thwart.spring.ThwartConfiguration()
+dev.chainguard.thwart.spring.ThwartConfiguration: public dev.chainguard.thwart.spring.view.CspFilter thwartCspFilter()
+dev.chainguard.thwart.spring.ThwartConfiguration: public dev.chainguard.thwart.spring.view.RenderContextFactory thwartRenderContextFactory()
+dev.chainguard.thwart.spring.ThwartConfiguration: public dev.chainguard.thwart.spring.view.ThwartViewResolver thwartViewResolver(dev.chainguard.thwart.runtime.TemplateRegistry,dev.chainguard.thwart.spring.view.RenderContextFactory)
+dev.chainguard.thwart.spring.ThwartConfiguration: public org.springframework.beans.factory.SmartInitializingSingleton thwartOldEngineWarning()
+dev.chainguard.thwart.spring.ThwartConfiguration: public org.springframework.web.servlet.view.UrlBasedViewResolver thwartRedirectViewResolver()
+dev.chainguard.thwart.spring.context.SpringRenderContexts: public final class dev.chainguard.thwart.spring.context.SpringRenderContexts
+dev.chainguard.thwart.spring.context.SpringRenderContexts: public static dev.chainguard.thwart.runtime.RenderContext create(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,java.util.Map<java.lang.String, ?>)
+dev.chainguard.thwart.spring.fn.Auth: public final class dev.chainguard.thwart.spring.fn.Auth
+dev.chainguard.thwart.spring.fn.Auth: public static boolean hasAnyAuthority(java.lang.String...)
+dev.chainguard.thwart.spring.fn.Auth: public static boolean hasAnyRole(java.lang.String...)
+dev.chainguard.thwart.spring.fn.Auth: public static boolean hasAuthority(java.lang.String)
+dev.chainguard.thwart.spring.fn.Auth: public static boolean hasRole(java.lang.String)
+dev.chainguard.thwart.spring.fn.Auth: public static boolean isAuthenticated()
+dev.chainguard.thwart.spring.fn.Auth: public static java.lang.String name()
+dev.chainguard.thwart.spring.view.CspFilter: public dev.chainguard.thwart.spring.view.CspFilter()
+dev.chainguard.thwart.spring.view.CspFilter: public final class dev.chainguard.thwart.spring.view.CspFilter implements jakarta.servlet.Filter, org.springframework.web.WebApplicationInitializer
+dev.chainguard.thwart.spring.view.CspFilter: public void destroy()
+dev.chainguard.thwart.spring.view.CspFilter: public void doFilter(jakarta.servlet.ServletRequest,jakarta.servlet.ServletResponse,jakarta.servlet.FilterChain) throws java.io.IOException,jakarta.servlet.ServletException
+dev.chainguard.thwart.spring.view.CspFilter: public void init(jakarta.servlet.FilterConfig)
+dev.chainguard.thwart.spring.view.CspFilter: public void onStartup(jakarta.servlet.ServletContext)
+dev.chainguard.thwart.spring.view.RenderContextFactory: public abstract dev.chainguard.thwart.runtime.RenderContext create(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,java.util.Map<java.lang.String, ?>)
+dev.chainguard.thwart.spring.view.RenderContextFactory: public abstract interface dev.chainguard.thwart.spring.view.RenderContextFactory
+dev.chainguard.thwart.spring.view.ThwartTemplateAvailabilityProvider: public boolean isTemplateAvailable(java.lang.String,org.springframework.core.env.Environment,java.lang.ClassLoader,org.springframework.core.io.ResourceLoader)
+dev.chainguard.thwart.spring.view.ThwartTemplateAvailabilityProvider: public dev.chainguard.thwart.spring.view.ThwartTemplateAvailabilityProvider()
+dev.chainguard.thwart.spring.view.ThwartTemplateAvailabilityProvider: public final class dev.chainguard.thwart.spring.view.ThwartTemplateAvailabilityProvider implements org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider
+dev.chainguard.thwart.spring.view.ThwartView: public final class dev.chainguard.thwart.spring.view.ThwartView implements org.springframework.web.servlet.View
+dev.chainguard.thwart.spring.view.ThwartView: public java.lang.String getContentType()
+dev.chainguard.thwart.spring.view.ThwartView: public static dev.chainguard.thwart.spring.view.ThwartView of(dev.chainguard.thwart.runtime.internal.TemplateEntry,dev.chainguard.thwart.spring.view.RenderContextFactory)
+dev.chainguard.thwart.spring.view.ThwartView: public static final java.lang.String CONTENT_TYPE
+dev.chainguard.thwart.spring.view.ThwartView: public void render(java.util.Map<java.lang.String, ?>,jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse) throws java.lang.Exception
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public dev.chainguard.thwart.spring.view.ThwartViewResolver(dev.chainguard.thwart.runtime.TemplateRegistry,dev.chainguard.thwart.spring.view.RenderContextFactory)
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public final class dev.chainguard.thwart.spring.view.ThwartViewResolver implements org.springframework.web.servlet.ViewResolver, org.springframework.core.Ordered, org.springframework.context.EnvironmentAware
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public int getOrder()
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public org.springframework.web.servlet.View resolveViewName(java.lang.String,java.util.Locale)
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public static final int ORDER
+dev.chainguard.thwart.spring.view.ThwartViewResolver: public void setEnvironment(org.springframework.core.env.Environment)
 
-# Internal (dev.tessera.runtime.internal): called by generated code only; not API.
-dev.tessera.runtime.internal.Ascii: public final class dev.tessera.runtime.internal.Ascii
-dev.tessera.runtime.internal.Ascii: public static boolean isClassChar(char)
-dev.tessera.runtime.internal.Ascii: public static boolean isHexDigit(int)
-dev.tessera.runtime.internal.Ascii: public static boolean isLetter(char)
-dev.tessera.runtime.internal.Ascii: public static boolean isWhitespace(char)
-dev.tessera.runtime.internal.Ascii: public static int hexValue(int)
-dev.tessera.runtime.internal.Ascii: public static java.lang.String lower(java.lang.String)
-dev.tessera.runtime.internal.Ascii: public static java.lang.String stripWhitespace(java.lang.String)
-dev.tessera.runtime.internal.Ascii: public static java.util.Set<java.lang.String> set(java.lang.String...)
-dev.tessera.runtime.internal.Attributes: public final class dev.tessera.runtime.internal.Attributes
-dev.tessera.runtime.internal.Attributes: public static java.lang.String appendClass(java.lang.Object,java.lang.Object)
-dev.tessera.runtime.internal.Checks: public final class dev.tessera.runtime.internal.Checks
-dev.tessera.runtime.internal.Checks: public static boolean isAllowedUrl(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static boolean isSameOriginPath(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static boolean isSameOriginUrl(java.lang.String)
-dev.tessera.runtime.internal.Checks: public static final int MAX_NUMBER_DIGITS
-dev.tessera.runtime.internal.Checks: public static java.math.BigDecimal requireBoundedMagnitude(java.math.BigDecimal,java.lang.String)
-dev.tessera.runtime.internal.Conditions: public final class dev.tessera.runtime.internal.Conditions
-dev.tessera.runtime.internal.Conditions: public static boolean isTrue(java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public final class dev.tessera.runtime.internal.Escapers
-dev.tessera.runtime.internal.Escapers: public static dev.tessera.runtime.SafeHtml linkedHtmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
-dev.tessera.runtime.internal.Escapers: public static dev.tessera.runtime.SafeInlineHtml htmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
-dev.tessera.runtime.internal.Escapers: public static final dev.tessera.runtime.HtmlPolicy MESSAGE_POLICY
-dev.tessera.runtime.internal.Escapers: public static final dev.tessera.runtime.HtmlPolicy MESSAGE_POLICY_NO_LINKS
-dev.tessera.runtime.internal.Escapers: public static java.lang.Object[] messageArgs(java.lang.Object[])
-dev.tessera.runtime.internal.Escapers: public static java.lang.String escapeHtml(java.lang.String)
-dev.tessera.runtime.internal.Escapers: public static java.lang.String neutralNumber(java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static java.lang.String neutralPath(java.lang.String)
-dev.tessera.runtime.internal.Escapers: public static java.lang.String sameOriginLink(java.lang.String)
-dev.tessera.runtime.internal.Escapers: public static java.lang.String styleNumber(java.lang.Number)
-dev.tessera.runtime.internal.Escapers: public static java.lang.String toText(java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void appendHtml(java.lang.StringBuilder,java.lang.String)
-dev.tessera.runtime.internal.Escapers: public static void appendJson(java.lang.StringBuilder,java.lang.Object,int)
-dev.tessera.runtime.internal.Escapers: public static void attr(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void html(dev.tessera.runtime.internal.Output,dev.tessera.runtime.SafeHtml)
-dev.tessera.runtime.internal.Escapers: public static void html(dev.tessera.runtime.internal.Output,dev.tessera.runtime.SafeInlineHtml)
-dev.tessera.runtime.internal.Escapers: public static void javaScript(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void json(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void refresh(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void resourceUrl(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,boolean)
-dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,char)
-dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,int)
-dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Escapers: public static void text(dev.tessera.runtime.internal.Output,long)
-dev.tessera.runtime.internal.Escapers: public static void url(dev.tessera.runtime.internal.Output,java.lang.Object)
-dev.tessera.runtime.internal.Output: public abstract interface dev.tessera.runtime.internal.Output
-dev.tessera.runtime.internal.Output: public abstract void write(char)
-dev.tessera.runtime.internal.Output: public abstract void write(java.lang.String)
-dev.tessera.runtime.internal.StringOutput: public dev.tessera.runtime.internal.StringOutput()
-dev.tessera.runtime.internal.StringOutput: public dev.tessera.runtime.internal.StringOutput(int)
-dev.tessera.runtime.internal.StringOutput: public final class dev.tessera.runtime.internal.StringOutput implements dev.tessera.runtime.internal.Output
-dev.tessera.runtime.internal.StringOutput: public java.lang.String toString()
-dev.tessera.runtime.internal.StringOutput: public void write(char)
-dev.tessera.runtime.internal.StringOutput: public void write(java.lang.String)
-dev.tessera.runtime.internal.TemplateEntry$ModelRenderer: public abstract static interface dev.tessera.runtime.internal.TemplateEntry$ModelRenderer
-dev.tessera.runtime.internal.TemplateEntry$ModelRenderer: public abstract void render(java.util.Map<java.lang.String, ?>,dev.tessera.runtime.RenderContext,dev.tessera.runtime.internal.Output)
-dev.tessera.runtime.internal.TemplateEntry$Param: public boolean equals(java.lang.Object)
-dev.tessera.runtime.internal.TemplateEntry$Param: public dev.tessera.runtime.internal.TemplateEntry$Param(java.lang.String,java.lang.String)
-dev.tessera.runtime.internal.TemplateEntry$Param: public int hashCode()
-dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String name()
-dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String toString()
-dev.tessera.runtime.internal.TemplateEntry$Param: public java.lang.String type()
-dev.tessera.runtime.internal.TemplateEntry$Param: public static final class dev.tessera.runtime.internal.TemplateEntry$Param
-dev.tessera.runtime.internal.TemplateEntry: public boolean equals(java.lang.Object)
-dev.tessera.runtime.internal.TemplateEntry: public dev.tessera.runtime.internal.TemplateEntry$ModelRenderer renderer()
-dev.tessera.runtime.internal.TemplateEntry: public dev.tessera.runtime.internal.TemplateEntry(java.lang.String,java.util.List<dev.tessera.runtime.internal.TemplateEntry$Param>,dev.tessera.runtime.internal.TemplateEntry$ModelRenderer)
-dev.tessera.runtime.internal.TemplateEntry: public final class dev.tessera.runtime.internal.TemplateEntry
-dev.tessera.runtime.internal.TemplateEntry: public int hashCode()
-dev.tessera.runtime.internal.TemplateEntry: public java.lang.String name()
-dev.tessera.runtime.internal.TemplateEntry: public java.lang.String toString()
-dev.tessera.runtime.internal.TemplateEntry: public java.util.List<dev.tessera.runtime.internal.TemplateEntry$Param> params()
-dev.tessera.runtime.internal.UrlEncoding: public final class dev.tessera.runtime.internal.UrlEncoding
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String firstQuery(java.lang.String)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathSegment(java.lang.String)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathVariable(java.lang.String,java.lang.Object)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String pathVariables(java.lang.String,java.lang.Object)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryParam(java.lang.String)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryValue(java.lang.Object)
-dev.tessera.runtime.internal.UrlEncoding: public static java.lang.String queryValues(java.lang.String,java.lang.Object)
-dev.tessera.runtime.internal.UrlEncoding: public static void percent(java.lang.StringBuilder,int)
-dev.tessera.runtime.internal.Values: public final class dev.tessera.runtime.internal.Values
-dev.tessera.runtime.internal.Values: public static <T,R> R nav(T,java.util.function.Function<? super T, ? extends R>)
-dev.tessera.runtime.internal.Values: public static <T> T elvis(T,T)
-dev.tessera.runtime.internal.Values: public static <T> T first(java.util.List<T>)
-dev.tessera.runtime.internal.Values: public static <T> T last(java.util.List<T>)
-dev.tessera.runtime.internal.Values: public static boolean numEquals(java.lang.Number,java.lang.Number)
-dev.tessera.runtime.internal.Values: public static java.lang.String enumName(java.lang.Enum<?>)
-dev.tessera.runtime.internal.fn.Css: public final class dev.tessera.runtime.internal.fn.Css
-dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue color(java.lang.String)
-dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue length(java.lang.String)
-dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue url(java.lang.String)
-dev.tessera.runtime.internal.fn.Css: public static dev.tessera.runtime.CssValue var(java.lang.String)
-dev.tessera.runtime.internal.fn.Html: public final class dev.tessera.runtime.internal.fn.Html
-dev.tessera.runtime.internal.fn.Html: public static dev.tessera.runtime.SafeHtml sanitize(java.lang.Object)
-dev.tessera.runtime.internal.fn.Html: public static dev.tessera.runtime.SafeHtml sanitizeRich(java.lang.Object)
-dev.tessera.runtime.internal.fn.Lists: public final class dev.tessera.runtime.internal.fn.Lists
-dev.tessera.runtime.internal.fn.Lists: public static boolean contains(java.lang.Object,java.lang.Object)
-dev.tessera.runtime.internal.fn.Lists: public static boolean isEmpty(java.lang.Object)
-dev.tessera.runtime.internal.fn.Lists: public static int size(java.lang.Object)
-dev.tessera.runtime.internal.fn.Numbers: public final class dev.tessera.runtime.internal.fn.Numbers
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatCurrency(java.util.Locale,java.lang.Object)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int,java.lang.String)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,java.lang.String,int,java.lang.String)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int,java.lang.String)
-dev.tessera.runtime.internal.fn.Numbers: public static java.lang.String formatPercent(java.util.Locale,java.lang.Object,int,int)
-dev.tessera.runtime.internal.fn.Numbers: public static java.util.List<java.lang.Integer> sequence(int,int)
-dev.tessera.runtime.internal.fn.Strings: public final class dev.tessera.runtime.internal.fn.Strings
-dev.tessera.runtime.internal.fn.Strings: public static boolean contains(java.lang.Object,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static boolean endsWith(java.lang.Object,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static boolean isBlank(java.lang.Object)
-dev.tessera.runtime.internal.fn.Strings: public static boolean isEmpty(java.lang.Object)
-dev.tessera.runtime.internal.fn.Strings: public static boolean startsWith(java.lang.Object,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String abbreviate(java.lang.Object,int)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String capitalize(java.lang.Object)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String defaultString(java.lang.Object,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String join(java.lang.Object,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String replace(java.lang.Object,java.lang.String,java.lang.String)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int,int)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String toLowerCase(java.lang.Object)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String toUpperCase(java.lang.Object)
-dev.tessera.runtime.internal.fn.Strings: public static java.lang.String trim(java.lang.Object)
-dev.tessera.runtime.internal.fn.Temporals: public final class dev.tessera.runtime.internal.fn.Temporals
-dev.tessera.runtime.internal.fn.Temporals: public static java.lang.String format(java.util.Locale,java.time.temporal.TemporalAccessor,java.lang.String)
-dev.tessera.runtime.internal.fn.Temporals: public static java.lang.String formatIso(java.time.temporal.TemporalAccessor)
+# Internal (dev.chainguard.thwart.runtime.internal): called by generated code only; not API.
+dev.chainguard.thwart.runtime.internal.Ascii: public final class dev.chainguard.thwart.runtime.internal.Ascii
+dev.chainguard.thwart.runtime.internal.Ascii: public static boolean isClassChar(char)
+dev.chainguard.thwart.runtime.internal.Ascii: public static boolean isHexDigit(int)
+dev.chainguard.thwart.runtime.internal.Ascii: public static boolean isLetter(char)
+dev.chainguard.thwart.runtime.internal.Ascii: public static boolean isWhitespace(char)
+dev.chainguard.thwart.runtime.internal.Ascii: public static int hexValue(int)
+dev.chainguard.thwart.runtime.internal.Ascii: public static java.lang.String lower(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Ascii: public static java.lang.String stripWhitespace(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Ascii: public static java.util.Set<java.lang.String> set(java.lang.String...)
+dev.chainguard.thwart.runtime.internal.Attributes: public final class dev.chainguard.thwart.runtime.internal.Attributes
+dev.chainguard.thwart.runtime.internal.Attributes: public static java.lang.String appendClass(java.lang.Object,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Checks: public final class dev.chainguard.thwart.runtime.internal.Checks
+dev.chainguard.thwart.runtime.internal.Checks: public static boolean isAllowedUrl(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Checks: public static boolean isSameOriginPath(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Checks: public static boolean isSameOriginUrl(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Checks: public static final int MAX_NUMBER_DIGITS
+dev.chainguard.thwart.runtime.internal.Checks: public static java.math.BigDecimal requireBoundedMagnitude(java.math.BigDecimal,java.lang.String)
+dev.chainguard.thwart.runtime.internal.Conditions: public final class dev.chainguard.thwart.runtime.internal.Conditions
+dev.chainguard.thwart.runtime.internal.Conditions: public static boolean isTrue(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public final class dev.chainguard.thwart.runtime.internal.Escapers
+dev.chainguard.thwart.runtime.internal.Escapers: public static dev.chainguard.thwart.runtime.SafeHtml linkedHtmlMessage(dev.chainguard.thwart.runtime.RenderContext,java.lang.String,java.lang.Object[])
+dev.chainguard.thwart.runtime.internal.Escapers: public static dev.chainguard.thwart.runtime.SafeInlineHtml htmlMessage(dev.chainguard.thwart.runtime.RenderContext,java.lang.String,java.lang.Object[])
+dev.chainguard.thwart.runtime.internal.Escapers: public static final dev.chainguard.thwart.runtime.HtmlPolicy MESSAGE_POLICY
+dev.chainguard.thwart.runtime.internal.Escapers: public static final dev.chainguard.thwart.runtime.HtmlPolicy MESSAGE_POLICY_NO_LINKS
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.Object[] messageArgs(java.lang.Object[])
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String escapeHtml(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String neutralNumber(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String neutralPath(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String sameOriginLink(java.lang.String)
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String styleNumber(java.lang.Number)
+dev.chainguard.thwart.runtime.internal.Escapers: public static java.lang.String toText(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void appendHtml(java.lang.StringBuilder,java.lang.String)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void appendJson(java.lang.StringBuilder,java.lang.Object,int)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void attr(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void html(dev.chainguard.thwart.runtime.internal.Output,dev.chainguard.thwart.runtime.SafeHtml)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void html(dev.chainguard.thwart.runtime.internal.Output,dev.chainguard.thwart.runtime.SafeInlineHtml)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void javaScript(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void json(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void refresh(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void resourceUrl(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void text(dev.chainguard.thwart.runtime.internal.Output,boolean)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void text(dev.chainguard.thwart.runtime.internal.Output,char)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void text(dev.chainguard.thwart.runtime.internal.Output,int)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void text(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void text(dev.chainguard.thwart.runtime.internal.Output,long)
+dev.chainguard.thwart.runtime.internal.Escapers: public static void url(dev.chainguard.thwart.runtime.internal.Output,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.Output: public abstract interface dev.chainguard.thwart.runtime.internal.Output
+dev.chainguard.thwart.runtime.internal.Output: public abstract void write(char)
+dev.chainguard.thwart.runtime.internal.Output: public abstract void write(java.lang.String)
+dev.chainguard.thwart.runtime.internal.StringOutput: public dev.chainguard.thwart.runtime.internal.StringOutput()
+dev.chainguard.thwart.runtime.internal.StringOutput: public dev.chainguard.thwart.runtime.internal.StringOutput(int)
+dev.chainguard.thwart.runtime.internal.StringOutput: public final class dev.chainguard.thwart.runtime.internal.StringOutput implements dev.chainguard.thwart.runtime.internal.Output
+dev.chainguard.thwart.runtime.internal.StringOutput: public java.lang.String toString()
+dev.chainguard.thwart.runtime.internal.StringOutput: public void write(char)
+dev.chainguard.thwart.runtime.internal.StringOutput: public void write(java.lang.String)
+dev.chainguard.thwart.runtime.internal.TemplateEntry$ModelRenderer: public abstract static interface dev.chainguard.thwart.runtime.internal.TemplateEntry$ModelRenderer
+dev.chainguard.thwart.runtime.internal.TemplateEntry$ModelRenderer: public abstract void render(java.util.Map<java.lang.String, ?>,dev.chainguard.thwart.runtime.RenderContext,dev.chainguard.thwart.runtime.internal.Output)
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public dev.chainguard.thwart.runtime.internal.TemplateEntry$Param(java.lang.String,java.lang.String)
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public int hashCode()
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public java.lang.String name()
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public java.lang.String toString()
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public java.lang.String type()
+dev.chainguard.thwart.runtime.internal.TemplateEntry$Param: public static final class dev.chainguard.thwart.runtime.internal.TemplateEntry$Param
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public boolean equals(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public dev.chainguard.thwart.runtime.internal.TemplateEntry$ModelRenderer renderer()
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public dev.chainguard.thwart.runtime.internal.TemplateEntry(java.lang.String,java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry$Param>,dev.chainguard.thwart.runtime.internal.TemplateEntry$ModelRenderer)
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public final class dev.chainguard.thwart.runtime.internal.TemplateEntry
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public int hashCode()
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.lang.String name()
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.lang.String toString()
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry$Param> params()
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public final class dev.chainguard.thwart.runtime.internal.UrlEncoding
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String firstQuery(java.lang.String)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String pathSegment(java.lang.String)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String pathVariable(java.lang.String,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String pathVariables(java.lang.String,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String queryParam(java.lang.String)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String queryValue(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String queryValues(java.lang.String,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.UrlEncoding: public static void percent(java.lang.StringBuilder,int)
+dev.chainguard.thwart.runtime.internal.Values: public final class dev.chainguard.thwart.runtime.internal.Values
+dev.chainguard.thwart.runtime.internal.Values: public static <T,R> R nav(T,java.util.function.Function<? super T, ? extends R>)
+dev.chainguard.thwart.runtime.internal.Values: public static <T> T elvis(T,T)
+dev.chainguard.thwart.runtime.internal.Values: public static <T> T first(java.util.List<T>)
+dev.chainguard.thwart.runtime.internal.Values: public static <T> T last(java.util.List<T>)
+dev.chainguard.thwart.runtime.internal.Values: public static boolean numEquals(java.lang.Number,java.lang.Number)
+dev.chainguard.thwart.runtime.internal.Values: public static java.lang.String enumName(java.lang.Enum<?>)
+dev.chainguard.thwart.runtime.internal.fn.Css: public final class dev.chainguard.thwart.runtime.internal.fn.Css
+dev.chainguard.thwart.runtime.internal.fn.Css: public static dev.chainguard.thwart.runtime.CssValue color(java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Css: public static dev.chainguard.thwart.runtime.CssValue length(java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Css: public static dev.chainguard.thwart.runtime.CssValue url(java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Css: public static dev.chainguard.thwart.runtime.CssValue var(java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Html: public final class dev.chainguard.thwart.runtime.internal.fn.Html
+dev.chainguard.thwart.runtime.internal.fn.Html: public static dev.chainguard.thwart.runtime.SafeHtml sanitize(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Html: public static dev.chainguard.thwart.runtime.SafeHtml sanitizeRich(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Lists: public final class dev.chainguard.thwart.runtime.internal.fn.Lists
+dev.chainguard.thwart.runtime.internal.fn.Lists: public static boolean contains(java.lang.Object,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Lists: public static boolean isEmpty(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Lists: public static int size(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public final class dev.chainguard.thwart.runtime.internal.fn.Numbers
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatCurrency(java.util.Locale,java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,int,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatDecimal(java.util.Locale,java.lang.Object,int,java.lang.String,int,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatInteger(java.util.Locale,java.lang.Object,int,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.lang.String formatPercent(java.util.Locale,java.lang.Object,int,int)
+dev.chainguard.thwart.runtime.internal.fn.Numbers: public static java.util.List<java.lang.Integer> sequence(int,int)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public final class dev.chainguard.thwart.runtime.internal.fn.Strings
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static boolean contains(java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static boolean endsWith(java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static boolean isBlank(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static boolean isEmpty(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static boolean startsWith(java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String abbreviate(java.lang.Object,int)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String capitalize(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String defaultString(java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String join(java.lang.Object,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String replace(java.lang.Object,java.lang.String,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String substring(java.lang.Object,int,int)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String toLowerCase(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String toUpperCase(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Strings: public static java.lang.String trim(java.lang.Object)
+dev.chainguard.thwart.runtime.internal.fn.Temporals: public final class dev.chainguard.thwart.runtime.internal.fn.Temporals
+dev.chainguard.thwart.runtime.internal.fn.Temporals: public static java.lang.String format(java.util.Locale,java.time.temporal.TemporalAccessor,java.lang.String)
+dev.chainguard.thwart.runtime.internal.fn.Temporals: public static java.lang.String formatIso(java.time.temporal.TemporalAccessor)

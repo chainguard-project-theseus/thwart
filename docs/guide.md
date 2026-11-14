@@ -1,19 +1,19 @@
-# Porting guide: moving server-rendered Java views to Tessera
+# Porting guide: moving server-rendered Java views to Thwart
 
 This is the reference for moving a Spring application's views (Thymeleaf, JSP, FreeMarker,
-Velocity, Pebble, Mustache or similar) to Tessera. It doesn't map your engine's syntax construct by
-construct: you know your engine, and once you know Tessera's model the syntax converts on its own.
+Velocity, Pebble, Mustache or similar) to Thwart. It doesn't map your engine's syntax construct by
+construct: you know your engine, and once you know Thwart's model the syntax converts on its own.
 It covers what you can't find out from the tools: the model (section 1), build setup (section 2),
 the tools and the loop (section 3), syntax and output contexts (section 4), the traps of particular
 engines (section 4.10) and known limitations (section 5).
 
 The compiler's error messages are the detailed documentation for each rule: they name the file,
 line and column, say what is wrong, and name the fix. Examples marked `<!-- compile: ... -->` in the
-source of this file are compiled and rendered by Tessera's tests, so they are known to work.
+source of this file are compiled and rendered by Thwart's tests, so they are known to work.
 
 ## 1. The model
 
-Tessera templates are HTML files with `t:` attributes, close to Thymeleaf's `th:` syntax. An
+Thwart templates are HTML files with `t:` attributes, close to Thymeleaf's `th:` syntax. An
 annotation processor compiles them to Java classes during the application's normal `javac`, so a
 template error is a build error. At runtime nothing parses or reads templates.
 
@@ -21,7 +21,7 @@ template error is a build error. At runtime nothing parses or reads templates.
 (`t:params="Owner owner, List<Pet> pets"`). With Spring each is read from the model attribute of
 the same name, or else from the handler's `@PathVariable` of that name. There is no request,
 session, application or bean scope, no request parameters, cookies or headers. Engines you are
-leaving often fall back to those scopes when a name is not in the model; Tessera doesn't, so **a
+leaving often fall back to those scopes when a name is not in the model; Thwart doesn't, so **a
 missing model attribute is `null`**, which prints nothing, and reading a property of it fails the
 render with a `NullPointerException` (write `a?.b` where `null` is expected). Before converting a
 template, find everything it reads that the controller doesn't put in the model, and make the
@@ -73,37 +73,37 @@ The build needs JDK 8+ and Maven or Gradle; the application runs on Java 8+ with
 upgrade as part of the migration. On Java 8 there are no records, so view types are classes with
 getters annotated `@TemplateView`.
 
-Pick the starter by servlet API and use exactly one. It brings only `tessera-runtime`; Spring, the
+Pick the starter by servlet API and use exactly one. It brings only `thwart-runtime`; Spring, the
 servlet API and Spring Security come from the application:
 
 | Application | Artifact |
 |---|---|
-| `jakarta.servlet` (Boot 3+, Spring 6+) | `tessera-spring-boot-starter` |
-| `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `tessera-spring-boot-starter-javax` |
+| `jakarta.servlet` (Boot 3+, Spring 6+) | `thwart-spring-boot-starter` |
+| `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `thwart-spring-boot-starter-javax` |
 
-Maven and Gradle are set up the same way: the starter as a dependency, `tessera-compiler` as an
+Maven and Gradle are set up the same way: the starter as a dependency, `thwart-compiler` as an
 annotation processor in the application's own javac, and three processor options. There is no
 Gradle plugin. Sections 2.1 and 2.2 give the complete setup for each; what they share:
 
-- `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
-  template. `tessera.package` is the generated package. `tessera.messages` is the Spring message
+- `thwart.templates` (required) is the absolute templates root; every `**/*.html` below it is a
+  template. `thwart.package` is the generated package. `thwart.messages` is the Spring message
   basename as a path without `.properties` (several, comma-separated); with it every `#{key}` is
   checked at build time. If the base file is partial or missing and the full text is in a locale
   file, name that file (`.../i18n/messages_en`).
 - The processor path is explicit, so list every processor the build relied on (Lombok,
-  MapStruct, ...), Lombok before Tessera. Templates see Lombok's getters.
+  MapStruct, ...), Lombok before Thwart. Templates see Lombok's getters.
 - Templates compile at the application's release level: keep the build's existing Java level
-  rather than setting one for Tessera, or the class files may not load on the runtime JDK. JDK 8's
+  rather than setting one for Thwart, or the class files may not load on the runtime JDK. JDK 8's
   javac has no `--release`; use source and target 1.8 there.
 - The build tool, not javac, decides when to compile, and it doesn't know javac reads the
-  templates and message files. Each needs to be told (Maven with `tessera-maven-plugin`, Gradle
+  templates and message files. Each needs to be told (Maven with `thwart-maven-plugin`, Gradle
   with declared inputs), or an edited template or message keeps its old generated class and the
   build stays green.
-- The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
-  `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
+- The generated `META-INF/services/dev.chainguard.thwart.runtime.TemplateRegistry` and
+  `META-INF/thwart/**` must be packaged; otherwise the starter warns "No compiled Thwart
   templates on the classpath" at startup.
 - Static analysis that runs on compiled classes (SpotBugs, PMD, Checkstyle, Javadoc) sees the
-  generated templates: exclude the `tessera.package` package rather than loosening the rules.
+  generated templates: exclude the `thwart.package` package rather than loosening the rules.
 - Resource filtering (Maven's `<filtering>`, Gradle's `expand` or `filter` in `processResources`)
   rewrites `${...}` in templates unless `templates/**` is excluded from it.
 - Spring 4.3 and 5.0 need `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including in
@@ -113,9 +113,9 @@ Gradle plugin. Sections 2.1 and 2.2 give the complete setup for each; what they 
 
 ```xml
 <dependency>
-  <groupId>dev.tessera</groupId>
-  <artifactId>tessera-spring-boot-starter</artifactId> <!-- javax: -javax; without Spring: tessera-runtime -->
-  <version>${tessera.version}</version>
+  <groupId>dev.chainguard.thwart</groupId>
+  <artifactId>thwart-spring-boot-starter</artifactId> <!-- javax: -javax; without Spring: thwart-runtime -->
+  <version>${thwart.version}</version>
 </dependency>
 
 <plugin>
@@ -126,25 +126,25 @@ Gradle plugin. Sections 2.1 and 2.2 give the complete setup for each; what they 
     <annotationProcessorPaths>
       <!-- every processor the build already uses (Lombok first), then: -->
       <path>
-        <groupId>dev.tessera</groupId>
-        <artifactId>tessera-compiler</artifactId>
-        <version>${tessera.version}</version>
+        <groupId>dev.chainguard.thwart</groupId>
+        <artifactId>thwart-compiler</artifactId>
+        <version>${thwart.version}</version>
       </path>
     </annotationProcessorPaths>
     <compilerArgs combine.children="append">
-      <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
-      <arg>-Atessera.package=com.example.templates</arg>
-      <arg>-Atessera.messages=${tessera.messages}</arg>
+      <arg>-Athwart.templates=${project.basedir}/src/main/resources/templates</arg>
+      <arg>-Athwart.package=com.example.templates</arg>
+      <arg>-Athwart.messages=${thwart.messages}</arg>
     </compilerArgs>
   </configuration>
 </plugin>
 
 <plugin>
-  <groupId>dev.tessera</groupId>
-  <artifactId>tessera-maven-plugin</artifactId>
-  <version>${tessera.version}</version>
+  <groupId>dev.chainguard.thwart</groupId>
+  <artifactId>thwart-maven-plugin</artifactId>
+  <version>${thwart.version}</version>
   <executions><execution><goals><goal>check</goal></goals></execution></executions>
-  <!-- if tessera.templates is not the default:
+  <!-- if thwart.templates is not the default:
   <configuration><templates>${project.basedir}/src/main/webapp/templates</templates></configuration> -->
 </plugin>
 ```
@@ -159,22 +159,22 @@ Gradle plugin. Sections 2.1 and 2.2 give the complete setup for each; what they 
   version on the plugin itself, so write `<version>` there).
 - Under a Boot parent, set `<java.version>` and leave `<release>` off the plugin. On JDK 8 use
   `<source>`/`<target>` 1.8.
-- Maven runs javac only when Java sources change: `tessera-maven-plugin`'s `check` goal makes it
-  recompile after a template-only or message-only edit. It reads `tessera.messages` from the
+- Maven runs javac only when Java sources change: `thwart-maven-plugin`'s `check` goal makes it
+  recompile after a template-only or message-only edit. It reads `thwart.messages` from the
   property of that name, so set the property. The plugin needs Maven 3.6.3+; upgrade an older
   `mvnw` wrapper.
 
 ### 2.2 Gradle
 
 Keep the build's plugins (`org.springframework.boot`, `io.spring.dependency-management` or a
-platform, `java` or `war`) and add the following (Groovy DSL; `examples/gradle` in the Tessera
+platform, `java` or `war`) and add the following (Groovy DSL; `examples/gradle` in the Thwart
 repository is a complete Boot app, built in CI):
 
 ```groovy
 dependencies {
-  implementation "dev.tessera:tessera-spring-boot-starter:$tesseraVersion" // javax: -javax; without Spring: tessera-runtime
+  implementation "dev.chainguard.thwart:thwart-spring-boot-starter:$thwartVersion" // javax: -javax; without Spring: thwart-runtime
   // every processor the build already uses (Lombok first), then:
-  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion"
+  annotationProcessor "dev.chainguard.thwart:thwart-compiler:$thwartVersion"
 }
 
 def templates = file('src/main/resources/templates')
@@ -182,46 +182,46 @@ def messages = file('src/main/resources/messages')
 
 tasks.named('compileJava') {
   options.compilerArgs += [
-    "-Atessera.templates=$templates",
-    '-Atessera.package=com.example.templates',
-    "-Atessera.messages=$messages",
+    "-Athwart.templates=$templates",
+    '-Athwart.package=com.example.templates',
+    "-Athwart.messages=$messages",
   ]
   // javac reads these, not Gradle: without them a template- or message-only edit leaves
   // compileJava UP-TO-DATE with the old generated classes.
-  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
-  inputs.file("${messages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(templates).withPropertyName('thwartTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("${messages}.properties").withPropertyName('thwartMessages').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 ```
 
 - The `annotationProcessor` configuration is the processor path (Gradle ignores processors on
-  the compile classpath), so every other processor goes there too, Lombok before Tessera. Lombok
+  the compile classpath), so every other processor goes there too, Lombok before Thwart. Lombok
   also stays on `compileOnly`.
-- The `inputs` lines are Gradle's equivalent of `tessera:check`: they make a template-only or
+- The `inputs` lines are Gradle's equivalent of `thwart:check`: they make a template-only or
   message-only edit rerun `compileJava`, and they make the build cache key cover the templates.
-  Declare every message file `tessera.messages` names, and the templates directory even if it is
+  Declare every message file `thwart.messages` names, and the templates directory even if it is
   outside `src/main/resources`.
-- Tessera doesn't register for Gradle's incremental annotation processing: it generates from
+- Thwart doesn't register for Gradle's incremental annotation processing: it generates from
   template files, not annotated sources, which Gradle's incremental model can't express, so when
   `compileJava` runs it recompiles the whole source set, which is correct.
 - After `gradle clean compileJava`, `build/generated/sources/annotationProcessor/java/main` holds a
   `*Template.java` per template. If it is empty, the processor didn't run: check that
-  `tessera-compiler` is on `annotationProcessor`, not `implementation`.
+  `thwart-compiler` is on `annotationProcessor`, not `implementation`.
 - Keep the build's Java level (`java { toolchain { ... } }`, `sourceCompatibility` or
   `options.release`). Gradle 9 itself runs on JDK 17+: to target Java 8, set
   `options.release = 8`, or compile with a JDK 8 toolchain.
-- `tessera-maven-plugin` is Maven-only; nothing replaces it but the `inputs` lines. Tessera isn't
+- `thwart-maven-plugin` is Maven-only; nothing replaces it but the `inputs` lines. Thwart isn't
   published yet: install it with `mvn install` and add `mavenLocal()` to `repositories`.
 
 ### 2.3 Spring
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the template
 registry and a `TemplateAvailabilityProvider`, on Boot 1.5 through 4, including `@WebMvcTest`
-slices. Tessera's resolver runs first and falls through for view names it doesn't know, so the old
+slices. Thwart's resolver runs first and falls through for view names it doesn't know, so the old
 engine can stay while you migrate. While another engine's view resolver is a bean, the starter logs
-`Tessera: another template engine is still configured` naming it. JSP, and resolvers added only
+`Thwart: another template engine is still configured` naming it. JSP, and resolvers added only
 through `ViewResolverRegistry` or inside a `ContentNegotiatingViewResolver`, are not reported.
 
-**Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration` (or declare it as a
+**Spring MVC without Boot.** Import `dev.chainguard.thwart.spring.ThwartConfiguration` (or declare it as a
 bean in XML). It also registers a resolver for `redirect:` and `forward:` names, which the old
 engine's resolver often provided: without one, removing the old engine breaks redirects. If your
 container doesn't scan for `WebApplicationInitializer`s, register the CSP filter (section 4.9).
@@ -243,7 +243,7 @@ setting. Always render the whole error page, even where the old engine failed pa
 
 ## 3. The tools and the loop
 
-`tessera-migrate` is one jar with three commands; `--help` prints the usage. Fetch it as the skill
+`thwart-migrate` is one jar with three commands; `--help` prints the usage. Fetch it as the skill
 says, or use the jar in the local Maven repository.
 
 **1. List every page.** Write a `pages.txt` that reaches every view in every state that renders
@@ -264,7 +264,7 @@ Write paths and form values raw or percent-encoded (a space is `%20` in a path, 
 value). Start the app from the same data on every run, and let the list create the data it needs.
 
 **2. Record the old app** before changing anything:
-`java -jar tessera-migrate.jar record http://localhost:8080 pages.txt baseline/`. It saves each
+`java -jar thwart-migrate.jar record http://localhost:8080 pages.txt baseline/`. It saves each
 response's body, status and final URL. `compare` refuses a `pages.txt` that doesn't match the
 recording, so record again after changing it.
 
@@ -275,7 +275,7 @@ them. For each template, find every value it reads and make sure the model provi
 parameters with their real types, rewrite the markup, and run `mvn clean compile` (Gradle:
 `gradle compileJava`).
 
-For Thymeleaf, `tessera-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
+For Thymeleaf, `thwart-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
 mechanical rewrite of a whole directory first: `th:` to `t:`, utility objects, common string-built
 links, layout markup, script inlines. It stubs parameter types as `Object`, which fails to compile
 until you write the real types. Its report lists what it couldn't convert and every read of a
@@ -291,7 +291,7 @@ and wasn't before, nearly always a value the old template got from outside the m
 these only if a fixture holds the `null`.
 
 **5. Compare** the new app, started from the same data:
-`java -jar tessera-migrate.jar compare http://localhost:8080 pages.txt baseline/`. It compares
+`java -jar thwart-migrate.jar compare http://localhost:8080 pages.txt baseline/`. It compares
 status, final URL and the page as a browser builds it, ignoring whitespace, attribute order,
 comments, CSRF tokens and JSON formatting in scripts. Each page prints `same`, `reordered` or
 `differs`, with a diff for the last two. `reordered` passes but its diff is printed: check that
@@ -308,7 +308,7 @@ tests that use `standaloneSetup` never render a view, so add one that renders th
 resolver.
 
 **6. Remove the old engine.** This completes the security guarantee: until its resolver is gone,
-any view name Tessera doesn't know still reaches it. Remove its templates, dependency and
+any view name Thwart doesn't know still reaches it. Remove its templates, dependency and
 configuration, then build, test and compare once more. The old engine's starter often brought in
 libraries the application still uses (`spring-context-support` with Boot's Velocity starter,
 `commons-beanutils` with Tiles), and losing them may show only at runtime: diff
@@ -330,9 +330,9 @@ inside the application, and Boot leaves DevTools out of the jar it packages. Add
 </dependency>
 ```
 
-- **Maven:** run `mvn spring-boot:run` in one terminal and `mvn tessera:watch` in another, both in
+- **Maven:** run `mvn spring-boot:run` in one terminal and `mvn thwart:watch` in another, both in
   the application module's directory. The watch goal checks the templates and the
-  `tessera.messages` files every half second and runs `mvn compile` on the module after each
+  `thwart.messages` files every half second and runs `mvn compile` on the module after each
   change, with the watch's own `-o`, `-P` and `-D` options (pass `-s` in `.mvn/maven.config`, not
   on the command line). It needs the `check` goal and its configuration from section 2.1. In a
   multi-module build, `install` the modules the application depends on first.
@@ -361,7 +361,7 @@ A template is an HTML file. Its view name is its path under the templates root w
 <!-- compile: template guide/hello.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev"
+<html xmlns:t="https://thwart.chainguard.dev"
       t:import="com.example.guide.*"
       t:params="Customer customer, List<Order> orders, boolean admin">
   <body>
@@ -395,8 +395,8 @@ public record Order(String number, BigDecimal total) {}
 
 - `t:params` is `Type name, ...` with Java types (generics, arrays, `Outer.Inner`). A primitive
   parameter must be present in the model. `t:import` lists classes or packages; `java.lang`,
-  `java.util`, `java.time`, `java.math` and `dev.tessera.runtime` are always imported.
-- The template compiles to `<tessera.package>.guide.HelloTemplate` with
+  `java.util`, `java.time`, `java.math` and `dev.chainguard.thwart.runtime` are always imported.
+- The template compiles to `<thwart.package>.guide.HelloTemplate` with
   `of(Customer, List<Order>, boolean)`.
 - Static attribute values and text are prototypes that `t:` attributes replace. `<t:block>`
   renders only its content. HTML comments are written to the page; the template comment
@@ -431,7 +431,7 @@ inherited from an unannotated superclass resolve.
 ```java
 package com.example.guide;
 
-import dev.tessera.runtime.TemplateView;
+import dev.chainguard.thwart.runtime.TemplateView;
 import java.util.List;
 
 @TemplateView
@@ -491,7 +491,7 @@ accepts:
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy (section 4.5). |
 | Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names | Any value, escaped. |
 | Typed attribute | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
-| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster` | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
+| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster` | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart`. Forms: section 4.7. |
 | Resource URL | `script[src]`, `script[href]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |
 | Neutral | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
@@ -505,7 +505,7 @@ accepts:
 |---|---|
 | read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A number, boolean or link in a `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. A string goes in a script declaration or a JSON block (Scripts, below). |
 | one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`, `<input type>`) | A static attribute, or one element per value under `t:if`/`t:switch` (the `fields` example in 4.8). |
-| `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Tessera stamps the CSP nonce itself (section 4.9). |
+| `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Thwart stamps the CSP nonce itself (section 4.9). |
 | `content` of a named `<meta>` (`description`, Open Graph `property`, `_csrf`) | A static `content`, or one `<meta>` per case under `t:if`. Page data for JavaScript, such as the CSRF token, goes in a script declaration (4.7). |
 | `srcset`, `<font color>` | One `src` (or a static `srcset`); a `<span>` with a `t:class`. |
 
@@ -524,7 +524,7 @@ read with `JSON.parse`; inside it, write `{"name": [[${x}]]}` without quotes aro
 
 <!-- compile: template guide/contexts.html -->
 ```html
-<div xmlns:t="https://tessera.dev" t:import="com.example.guide.Account"
+<div xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Account"
      t:params="Account account, SafeHtml bio, String homepage">
   <a t:href="homepage" t:text="account.email">me@example.com</a>
   <section t:utext="bio">Bio</section>
@@ -537,7 +537,7 @@ read with `JSON.parse`; inside it, write `{"name": [[${x}]]}` without quotes aro
 ```
 
 **Framework-neutral values.** In many client frameworks `data-*` is a code channel (Knockout's
-`data-bind`, htmx's `data-hx-on`), and Tessera models none of them. So a computed `data-*` takes only
+`data-bind`, htmx's `data-hx-on`), and Thwart models none of them. So a computed `data-*` takes only
 a number, a boolean, a same-origin link with a literal path and no query, or a choice between those
 and literals: `t:data-id="${item.id}"` compiles, `t:data-name="${item.name}"` doesn't. Static
 attributes are copied as written. Port a computed string by what it is for:
@@ -559,7 +559,7 @@ page: write down which recipe caused each `compare` difference, and mask a chang
 
 <!-- compile: template guide/recipes/hidden-inputs.html -->
 ```html
-<ul xmlns:t="https://tessera.dev" t:params="List<String> skus">
+<ul xmlns:t="https://thwart.chainguard.dev" t:params="List<String> skus">
   <li t:each="sku : skus">
     <input type="hidden" name="sku" t:value="sku">
     <button hx-post="/cart" hx-include="previous input">Add</button>
@@ -569,7 +569,7 @@ page: write down which recipe caused each `compare` difference, and mask a chang
 
 <!-- compile: template guide/recipes/plugin.html -->
 ```html
-<div xmlns:t="https://tessera.dev" t:params="List<String> tips">
+<div xmlns:t="https://thwart.chainguard.dev" t:params="List<String> tips">
   <script type="application/json" id="tips-data">[[${tips}]]</script>
   <span t:each="tip, stat : tips" class="hint" t:data-tip="stat.index">?</span>
   <script t:src="@{/js/tips.js}"></script>
@@ -598,10 +598,10 @@ everything else. `html.sanitizeRich` also keeps same-origin images, `language-*`
 ```java
 package com.example.guide;
 
-import dev.tessera.runtime.HtmlPolicy;
-import dev.tessera.runtime.SafeHtml;
-import dev.tessera.runtime.TemplateFunction;
-import dev.tessera.runtime.TemplateFunctions;
+import dev.chainguard.thwart.runtime.HtmlPolicy;
+import dev.chainguard.thwart.runtime.SafeHtml;
+import dev.chainguard.thwart.runtime.TemplateFunction;
+import dev.chainguard.thwart.runtime.TemplateFunctions;
 
 @TemplateFunctions("notices")
 public final class NoticeFunctions {
@@ -642,10 +642,10 @@ still need `allowAttributes`. Join lines with `concat` and `escape`:
 ```java
 package com.example.guide;
 
-import dev.tessera.runtime.HtmlPolicy;
-import dev.tessera.runtime.SafeInlineHtml;
-import dev.tessera.runtime.TemplateFunction;
-import dev.tessera.runtime.TemplateFunctions;
+import dev.chainguard.thwart.runtime.HtmlPolicy;
+import dev.chainguard.thwart.runtime.SafeInlineHtml;
+import dev.chainguard.thwart.runtime.TemplateFunction;
+import dev.chainguard.thwart.runtime.TemplateFunctions;
 
 @TemplateFunctions("inline")
 public final class InlineFunctions {
@@ -683,7 +683,7 @@ don't accept. Otherwise use `t:class`/`t:classappend`.
 **Messages.** `#{key}` and `#{key(arg1, arg2)}` render through the application's `MessageSource`
 (`{0}` placeholders). The key is a literal; choose with a conditional:
 `active ? #{status.active} : #{status.inactive}`. A message is text and is escaped. With
-`-Atessera.messages`, a missing key is a build error; without it, it renders `??key_locale??`. A
+`-Athwart.messages`, a missing key is a build error; without it, it renders `??key_locale??`. A
 key computed from data has no template form: resolve it in Java with `MessageSource` and the
 request `Locale` and pass the string in the model.
 
@@ -705,7 +705,7 @@ welcome.html=Hello <b>{0}</b>!
 
 <!-- compile: template guide/messages-html.html -->
 ```html
-<div xmlns:t="https://tessera.dev" t:params="String name">
+<div xmlns:t="https://thwart.chainguard.dev" t:params="String name">
   <p class="alert" t:utext="#{phaseout.notice}">notice</p>
   <p t:utext="#{welcome.html(name)}">Hello <b>Ann</b></p>
 </div>
@@ -744,8 +744,8 @@ times. Add your own namespace:
 ```java
 package com.example.guide;
 
-import dev.tessera.runtime.TemplateFunction;
-import dev.tessera.runtime.TemplateFunctions;
+import dev.chainguard.thwart.runtime.TemplateFunction;
+import dev.chainguard.thwart.runtime.TemplateFunctions;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -760,7 +760,7 @@ public final class Money {
 
 <!-- compile: template guide/functions.html -->
 ```html
-<p xmlns:t="https://tessera.dev" t:import="com.example.guide.Order" t:params="Order order">
+<p xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Order" t:params="Order order">
   Total: <b t:text="money.euros(order.total)">€9.99</b>
   (<span t:text="#strings.abbreviate(order.number, 8)">ORD-1</span>)
 </p>
@@ -777,7 +777,7 @@ static state.
 
 <!-- compile: template guide/signup.html -->
 ```html
-<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Signup signup, List<Plan> plans"
+<form xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.*" t:params="Signup signup, List<Plan> plans"
       t:object="signup" t:action="@{/signup}" method="post">
   <div t:classappend="fields.hasErrors('email') ? 'has-error'">
     <label for="email">Email</label>
@@ -855,7 +855,7 @@ parameters.
 
 <!-- compile: template guide/fragments/cards.html -->
 ```html
-<div xmlns:t="https://tessera.dev" t:import="com.example.guide.Customer">
+<div xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Customer">
   <section t:fragment="card(String title, Fragment content)" class="card">
     <h3 t:text="title">Title</h3>
     <div t:replace="content">content</div>
@@ -869,7 +869,7 @@ parameters.
 
 <!-- compile: template guide/cards-page.html -->
 ```html
-<main xmlns:t="https://tessera.dev" t:import="com.example.guide.Customer" t:params="Customer customer">
+<main xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Customer" t:params="Customer customer">
   <div t:replace="~{guide/fragments/cards :: card('Profile', ~{::dl})}">
     <dl><dt>Name</dt><dd t:text="customer.name">Ann</dd></dl>
   </div>
@@ -905,7 +905,7 @@ parameters.
 
 <!-- compile: template guide/fragments/head.html -->
 ```html
-<t:block xmlns:t="https://tessera.dev">
+<t:block xmlns:t="https://thwart.chainguard.dev">
   <t:block t:fragment="common(String title)">
     <title t:text="|${title} - Example|">Example</title>
     <link rel="stylesheet" t:href="@{/css/app.css}" />
@@ -916,7 +916,7 @@ parameters.
 <!-- compile: template guide/head-page.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev">
+<html xmlns:t="https://thwart.chainguard.dev">
 <head>
   <t:block t:replace="~{guide/fragments/head :: common('Home')}"></t:block>
 </head>
@@ -931,7 +931,7 @@ inserted:
 <!-- compile: template guide/fragments/layout.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev" t:fragment="layout(Fragment content, String title, Fragment head)">
+<html xmlns:t="https://thwart.chainguard.dev" t:fragment="layout(Fragment content, String title, Fragment head)">
 <head>
   <title t:text="|${title} - Example|">Example</title>
   <link rel="stylesheet" t:href="@{/css/app.css}" />
@@ -947,7 +947,7 @@ inserted:
 <!-- compile: template guide/home.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev" t:import="com.example.guide.Customer" t:params="Customer customer"
+<html xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Customer" t:params="Customer customer"
       t:replace="~{guide/fragments/layout :: layout(~{::body}, 'Home', null)}">
 <body t:remove="tag">
   <h1 t:text="|Welcome, ${customer.name}|">Welcome</h1>
@@ -965,7 +965,7 @@ itself with the outer one and passes its own markup:
 
 <!-- compile: template guide/fragments/toolbar-layout.html -->
 ```html
-<html xmlns:t="https://tessera.dev" t:fragment="toolbarLayout(String title, Fragment tools, Fragment content)"
+<html xmlns:t="https://thwart.chainguard.dev" t:fragment="toolbarLayout(String title, Fragment tools, Fragment content)"
       t:replace="~{guide/fragments/layout :: layout(~{::t:block}, title, null)}">
 <t:block>
   <div class="toolbar" t:insert="tools">tools</div>
@@ -977,7 +977,7 @@ itself with the outer one and passes its own markup:
 <!-- compile: template guide/report.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev" t:params="String name"
+<html xmlns:t="https://thwart.chainguard.dev" t:params="String name"
       t:replace="~{guide/fragments/toolbar-layout :: toolbarLayout('Report', ~{::page-tools}, ~{::body})}">
 <page-tools t:remove="tag"><a t:href="@{/report.csv}">CSV</a></page-tools>
 <body t:remove="tag">
@@ -992,7 +992,7 @@ replaces JSP's `path="${field}.answer"` and Thymeleaf's `*{__${field}__.answer}`
 
 <!-- compile: template guide/fragments/fields.html -->
 ```html
-<div xmlns:t="https://tessera.dev">
+<div xmlns:t="https://thwart.chainguard.dev">
   <div t:fragment="input(String label, Field name, String type)" class="form-group"
        t:classappend="fields.hasErrors(name) ? 'has-error'">
     <label t:for="name" t:text="label">Label</label>
@@ -1007,7 +1007,7 @@ replaces JSP's `path="${field}.answer"` and Thymeleaf's `*{__${field}__.answer}`
 
 <!-- compile: template guide/profile.html -->
 ```html
-<form xmlns:t="https://tessera.dev" t:import="com.example.guide.Signup" t:params="Signup signup"
+<form xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.Signup" t:params="Signup signup"
       t:object="signup" method="post">
   <div t:replace="~{guide/fragments/fields :: input('Email', 'email', 'text')}"></div>
   <div t:replace="~{guide/fragments/fields :: input('Street', 'address.street', 'text')}"></div>
@@ -1043,11 +1043,11 @@ took one becomes a fragment its callers pass `~{...}`.
 writes gets the request's nonce, and by default the page is sent with `Content-Security-Policy:
 script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`. A policy the
 application sets wins (Spring Security's `contentSecurityPolicy(...)`, or your filter's header with
-`CspNonce.get(request)`): `dev.tessera.spring.view.CspFilter` adds the default only when the
+`CspNonce.get(request)`): `dev.chainguard.thwart.spring.view.CspFilter` adds the default only when the
 response commits without one. Boot and servlet containers register it; elsewhere (your own embedded
-server, a `metadata-complete` `web.xml`, Boot importing `TesseraConfiguration`) register it first,
+server, a `metadata-complete` `web.xml`, Boot importing `ThwartConfiguration`) register it first,
 for REQUEST, ASYNC and ERROR, or the starter logs `CspFilter is not in the filter chain`. The one
-off switch is `tessera.csp.enabled=false`. Delete `th:nonce`.
+off switch is `thwart.csp.enabled=false`. Delete `th:nonce`.
 
 ### 4.10 Notes for specific engines
 
@@ -1073,7 +1073,7 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
 - **Whitespace and comments.** Write template-only comments (`{{! }}`, `<%-- --%>`, `<#-- -->`,
   `##`, `{# #}`) as `<!--/* ... */-->`. Whitespace between `t:case` siblings is output.
 
-**Thymeleaf.** Run `tessera-migrate` first (section 3). Natural-template script comments
+**Thymeleaf.** Run `thwart-migrate` first (section 3). Natural-template script comments
 (`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]`; move each value that
 isn't then a declaration at the top of the script into one (section 4.4). Layout dialect pages
 become fragment calls (section 4.8).
@@ -1093,7 +1093,7 @@ become fragment calls (section 4.8).
 
 <!-- compile: template guide/jsp-form-defaults.html -->
 ```html
-<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Signup signup"
+<form xmlns:t="https://thwart.chainguard.dev" t:import="com.example.guide.*" t:params="Signup signup"
       t:object="signup" method="post">
   <span id="signup.errors" class="alert" t:errors="*">errors</span>
   <input type="text" t:field="*{email}" /> <span id="email.errors" t:errors="*{email}">error</span>
@@ -1133,39 +1133,39 @@ become fragment calls (section 4.8).
   `st.index`, `$foreach.hasNext` `!st.last`. `#set` is `t:with`. Macros and `#parse`d headers and
   footers become fragments and a layout. `$esc.html` goes, `$date`/`$number` become `temporals.*`,
   `numbers.*` or a function, and `$link` an `@{...}` link.
-- `$!{x}` and `${x}` both print nothing for `null` in Tessera. A `null` attribute is omitted where
+- `$!{x}` and `${x}` both print nothing for `null` in Thwart. A `null` attribute is omitted where
   `value="$!{x}"` wrote `value=""` (section 4.3).
 - Velocity prints the source of a reference it can't evaluate, keeps the old value on
   `#set($a = $b)` with a null `$b`, and treats only `null` and `false` as false. If the pages depend
   on that, reproduce it on purpose in Java and check it with compare.
 - Templates split across `#parse` files often leave tags unbalanced (the header opens a `<div>`
-  the footer closes). Each Tessera template is well formed: open and close in one layout.
+  the footer closes). Each Thwart template is well formed: open and close in one layout.
 
 **Pebble.** `loop.index` is `st.index`, `loop.length` is `st.size`. `{% set %}` is `t:with`,
 `{% macro %}` a typed fragment, `{% include %}` a fragment call, and `{% extends %}` with
 `{% block %}`s a layout whose `Fragment` parameters are the blocks (an extends chain: section
-4.8). Pebble reads public fields, `Map` keys with `.` and methods with arguments; Tessera reads
+4.8). Pebble reads public fields, `Map` keys with `.` and methods with arguments; Thwart reads
 getters and record components only (`map['key']` works), so add getters or build a record.
 Custom filters become `@TemplateFunctions` or values computed in Java. `strictVariables` is what
 typed `t:params` already give you.
 
-**Mustache.** JMustache fails at a missing value, cutting the page off mid-render; Tessera prints
+**Mustache.** JMustache fails at a missing value, cutting the page off mid-render; Thwart prints
 nothing for `null`. Render the whole page, and compare against an original that has the value.
 
 ## 5. Known limitations
 
-Gaps in Tessera today, with what to do instead.
+Gaps in Thwart today, with what to do instead.
 
 - **Versions and build.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested.
   Maven and Gradle. Hot reload restarts the application through Spring Boot DevTools (section 3.1);
   without Boot there is none.
-- **Messages.** `-Atessera.messages` reads bundles from the file system. Keys that only a jar or a
+- **Messages.** `-Athwart.messages` reads bundles from the file system. Keys that only a jar or a
   database-backed `MessageSource` provides fail the build: give those pages a function that looks
   them up, unchecked.
 - **View resolution.** Names match exactly, less one leading `/`. `page :: fragment` renders a
   fragment whose parameters a model can fill and whose root fits a response body; arguments and
   selectors in view names, and fragments with `Fragment` or `Field` parameters, fall through.
-- **Mixed engines.** While the old engine is configured it renders every view Tessera doesn't
+- **Mixed engines.** While the old engine is configured it renders every view Thwart doesn't
   know, so an app part-way through is protected only on the ported views.
 - **Types.** `java.util.Date` and `Calendar` aren't view-safe: declare `Instant`, `ZonedDateTime`
   or `LocalDate`. `[[...]]` serializes only the properties of the static type and ignores Jackson
@@ -1197,7 +1197,7 @@ Gaps in Tessera today, with what to do instead.
 | `VALUE_IN_FOREIGN` | A value, condition, loop, fragment or computed attribute inside or on `<svg>` or `<math>` (`t:if` or `t:replace` on the element itself is fine) | Static SVG. Set what changes outside it: a `t:class` on an HTML parent (`fill: currentColor`), a CSS variable (`<div t:style="\|--progress: ${n}\|">`), one `<svg>` per case under `t:if`, or `<img t:src="@{/icons/x.svg}">` |
 | `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
 | `VALUE_IN_RAW_TEXT` | A value inside `<noscript>` or `<iframe>` | Static content; move the value outside the element |
-| (build error) `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>`, `<frameset>` | Obsolete elements whose parsing Tessera doesn't model | Escaped text (`&lt;`) in a `<pre>`; `<noscript>`; an ordinary layout or an `<iframe>` |
+| (build error) `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>`, `<frameset>` | Obsolete elements whose parsing Thwart doesn't model | Escaped text (`&lt;`) in a `<pre>`; `<noscript>`; an ordinary layout or an `<iframe>` |
 | `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img>` with the SVG file, or the SVG outside the table |
 | `TABLE_IN_TEMPLATE` | A table part directly in `<template>` | Put the whole `<table>` in the `<template>` |
 | `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |

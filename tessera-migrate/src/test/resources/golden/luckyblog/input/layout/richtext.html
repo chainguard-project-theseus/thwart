@@ -1,5 +1,0 @@
-<div xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.support.view.RichNode">
-<!-- Reduced from bench run luckyblog/run-2: stored article HTML, parsed by RichText into allow-listed nodes. -->
-<t:block t:fragment="nodes(List<RichNode> nodes)"><t:block t:each="n : nodes"><t:block t:replace="~{layout/richtext :: node(n)}"></t:block></t:block></t:block>
-<t:block t:fragment="node(RichNode n)"><t:block t:switch="n.tag"><t:block t:case="'#text'" t:text="n.text"></t:block><p t:case="'p'" t:id="n.id" t:class="n.cls"><t:block t:each="c : n.children"><t:block t:replace="~{layout/richtext :: node(c)}"></t:block></t:block></p><br t:case="'br'" t:id="n.id" t:class="n.cls"/><h1 t:case="'h1'" t:id="n.id" t:class="n.cls"><t:block t:each="c : n.children"><t:block t:replace="~{layout/richtext :: node(c)}"></t:block></t:block></h1><a t:case="'a'" t:id="n.id" t:class="n.cls" t:href="n.href"><t:block t:each="c : n.children"><t:block t:replace="~{layout/richtext :: node(c)}"></t:block></t:block></a></t:block></t:block>
-</div>

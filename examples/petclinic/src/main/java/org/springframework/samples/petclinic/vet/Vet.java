@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import org.springframework.samples.petclinic.model.NamedEntity;
 import org.springframework.samples.petclinic.model.Person;
 
-import dev.tessera.runtime.TemplateView;
+import dev.chainguard.thwart.runtime.TemplateView;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

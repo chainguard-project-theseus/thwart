@@ -71,7 +71,7 @@ environment:
     - libevdev
     - libudev
     - krb5-libs
-    # ProfileOracleTest exports the cases (#324): run.sh builds tessera-compiler with Maven.
+    # ProfileOracleTest exports the cases (#324): run.sh builds thwart-compiler with Maven.
     - openjdk-21-default-jdk
     - maven-3.9
   vars:
@@ -95,7 +95,7 @@ checks:
         - archive.ubuntu.com
         - repo.maven.apache.org
         - repo1.maven.org
-    cmd: [bash, tessera-compiler/src/test/node/run.sh]
+    cmd: [bash, thwart-compiler/src/test/node/run.sh]
   oracle-node-pr:
     when: {requested: true}
     description: >-
@@ -112,4 +112,4 @@ checks:
         - archive.ubuntu.com
         - repo.maven.apache.org
         - repo1.maven.org
-    cmd: [bash, tessera-compiler/src/test/node/run.sh]
+    cmd: [bash, thwart-compiler/src/test/node/run.sh]

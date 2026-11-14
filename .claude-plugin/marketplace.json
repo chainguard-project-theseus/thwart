@@ -1,14 +1,14 @@
 {
-  "name": "tessera",
-  "description": "Claude Code plugins for Tessera, a secure-by-design Java templating library",
+  "name": "thwart",
+  "description": "Claude Code plugins for Thwart, a secure-by-design Java templating library",
   "owner": {
     "name": "Chainguard"
   },
   "plugins": [
     {
-      "name": "tessera",
-      "source": "./plugins/tessera",
-      "description": "Migrate server-rendered Java views to Tessera, checked page by page against the old app"
+      "name": "thwart",
+      "source": "./plugins/thwart",
+      "description": "Migrate server-rendered Java views to Thwart, checked page by page against the old app"
     }
   ]
 }

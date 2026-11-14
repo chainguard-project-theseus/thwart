@@ -1,14 +1,14 @@
-# Checks code reviewers for Tessera. Read from the default branch by the
+# Checks code reviewers for Thwart. Read from the default branch by the
 # Chainguard Checks code reviewer; globs are relative to the repository root.
 #
-# approve: true opts tessera in to Checks' approving review: chainguard[bot]
+# approve: true opts thwart in to Checks' approving review: chainguard[bot]
 # approves a pull request whose every changed path is under a gated
 # .chainguard/owners.yaml entry the review gate finds satisfied, and dismisses
 # that approval when the gate stops passing.
 version: 1
 approve: true
 reviewers:
-  - name: tessera
+  - name: thwart
     trigger:
       paths: ["**"]
     prompt_file: review-prompt.md

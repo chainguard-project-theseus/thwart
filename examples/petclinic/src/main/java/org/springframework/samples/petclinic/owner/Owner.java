@@ -23,7 +23,7 @@ import org.springframework.core.style.ToStringCreator;
 import org.springframework.samples.petclinic.model.Person;
 import org.springframework.util.Assert;
 
-import dev.tessera.runtime.TemplateView;
+import dev.chainguard.thwart.runtime.TemplateView;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

@@ -8,7 +8,7 @@ Chainguard becomes the upstream for safe-by-design replacements of the libraries
 
 The libraries are open source and published as source. Builds, backports, provenance and agent-driven migration come through the Chainguard registry. The buyer is the enterprise security team, not the individual developer, so broad free adoption is a secondary goal.
 
-The premise: frontier models make vulnerability discovery cheap. CVE volume in legacy libraries will outrun any team's ability to patch, and eliminating bug classes becomes the only defense that scales. Tessera, a compiled replacement for Thymeleaf, is the pilot.
+The premise: frontier models make vulnerability discovery cheap. CVE volume in legacy libraries will outrun any team's ability to patch, and eliminating bug classes becomes the only defense that scales. Thwart, a compiled replacement for Thymeleaf, is the pilot.
 
 ## Why now
 
@@ -38,7 +38,7 @@ The sales message is "this class of bug leaves your SBOM," measured against the 
 
 - **License.** Each library uses a standard OSI-approved license.
 - **Source-only publication.** Chainguard publishes source, not builds, to public channels. Release builds live in the Chainguard registry.
-- **Trademarks.** Chainguard owns each library's name. One trademark policy covers the portfolio and explicitly allows "built from Tessera source."
+- **Trademarks.** Chainguard owns each library's name. One trademark policy covers the portfolio and explicitly allows "built from Thwart source."
 
 | Ecosystem | How people consume libraries | Where subscription value comes from |
 |---|---|---|
@@ -55,7 +55,7 @@ Each candidate is scored 1-5 on CVE burden, design leverage, replaceability, and
 
 | Category | Recurring bug class | Incumbent examples | Design that removes it |
 |---|---|---|---|
-| Server-side templates | Template injection leading to code execution | Thymeleaf, FreeMarker, Velocity | Compile-time templates, no reflection (Tessera) |
+| Server-side templates | Template injection leading to code execution | Thymeleaf, FreeMarker, Velocity | Compile-time templates, no reflection (Thwart) |
 | YAML parsing | Unsafe deserialization into arbitrary types | SnakeYAML | Parse to plain values only; typed binding via allow-listed schema |
 | Object serialization | Gadget-chain deserialization | XStream, polymorphic JSON modes | No type names in data; explicit, generated binders |
 | XML parsing | External entity expansion, entity bombs | JDK default parsers | No DTD or entity support by default; bounded input |
@@ -81,6 +81,6 @@ An agent ports a customer's code from the incumbent to the portfolio library (te
 
 1. Pull customer data on template-engine findings.
 2. Build the shared safety core first (safe types, contextual escapers).
-3. Ship Tessera with the full offer.
+3. Ship Thwart with the full offer.
 4. Measure migration time, findings removed, developer satisfaction.
 5. Pick the next three categories.

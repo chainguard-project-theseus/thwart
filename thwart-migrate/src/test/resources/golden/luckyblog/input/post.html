@@ -1,0 +1,9 @@
+<html xmlns:t="https://thwart.chainguard.dev" t:import="com.msun.luckyBlog.support.view.RichNode" t:params="List<RichNode> article">
+<body>
+    <div class="post">
+        <div class="post-content">
+            <t:block t:replace="~{layout/richtext :: nodes(article)}"></t:block>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.chainguard.thwart</groupId>
+    <artifactId>thwart-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>thwart-spring-boot-starter</artifactId>
+  <name>Thwart Spring Boot Starter</name>
+  <description>Spring MVC integration: view resolver over the build-time registry, MessageSource, links, forms, CSRF, auth.</description>
+
+  <!-- Runs in the application: Java 8 class files, Spring Framework 4.3+ / Boot 1.5+, Servlet
+       3.0+ (jakarta.servlet; thwart-spring-boot-starter-javax is this jar relocated to
+       javax.servlet). Compiled against Boot 4.1; thwart-spring-tests runs the shared test sources below on older generations. -->
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>8</maven.compiler.testRelease>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Imported per module so runtime/compiler/migrate stay free of Spring's managed versions. -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-runtime</artifactId>
+    </dependency>
+    <!-- Supplied by the application, whatever its Spring generation. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-core</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-web</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <!-- Only so the reactor builds the processor first (test compilation runs it). -->
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-compiler</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <proc>none</proc>
+            </configuration>
+          </execution>
+          <!-- The shared test sources compile src/test/templates, as an application would. -->
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>dev.chainguard.thwart</groupId>
+                  <artifactId>thwart-compiler</artifactId>
+                  <version>${project.version}</version>
+                </path>
+              </annotationProcessorPaths>
+              <compilerArgs combine.children="append">
+                <arg>-Athwart.templates=${project.basedir}/src/test/templates</arg>
+                <arg>-Athwart.package=dev.chainguard.thwart.spring.e2e.templates</arg>
+                <arg>-Athwart.messages=${project.basedir}/src/test/resources/messages</arg>
+                <arg>-parameters</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <!-- thwart-spring-boot-starter-javax relocates these sources too. -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
