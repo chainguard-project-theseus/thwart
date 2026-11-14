@@ -19,10 +19,9 @@ Options: `--runs N` (default 1), `--first-run K` (number new runs from K to add 
 `--jobs N` parallel containers (default 2), `--minutes N` wall-clock budget per run (default 90),
 `--budget-usd N` spend cap per run (default 40), `--model M` (default `opus`).
 
-Behind a TLS-intercepting proxy (a `chainctl develop` session), set `BENCH_EXTRA_CA_CERTS` to the
-path of a file holding exactly one PEM CA certificate, the proxy's, before `image`, so the image
-trusts it (the JDK trust store imports only the first certificate in the file). In a develop
-session: `export BENCH_EXTRA_CA_CERTS=$(ls /usr/local/share/ca-certificates/microvm-guest-ca-*.crt)`.
+Behind a TLS-intercepting proxy, set `BENCH_EXTRA_CA_CERTS` to the path of a file holding exactly
+one PEM CA certificate, the proxy's, before `image`, so the image trusts it (the JDK trust store
+imports only the first certificate in the file).
 `ANTHROPIC_BASE_URL` is passed to the agent's container when set.
 
 Two kinds of round:

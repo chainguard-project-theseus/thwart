@@ -5,7 +5,7 @@ as the code does it today. The threat model is [security-model.md](security-mode
 rules as tables are [context-model.md](context-model.md), and the porting recipe for every
 rejection is [guide.md](guide.md). How the design got here is in the appendix and in git history.
 
-The north star (#673): Tessera compiles the templates our target Spring apps actually use into
+The north star: Tessera compiles the templates our target Spring apps actually use into
 fast, plain Java, and makes template injection and XSS impossible by construction. When a feature
 can't be proven safe simply, reject it and let migration absorb the cost; never model browsers,
 client frameworks or one app's idiom.
@@ -95,7 +95,7 @@ its own message, what it doesn't model:
 ### 5.3 Attributes
 
 `Contexts.attribute` classifies each computed attribute (context-model.md §6.1). Computed names
-are one closed allow-list (#761): `data-*`, `aria-*` and a fixed set of standard names, each with
+are one closed allow-list: `data-*`, `aria-*` and a fixed set of standard names, each with
 one class. Every other computed name is a build error with a fix-it.
 
 - **Inert text** (the listed text, keyword, number, boolean, ID, token and ARIA names): any value,
@@ -145,7 +145,7 @@ predicate on the parser state where it is inserted plus a promise about what its
 - HTML messages (`t:utext="#{...}"`) and `SafeInlineHtml` values are `PHRASING`: at render time
   the formatted message is sanitized by a fixed inline policy (`Escapers.htmlMessage`, which returns a `SafeInlineHtml`, or `linkedHtmlMessage` for a key with links,
   `HtmlMessageTest`), and a `SafeInlineHtml` is escaped text or sanitized in inline mode, with a
-  policy limited to `HtmlPolicy.INLINE_ELEMENTS` (#397, `FlowProducerTest`).
+  policy limited to `HtmlPolicy.INLINE_ELEMENTS` (`FlowProducerTest`).
 - `Fragment` is compile-time only (`FragmentFromJavaTest`): Java can't build one, and no page or function takes
   one, so every `Fragment` value comes from a `~{...}` the verifier checks where it lands.
   Statically known fragments need no kind: the verifier analyses them at each call site.
@@ -321,7 +321,7 @@ or tree-builder error except the two allowed ones of §11.3 item 4, missing doct
 only in its implied fragment context (`tr`: `tbody`; `td`, `th`: `tr`; `option`, `optgroup`:
 `select`; `li`: `ul`; otherwise `body`). A fragment no template calls is checked on its own, or
 rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHERE`). In a build that rule never fires: a
-fragment declared outside HTML content is a generator error first (#776).
+fragment declared outside HTML content is a generator error first.
 
 **Coarse exclusions**, where browsers are known to split:
 
@@ -358,14 +358,13 @@ names (§5.3), CSS inside `style` (literals, numbers and `CssValue` only), and c
 
 ## Appendix: history
 
-The design was accepted on Oct 24, 2026 after about 30 XSS reports in families A-E, each fixed by
-a new case in a hand-written model. The build-time verifier replaced the profile as the boundary
-on Oct 25 (#364, #367), simplified the same day to one engine, error-free parses and coarse
-exclusions (#404-#408). Oct 30 closed the remaining areas by class (#544): inert-text and
-single-URL attributes, the closed script prelude, AngularJS and htmx 1.x sockets unsupported,
-ASCII-only names, one CSRF shape and the hostile sweep. Framework-neutral values replaced the
-framework table (#583-#587). The minimal-core rewrite (#673) then removed what couldn't be proven
-simply: `{{` breaking and `v-pre` (reversing #248), foreign-content values, CDATA and the raw-text
-elements, Java-built `Fragment`s, unsanitized HTML messages; and made control flow state-neutral.
-The full earlier text of this document is in git history
-(`git log --follow docs/security-architecture.md`).
+The design was accepted on Oct 24, 2026 after about 30 XSS reports in families A-E, each fixed by a
+new case in a hand-written model. The build-time verifier replaced the profile as the boundary on
+Oct 25, simplified the same day to one engine, error-free parses and coarse exclusions. Oct 30
+closed the remaining areas by class: inert-text and single-URL attributes, the closed script
+prelude, AngularJS and htmx 1.x sockets unsupported, ASCII-only names, one CSRF shape and the
+hostile sweep. Framework-neutral values replaced the framework table. The minimal-core rewrite then
+removed what couldn't be proven simply: `{{` breaking and `v-pre` (the earlier defence against
+client-side template injection), foreign-content values, CDATA and the raw-text elements,
+Java-built `Fragment`s, unsanitized HTML messages; and made control flow state-neutral. The full
+earlier text of this document is in git history (`git log --follow docs/security-architecture.md`).

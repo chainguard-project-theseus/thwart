@@ -173,7 +173,7 @@ name is classified by client framework.
 
 | Class (`OutputContext`) | Where | Accepts | Checked by |
 |---|---|---|---|
-| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` ; and every name off the closed allow-list (#761): any name but `data-*`, `aria-*` and the names below, `content` other than a refresh included | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
+| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` ; and every name off the closed allow-list: any name but `data-*`, `aria-*` and the names below, `content` other than a refresh included | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
 | `EVENT_HANDLER` | `on*` | nothing: build error | `ContextsTest` |
 | `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3`, `SameOriginLinkRenderTest` |
@@ -186,7 +186,7 @@ name is classified by client framework.
 ### 6.2 Which computed names are accepted
 
 Static attributes are copied verbatim, except a static `is`. A static `on*` handler, or a static
-`javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both (#755).
+`javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both.
 
 | Name | Accepted | Checked by |
 |---|---|---|
@@ -282,7 +282,7 @@ escapers is rejected.
 | `VALUE_IN_FOREIGN` | any value while the current node is SVG or MathML | static SVG/MathML; the change outside it |
 | `UNBALANCED` | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
 | `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states, or reaches a bad state only through recursion | recursion into the state its call started in |
-| `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content); verifier-only, since a fragment declared outside HTML content is a build error first (#776) | a fragment declared in HTML content |
+| `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content); verifier-only, since a fragment declared outside HTML content is a build error first | a fragment declared in HTML content |
 
 A parser that throws, or a skeleton the verifier can't interpret (a fragment it doesn't define, markup
 right after a computed attribute that isn't whitespace, `/` or `>`), has no id: it is an internal

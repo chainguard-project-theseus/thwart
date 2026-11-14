@@ -35,7 +35,7 @@ JDK 21+. The table names the main classes only. The public API of the runtime an
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`); usage in [guide.md](guide.md) | attoparser, jsoup (bundled into the jar) |
-| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). `WatchMojo` (`tessera:watch`, no phase): reruns `mvn compile` when the templates or messages change, for hot reload with DevTools (#426). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
+| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles. `WatchMojo` (`tessera:watch`, no phase): reruns `mvn compile` when the templates or messages change, for hot reload with DevTools. Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
@@ -68,15 +68,16 @@ Imitating the browser (integration points, breakout tags, raw text inside foreig
 recovery) is the verifier's job alone. Neither can do the other's work. The verifier sees only
 composed output: it has no template spans, and fragments and control flow are already expanded.
 Codegen needs a tree that is faithful to the source, with a line and column on every node. Using
-the spec parser as the only model was measured and deferred in #675. Revisit it when (a) the
-engine has a token API that keeps spans and (b) there is a recipe for page arguments declared
-before `<body>`. (a) is cheaper than #675 estimated: the engine's `TokenHandler` already gets
-tokens, and its tokenizer tracks line and column.
+the spec parser as the only model was measured and deferred: it rejected about a fifth of the
+migrated templates, and the engine exposes no source spans. Revisit it when (a) the engine has a
+token API that keeps spans and (b) there is a recipe for page arguments declared before `<body>`.
+(a) is cheaper than the 400 to 700 line adapter first estimated: the engine's `TokenHandler`
+already gets tokens, and its tokenizer tracks line and column.
 
 ## Key interfaces (all in code; read the javadoc)
 
 - Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`,
-  plus an optional CSP nonce written on every `<script>`/`<style>` start tag (#335),
+  plus an optional CSP nonce written on every `<script>`/`<style>` start tag,
   is the *entire* ambient surface of a template. Escapers: `Escapers.{text,attr,url,resourceUrl,
   refresh,html,htmlMessage,linkedHtmlMessage,javaScript,json}`.
 - `ExpressionParser.parseExpression/parseEach/parseAssignments/parseParams/parseImports/parseFragmentSignature/parseFragmentRef`.
@@ -85,7 +86,7 @@ tokens, and its tokenizer tracks line and column.
   (loops/ifs/locals), sets/removes attributes, replaces the body or element, or removes/omits the
   tag. It never writes output directly; `TemplateGenerator` emits the plan. Every write in generated
   code (static text, escaper calls, raw HTML, fragment calls, and the conditions and loops around
-  them) is built with `Emitted`, which records the template's `Skeleton` in the same call (#366).
+  them) is built with `Emitted`, which records the template's `Skeleton` in the same call.
   `EmissionGuardTest` fails on output written any other way, and the `Compilation` test harness
   checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
@@ -143,15 +144,15 @@ is an error.
 **View-safe** (`ViewSafety`): primitives and boxes, `String`/`CharSequence`, enums, records,
 `java.time` values, `BigDecimal`/`BigInteger`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/
 `Map`/`Map.Entry` and arrays of view-safe types (a public `java.util` type that implements one of
-them is seen as that interface, #135), `LoopStatus`, `SafeHtml`, `CssValue`, and classes annotated
-`@TemplateView`. `Fragment` passes only between templates (#676): Java can't build one. The
+them is seen as that interface), `LoopStatus`, `SafeHtml`, `CssValue`, and classes annotated
+`@TemplateView`. `Fragment` passes only between templates: Java can't build one. The
 never-view-safe list (reflection, class loading, processes, files, servlet and Spring context
 types) is in `ViewSafety`'s javadoc and wins over everything.
 
 Function namespaces: classes annotated `@TemplateFunctions("ns")` in the current compilation,
 plus `BuiltinNamespaces.CLASSES` if on the classpath; methods are `public static @TemplateFunction`.
 A namespace in neither is looked up in the function index the processor writes to the class
-output (`META-INF/tessera/functions/<ns>`, #118), so test compilation still finds main classes.
+output (`META-INF/tessera/functions/<ns>`), so test compilation still finds main classes.
 Two names are reserved: `fields` (inside `t:object`: `hasErrors`/`errors`/`value` of a path,
 `'*'` or `'global'`; `FieldsCompiler`) and `ids` (`seq`/`next`/`prev`; `IdsCompiler`).
 
@@ -186,7 +187,7 @@ Maven's incremental compile does not see template edits, so after a successful c
 processor writes `META-INF/tessera/templates.fingerprint` (each template's path and SHA-256, sorted,
 then each message basename's `.properties` files) to the class output, and `tessera-maven-plugin`'s
 `check` goal, before `compile`, deletes the module's compile output when the templates or message
-files no longer match it (#425, #447).
+files no longer match it.
 
 ## Generated code
 
@@ -219,8 +220,8 @@ reflection anywhere. A template without `t:params` has no static `render` (it wo
 instance method): call `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated
 code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
 A fragment compiles to a `private static` method in its class and a copy in every class that calls
-it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>` (#600).
-The registry also has `fragments()` (#131): an entry named `page :: name` per fragment that
+it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>`.
+The registry also has `fragments()`: an entry named `page :: name` per fragment that
 `ContextVerifier.servableFragments` accepts as a response body and that has no `Fragment` or
 `Field` param, adapting the model to the fragment's declared params the same way and calling
 `fragment_<name>`. `find` finds both kinds; `all()` lists only templates.

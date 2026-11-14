@@ -63,7 +63,7 @@ def image():
     shutil.rmtree(ctx, ignore_errors=True)
     os.makedirs(ctx)
     sh(f"git -C {REPO} archive HEAD | tar -x -C {ctx}", shell=True)
-    # A TLS-intercepting proxy's CA (e.g. a chainctl develop session's) for the image to trust;
+    # A TLS-intercepting proxy's CA for the image to trust;
     # the file stays empty when BENCH_EXTRA_CA_CERTS is unset.
     with open(os.path.join(ctx, "extra-ca.crt"), "w") as f:
         if os.environ.get("BENCH_EXTRA_CA_CERTS"):
