@@ -1,6 +1,6 @@
 # AGENTS.md — read this before touching code
 
-This repo is **Tessera**, a compiled, safe-by-design successor to Thymeleaf, the
+This repo is **Thwart**, a compiled, safe-by-design successor to Thymeleaf, the
 pilot of Chainguard's secure-by-design library portfolio.
 
 - Strategy: [docs/strategy.md](docs/strategy.md)
@@ -8,7 +8,7 @@ pilot of Chainguard's secure-by-design library portfolio.
 
 ## North star
 
-> Tessera compiles the templates our target Spring apps actually use into fast, plain Java, and
+> Thwart compiles the templates our target Spring apps actually use into fast, plain Java, and
 > makes template injection and XSS impossible by construction. When a feature can't be proven
 > safe simply, reject it and let migration absorb the cost; never model browsers, client
 > frameworks or one app's idiom.
@@ -49,9 +49,9 @@ verifier ([docs/security-architecture.md](docs/security-architecture.md) §11).
    a constructor that skips the check.
 6. **Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
    is safe, so migration is mechanical. Where Thymeleaf accepts something outside the profile,
-   Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never
+   Thwart rejects it with a fix-it and `thwart-migrate` rewrites it where it can. Parity never
    overrides 5.
-7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
+7. **The guarantee ends at the HTML parser.** Thwart guarantees what the browser's HTML parser
    and built-in sinks do with the output. It models no client-side framework. Outside standard
    HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
    path). Computed text is plain-escaped: `{{` in a value renders as `{{`. Client frameworks that
@@ -61,7 +61,7 @@ verifier ([docs/security-architecture.md](docs/security-architecture.md) §11).
 
 ## Keep it simple
 
-Tessera is young and pre-release. Prefer the smallest thing that is correct and secure.
+Thwart is young and pre-release. Prefer the smallest thing that is correct and secure.
 
 - A security fix that adds a special case to the parser or context table is a smell. A parser
   differential or composition bug is fixed in the build-time verifier or its test cases
@@ -72,20 +72,20 @@ Tessera is young and pre-release. Prefer the smallest thing that is correct and 
   never patch the parser.
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
-- Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the
-  application's javac, which may be JDK 8), `tessera-migrate`, `tessera-spring-boot-starter`
+- Plain Java. `thwart-runtime`, `thwart-compiler` (the annotation processor runs inside the
+  application's javac, which may be JDK 8), `thwart-migrate`, `thwart-spring-boot-starter`
   (main and test sources) and the code the generator emits are **Java 8** (no records, sealed
   types, pattern matching, switch expressions, `var` or post-8 APIs such as `List.of`; the
   compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
   release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 4.3 /
-  Boot 1.5 and Servlet 3.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
-  the runtime, compiler and migrate are Java 21. `tessera-runtime` has **zero third-party
-  dependencies** outside test scope, and the starters pass on only `tessera-runtime`.
-  `tessera-compiler` has one exception: for the build-time verifier it shades one pinned
+  Boot 1.5 and Servlet 3.0 (`thwart-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
+  the runtime, compiler and migrate are Java 21. `thwart-runtime` has **zero third-party
+  dependencies** outside test scope, and the starters pass on only `thwart-runtime`.
+  `thwart-compiler` has one exception: for the build-time verifier it shades one pinned
   validator.nu htmlparser (current upstream, relocated, built for Java 8) into its jar, and
   nothing else. It keeps its own `MarkupTokenizer` for its tree
   and does not use attoparser, even in tests. Nothing from the parser runs at render time. Otherwise only
-  `tessera-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
+  `thwart-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
@@ -94,10 +94,10 @@ Tessera is young and pre-release. Prefer the smallest thing that is correct and 
 
 See the module table in [docs/architecture.md](docs/architecture.md).
 
-Shared contracts are the template model (`tessera-compiler/.../model/*`), the `Expr` classes in
+Shared contracts are the template model (`thwart-compiler/.../model/*`), the `Expr` classes in
 `.../expr`, `Scope`/`Variable`/`CompiledExpr` in `.../types`,
 `CodegenContext`/`ElementPlan`/`AttributeProcessor`/`AttributeProcessors` in `.../codegen`, the
-runtime API, and the `dev.tessera.compiler.testing.Compilation` harness. If you must change one,
+runtime API, and the `dev.chainguard.thwart.compiler.testing.Compilation` harness. If you must change one,
 keep the change additive and minimal and call it out in the PR description.
 
 ## Build and test
@@ -106,7 +106,7 @@ keep the change additive and minimal and call it out in the PR description.
   starter `--release 8`). `Jdk8ProcessorTest` builds a small app with a real JDK 8 javac: point
   `JDK8_HOME` at a JDK 8 (without it the test is skipped locally and fails in CI).
 - Tests use JUnit Jupiter 6 (the root pom pins `junit-bom` 6.1.3). Compiler tests use the in-memory harness
-  `dev.tessera.compiler.testing.Compilation` (in `tessera-compiler/src/test/java`), which runs
+  `dev.chainguard.thwart.compiler.testing.Compilation` (in `thwart-compiler/src/test/java`), which runs
   javac with the real annotation processor and lets you render or assert on diagnostics.
   `Builder.release(8)` compiles at the Java 8 floor; the compiler module's `release-8` surefire
   run repeats most template tests that way.
@@ -124,7 +124,7 @@ keep the change additive and minimal and call it out in the PR description.
 
 - Work on a branch named `issue-<n>-<slug>`. Never commit to `main` directly.
 - One issue per PR. PR title `<summary> (#<n>)`, body says `Fixes #<n>`.
-- Open PRs against `chainguard-project-theseus/tessera` `main`.
+- Open PRs against `chainguard-project-theseus/thwart` `main`.
 - Rebase on `origin/main` before pushing; resolve conflicts yourself.
 - CI is **Chainguard Checks** (config in `.chainguard/`), not GitHub Actions. Wait for the
   checks on your PR with `gh pr checks <n> --watch`.

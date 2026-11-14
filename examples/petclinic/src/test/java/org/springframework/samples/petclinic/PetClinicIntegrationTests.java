@@ -54,7 +54,7 @@ public class PetClinicIntegrationTests {
 		RestTemplate template = builder.baseUri("http://localhost:" + port).build();
 		ResponseEntity<String> result = template.exchange(RequestEntity.get("/owners/1").build(), String.class);
 		assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-		// Rendered by the compiled Tessera template, from the sample data.
+		// Rendered by the compiled Thwart template, from the sample data.
 		assertThat(result.getBody()).containsSubsequence("<h2>Owner Information</h2>", "<b>George Franklin</b>",
 				"<td>110 W. Liberty St.</td>", "<td>Madison</td>", "<td>6085551023</td>", "href=\"1/edit\"",
 				"<dd>Leo</dd>", "<dd>2010-09-07</dd>", "<dd>cat</dd>", "href=\"1/pets/1/edit\"",

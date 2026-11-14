@@ -1,4 +1,4 @@
-# Porting spring-petclinic's templates to Tessera
+# Porting spring-petclinic's templates to Thwart
 
 This records every manual step and deviation from porting the twelve Thymeleaf templates in
 `thymeleaf-reference/templates` to `src/main/resources/templates`. The general porting guide is
@@ -14,8 +14,8 @@ rendered the same content as upstream for the sample data, including the validat
 
 1. **Run the migrator.**
    ```sh
-   mvn -B -q -ntp -DskipTests install   # builds tessera-migrate
-   java -jar tessera-migrate/target/tessera-migrate-0.1.0-SNAPSHOT.jar \
+   mvn -B -q -ntp -DskipTests install   # builds thwart-migrate
+   java -jar thwart-migrate/target/thwart-migrate-0.1.0-SNAPSHOT.jar \
      examples/petclinic/thymeleaf-reference/templates \
      examples/petclinic/src/main/resources/templates --report migrate-report.md
    ```
@@ -45,13 +45,13 @@ rendered the same content as upstream for the sample data, including the validat
 4. **Type the fragments.** `layout(Fragment template, String menu)` and
    `menuItem(String link, boolean active, String title, String glyph, String text)`.
 5. **Rewrite the layout's menu.** Upstream `menuItem` compares `active==menu`, reading `menu` from the
-   caller's context. Tessera fragments see only their parameters, so the caller passes the comparison:
+   caller's context. Thwart fragments see only their parameters, so the caller passes the comparison:
    `~{::menuItem(@{/owners/find}, menu == 'owners', 'find owners', 'search', #{findOwners})}`. The link
    was `@{__${link}__}`. Now the caller passes a built link (`@{/owners/find}`, type `String`) and
    the fragment writes `t:href="link"`. `t:class="nav-item"` (a Thymeleaf literal token) became a
    static `class="nav-item"`.
 6. **Type the field fragments with `Field`.** `fragments/inputField` and `fragments/selectField`
-   used `*{__${name}__}` and `#fields.hasErrors(name)`. Tessera has no preprocessing and no dynamic
+   used `*{__${name}__}` and `#fields.hasErrors(name)`. Thwart has no preprocessing and no dynamic
    field paths. Instead `name` is declared `Field`: `input (String label, Field name, String type)`
    and `select (String label, Field name, Collection<PetType> items)`. The callers are unchanged
    (`input (#{firstName}, 'firstName', 'text')`); each literal path is checked against the caller's
@@ -72,12 +72,12 @@ rendered the same content as upstream for the sample data, including the validat
    - `*{firstName + ' ' + lastName}` → `*{firstName} + ' ' + *{lastName}` (`*{...}` takes a path)
    - `#strings.listJoin(owner.pets, ', ')` → `strings.join(owner.pets, ', ')`
    - `#fields.hasAnyErrors()` / `#fields.allErrors()` → `fields.hasErrors('*')` / `fields.errors('*')`
-   - `<a th:href=... th:text=... /></a>` (self-closed `<a>` plus a stray end tag) → `<a ...></a>`. Tessera's
+   - `<a th:href=... th:text=... /></a>` (self-closed `<a>` plus a stray end tag) → `<a ...></a>`. Thwart's
      parser rejects the unmatched `</a>`.
 10. **`t:errors` with `t:text`.** Upstream's error span has both `th:errors` and `th:text="#{error}"`.
-    Thymeleaf shows the errors. Tessera keeps one body-setting attribute, so `t:text` was dropped.
+    Thymeleaf shows the errors. Thwart keeps one body-setting attribute, so `t:text` was dropped.
 11. **Build-time message checks.** `pom.xml` passes
-    `-Atessera.messages=${project.basedir}/src/main/resources/messages/messages`, so every `#{key}` is
+    `-Athwart.messages=${project.basedir}/src/main/resources/messages/messages`, so every `#{key}` is
     checked against `messages.properties` at compile time.
 12. **Tests.**
     - Restored the upstream view-rendering tests: `PetClinicIntegrationTests.ownerDetails`/`ownerList`,
@@ -91,12 +91,12 @@ rendered the same content as upstream for the sample data, including the validat
 I compared every page against upstream Thymeleaf petclinic running the same sample data (GET pages
 and POSTs with validation errors). Text and structure are the same. The remaining differences:
 
-- **Attribute order.** Attributes set by `t:*` are written where Tessera's plan places them, so
+- **Attribute order.** Attributes set by `t:*` are written where Thwart's plan places them, so
   `<a href="1/edit" class="btn">` becomes `<a class="btn" href="1/edit">`.
-- **Whitespace.** Thymeleaf writes `<td >` for an element whose attribute was removed. Tessera
+- **Whitespace.** Thymeleaf writes `<td >` for an element whose attribute was removed. Thwart
   writes `<td>`.
 - **Null attribute values.** `<input type="hidden" name="id" t:value="*{id}" />` on a new pet omits
-  `value`. Thymeleaf writes `value=""`. Omitting the attribute on `null` is Tessera's documented rule.
+  `value`. Thymeleaf writes `value=""`. Omitting the attribute on `null` is Thwart's documented rule.
 - **Null link path variables throw.** `@{/owners/{ownerId}(ownerId=owner.id)}` with a null id fails the
   render. Upstream's `@{/owners/__${owner.id}__}` renders `/owners/`. Saved owners always have an id,
   but `OwnerControllerTests` listed a bare `new Owner()`, so it now uses an owner with id 2.

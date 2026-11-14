@@ -48,9 +48,9 @@ ENGINES = {
         "marker": re.compile(r"<tiles-definitions\b"),
         "constructs": [r"<definition\b", r"<put-attribute\b", r"<put-list-attribute\b"],
     },
-    "tessera": {
+    "thwart": {
         "ext": (".html",),
-        "marker": re.compile(r"xmlns:t=\"https://tessera\.dev\""),
+        "marker": re.compile(r"xmlns:t=\"https://thwart\.chainguard\.dev\""),
         "constructs": [r"\bt:[\w-]+(?==)", r"<t:block"],
     },
 }

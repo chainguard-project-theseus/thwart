@@ -1,4 +1,4 @@
-# spring-petclinic at Boot 1.5 (Spring 4.3, below Tessera's floor; Java 8, Thymeleaf 2.1): the
+# spring-petclinic at Boot 1.5 (Spring 4.3, below Thwart's floor; Java 8, Thymeleaf 2.1): the
 # spring-petclinic list without the pagination requests (owners and vets are not paginated yet).
 # Requests run in order against a fresh HSQLDB database.
 GET /

@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html xmlns:t="https://thwart.chainguard.dev" t:params="String target">
+  <body>
+    <form id="computed" method="get" t:action="@{/search(q=${target})}"></form>
+    <form id="link" method="post" t:action="@{/signup}"></form>
+    <form id="external" method="post" action="https://other.example/"></form>
+  </body>
+</html>

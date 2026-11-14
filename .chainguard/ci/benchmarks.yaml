@@ -19,8 +19,8 @@ checks:
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
     # maven/verify* run the other tests; smoke and measure run only the benchmark module's (#697).
-    vars: {MAVEN_ARGS: "-Dtest=dev/tessera/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
-    cmd: [bash, tessera-benchmarks/ci.sh, smoke]
+    vars: {MAVEN_ARGS: "-Dtest=dev/chainguard/thwart/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
+    cmd: [bash, thwart-benchmarks/ci.sh, smoke]
   measure:
     description: Measures JMH throughput and allocation after each merge; timings are informational.
     trigger: postsubmit
@@ -28,5 +28,5 @@ checks:
     timeout: 30m
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
-    vars: {MAVEN_ARGS: "-Dtest=dev/tessera/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
-    cmd: [bash, tessera-benchmarks/ci.sh, measure]
+    vars: {MAVEN_ARGS: "-Dtest=dev/chainguard/thwart/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
+    cmd: [bash, thwart-benchmarks/ci.sh, measure]

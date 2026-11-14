@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.chainguard.thwart</groupId>
+    <artifactId>thwart-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>thwart-migrate</artifactId>
+  <name>Thwart Migrate</name>
+  <description>CLI that converts Thymeleaf templates to Thwart, reports what it cannot convert, and compares
+    the pages of the old and the migrated app.</description>
+
+  <properties>
+    <!-- Only this tooling module uses jsoup (#149); the runtime stays dependency-free. -->
+    <jsoup.version>1.23.2</jsoup.version>
+    <!-- The tool runs on the developer's machine, so it targets Java 8 (#167). The tests stay on 21:
+         JUnit 6 needs 17+. -->
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>21</maven.compiler.testRelease>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.attoparser</groupId>
+      <artifactId>attoparser</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jsoup</groupId>
+      <artifactId>jsoup</artifactId>
+      <version>${jsoup.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>dev.chainguard.thwart.migrate.Main</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <!-- Bundle attoparser and jsoup so `java -jar thwart-migrate-<version>.jar` runs on its own. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -92,7 +92,7 @@ class OwnerControllerTests {
 	}
 
 	/**
-	 * An otherwise empty owner with an id. Upstream lists a bare {@code new Owner()}; Tessera's
+	 * An otherwise empty owner with an id. Upstream lists a bare {@code new Owner()}; Thwart's
 	 * {@code @{/owners/{ownerId}(ownerId=owner.id)}} rejects a null path variable instead of
 	 * rendering {@code /owners/}, and saved owners always have an id (see PORTING.md).
 	 */

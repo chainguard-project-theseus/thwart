@@ -1,0 +1,7 @@
+<html xmlns:t="https://thwart.chainguard.dev" t:params="String coverageMatrixHtml, RegistryView view">
+<body>
+    <main>
+        <t:block t:replace="~{fragments/html :: nodes(view.tree(coverageMatrixHtml))}"></t:block>
+    </main>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.chainguard.thwart</groupId>
+    <artifactId>thwart-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>thwart-compiler</artifactId>
+  <name>Thwart Compiler</name>
+  <description>Build-time template compiler and javac annotation processor.</description>
+
+  <!-- The processor runs inside the application's javac, so it is Java 8 too (#166); tests stay on 21. -->
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>21</maven.compiler.testRelease>
+    <!-- JDK 8 home for Jdk8ProcessorTest; CI sets JDK8_HOME. -->
+    <thwart.jdk8.home>${env.JDK8_HOME}</thwart.jdk8.home>
+    <!-- Test only (#233): Lombok on the processor path. 1.16.6 (espd's version) only for the JDK 8 javac test.
+         lombok.version must support the JDK the tests run on: raise LombokTest.LOMBOK_MAX_JDK with it (#433). -->
+    <lombok.version>1.18.48</lombok.version>
+    <lombok16.version>1.16.6</lombok16.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-runtime</artifactId>
+    </dependency>
+    <!-- The verifier's spec HTML parser (#365), already renamed into
+         dev.chainguard.thwart.compiler.internal.html5. Shaded into this jar below; consumers never see it. -->
+    <dependency>
+      <groupId>dev.chainguard.thwart</groupId>
+      <artifactId>thwart-html5</artifactId>
+    </dependency>
+    <!-- Test only: the spec-parser oracle (#317) is the validator jar, copied below and loaded in
+         its own class loader (SpecParser), so its many bundled libraries stay off the classpath. -->
+    <dependency>
+      <groupId>org.mozilla</groupId>
+      <artifactId>rhino</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Test only: a processor that adds getters during annotation processing (#233). -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!-- This module defines the processor; don't run processors while compiling it. -->
+          <proc>none</proc>
+        </configuration>
+      </plugin>
+      <!-- Inline the engine (#365). It is relocated at the source level already, so there is no
+           further relocation; the reduced pom drops it from the published dependencies. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>shade-html5</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <includes>
+                  <include>dev.chainguard.thwart:thwart-html5</include>
+                </includes>
+              </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>dev.chainguard.thwart:thwart-html5</artifact>
+                  <excludes>
+                    <exclude>META-INF/MANIFEST.MF</exclude>
+                    <exclude>META-INF/maven/**</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <createDependencyReducedPom>true</createDependencyReducedPom>
+              <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- After package: check the shaded jar and the reduced pom (#365). -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+            <configuration>
+              <systemPropertyVariables>
+                <thwart.compiler.jar>${project.build.directory}/${project.build.finalName}.jar</thwart.compiler.jar>
+                <thwart.compiler.pom>${project.build.directory}/dependency-reduced-pom.xml</thwart.compiler.pom>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Jdk8ProcessorTest also runs JDK 8 javac with Lombok 1.16 on the processor path (#233). -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>lombok-1.16</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.projectlombok</groupId>
+                  <artifactId>lombok</artifactId>
+                  <version>${lombok16.version}</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.directory}/lombok16</outputDirectory>
+            </configuration>
+          </execution>
+          <!-- The current spec parser for the oracle (#317), loaded from this path by the tests. -->
+          <execution>
+            <id>oracle-vnu</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>nu.validator</groupId>
+                  <artifactId>validator</artifactId>
+                  <version>${vnu-validator.version}</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.directory}/oracle</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <thwart.jdk8.home>${thwart.jdk8.home}</thwart.jdk8.home>
+            <thwart.lombok16.jar>${project.build.directory}/lombok16/lombok-${lombok16.version}.jar</thwart.lombok16.jar>
+            <thwart.oracle.vnu>${project.build.directory}/oracle/validator-${vnu-validator.version}.jar</thwart.oracle.vnu>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
+               with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
+               need Java 9+ (types) or that assert record-accessor code text, tests that do not
+               compile templates (the parser differential test), the spec-parser oracle and its
+               gate (#324), which run once, in the default execution, and the verifier tests, which
+               test acceptance rather than the generated Java (#718). The verify regex excludes
+               every class but SkeletonTest (verify/Sk*), whose renders stay. -->
+          <execution>
+            <id>release-8</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <skip>${thwart.skipRelease8}</skip>
+              <systemPropertyVariables>
+                <thwart.test.release>8</thwart.test.release>
+              </systemPropertyVariables>
+              <excludes>
+                <exclude>dev/chainguard/thwart/compiler/types/**</exclude>
+                <exclude>dev/chainguard/thwart/compiler/testing/CompilationTest.java</exclude>
+                <exclude>dev/chainguard/thwart/compiler/links/LinkCompilerTest.java</exclude>
+                <exclude>dev/chainguard/thwart/compiler/processor/Jdk8ProcessorTest.java</exclude>
+                <exclude>dev/chainguard/thwart/compiler/oracle/**</exclude>
+                <exclude>%regex[dev/chainguard/thwart/compiler/verify/([^S]|S[^k]).*]</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

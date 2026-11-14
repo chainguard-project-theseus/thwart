@@ -1,0 +1,10 @@
+<div xmlns:t="https://thwart.chainguard.dev" t:import="dev.chainguard.thwart.benchmarks.*">
+<div t:fragment="card(Owner owner)" class="card">
+<h3><a t:href="@{/owners/{ownerId}(ownerId=${owner.id})}" t:text="${owner.firstName + ' ' + owner.lastName}">Name</a></h3>
+<p class="city" t:text="${owner.city}">City</p>
+<ul class="pets" t:unless="${owner.pets.isEmpty()}"><li t:each="pet : ${owner.pets}"><span t:replace="~{fragments/cards :: petLabel(${pet})}">Pet</span></li></ul>
+<span t:replace="~{fragments/cards :: status(${owner.active})}">Status</span>
+</div>
+<span t:fragment="petLabel(Pet pet)" class="pet" t:text="${pet.name + ' (' + pet.type + ')'}">Pet</span>
+<span t:fragment="status(boolean active)" t:class="${active} ? 'badge active' : 'badge'" t:text="${active} ? 'active' : 'inactive'">Status</span>
+</div>

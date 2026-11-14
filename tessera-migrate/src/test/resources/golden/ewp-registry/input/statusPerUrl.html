@@ -1,9 +1,0 @@
-<html xmlns:t="https://tessera.dev" t:params="List<Notice> notices, RegistryView view">
-<body>
-    <table>
-        <tr t:each="notice : notices">
-            <td class='ewpsrc__message'><t:block t:replace="~{fragments/html :: nodes(view.tree(notice.messageHtml))}"></t:block></td>
-        </tr>
-    </table>
-</body>
-</html>

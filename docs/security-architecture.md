@@ -1,11 +1,11 @@
 # Security architecture
 
-This document describes how Tessera makes template injection and XSS impossible by construction,
+This document describes how Thwart makes template injection and XSS impossible by construction,
 as the code does it today. The threat model is [security-model.md](security-model.md), the markup
 rules as tables are [context-model.md](context-model.md), and the porting recipe for every
 rejection is [guide.md](guide.md). How the design got here is in the appendix and in git history.
 
-The north star: Tessera compiles the templates our target Spring apps actually use into
+The north star: Thwart compiles the templates our target Spring apps actually use into
 fast, plain Java, and makes template injection and XSS impossible by construction. When a feature
 can't be proven safe simply, reject it and let migration absorb the cost; never model browsers,
 client frameworks or one app's idiom.
@@ -26,7 +26,7 @@ those numbers stable (add new sections after them, as §5.7 was).
 - **Everything the parser can't decide is an allow-list or a closed grammar** (§5-§9):
   attribute classes, single-URL attributes, framework-neutral values, a closed script prelude,
   one CSRF form shape, ASCII-only name handling, and a runtime that never classifies content.
-- **Client frameworks are outside the guarantee.** Tessera guarantees what the browser's HTML
+- **Client frameworks are outside the guarantee.** Thwart guarantees what the browser's HTML
   parser and built-in sinks do with the output. Client frameworks that compile the server's DOM as
   a template (Vue in-DOM templates, petite-vue, AngularJS) are unsupported; a strict CSP is the
   backstop (§5.6).
@@ -51,7 +51,7 @@ and reject the rest.**
 
 ## 3. Pipeline
 
-1. **Parse.** `MarkupTokenizer` and `HtmlParser` build Tessera's own tree and give early,
+1. **Parse.** `MarkupTokenizer` and `HtmlParser` build Thwart's own tree and give early,
    readable errors (an unsupported element, a CDATA section, a literal `<`). They are not the
    security boundary.
 2. **Generate.** `TemplateGenerator` picks each value's context from the element and attribute
@@ -128,7 +128,7 @@ In a JavaScript `<script>`, a value is allowed only as the whole value of
 comments around (`TextInlining.checkPrelude`). `NAME` is an ASCII identifier, not a reserved
 word and not `location`. The value is written by `Escapers.javaScript` as JSON in parentheses,
 so it is one primary expression whatever its type. A JSON script (`application/json`,
-`application/ld+json`) takes plain JSON outside strings. Tessera never lexes JavaScript: every
+`application/ld+json`) takes plain JSON outside strings. Thwart never lexes JavaScript: every
 other position is a build error with a fix-it. `BigDecimal`/`BigInteger` subclasses throw, so an
 overridden `toString()` can't inject.
 
@@ -152,7 +152,7 @@ predicate on the parser state where it is inserted plus a promise about what its
 
 ### 5.6 Client frameworks and CSP
 
-Tessera models no client framework, and no rule names one. Computed text and attribute values
+Thwart models no client framework, and no rule names one. Computed text and attribute values
 share one HTML escaper (`& < > " '`), so `{{` in a value renders as `{{`. Client frameworks that
 compile the server's DOM as a template are unsupported, and what client code does with static
 markup, text and standard attribute values is outside the guarantee. In `data-*` attribute
@@ -160,7 +160,7 @@ names the compiler constrains its own output to framework-neutral values, and co
 
 The backstop is a strict CSP: the Spring starter puts the request's nonce on every `<script>`
 and `<style>` the compiler writes (context-model.md §6.4), and sends a strict nonce-based
-policy for a Tessera page that commits without one, so a policy from Spring Security or the
+policy for a Thwart page that commits without one, so a policy from Spring Security or the
 application wins (guide §4.9).
 
 ### 5.7 Expressions
@@ -192,13 +192,13 @@ compiles the result. Nothing is evaluated reflectively at render time.
   annotated `@TemplateFunction` in a class annotated `@TemplateFunctions("ns")`, called as
   `ns.fn(...)`. A signature with a never-view-safe type or a `Fragment` parameter, a duplicate or
   invalid namespace, or a reserved one (`fields`, `ids`) is a build error. Namespaces come from the current
-  compilation, `BuiltinNamespaces` (Tessera's runtime functions), and the classpath index
-  `META-INF/tessera/functions/<ns>`, which any jar can provide; an indexed class must still
+  compilation, `BuiltinNamespaces` (Thwart's runtime functions), and the classpath index
+  `META-INF/thwart/functions/<ns>`, which any jar can provide; an indexed class must still
   carry `@TemplateFunctions` with that namespace and passes the same checks.
 
 ## 6. Escapers
 
-`dev.tessera.runtime.internal.Escapers` has one method per context: `text` (element text and RCDATA),
+`dev.chainguard.thwart.runtime.internal.Escapers` has one method per context: `text` (element text and RCDATA),
 `attr`, `url`, `resourceUrl`, `refresh`, `json`, `javaScript`, plus the neutral-value checks.
 The verifier's rule table (§11.2) names which escaper each parser state accepts. `EscapersTest`
 and `EscaperFuzzTest` test them; `TextChokePointTest` checks that value text reaches element text
@@ -214,7 +214,7 @@ harmless, write it raw" is a design error, not a fix.
 ## 8. ASCII-only names and character classes
 
 Browsers fold A-Z only and split on HTML whitespace. Every HTML, CSS and URL comparison goes
-through named ASCII helpers (`dev.tessera.runtime.internal.Ascii` at render time, `HtmlParser.asciiLower`
+through named ASCII helpers (`dev.chainguard.thwart.runtime.internal.Ascii` at render time, `HtmlParser.asciiLower`
 and its siblings in the compiler); Java text goes through `JavaStrings`. `AsciiOnlyTest` fails on
 `equalsIgnoreCase`, `toLowerCase`, `trim`, `Character.isWhitespace`, regex `\s` and the like
 outside a pinned allow-list.
@@ -258,7 +258,7 @@ A spec HTML parser decides contexts at build time, for every template:
    each rule and its fix). Fail closed.
 
 The hand-written model (`HtmlParser`, `MarkupTokenizer`, `Contexts`) stays only to build
-Tessera's tree and give early errors. When it disagrees with a browser, the result is a build
+Thwart's tree and give early errors. When it disagrees with a browser, the result is a build
 error, never XSS.
 
 ### 11.2 Soundness argument
@@ -310,8 +310,8 @@ neutral by induction; recursion into ever new states is `STRUCTURE_DEPENDS_ON_DA
 ### 11.4 The boundary: one parser, error-free parses, four exclusions
 
 **One parser:** the upstream htmlparser from the pinned validator.nu sources release, built for
-Java 8, relocated to `dev.tessera.compiler.internal.html5.current` and shaded into
-`tessera-compiler`. One Tessera-owned accessor reads its state; its source isn't patched.
+Java 8, relocated to `dev.chainguard.thwart.compiler.internal.html5.current` and shaded into
+`thwart-compiler`. One Thwart-owned accessor reads its state; its source isn't patched.
 Bumping it is its own PR, with seed and corpus verdicts diffed. The runtime and starters stay
 dependency-free.
 
@@ -354,7 +354,7 @@ names (§5.3), CSS inside `style` (literals, numbers and `CssValue` only), and c
 - A new XSS outside the verifier converts that area to an allow-list or a closed grammar. It
   doesn't add a case. The PR names the class it closes, with a negative test and a sweep row.
 - Removing support beats modelling it. The cost is a build error with a fix-it and a guide
-  recipe; `tessera-migrate` rewrites what it can.
+  recipe; `thwart-migrate` rewrites what it can.
 
 ## Appendix: history
 

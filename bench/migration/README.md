@@ -1,8 +1,8 @@
 # Migration benchmark
 
 Can one coding agent, given only the Claude Code plugin we ship
-([plugins/tessera](../../plugins/tessera): the `migrate` skill and its guide) and a legacy Spring
-app, migrate the app's views to Tessera on its own without breaking anything? This directory
+([plugins/thwart](../../plugins/thwart): the `migrate` skill and its guide) and a legacy Spring
+app, migrate the app's views to Thwart on its own without breaking anything? This directory
 measures that. Its output goes to `results/`, which is local and not committed.
 
 ## Run it
@@ -26,7 +26,7 @@ imports only the first certificate in the file).
 
 Two kinds of round:
 
-- **Quick round**: after a change to Tessera, `tessera-migrate` or the plugin, run only the apps
+- **Quick round**: after a change to Thwart, `thwart-migrate` or the plugin, run only the apps
   the change affects, one run each (`migrate` with the default `--runs 1` and a `--first-run` past
   the existing runs). Rebuild the image first (`bench.py image`) so the runs use the change.
 - **Milestone round**: all apps, 3 runs each (`run.sh --runs 3`, or `migrate --runs 3`).
@@ -42,36 +42,36 @@ and commit from `app.json`).
 
 ## What happens
 
-1. **Image.** `Dockerfile` builds Tessera 0.1.0-SNAPSHOT from a `git archive` of this repo's
+1. **Image.** `Dockerfile` builds Thwart 0.1.0-SNAPSHOT from a `git archive` of this repo's
    `HEAD` and installs it into a Maven repository. The final image holds that repository (and
-   the same `tessera-migrate` jar at `/opt/tessera-migrate.jar`), the Claude Code plugin from
-   `plugins/tessera` at `/opt/tessera-plugin` (same commit), JDK 21 (default) and JDK 8, Maven,
+   the same `thwart-migrate` jar at `/opt/thwart-migrate.jar`), the Claude Code plugin from
+   `plugins/thwart` at `/opt/thwart-plugin` (same commit), JDK 21 (default) and JDK 8, Maven,
    Python, Chromium (for the browser smoke check; the migrating agent can use it too) and the
    Claude Code CLI, but none of this repo's other sources, docs or history.
 2. **Baseline.** Each app in `apps/<name>/app.json` is cloned at its pinned commit and checked
    in a container (`lib/check.sh`): template and construct counts (`lib/count.py`), the build,
-   `tessera-migrate record` of every request in `apps/<name>/pages.txt` against the running app
+   `thwart-migrate record` of every request in `apps/<name>/pages.txt` against the running app
    with its seeded data, and the app's tests. Output: `results/<app>/baseline/` (the recording in
-   `pages/`). The app is then checked a second time with `tessera-migrate compare` against that
+   `pages/`). The app is then checked a second time with `thwart-migrate compare` against that
    recording: `baseline/determinism.txt` must show every page `same` or `reordered`, or the
    pages are not deterministic enough to score a migration against.
 3. **Migration.** For each run, a fresh clone goes into a new container and `claude -p` runs
-   [prompt.md](prompt.md) (`lib/run-agent.sh`) with `--plugin-dir /opt/tessera-plugin`,
+   [prompt.md](prompt.md) (`lib/run-agent.sh`) with `--plugin-dir /opt/thwart-plugin`,
    `--dangerously-skip-permissions`, no web tools or workflows, a time limit (`timeout`) and a
    spend cap (`--max-budget-usd`). `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` keeps `claude -p`
    from stopping the agent's background tasks 10 minutes after its last turn; the time limit
    still bounds them. The container's home is empty, so there is no CLAUDE.md,
-   memory, settings or other plugin: a fresh context with the standard tools and the Tessera
+   memory, settings or other plugin: a fresh context with the standard tools and the Thwart
    plugin, as a user who installed it would have. The prompt asks for the migration and says what
    "done" is checked against, but doesn't name the skill or its guide: the skill's description
    has to trigger it. `agent.json` records `skill_listed` (the session's init event lists
-   `tessera:migrate`) and `skill_invoked` (the transcript has a `Skill` tool call for it, or a tool call that opens its
+   `thwart:migrate`) and `skill_invoked` (the transcript has a `Skill` tool call for it, or a tool call that opens its
    `SKILL.md` directly). The
-   skill's `mvn dependency:copy` of `tessera-migrate` resolves from the seeded Maven volume.
-4. **Scoring.** The migrated checkout goes through the same check, with `tessera-migrate
+   skill's `mvn dependency:copy` of `thwart-migrate` resolves from the seeded Maven volume.
+4. **Scoring.** The migrated checkout goes through the same check, with `thwart-migrate
    compare` against the baseline recording: the same tool and the same page comparison the
    skill tells the agent to use. The migrated app builds, tests and runs on the app's JDK, like
-   the original (Tessera builds and runs on JDK 8+). `results/<app>/run-<k>/` gets `score.json`, the agent's
+   the original (Thwart builds and runs on JDK 8+). `results/<app>/run-<k>/` gets `score.json`, the agent's
    `diff.patch`, `compare.txt` (compare's output: per page `same`, `reordered` or `differs`,
    status and final-URL mismatches, and a diff), the agent's `MIGRATION-REPORT.md`, and
    `agent.json` (wall time, cost, tokens, outcome, skill use). A run **passes** when the build and all tests
@@ -99,7 +99,7 @@ and commit from `app.json`).
      Only load-time behaviour is checked: nothing is clicked and no handler runs. That still
      catches listener-wiring scripts that throw at load, data reads that fail and anything the
      CSP blocks at load; a handler that breaks only when it fires is not seen, and neither is an
-     inline `on*` attribute blocked by the CSP, which Chromium reports only when it fires (Tessera
+     inline `on*` attribute blocked by the CSP, which Chromium reports only when it fires (Thwart
      rejects static ones anyway, #768). Chromium runs with `--ignore-certificate-errors` so that
      CDN scripts load behind a TLS-intercepting proxy. If the check leaves no `browser.json` (the
      app doesn't build, Chromium fails), the run's Browser column is `-`, never an older result.
@@ -122,8 +122,8 @@ each form, and the error pages. Optional keys:
   comparing (`compare --ignore`), for accepted differences such as broken markup in the original.
   Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
 - `"heldout": true` marks an app that only measures the plugin (skill and guide) and
-  `tessera-migrate`. Never change either because of what a held-out app does; `report` lists held-out apps in their own table.
-- `"belowfloor": true` marks an app older than Tessera supports (before Spring 4.3 / Boot 1.5).
+  `thwart-migrate`. Never change either because of what a held-out app does; `report` lists held-out apps in their own table.
+- `"belowfloor": true` marks an app older than Thwart supports (before Spring 4.3 / Boot 1.5).
   It is informational: it shows whether an agent upgrades Spring first. `report` lists
   below-floor apps in their own table. No app has it since #179 made the Spring 4.3 rungs
   supported.
@@ -190,7 +190,7 @@ Per-app environment fixes (in the app's commands, not its code):
   the test JVM requires and excludes, via `test-excludes.txt`, the tests that need Docker
   (Testcontainers) or Firefox (Selenium), plus one that depends on their logging setup.
 - espd (held out; ESPD-Service, JSP composed with Apache Tiles 3, Spring Boot 1.4.1 / Spring 4.3.3,
-  `"java": 8`): Boot 1.4 is below Tessera's Boot 1.5 floor (Spring 4.3 is supported), so a
+  `"java": 8`): Boot 1.4 is below Thwart's Boot 1.5 floor (Spring 4.3 is supported), so a
   migration may need to bump Boot to 1.5 first. Only the `espd-web` module is built (`-pl espd-web
   -am`); `-Denforcer.skip=true` lifts its enforcer rule that Maven be at most 3.5.0, and the build
   pins `espd.build.timestamp`, which every page footer shows. There is no database: the wizard
@@ -200,7 +200,7 @@ Per-app environment fixes (in the app's commands, not its code):
   placeholder, leaves the stack trace out of error pages, and keeps the session id out of URLs
   (`server.session.tracking-modes=cookie`; otherwise the first page's links carry a random
   `;jsessionid=`). One ignore: the eCertis URL argument (above).
-- luckyblog (held out, Apache Velocity, `"java": 8`): Boot 1.4 is below Tessera's Boot 1.5 floor
+- luckyblog (held out, Apache Velocity, `"java": 8`): Boot 1.4 is below Thwart's Boot 1.5 floor
   (Spring 4.3 is supported), so a migration may need to bump Boot to 1.5 first. The build has no
   `spring-boot-maven-plugin` (a thin jar plus `lib/`), so `start.sh` runs `target/classes` on the
   Maven runtime classpath. MySQL is replaced by H2 2.2 in MySQL mode (the last H2 line for Java 8),

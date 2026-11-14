@@ -1,0 +1,156 @@
+package dev.chainguard.thwart.compiler.processor;
+
+import static dev.chainguard.thwart.compiler.testing.Compilation.model;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import dev.chainguard.thwart.compiler.testing.Compilation;
+import java.util.ServiceLoader;
+import javax.annotation.processing.Processor;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/**
+ * #233: getters Lombok adds during annotation processing are template properties whatever the
+ * processor order. Lombok may run after Thwart in a round; Thwart retries failed templates in
+ * later rounds and reports errors only in the last one.
+ */
+class LombokTest {
+  /**
+   * The newest JDK whose javac the test-scope Lombok ({@code lombok.version}, 1.18.48) supports.
+   * Lombok reflects into javac internals, so an older Lombok fails to initialize on a newer JDK
+   * (1.18.36 on JDK 24+: {@code NoSuchFieldException: TypeTag :: UNKNOWN}, #433). Raise both together.
+   */
+  private static final int LOMBOK_MAX_JDK = 27;
+
+  private static final String PAGE =
+      """
+      package demo;
+      import dev.chainguard.thwart.runtime.TemplateView;
+      import lombok.Getter;
+      @TemplateView
+      @Getter
+      public class PageInfo {
+        private final String locale;
+        private final boolean active;
+        public PageInfo(String locale, boolean active) { this.locale = locale; this.active = active; }
+      }
+      """;
+  private static final String OWNER =
+      """
+      package demo;
+      import dev.chainguard.thwart.runtime.TemplateView;
+      import lombok.AllArgsConstructor;
+      import lombok.Data;
+      @TemplateView
+      @Data
+      @AllArgsConstructor
+      public class Owner {
+        private String name;
+        private int visits;
+      }
+      """;
+  private static final String SHOUT =
+      """
+      package demo;
+      import dev.chainguard.thwart.runtime.TemplateFunction;
+      import dev.chainguard.thwart.runtime.TemplateFunctions;
+      @TemplateFunctions("shout")
+      public final class Shout {
+        private Shout() {}
+        @TemplateFunction public static String loud(String s) { return s.toUpperCase() + "!"; }
+      }
+      """;
+
+  private static Compilation.Builder withLombok(boolean lombokFirst) {
+    int jdk = Runtime.version().feature();
+    assumeTrue(
+        jdk <= LOMBOK_MAX_JDK,
+        "test-scope Lombok supports javac up to JDK " + LOMBOK_MAX_JDK + ", not " + jdk
+            + ": raise lombok.version in thwart-compiler/pom.xml and LombokTest.LOMBOK_MAX_JDK");
+    return Compilation.builder().processor(lombok(), lombokFirst);
+  }
+
+  /** Lombok's javac processor, found the way javac finds it (its class is package-private). */
+  private static Processor lombok() {
+    for (Processor p : ServiceLoader.load(Processor.class)) {
+      if (p.getClass().getName().startsWith("lombok.")) {
+        return p;
+      }
+    }
+    throw new AssertionError("Lombok is not on the test classpath");
+  }
+
+  @ParameterizedTest(name = "lombokFirst={0}")
+  @ValueSource(booleans = {true, false})
+  void getterAndDataPropertiesCompileInEitherOrder(boolean lombokFirst) {
+    Compilation c =
+        withLombok(lombokFirst)
+            .java("demo.PageInfo", PAGE)
+            .java("demo.Owner", OWNER)
+            .java("demo.Shout", SHOUT)
+            .template(
+                "page.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"demo.PageInfo page, demo.Owner owner\""
+                    + " t:if=\"${page.active}\" t:text=\"|${page.locale} ${shout.loud(owner.name)} ${owner.visits}|\">x</p>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<p>en ANN &lt;B&gt;! 3</p>",
+        c.render(
+            "page",
+            model("page", c.newInstance("demo.PageInfo", "en", true), "owner", c.newInstance("demo.Owner", "Ann <b>", 3))));
+  }
+
+  private static final String OWNER_JSON =
+      "<script xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"demo.Owner owner\">var o = [[${owner}]];</script>";
+
+  @Test
+  void scriptJsonHasLombokPropertiesWithLombokFirst() {
+    Compilation c = withLombok(true).java("demo.Owner", OWNER).template("owner.html", OWNER_JSON).compile().assertSuccess();
+    assertEquals(
+        "<script>var o = ({\"name\":\"Ann\",\"visits\":3});</script>",
+        c.render("owner", model("owner", c.newInstance("demo.Owner", "Ann", 3))));
+  }
+
+  /**
+   * Negative: with Thwart first, script JSON compiles in round 1 without error but sees no getters
+   * ({@code {}}). The last-round check catches it and fails the build instead of shipping that.
+   */
+  @Test
+  void scriptJsonCompiledBeforeLombokFailsTheBuild() {
+    Compilation c = withLombok(false).java("demo.Owner", OWNER).template("owner.html", OWNER_JSON).compile();
+    c.assertError("list that processor before Thwart");
+    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
+  }
+
+  @ParameterizedTest(name = "lombokFirst={0}")
+  @ValueSource(booleans = {true, false})
+  void aMissingPropertyIsStillOneErrorWithItsPosition(boolean lombokFirst) {
+    Compilation c =
+        withLombok(lombokFirst)
+            .java("demo.PageInfo", PAGE)
+            .template(
+                "page.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"demo.PageInfo page\" t:text=\"${page.missing}\">x</p>")
+            .compile()
+            .assertError("page.html:1:84", "'missing' is not a property of demo.PageInfo");
+    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
+  }
+
+  @Test
+  void aPrivateFieldWithoutLombokIsNotAProperty() {
+    Compilation.builder()
+        .java(
+            "demo.Plain",
+            """
+            package demo;
+            @dev.chainguard.thwart.runtime.TemplateView
+            public class Plain { private String locale; }
+            """)
+        .template("plain.html", "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"demo.Plain p\" t:text=\"${p.locale}\">x</p>")
+        .compile()
+        .assertError("plain.html:1:", "'locale' is not a property of demo.Plain");
+  }
+}

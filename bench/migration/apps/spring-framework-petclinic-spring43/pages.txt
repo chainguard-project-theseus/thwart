@@ -1,4 +1,4 @@
-# spring-framework-petclinic at Spring 4.3 (below Tessera's floor; Java 8, JSP on the
+# spring-framework-petclinic at Spring 4.3 (below Thwart's floor; Java 8, JSP on the
 # tomcat7-maven-plugin's Tomcat 7, under /petclinic): the Spring 5.3 rung's list with this version's
 # /vets.html and /oups.html. Requests run in order against a fresh HSQLDB database.
 GET /

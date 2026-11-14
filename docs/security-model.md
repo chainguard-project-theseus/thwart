@@ -1,13 +1,13 @@
 # Security model: threat model and trust boundaries
 
-This document states who Tessera defends against, what it trusts, and where its guarantee
+This document states who Thwart defends against, what it trusts, and where its guarantee
 ends. How the guarantee is built is in [security-architecture.md](security-architecture.md), and
 the markup rules that enforce it are in [context-model.md](context-model.md). Use this document to
 judge a report: whether it is a bug, and which layer owns it.
 
 ## 1. The guarantee
 
-Tessera guarantees what the browser's HTML parser and its built-in sinks do with a rendered
+Thwart guarantees what the browser's HTML parser and its built-in sinks do with a rendered
 page. For every template the compiler accepts and every model:
 
 - each value lands in the node, context and namespace the compiler chose, and the static
@@ -23,9 +23,9 @@ It does not guarantee what page JavaScript or a client framework does with the D
 (principle 7). There is no framework table: the compiler only constrains the shape of its own
 output in attribute names outside HTML, a framework-neutral value (context-model.md §6.1,
 `NEUTRAL`). Computed text is plain-escaped, so client frameworks that compile the server's DOM as
-a template are unsupported. Past that boundary, the defence in depth is a strict CSP: Tessera puts
+a template are unsupported. Past that boundary, the defence in depth is a strict CSP: Thwart puts
 the request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
-starter sends a strict nonce policy for a Tessera page that commits without one, so a policy from
+starter sends a strict nonce policy for a Thwart page that commits without one, so a policy from
 Spring Security or the application wins (guide §4.9).
 
 The build-time verifier makes the first point hold for every template the compiler accepts:
@@ -44,14 +44,14 @@ The build-time verifier makes the first point hold for every template the compil
   dynamic values, the one parser, the allowed errors, the entry context of partials, and the
   inertness lemma, which is argued, not proved.
 
-Tessera doesn't verify markup that parses only through error recovery (foster parenting,
+Thwart doesn't verify markup that parses only through error recovery (foster parenting,
 misnested formatting, a second `<body>`). It rejects it, even where every browser would agree.
 
 ## 2. Actors and trust
 
 This is the one trust table; SECURITY.md links here.
 
-| Actor or input | Trust | What Tessera assumes | What enforces it |
+| Actor or input | Trust | What Thwart assumes | What enforces it |
 |---|---|---|---|
 | **Model values** (every `t:params` value, including strings, numbers, collections, nulls and their properties) | Untrusted | The attacker controls all of them, completely, including length, characters and `null` | Escapers chosen by context; URL checks; JSON for scripts |
 | **Template authors** | Trusted, but fallible | Authors don't attack their own templates, but they write markup whose meaning they don't know: a quote in an unquoted value, a comment a browser ends early, `<svg><title>` | The build-time verifier; the profile's rules give earlier messages. A template whose meaning the compiler can't pin down is rejected, whoever wrote it |
@@ -59,7 +59,7 @@ This is the one trust table; SECURITY.md links here.
 | **Application Java code** (controllers, `@TemplateFunction`s, view-safe types) | Trusted | It decides what goes into the model, and what it marks as safe | Principles 2-4: allow-listed functions and properties, no reflection (security-architecture.md §5.7) |
 | **A hand-written `Template`** | Its own code | It writes what its Java writes, like any other response code; nothing at build time vouches for it, and no API wraps its output as `SafeHtml` or `Fragment` (`FragmentFromJavaTest`) | Nothing at render time. `t:utext` and `[(...)]` accept only `SafeHtml`; no type skips the URL checks |
 | **Other `SafeHtml` sources** (`escape`, `sanitize`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. | The verifier: `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). |
-| **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (`tessera-html5/pom.xml`) | Out of scope |
+| **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (`thwart-html5/pom.xml`) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`, CDATA) | At build time, the verifier runs the pinned htmlparser and accepts only error-free parses outside the exclusions. In tests, parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (on Chainguard Checks after every merge and on request) |
 | **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; `CspFilterTest`, `CspTest`: the starter's default policy header, never replacing one already set) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
@@ -115,12 +115,12 @@ differentials, B composition, C JavaScript position, D client frameworks, E URL 
 | What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` and with `connect-src 'self'` limits the damage (guide §4.9) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | A hand-written `Template`'s own output | No | The Java that writes it owns it, like any other response code |
-| Views Tessera doesn't render (Thymeleaf or JSP still configured during a migration) | No | They get none of these guarantees; the Spring starter logs a warning at startup while that is the case |
+| Views Thwart doesn't render (Thymeleaf or JSP still configured during a migration) | No | They get none of these guarantees; the Spring starter logs a warning at startup while that is the case |
 | CSS injection | Yes, by restriction | No values in `<style>`; a `style` attribute takes only literals, numbers and `CssValue`; nothing in SVG is computed |
 | Denial of service, timing, clickjacking, response headers | No | Application and server concerns |
 | Browsers outside the supported set | No | A difference there is a request to widen the supported set, not a bug |
 | A compromised build (template sources, bundles, compiler, dependencies) | No | Trusted (§2) |
-| Tooling inputs (`tessera-migrate`, the benchmarks, the example apps) | No | Developer tools and samples, not production components |
+| Tooling inputs (`thwart-migrate`, the benchmarks, the example apps) | No | Developer tools and samples, not production components |
 
 ## 6. Severity
 
@@ -175,7 +175,7 @@ not in this table is a build error (context-model.md §9; the guide's §5 table 
 | Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`) | `Escapers.attr` in a quoted value; any other computed name is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest` |
 | Typed attribute (`target`, some `value` and `for`) | Literals, numbers or a choice of literals, checked at build time | `ContextsTest`, `AttributesEndToEndTest` |
 | `data-*` and non-WAI-ARIA `aria-*` | Neutral values only: a number, a boolean or a literal-path same-origin link | `NeutralValuesTest`, `ClientTemplateInjectionTest` |
-| URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#tessera` | `EscapersTest`, `AttributesEndToEndTest` |
+| URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#thwart` | `EscapersTest`, `AttributesEndToEndTest` |
 | Resource URL (`script[src]`, `iframe[src]`, `link[href]`, ...) | A same-origin literal-path `@{...}` with no query (`Escapers.sameOriginLink`, `Escapers.resourceUrl`) | `LinkCompilerTest`, `SameOriginLinkRenderTest` |
 | Form action, `formaction`, `<base href>`, refresh URL | Same-origin link re-checked at render (`Checks.isSameOriginUrl`, `Escapers.refresh`) | `FormActionTest`, `CsrfFormactionTest`, `CsrfBaseTest` |
 | CSRF hidden input | Added only to POST forms that provably post to the page's origin | `CsrfActionOriginTest`, `CsrfOwnInputTest` |

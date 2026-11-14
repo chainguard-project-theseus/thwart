@@ -5,7 +5,7 @@
   "difficulty": "hard",
   "heldout": true,
   "java": 8,
-  "note": "JSP composed with Apache Tiles 3 (tiles.xml) on Spring Boot 1.4.1 / Spring 4.3.3, below Tessera's Boot 1.5 floor (Spring 4.3 is supported): a migration may need to bump Boot to 1.5 first. Only the espd-web module is built. EUPL-1.1, so run patches are not committed.",
+  "note": "JSP composed with Apache Tiles 3 (tiles.xml) on Spring Boot 1.4.1 / Spring 4.3.3, below Thwart's Boot 1.5 floor (Spring 4.3 is supported): a migration may need to bump Boot to 1.5 first. Only the espd-web module is built. EUPL-1.1, so run patches are not committed.",
   "build": "mvn -B -ntp -Denforcer.skip=true '-Despd.build.timestamp=2018-11-01 00:00' -pl espd-web -am clean package -DskipTests",
   "test": "mvn -B -ntp -Denforcer.skip=true -pl espd-web -am test",
   "start": "bash /bench/app/start.sh",

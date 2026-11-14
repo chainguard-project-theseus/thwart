@@ -1,6 +1,6 @@
-# Tessera
+# Thwart
 
-Tessera is a compiled, safe-by-design successor to Thymeleaf for Spring MVC. It keeps Thymeleaf's
+Thwart is a compiled, safe-by-design successor to Thymeleaf for Spring MVC. It keeps Thymeleaf's
 natural-HTML `t:` attributes, forms, i18n and fragments, but compiles templates to plain Java in
 the application's own `javac`, which makes template injection and XSS impossible by construction.
 
@@ -8,14 +8,14 @@ the application's own `javac`, which makes template injection and XSS impossible
 
 Thymeleaf's recurring bug class is server-side template injection: its expressions are SpEL
 evaluated at runtime, `__${...}__` re-parses data as code, and its sandbox fixes have been
-deny-list patches that the next bypass gets around. Tessera removes the class by design: there is
+deny-list patches that the next bypass gets around. Thwart removes the class by design: there is
 no runtime interpreter to inject into ([docs/strategy.md](docs/strategy.md)).
 
 ## What it looks like
 
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev"
+<html xmlns:t="https://thwart.chainguard.dev"
       t:import="com.example.*"
       t:params="Customer customer, List<Order> orders">
   <body>
@@ -43,7 +43,7 @@ You get:
 - Escaping chosen for each output context, with no switch to turn it off.
 - Typed parameters, checked at build time.
 - A strict Content Security Policy by default.
-- Speed: about 20× Thymeleaf or more on the [benchmark pages](tessera-benchmarks/RESULTS.md).
+- Speed: about 20× Thymeleaf or more on the [benchmark pages](thwart-benchmarks/RESULTS.md).
 
 It costs:
 - It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
@@ -59,21 +59,21 @@ Version `0.1.0-SNAPSHOT`: run `mvn -B -ntp install` in this repo to put it in yo
 - Java: applications build with JDK 8+ javac and run on Java 8+ (CI compiles them with JDK 8 and 21).
 - Spring: Framework 4.3+ or Boot 1.5+ on Servlet 3.0+; tested on Boot 1.5, 2.0, 2.7, 3.5, 4.1 and Spring MVC 4.3, 5.0.
 
-We're building Tessera in the open at Chainguard. We don't publish it to
+We're building Thwart in the open at Chainguard. We don't publish it to
 any package registry; it ships only from Chainguard's own repositories.
 
 We don't accept pull requests from external contributors. If you and your
 organization would seriously like to get involved, email
 dlorenc@chainguard.dev.
 
-Use of the Tessera and Chainguard names is governed by Chainguard's
+Use of the Thwart and Chainguard names is governed by Chainguard's
 trademark policy.
 
 ## Where to go next
 
 | Goal | Read |
 |---|---|
-| Add Tessera to an app | [Quick start](#quick-start), then [guide §2](docs/guide.md#2-build-setup) |
+| Add Thwart to an app | [Quick start](#quick-start), then [guide §2](docs/guide.md#2-build-setup) |
 | Migrate an existing app | [The Claude Code skill](#migrating) or the [porting guide](docs/guide.md) |
 | Check the security claims | [docs/security-model.md](docs/security-model.md), then [docs/security-architecture.md](docs/security-architecture.md) and [docs/context-model.md](docs/context-model.md) |
 | Compare with other engines | [docs/comparison.md](docs/comparison.md) |
@@ -82,8 +82,8 @@ trademark policy.
 
 ## Quick start
 
-Depend on one starter, `dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` for
-`jakarta.servlet` (Boot 3+, Spring 6+) or `tessera-spring-boot-starter-javax` for `javax.servlet`
+Depend on one starter, `dev.chainguard.thwart:thwart-spring-boot-starter:0.1.0-SNAPSHOT` for
+`jakarta.servlet` (Boot 3+, Spring 6+) or `thwart-spring-boot-starter-javax` for `javax.servlet`
 (Boot 1.5-2.x, Spring 4.3-5.x), and run the annotation processor. With Maven:
 
 ```xml
@@ -92,14 +92,14 @@ Depend on one starter, `dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` 
   <configuration>
     <annotationProcessorPaths>
       <path>
-        <groupId>dev.tessera</groupId>
-        <artifactId>tessera-compiler</artifactId>
+        <groupId>dev.chainguard.thwart</groupId>
+        <artifactId>thwart-compiler</artifactId>
         <version>0.1.0-SNAPSHOT</version>
       </path>
     </annotationProcessorPaths>
     <compilerArgs combine.children="append">
-      <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
-      <arg>-Atessera.package=com.example.templates</arg>
+      <arg>-Athwart.templates=${project.basedir}/src/main/resources/templates</arg>
+      <arg>-Athwart.package=com.example.templates</arg>
     </compilerArgs>
   </configuration>
 </plugin>
@@ -109,39 +109,39 @@ With Gradle (no plugin; the `inputs` line recompiles when only a template change
 
 ```groovy
 dependencies {
-  annotationProcessor 'dev.tessera:tessera-compiler:0.1.0-SNAPSHOT'
+  annotationProcessor 'dev.chainguard.thwart:thwart-compiler:0.1.0-SNAPSHOT'
 }
 
 def templates = file('src/main/resources/templates')
 tasks.named('compileJava') {
-  options.compilerArgs += ["-Atessera.templates=$templates", '-Atessera.package=com.example.templates']
-  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+  options.compilerArgs += ["-Athwart.templates=$templates", '-Athwart.package=com.example.templates']
+  inputs.dir(templates).withPropertyName('thwartTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 ```
 
 [Guide §2](docs/guide.md#2-build-setup) has the full setup for both: other annotation processors,
-message-key checks, and Maven's `tessera-maven-plugin` `check` goal, which recompiles when only a
+message-key checks, and Maven's `thwart-maven-plugin` `check` goal, which recompiles when only a
 template changed. [examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with
 Gradle in CI. Plain Spring
-MVC without Boot adds `@Import(dev.tessera.spring.TesseraConfiguration.class)`. Tessera's view
+MVC without Boot adds `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`. Thwart's view
 resolver runs before the old engine's, so both run side by side; until it is removed, the old
-engine still renders every view Tessera doesn't know, outside Tessera's guarantees.
+engine still renders every view Thwart doesn't know, outside Thwart's guarantees.
 
 The starter sends `Content-Security-Policy: script-src 'nonce-N' 'strict-dynamic'; object-src
-'none'; base-uri 'none'` with Tessera pages unless a CSP header is already set (yours or Spring
+'none'; base-uri 'none'` with Thwart pages unless a CSP header is already set (yours or Spring
 Security's wins). Scripts the template writes get the nonce; inline scripts without it, and
-libraries that use `eval` or `new Function`, break. Turn it off with `tessera.csp.enabled=false`
+libraries that use `eval` or `new Function`, break. Turn it off with `thwart.csp.enabled=false`
 ([guide §4.9](docs/guide.md#49-rendering)).
 
 ## Migrating
 
 ```sh
-claude plugin marketplace add chainguard-project-theseus/tessera
-claude plugin install tessera@tessera
+claude plugin marketplace add chainguard-project-theseus/thwart
+claude plugin install thwart@thwart
 ```
 
-Or run `claude --plugin-dir plugins/tessera` from a checkout. Then ask Claude Code to move an app's
-views to Tessera, or run `/tessera:migrate`. The skill uses `tessera-migrate` to record the old
+Or run `claude --plugin-dir plugins/thwart` from a checkout. Then ask Claude Code to move an app's
+views to Thwart, or run `/thwart:migrate`. The skill uses `thwart-migrate` to record the old
 app's pages and compare the new app against them, and its Thymeleaf converter for the mechanical
 `th:` to `t:` rewrite. Everything else is in the [porting guide](docs/guide.md).
 
@@ -149,20 +149,20 @@ app's pages and compare the new app against them, and its Thymeleaf converter fo
 
 | Module | What it is |
 |---|---|
-| `tessera-runtime` | Escapers, safe types, links, messages, forms. No dependencies |
-| `tessera-compiler` | Annotation processor; shades `tessera-html5`, the verifier's HTML parser |
-| `tessera-spring-boot-starter`, `-javax` | Spring MVC integration; `tessera-spring-tests` runs it on older Spring |
-| `tessera-migrate`, `tessera-maven-plugin` | Page record/compare and Thymeleaf converter; `tessera:check`, `tessera:watch` |
-| `tessera-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration benchmark |
-| `examples/`, `plugins/tessera` | PetClinic and Gradle examples; the Claude Code plugin |
+| `thwart-runtime` | Escapers, safe types, links, messages, forms. No dependencies |
+| `thwart-compiler` | Annotation processor; shades `thwart-html5`, the verifier's HTML parser |
+| `thwart-spring-boot-starter`, `-javax` | Spring MVC integration; `thwart-spring-tests` runs it on older Spring |
+| `thwart-migrate`, `thwart-maven-plugin` | Page record/compare and Thymeleaf converter; `thwart:check`, `thwart:watch` |
+| `thwart-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration benchmark |
+| `examples/`, `plugins/thwart` | PetClinic and Gradle examples; the Claude Code plugin |
 
 Build and test with `mvn -B -ntp verify` (JDK 21+, Maven 3.9+; set `JDK8_HOME` to a JDK 8 to run
-`Jdk8ProcessorTest`). `plugins/tessera/skills/migrate/references/guide.md` must stay a copy of
+`Jdk8ProcessorTest`). `plugins/thwart/skills/migrate/references/guide.md` must stay a copy of
 `docs/guide.md` (`MigrationSkillTest`). The [migration benchmark](bench/migration/README.md)
 measures whether a coding agent can migrate a real app from the guide alone. Maintainer rules,
 for humans and agents, are in [AGENTS.md](AGENTS.md).
 
 ## License
 
-Tessera is licensed under the [Apache License, Version 2.0](LICENSE). [NOTICE](NOTICE) lists the
+Thwart is licensed under the [Apache License, Version 2.0](LICENSE). [NOTICE](NOTICE) lists the
 third-party material the repository and its artifacts contain.

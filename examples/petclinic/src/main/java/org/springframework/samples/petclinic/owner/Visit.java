@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.samples.petclinic.model.BaseEntity;
 
-import dev.tessera.runtime.TemplateView;
+import dev.chainguard.thwart.runtime.TemplateView;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

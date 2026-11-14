@@ -17,7 +17,7 @@ package org.springframework.samples.petclinic.vet;
 
 import org.springframework.samples.petclinic.model.NamedEntity;
 
-import dev.tessera.runtime.TemplateView;
+import dev.chainguard.thwart.runtime.TemplateView;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

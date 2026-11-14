@@ -18,4 +18,4 @@ checks:
     network:
       # The Spring Boot Gradle plugins resolve from Maven Central (examples/gradle/settings.gradle).
       egress: [repo.maven.apache.org, repo1.maven.org]
-    cmd: [bash, -c, "mvn -B -ntp install -DskipTests -pl tessera-compiler,tessera-spring-boot-starter -am && sh examples/gradle/verify.sh"]
+    cmd: [bash, -c, "mvn -B -ntp install -DskipTests -pl thwart-compiler,thwart-spring-boot-starter -am && sh examples/gradle/verify.sh"]

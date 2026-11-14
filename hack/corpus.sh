@@ -1,6 +1,6 @@
 #!/bin/bash
 # Regression corpus: rebuild and test every migrated bench app against the locally installed
-# Tessera 0.1.0-SNAPSHOT.
+# Thwart 0.1.0-SNAPSHOT.
 #
 # usage: hack/corpus.sh [APP ...]        (default: every app with a run under RESULTS)
 #
@@ -9,17 +9,17 @@
 # then run the app's build and test commands on its JDK ("java": 8 or the default 21). Prints a
 # table of app, run, compile and tests; exits non-zero if any app fails.
 #
-# Install Tessera first: in a fresh session `mvn -B -q install -DskipTests -Dinvoker.skip` (tier0 installs
+# Install Thwart first: in a fresh session `mvn -B -q install -DskipTests -Dinvoker.skip` (tier0 installs
 # nothing on a clean checkout), after a change `hack/quick.sh tier0`. Needs git, jq, procps,
 # JDK 21 and 8 under /usr/lib/jvm, network for the apps' own dependencies, and nodejs/npm for
 # ewp-registry. Env: RESULTS (bench output to read, default bench/migration/results; point it at
 # an archive of past runs laid out the same way), CORPUS_DIR (work dir, default
-# /tmp/tessera-corpus), JOBS (parallel apps, default 2).
+# /tmp/thwart-corpus), JOBS (parallel apps, default 2).
 set -uo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 bench=$root/bench/migration
 RESULTS=${RESULTS:-$bench/results}
-work=${CORPUS_DIR:-/tmp/tessera-corpus}
+work=${CORPUS_DIR:-/tmp/thwart-corpus}
 jobs=${JOBS:-2}
 # Parallel builds share ~/.m2: lock per artifact, as the bench image does.
 export MAVEN_ARGS="${MAVEN_ARGS:-} -Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"

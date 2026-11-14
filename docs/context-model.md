@@ -1,4 +1,4 @@
-# Context model: the Tessera HTML profile
+# Context model: the Thwart HTML profile
 
 This document specifies, as tables, the set of templates the compiler accepts and where each
 value may go. It is the detail behind [security-architecture.md](security-architecture.md) §5 and
@@ -17,7 +17,7 @@ lexical position, URL policy and the value shapes of attribute names.
 - A PR that changes `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers`,
   `ContentKinds` or the verifier (`verify/`) updates this document in the same PR.
 - A PR that widens the accepted language says so in its description and adds a seed
-  (`tessera-compiler/src/test/resources/oracle/seeds`) or a test for the new row.
+  (`thwart-compiler/src/test/resources/oracle/seeds`) or a test for the new row.
 - Every row names its check. **Enforced by** is the layer that rejects: `verifier` (by a rule id
   of section 9), `parser` (`html/HtmlParser`, `MarkupTokenizer`, before a skeleton exists),
   `generator` (`codegen/TemplateGenerator` and the processors), or `runtime`.
@@ -50,8 +50,8 @@ This is a per-value claim. Implied end tags may move static nodes, the same way 
 | Duplicate attributes | one per name | two with the same ASCII-lowercased name | parser | `HtmlParserTest` |
 | `&` in text and attribute values | a complete character reference | a named reference without its `;` | verifier: `PARSE_ERROR` | `ErrorFreeTest` |
 | Value after `&` | after a complete reference, or `&` and a character that starts none | after static `&`, `&#`, `&#x` or `&` + letters, which a value could finish into a reference | verifier: `TEXT_NOT_IN_TEXT` | `ValueAfterAmpersandTest` |
-| `/>` | on void HTML elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest`, `BrowserRawTextTest` |
-| End tag | `</name>` matching the open element | stray or mismatched end tags | parser (Tessera's tree is built from matched tags) | `HtmlParserTest` |
+| `/>` | on void HTML elements | on non-void HTML elements, except where Thwart writes the end tag (`<textarea t:field/>`) | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest`, `BrowserRawTextTest` |
+| End tag | `</name>` matching the open element | stray or mismatched end tags | parser (Thwart's tree is built from matched tags) | `HtmlParserTest` |
 | Comment | `<!--` text `-->` | `<!-->`, `<!--->`, `--!>` | parser; verifier: `PARSE_ERROR`; values in comments: `TEXT_NOT_IN_TEXT` | `HtmlParserTest`, `XssContextTest` |
 | Template comment | `<!--/*` text `*/-->`, dropped before codegen | unclosed; `<!--/*/`; inside `script`, `style`, `title`, `textarea` | parser | `HtmlParserTest` |
 | Doctype | `<!DOCTYPE html>`, first token only | other forms or positions | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest` |
@@ -178,7 +178,7 @@ name is classified by client framework.
 | `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3`, `SameOriginLinkRenderTest` |
 | `RESOURCE_URL` | `script[src\|href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a same-origin literal-path `@{...}` link with no query parameters: no scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked when rendered (`Escapers.sameOriginLink`); a `<base href>` must also start with a single `/` | `LinkCompilerTest`, `AttributesEndToEndTest`, `CsrfBaseTest` |
-| `URL` | `href src action formaction cite poster` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera` (`Escapers.url`) | `AttributesEndToEndTest` |
+| `URL` | `href src action formaction cite poster` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart` (`Escapers.url`) | `AttributesEndToEndTest` |
 | `TYPED_ATTRIBUTE` | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `ContextsTest` |
 | `ATTRIBUTE` | the listed inert names (`Contexts.COMPUTED`: text `abbr alt download id label name pattern placeholder title value`, keywords, numbers, booleans, ID references, `accept class hreflang lang`, `role` and the WAI-ARIA 1.2 names) | any value (`Escapers.attr`) | `ContextsTest` |
 | `NEUTRAL` | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | a framework-neutral value by static type and shape: an exact-class number in plain decimal (`Escapers.neutralNumber`), a boolean, a link `@{/path}` with a literal path in `A-Z a-z 0-9 . _ ~ / -` and `%XX` and no query (`Escapers.neutralPath`), or a choice between those and literals | `NeutralValuesTest`, `HostileSweepTest` |
@@ -230,7 +230,7 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 |---|---|---|
 | 1 | Fail closed: reject what can't be proven simply, and shrink the profile rather than model more | security-architecture.md §4 |
 | 2 | `<noscript>` and `<iframe>` hold only static content; `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | Raw text decodes no reference, so no escaper fits |
-| 3 | `<svg>` and `<math>` are static; CDATA sections are errors | Foreign content, its integration points and CDATA are where browsers and sanitizers split; Tessera doesn't model them |
+| 3 | `<svg>` and `<math>` are static; CDATA sections are errors | Foreign content, its integration points and CDATA are where browsers and sanitizers split; Thwart doesn't model them |
 | 4 | Attributes the tree builder reads can't be computed | They decide how the rest of the page parses |
 | 5 | `template` holds flow content only | `<template><col>` ignores raw-text start tags |
 | 6 | `center`, `font`, `tt`, `big`, `strike`, `marquee` are accepted HTML | Migration parity |
@@ -243,7 +243,7 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 | # | Decision | Reason |
 |---|---|---|
 | 10 | The build-time verifier is the boundary for markup contexts, in every build | The hand-written model kept failing; the spec algorithm decides instead |
-| 11 | One engine, the pinned validator.nu htmlparser, shaded into `tessera-compiler` and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
+| 11 | One engine, the pinned validator.nu htmlparser, shaded into `thwart-compiler` and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
 | 12 | Error-free parses only: on every path, scripting on and off, no parse error except missing doctype and "Duplicate ID"; partials in their implied fragment context | Error recovery is where engines and browsers split |
 | 13 | Four coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select`; any CDATA section | The known splits, covered by a shape rather than a model |
 | 14 | A divergence found later becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill |

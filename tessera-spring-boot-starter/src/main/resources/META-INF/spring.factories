@@ -1,6 +1,0 @@
-# Spring Boot 1.5-2.6. Boot 2.7+ reads META-INF/spring/*.imports instead.
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=dev.tessera.spring.TesseraAutoConfiguration
-org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc=dev.tessera.spring.TesseraAutoConfiguration
-# Every Boot generation (1.5 through 4) reads this key here, for DefaultErrorViewResolver's
-# error/<status> and error/4xx, 5xx templates (#628).
-org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider=dev.tessera.spring.view.TesseraTemplateAvailabilityProvider

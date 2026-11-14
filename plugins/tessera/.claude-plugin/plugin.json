@@ -1,8 +1,0 @@
-{
-  "name": "tessera",
-  "description": "Migrate server-rendered Java views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, ...) to Tessera, checked page by page against the old app",
-  "author": {
-    "name": "Chainguard"
-  },
-  "repository": "https://github.com/chainguard-project-theseus/tessera"
-}

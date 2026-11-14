@@ -1,6 +1,6 @@
 # Security policy
 
-Tessera is a template engine for Java web applications that removes whole classes of template
+Thwart is a template engine for Java web applications that removes whole classes of template
 vulnerability by design. The threat model, with the one trust table, is
 [docs/security-model.md](docs/security-model.md); how the guarantee is built is
 [docs/security-architecture.md](docs/security-architecture.md); the HTML profile the compiler
@@ -21,7 +21,7 @@ Don't open a public issue. Follow the wolfi-dev
   sanitized when rendered.
 - Static markup in a template can't hold an `on*` event handler or a `javascript:` URL in an HTML
   URL attribute: both are build errors.
-- The Spring starter sends a strict nonce-based Content-Security-Policy with every Tessera page
+- The Spring starter sends a strict nonce-based Content-Security-Policy with every Thwart page
   that has none, and the compiler puts the nonce on every script and style it writes.
 - Client frameworks, page JavaScript, a compromised build and unsupported browsers are out of scope.
 

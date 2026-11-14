@@ -3,7 +3,7 @@
 
 usage: browser.py BASE PAGES_FILE OUT_JSON
 
-Replays pages.txt in order in one headless Chromium tab (one cookie jar, like `tessera-migrate
+Replays pages.txt in order in one headless Chromium tab (one cookie jar, like `thwart-migrate
 record`): a GET navigates to the path; a POST submits a form built from the line's fields, plus the
 current page's `_csrf` hidden input unless the line sets one, from the current page. For each
 request it records, through the load event plus a short settle, the page's CSP violations

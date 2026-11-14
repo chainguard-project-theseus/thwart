@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:t="https://thwart.chainguard.dev" t:import="dev.chainguard.thwart.spring.e2e.Signup" t:params="Signup signup">
+  <body>
+    <p id="hello" t:text="#{smoke.hello(signup.name)}">Hello, Ann</p>
+    <a id="owner" t:href="@{/owners/{id}(id=7, q=signup.name)}">owner</a>
+    <p id="user" t:text="auth.name()">anonymous</p>
+    <p id="admin" t:if="auth.hasRole('ADMIN')">admin</p>
+    <p id="perm" t:if="auth.hasAuthority('PERM_EDIT')">perm</p>
+    <p id="anyperm" t:if="auth.hasAnyAuthority('PERM_NONE', 'PERM_EDIT')">anyperm</p>
+    <form t:object="signup" t:action="@{/signup}" method="post">
+      <input type="text" t:field="*{name}" />
+      <span class="error" t:errors="*{name}">Name is required</span>
+    </form>
+  </body>
+</html>

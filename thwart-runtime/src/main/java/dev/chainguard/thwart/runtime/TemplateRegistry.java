@@ -1,0 +1,89 @@
+package dev.chainguard.thwart.runtime;
+
+import dev.chainguard.thwart.runtime.internal.TemplateEntry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.ServiceLoader;
+
+/**
+ * Build-time registry of compiled templates. The annotation processor generates one
+ * implementation per compilation unit (module) and registers it in
+ * {@code META-INF/services/dev.chainguard.thwart.runtime.TemplateRegistry}. View names are looked up
+ * here; an unknown name is simply absent, never parsed.
+ *
+ * <p>Besides its templates ({@link #all}), a registry holds an entry per fragment that can be
+ * rendered on its own as a response ({@link #fragments}), named {@code page :: fragment}
+ * with single spaces. {@link #find} finds both.
+ */
+public interface TemplateRegistry {
+
+  Optional<TemplateEntry> find(String viewName);
+
+  /** The templates (pages and partials), without the {@link #fragments} entries. */
+  Collection<TemplateEntry> all();
+
+  /**
+   * The fragment entries, named {@code page :: fragment}: one per fragment the verifier checked as a
+   * response body whose parameters a model can supply. Empty by default.
+   */
+  default Collection<TemplateEntry> fragments() {
+    return Collections.emptyList();
+  }
+
+  /** Merges every registry visible to {@code loader}. Duplicate view names are an error. */
+  static TemplateRegistry load(ClassLoader loader) {
+    List<TemplateEntry> entries = new ArrayList<>();
+    List<TemplateEntry> fragments = new ArrayList<>();
+    for (TemplateRegistry r : ServiceLoader.load(TemplateRegistry.class, loader)) {
+      entries.addAll(r.all());
+      fragments.addAll(r.fragments());
+    }
+    return of(entries, fragments);
+  }
+
+  /** A registry over a fixed list of entries. Duplicate view names are an error. */
+  static TemplateRegistry of(List<TemplateEntry> list) {
+    return of(list, Collections.<TemplateEntry>emptyList());
+  }
+
+  /**
+   * A registry over fixed lists of template and fragment entries. Duplicate view names, across
+   * both, are an error.
+   */
+  static TemplateRegistry of(List<TemplateEntry> list, List<TemplateEntry> fragmentList) {
+    Map<String, TemplateEntry> byName = new LinkedHashMap<>();
+    for (TemplateEntry e : list) {
+      if (byName.putIfAbsent(e.name(), e) != null) {
+        throw new IllegalStateException("Duplicate Thwart template name: " + e.name());
+      }
+    }
+    Collection<TemplateEntry> all = Collections.unmodifiableList(new ArrayList<>(byName.values()));
+    for (TemplateEntry e : fragmentList) {
+      if (byName.putIfAbsent(e.name(), e) != null) {
+        throw new IllegalStateException("Duplicate Thwart template name: " + e.name());
+      }
+    }
+    Collection<TemplateEntry> fragments = Collections.unmodifiableList(new ArrayList<>(fragmentList));
+    return new TemplateRegistry() {
+      @Override
+      public Optional<TemplateEntry> find(String viewName) {
+        return Optional.ofNullable(byName.get(viewName));
+      }
+
+      @Override
+      public Collection<TemplateEntry> all() {
+        return all;
+      }
+
+      @Override
+      public Collection<TemplateEntry> fragments() {
+        return fragments;
+      }
+    };
+  }
+}

@@ -1,0 +1,4 @@
+<ul xmlns:th="http://www.thymeleaf.org">
+<li th:fragment="menuItem(path, name, active, title)" class="nav-item" th:classappend="${name == active} ? 'active'"><a class="nav-link" th:href="${path}" th:title="${title}" th:text="${title}">Item</a></li>
+<footer th:fragment="footer"><p>Thwart benchmarks</p></footer>
+</ul>

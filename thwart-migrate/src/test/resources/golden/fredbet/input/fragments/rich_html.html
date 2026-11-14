@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html xmlns:t="https://thwart.chainguard.dev" t:import="de.fred4jupiter.fredbet.web.info.HtmlNode">
+<body>
+<!-- Reduced from bench run fredbet/run-4: HtmlNode trees built by RichTextParser. -->
+<t:block t:fragment="nodes(List<HtmlNode> nodes)"><t:block t:each="n : nodes" t:switch="n.tag"><t:block t:case="'#text'" t:text="n.text"></t:block><p t:case="'p'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/rich_html :: nodes(n.children)}"></t:block></p><br t:case="'br'" t:class="n.attrs['class']" /><b t:case="'b'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/rich_html :: nodes(n.children)}"></t:block></b><table t:case="'table'" t:class="n.attrs['class']"><t:block t:replace="~{fragments/rich_html :: nodes(n.children)}"></t:block></table><td t:case="'td'" t:class="n.attrs['class']" t:colspan="n.attrs['colspan']"><t:block t:replace="~{fragments/rich_html :: nodes(n.children)}"></t:block></td><img t:case="'img'" t:class="n.attrs['class']" t:src="n.attrs['src']" t:alt="n.attrs['alt']" /></t:block></t:block>
+</body>
+</html>

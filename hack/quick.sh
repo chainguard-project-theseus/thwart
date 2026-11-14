@@ -20,7 +20,7 @@ mvn=(mvn -B -q -T1C -Dinvoker.skip)
 
 pom_modules() { sed -n 's|.*<module>\(.*\)</module>.*|\1|p' "$1/pom.xml"; }
 
-# Leaf modules: an aggregator (tessera-spring-tests) stands for its children.
+# Leaf modules: an aggregator (thwart-spring-tests) stands for its children.
 modules=$(for m in $(pom_modules .); do
   subs=$(pom_modules "$m")
   if [ -n "$subs" ]; then printf "$m/%s\n" $subs; else echo "$m"; fi
@@ -34,7 +34,7 @@ changed_modules() {
     # A file in the module, or the root or the aggregator pom above it. The javax starter has no
     # sources: it is the jakarta starter's jar relocated, so it changes whenever that one does.
     if grep -q -e "^$m/" -e '^pom.xml$' -e "^$(dirname "$m")/pom.xml\$" <<<"$files" \
-        || { [ "$m" = tessera-spring-boot-starter-javax ] && grep -q '^tessera-spring-boot-starter/' <<<"$files"; }; then
+        || { [ "$m" = thwart-spring-boot-starter-javax ] && grep -q '^thwart-spring-boot-starter/' <<<"$files"; }; then
       out+=("$m")
     fi
   done
@@ -59,7 +59,7 @@ case $tier in
   tier1)
     tests=SeedVerifierTest,ExitStateTest,HostileSweepTest,EscapersTest,EscaperFuzzTest,ErrorFreeTest,AsciiOnlyTest,TextChokePointTest,SstiPayloadTest
     echo "tier1: $tests"
-    "${mvn[@]}" test -pl tessera-runtime,tessera-compiler -am \
+    "${mvn[@]}" test -pl thwart-runtime,thwart-compiler -am \
       -Dtest="$tests" -Dsurefire.failIfNoSpecifiedTests=false
     ;;
   tier2)
