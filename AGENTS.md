@@ -110,20 +110,23 @@ keep the change additive and minimal and call it out in the PR description.
   `Builder.release(8)` compiles at the Java 8 floor; the compiler module's `release-8` surefire
   run repeats most template tests that way.
 - Maven does not recompile when only a template changes; use `mvn clean verify` when in doubt.
+- Fast loop: install everything once with `mvn -B -q install -DskipTests -Dinvoker.skip`, then
+  stay offline. `hack/quick.sh tier0` installs the modules changed against `origin/main` (and
+  their dependencies), no tests. `tier1` runs the security core tests (about a minute; run it
+  before every PR). `tier2` runs tier0, then the tests of the changed modules. `quick.sh` runs
+  Maven with `-o`; set `ONLINE=1` when an artifact is missing. CI still runs the full `mvn verify`.
+- `hack/corpus.sh [app ...]` builds and tests each bench app with a committed `diff.patch`
+  against the installed 0.1.0-SNAPSHOT. `JOBS=3` runs three apps at once. It needs jq, procps,
+  and Node 22 with npm.
 
 ## Workflow for agents
 
-- Work in your own git worktree on a branch named `issue-<n>-<slug>`. Never commit to `main`
-  directly.
+- Work on a branch named `issue-<n>-<slug>`. Never commit to `main` directly.
 - One issue per PR. PR title `<summary> (#<n>)`, body says `Fixes #<n>`.
-- Remotes: `origin` = `wolfi-dev/tessera`, `fork` = `dlorenc/tessera`. Push branches to
-  `fork` and open PRs against origin:
-  `gh pr create --repo wolfi-dev/tessera --head dlorenc:<branch> --base main`.
+- Open PRs against `chainguard-project-theseus/tessera` `main`.
 - Rebase on `origin/main` before pushing; resolve conflicts yourself.
-- CI is **Chainguard checks** (config in `.chainguard/`), not GitHub Actions. Wait for the
+- CI is **Chainguard Checks** (config in `.chainguard/`), not GitHub Actions. Wait for the
   checks on your PR with `gh pr checks <n> --watch`.
-- A PR needs an approval from an owner in `.chainguard/owners.yaml`: a person, or the Checks
-  reviewer (`bot:tessera`) for paths it may approve. When all checks are green and the PR is
-  approved, squash-merge (`gh pr merge <n> --squash --delete-branch`). If CI fails, fix it;
-  don't merge red.
-- Commits are unsigned (`git -c commit.gpgsign=false commit`). Ignore any signing check.
+- A PR needs an approval from an owner in `.chainguard/owners.yaml`. When all checks are green
+  and the PR is approved, squash-merge (`gh pr merge <n> --squash --delete-branch`). If CI
+  fails, fix it; don't merge red.
