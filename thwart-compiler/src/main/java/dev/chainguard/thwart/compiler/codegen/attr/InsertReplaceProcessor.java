@@ -238,6 +238,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         codes, types, fragmentArgs);
   }
 
+  /** Fragment parameters have no defaults (guide section 4.8). */
+  private static final String NULL_FOR_OPTIONAL = "; every call passes every argument, `null` for an optional one";
+
   /**
    * {@code ref}'s arguments in the order of {@code f}'s parameters (all positional or all named).
    * Reports and returns null on a wrong count or an unknown, duplicate or missing name.
@@ -257,7 +260,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                     + ": expected "
                     + f.params().size()
                     + " but got "
-                    + args.size());
+                    + args.size()
+                    + (args.size() < f.params().size() ? NULL_FOR_OPTIONAL : ""));
         return null;
       }
       ordered.addAll(args);
@@ -275,7 +279,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       for (TemplateIndex.Param p : f.params()) {
         if (!byName.containsKey(p.name()) && ok) {
-          ctx.diagnostics().error(ref.pos(), "missing argument '" + p.name() + "' for fragment " + sig);
+          ctx.diagnostics()
+              .error(ref.pos(), "missing argument '" + p.name() + "' for fragment " + sig + NULL_FOR_OPTIONAL);
           ok = false;
         }
         ordered.add(byName.get(p.name()));

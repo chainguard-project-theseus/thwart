@@ -363,7 +363,7 @@ final class ConversionRules {
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
-      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)";
+      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)";
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 

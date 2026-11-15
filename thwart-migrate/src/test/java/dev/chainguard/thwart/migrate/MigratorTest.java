@@ -195,7 +195,8 @@ class MigratorTest {
     assertEquals("<div>\n<p t:fragment=\"card(Object owner, List<Pet> pets)\" t:text=\"owner.name + pets\">x</p></div>",
         convert(src));
     assertEquals(List.of("2: fragment `card` parameters declared as `Object` (`owner`); replace each with its type"
-        + " (`Fragment` for markup arguments such as `~{::body}`)"), messages(src));
+        + " (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null`"
+        + " where a Thymeleaf call omitted one (guide section 4.8)"), messages(src));
   }
 
   @Test
