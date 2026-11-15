@@ -21,8 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.DataBinder;
 import org.springframework.web.context.support.StaticWebApplicationContext;
@@ -301,6 +303,20 @@ class SpringRenderContextsTest {
         CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
     assertEquals(
         Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
+  }
+
+  @Test
+  void csrfTokenSetByRealCsrfFilterWithoutUnderscoreAlias() throws Exception {
+    // Runs Spring Security's own CsrfFilter (every supported version), then drops the "_csrf"
+    // alias, which 6.x sets whatever the parameter name: the token must come from the CsrfToken
+    // class-name key that the real filter sets.
+    HttpSessionCsrfTokenRepository repo = new HttpSessionCsrfTokenRepository();
+    repo.setParameterName("token");
+    new CsrfFilter(repo).doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+    request.removeAttribute("_csrf");
+    Optional<Forms.CsrfToken> token = create(Collections.<String, Object>emptyMap()).forms().csrfToken();
+    assertTrue(token.isPresent());
+    assertEquals("token", token.get().parameterName());
   }
 
   @Test
