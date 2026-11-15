@@ -130,6 +130,10 @@ m=See <a href="/docs">the docs</a>.
 -- t.html
 <p>a</p><t:block t:if="s != null"><section>[[${s}]]</t:block><p>b</p>
 => t.html:1:83: error: this t:if or t:unless leaves <section> open, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
+== UNBALANCED: an unquoted static attribute value before a computed attribute
+-- t.html
+<p class=a t:title="${s}">x</p>
+=> t.html:1:77: error: this computed attribute follows an unquoted attribute value, so whether it is written changes where that value ends; quote the attribute value before it (class="a", not class=a) [verifier:UNBALANCED]
 == UNBALANCED: a t:each on rows directly in a table (implied <tbody>)
 -- t.html
 <div $NS t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
