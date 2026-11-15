@@ -83,6 +83,32 @@ class CodegenEndToEndTest {
   }
 
   @Test
+  void missingAttributeReadFailsNamingIt() {
+    Compilation c =
+        Compilation.builder()
+            .java("com.example.User", "package com.example; public record User(String name) {}")
+            .template(
+                "p.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"com.example.User u, String s\""
+                    + " t:text=\"${u.name}\">x</p>")
+            .template(
+                "q.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"com.example.User u\""
+                    + " t:text=\"${u?.name}\">x</p>")
+            .compile()
+            .assertSuccess();
+    TemplateModelException e =
+        assertThrows(TemplateModelException.class, () -> c.render("p", Map.of("s", "a")));
+    assertEquals(
+        "template 'p': NullPointerException while rendering, with model attribute 'u' missing or null"
+            + " (write a?.b where null is expected)",
+        e.getMessage());
+    assertTrue(e.getCause() instanceof NullPointerException, String.valueOf(e.getCause()));
+    // A missing attribute stays null: a template that expects it renders.
+    assertEquals("<p></p>", c.render("q", Map.of()));
+  }
+
+  @Test
   void selfClosingElementWithReplacedBodyGetsAnEndTag() {
     // petclinic's ownersList writes <td th:text="..." />; Thymeleaf renders <td>text</td>.
     Compilation c =

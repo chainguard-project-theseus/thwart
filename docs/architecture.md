@@ -217,7 +217,8 @@ public final class OwnerDetailsTemplate implements dev.chainguard.thwart.runtime
 Plus `com.example.templates.ThwartRegistry implements TemplateRegistry`, whose entries adapt a
 `Map<String, ?>` model: `instanceof` check per param (`TemplateModelException` on mismatch; missing
 means `null`, except for a primitive param, which needs a value; generic arguments unchecked), then
-the static `render`. Registered via `META-INF/services/dev.chainguard.thwart.runtime.TemplateRegistry`. No
+the static `render`; an NPE from it while a param is `null` becomes a `TemplateModelException` naming
+those params. Registered via `META-INF/services/dev.chainguard.thwart.runtime.TemplateRegistry`. No
 reflection in rendering; `TemplateRegistry.load` finds registries with `ServiceLoader`. A template
 without `t:params` has no static `render` (it would clash with the instance method): call
 `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated code

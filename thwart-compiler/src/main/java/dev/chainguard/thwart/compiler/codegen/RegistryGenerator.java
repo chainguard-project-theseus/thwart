@@ -23,7 +23,9 @@ import javax.lang.model.type.TypeMirror;
  * <p>Model adaptation per parameter: a missing (or null) value is passed as {@code null}; a value
  * that is not an instance of the parameter's erased type throws {@code TemplateModelException}
  * naming the template, the parameter, the expected and the actual type. Generic arguments are
- * not checked. A primitive parameter needs a value of its box type; a missing one throws.
+ * not checked. A primitive parameter needs a value of its box type; a missing one throws. A
+ * {@code NullPointerException} from the render, while some reference parameter is null, becomes a
+ * {@code TemplateModelException} naming the template and those parameters (cause: the NPE).
  *
  * <p>Fragment entries ({@code TemplateRegistry.fragments()}): one per fragment named in
  * {@code servable} (as {@code page :: fragment}, the fragments the verifier checked as a response
@@ -119,7 +121,15 @@ public final class RegistryGenerator {
     sb.append("    return new ").append(RT).append("TemplateModelException(\n");
     sb.append("        \"template '\" + template + \"': model attribute '\" + param + \"' must be \" + expected\n");
     sb.append("            + (actual == null ? \" but is missing\" : \" but is \" + actual.getClass().getName()));\n");
-    sb.append("  }\n}\n");
+    sb.append("  }\n\n  private static java.lang.RuntimeException nulls(java.lang.String template,\n");
+    sb.append("      java.lang.NullPointerException e, java.util.Map<java.lang.String, ?> model, java.lang.String... params) {\n");
+    sb.append("    java.util.List<java.lang.String> names = new java.util.ArrayList<>();\n");
+    sb.append("    for (java.lang.String p : params) {\n      if (model.get(p) == null) {\n        names.add(\"'\" + p + \"'\");\n      }\n    }\n");
+    sb.append("    if (names.isEmpty()) {\n      return e;\n    }\n");
+    sb.append("    java.lang.RuntimeException x = new ").append(RT).append("TemplateModelException(\"template '\" + template\n");
+    sb.append("        + \"': NullPointerException while rendering, with model attribute \" + java.lang.String.join(\", \", names)\n");
+    sb.append("        + \" missing or null (write a?.b where null is expected)\");\n");
+    sb.append("    x.initCause(e);\n    return x;\n  }\n}\n");
     return sb.toString();
   }
 
@@ -175,6 +185,7 @@ public final class RegistryGenerator {
         .append(RT)
         .append("internal.Output out) {\n");
     List<String> args = new ArrayList<>();
+    List<String> nullable = new ArrayList<>();
     List<TemplateIndex.Param> params = t.params;
     for (int j = 0; j < params.size(); j++) {
       TemplateIndex.Param p = params.get(j);
@@ -199,6 +210,7 @@ public final class RegistryGenerator {
             .append(fail)
             .append("\n    }\n");
         args.add("(" + p.javaType() + ") " + v);
+        nullable.add(literal(p.name()));
       }
     }
     args.add("ctx");
@@ -206,13 +218,14 @@ public final class RegistryGenerator {
     if (t.method == null) {
       sb.append("    ").append(t.className).append(".of().render(ctx, out);\n");
     } else {
-      sb.append("    ")
-          .append(t.className)
-          .append(".")
-          .append(t.method)
-          .append("(")
-          .append(String.join(", ", args))
-          .append(");\n");
+      String call = t.className + "." + t.method + "(" + String.join(", ", args) + ");\n";
+      if (nullable.isEmpty()) {
+        sb.append("    ").append(call);
+      } else {
+        sb.append("    try {\n      ").append(call).append("    } catch (java.lang.NullPointerException e) {\n");
+        sb.append("      throw nulls(").append(literal(t.name)).append(", e, model, ").append(String.join(", ", nullable));
+        sb.append(");\n    }\n");
+      }
     }
     sb.append("  }\n");
     return sb.toString();
