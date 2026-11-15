@@ -2,7 +2,9 @@
 
 Thwart is a compiled, safe-by-design successor to Thymeleaf for Spring MVC. It keeps Thymeleaf's
 natural-HTML `t:` attributes, forms, i18n and fragments, but compiles templates to plain Java in
-the application's own `javac`, which makes template injection and XSS impossible by construction.
+the application's own `javac`, which makes template injection and XSS impossible by construction,
+relative to the pinned WHATWG parser and the documented exclusions
+([security-model.md §7](docs/security-model.md#7-assumptions)).
 
 ## Why
 
