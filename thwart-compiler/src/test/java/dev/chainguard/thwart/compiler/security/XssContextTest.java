@@ -315,6 +315,12 @@ class XssContextTest {
           "<embed t:src=\"s\">",
           "<object t:data=\"s\"></object>",
           "<base t:href=\"s\">",
+          // A URL attribute off the elements HTML defines it for (#809).
+          "<portal t:src=\"s\"></portal>",
+          "<x-loader t:src=\"s\"></x-loader>",
+          "<div t:href=\"s\">x</div>",
+          "<img is=\"x-loader\" t:src=\"s\">",
+          "<a is=\"x-link\" t:href=\"s\">x</a>",
           "<link t:href=\"s\">",
           // Not exactly one URL (#539): a list, or an animation value whose meaning depends on attributeName.
           "<a t:ping=\"s\">x</a>",
