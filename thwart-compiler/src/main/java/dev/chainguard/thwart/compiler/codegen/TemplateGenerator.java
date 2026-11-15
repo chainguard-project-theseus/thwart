@@ -747,11 +747,20 @@ public final class TemplateGenerator implements CodegenContext {
    * any other value, such as {@code <component is="script">}, would let what reads
    * {@code is} render another element than the one classified. A computed one is FORBIDDEN. Static
    * inline script ({@code on*}, {@code javascript:} URLs) is rejected: {@link Contexts#staticScript}.
+   * So is a namespaced name outside {@code t:} whose prefix has no '-' ({@code th:}, {@code sec:},
+   * {@code layout:}, {@code T:}, {@code foo:}; not {@code xml:}, {@code xmlns:}, {@code xlink:} or a
+   * directive such as {@code v-on:}), and {@code data-th-}/{@code data-sec-}: it would drop its effect and print its
+   * source (#801).
    */
   private void checkStaticAttributes(Element e) {
     for (Attribute a : e.attributes()) {
       if (a.isThwart()) {
         continue;
+      }
+      if (a.name().matches("(?is)(?!(xml|xmlns|xlink):)[a-z0-9_]+:.*|data-(th|sec)-.*")) {
+        diagnostics().error(a.pos(), a.name() + " on <" + e.name() + "> is not allowed: it is a prefixed attribute"
+            + " that Thwart would print as text; write the t: attribute it stands for (thwart-migrate rewrites th:"
+            + " ones, guide 4.3) or remove it");
       }
       if (HtmlParser.asciiEqualsIgnoreCase(a.name(), "is") && !Contexts.isCustomElementName(a.value())) {
         diagnostics().error(a.pos(), "is=\"" + a.value() + "\" on <" + e.name() + "> is not allowed: is may only name a"
