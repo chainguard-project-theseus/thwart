@@ -100,6 +100,8 @@ final class Migrator {
     private final List<Report.Item> items = new ArrayList<>();
     private final Set<String> roots = new LinkedHashSet<>();
     private final Set<String> locals = new LinkedHashSet<>();
+    /** {@code t:object} roots not yet a local where read: the form object, even if a later loop reuses its name. */
+    private final Set<String> formObjects = new LinkedHashSet<>();
     /** Names declared in a {@code t:params} already in the template. */
     private final Set<String> declared = new LinkedHashSet<>();
     /** Reads of ambient scopes ({@code session.user}), each with its line; see {@link #addRoots}. */
@@ -361,6 +363,9 @@ final class Migrator {
       if (!selection) {
         rewritten = selections(line, rewritten);
         addRoots(line, rewritten, fragmentReference);
+      }
+      if (local.equals(ConversionRules.OBJECT)) {
+        Expressions.roots(rewritten, false).stream().filter(r -> !locals.contains(r)).forEach(formObjects::add);
       }
       nullablePathVariables(line, rewritten);
       if (thymeleaf && ConversionRules.EMPTY_FOR_NULL.contains(local) && Expressions.mayBeNull(rewritten)) {
@@ -722,7 +727,7 @@ final class Migrator {
 
     Result finish(String source) {
       Set<String> params = new LinkedHashSet<>(roots);
-      params.removeAll(locals);
+      params.removeIf(p -> locals.contains(p) && !formObjects.contains(p));
       // An ambient read moves into the model under its own name: no `Object session` stub for it.
       Set<String> reported = new HashSet<>();
       for (Map.Entry<Integer, String> read : ambientReads) {

@@ -292,6 +292,28 @@ class FragmentsTest {
         .assertError("page.html:2:43", "has type com.example.User, but a fragment ~{...} was passed");
   }
 
+  /** #820: a rejected parameter type is one error, not one more at every use and every caller. */
+  @Test
+  void rejectedParameterTypeIsReportedOnce() {
+    List<String> errors = Compilation.builder()
+        .template("page.html",
+            "<div " + NS + " t:params=\"Object owner, TODO_visit visit\">"
+                + "<p t:text=\"owner.name\">n</p><p t:if=\"visit.isNew()\">new</p>"
+                + "<form t:object=\"visit\" method=\"post\"><input t:field=\"*{date}\"></form>"
+                + "<div t:replace=\"~{frags :: card(owner.name, visit)}\"></div></div>")
+        .template("frags.html",
+            "<div " + NS + "><section t:fragment=\"card(String title, Object item)\">"
+                + "<b t:text=\"item.name\">i</b></section></div>")
+        .compile()
+        .errors();
+    String all = String.join("\n", errors);
+    assertEquals(3, errors.size(), all); // Object owner, TODO_visit visit, Object item
+    assertTrue(all.contains("page.html:1:56: error: parameter type java.lang.Object is not allowed"), all);
+    assertTrue(all.contains("unknown type 'TODO_visit'"), all);
+    assertTrue(all.contains("frags.html:1:"), all);
+    assertFalse(all.contains("unknown identifier") || all.contains("t:object"), all);
+  }
+
   @Test
   void wrongArityNamesTheCalleeSignature() {
     page("<div t:replace=\"~{fragments/cards :: card('a')}\"></div>\n")

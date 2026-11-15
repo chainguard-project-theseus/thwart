@@ -214,6 +214,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                               .collect(Collectors.joining(", "))));
       return null;
     }
+    if (target.paramsRejected()) {
+      return null; // its declaration's error is reported in the target template
+    }
     String sig = target.viewName() + " :: " + signature(f);
     List<FragmentRef.Arg> ordered = orderArguments(ctx, ref, f, sig);
     if (ordered == null) {

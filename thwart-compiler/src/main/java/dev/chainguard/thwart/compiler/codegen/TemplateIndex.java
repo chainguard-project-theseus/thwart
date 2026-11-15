@@ -165,6 +165,8 @@ public final class TemplateIndex {
     private final Map<String, FragmentInfo> fragments;
     /** Computed on first use; not part of equals. */
     private ParsingContexts parsingContexts;
+    /** Set by {@link #build}; not part of equals. */
+    private boolean paramsRejected;
 
     public TemplateInfo(
         Document document,
@@ -205,6 +207,15 @@ public final class TemplateIndex {
         parsingContexts = ParsingContexts.of(document);
       }
       return parsingContexts;
+    }
+
+    /**
+     * Whether a {@code t:params} or {@code t:fragment} parameter declaration was rejected. The
+     * template's body and its callers' arguments are then not compiled: the declaration's error is
+     * reported once instead of again at every use of the parameter.
+     */
+    public boolean paramsRejected() {
+      return paramsRejected;
     }
 
     @Override
@@ -269,6 +280,7 @@ public final class TemplateIndex {
       Element root = doc.rootElement();
       List<String> imports = Backports.listOf();
       List<Param> params = Backports.listOf();
+      boolean rejected = false;
       if (root != null) {
         Attribute imp = root.attribute(Attribute.PREFIX + "import").orElse(null);
         if (imp != null && imp.value() == null) {
@@ -284,11 +296,14 @@ public final class TemplateIndex {
           List<ParamDecl> decls = parser.parseParams(par.value(), par.valuePos(), sink);
           params = resolve(decls == null ? Backports.listOf() : decls, imports, expressions, sink);
           params = withoutFields(params, decls, sink);
+          rejected = decls == null || params.size() < decls.size();
         }
       }
       Map<String, FragmentInfo> fragments = new LinkedHashMap<>();
-      collectFragments(doc.children(), imports, parser, expressions, sink, fragments);
-      out.add(new TemplateInfo(doc, className, imports, params, fragments));
+      rejected |= collectFragments(doc.children(), imports, parser, expressions, sink, fragments);
+      TemplateInfo info = new TemplateInfo(doc, className, imports, params, fragments);
+      info.paramsRejected = rejected;
+      out.add(info);
     }
     return new TemplateIndex(out);
   }
@@ -341,13 +356,15 @@ public final class TemplateIndex {
     return out;
   }
 
-  private static void collectFragments(
+  /** Returns whether a fragment's parameter declaration was rejected. */
+  private static boolean collectFragments(
       List<Node> nodes,
       List<String> imports,
       ExpressionParser parser,
       ExpressionCompiler expressions,
       DiagnosticSink sink,
       Map<String, FragmentInfo> out) {
+    boolean rejected = false;
     for (Node n : nodes) {
       if (!(n instanceof Element)) {
         continue;
@@ -363,10 +380,12 @@ public final class TemplateIndex {
         } else if (sig != null) {
           List<Param> params = resolve(sig.params(), imports, expressions, sink);
           out.put(sig.name(), new FragmentInfo(sig.name(), params, e, "fragment_" + sig.name()));
+          rejected |= params.size() < sig.params().size();
         }
       }
-      collectFragments(e.children(), imports, parser, expressions, sink, out);
+      rejected |= collectFragments(e.children(), imports, parser, expressions, sink, out);
     }
+    return rejected;
   }
 
   public static TemplateIndex of(List<TemplateInfo> templates) {

@@ -94,6 +94,7 @@ final class ConversionRules {
 
   static final String FRAGMENT = "fragment";
   static final String EACH = "each";
+  static final String OBJECT = "object";
 
   /** Attributes whose value may be a bare {@code tpl :: name(args)} fragment reference. */
   static final Set<String> FRAGMENT_REFERENCES = Compat.setOf("insert", "replace");

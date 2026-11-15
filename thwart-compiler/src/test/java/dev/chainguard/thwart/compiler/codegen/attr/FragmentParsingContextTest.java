@@ -99,7 +99,7 @@ class FragmentParsingContextTest {
     rawTextError(page("<textarea t:insert=\"~{frags :: plain}\"></textarea>"), "page.html:2:11", "t:insert", "textarea");
     rawTextError(
         Compilation.builder()
-            .template("page.html", "<div " + NS + " t:params=\"Fragment f\">\n<title t:insert=\"${f}\"></title></div>")
+            .template("page.html", "<div " + NS + " t:fragment=\"x(Fragment f)\">\n<title t:insert=\"${f}\"></title></div>")
             .compile(),
         "page.html:2:8", "t:insert", "title");
     rawTextError(page("<svg><title t:insert=\"~{frags :: plain}\"></title></svg>"), "page.html:2:13", "t:insert", "title");
