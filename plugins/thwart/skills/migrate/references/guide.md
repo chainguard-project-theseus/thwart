@@ -1087,7 +1087,11 @@ that calls `eval` or `new Function` (an old `owl.carousel.min.js`, `jquery-rotat
 `EvalError`, and whatever it set up is missing (`owl.owlCarousel is not a function`). Neither the
 build, the tests nor `compare` see it; the browser console does. Prefer replacing or upgrading the
 library. Otherwise allow `eval` in a policy of your own, a visible choice that the starter's
-default then stands aside for (above). It must keep the nonce, or no script runs:
+default then stands aside for (above). It gives up part of the CSP backstop (security-model.md):
+any script on those pages, not just that library, may then run a string as code, including DOM
+text or attributes it reads, so limit it to the pages that need it (for example with a
+`FilterRegistrationBean` and URL patterns). It must keep the nonce
+(`dev.chainguard.thwart.spring.CspNonce`), or no script runs:
 
 ```java
 @Bean
