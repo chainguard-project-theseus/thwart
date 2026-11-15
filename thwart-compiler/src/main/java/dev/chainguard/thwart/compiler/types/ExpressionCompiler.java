@@ -620,8 +620,10 @@ public final class ExpressionCompiler {
   private CompiledExpr function(String ns, String name, List<Expr> args, SourcePos pos, Scope scope) {
     List<CompiledExpr> compiled = new ArrayList<>();
     boolean failed = false;
+    // strings.* and html.* take Object and call its toString(): check their arguments as text (#802).
+    boolean text = ns.equals("strings") || ns.equals("html");
     for (Expr a : args) {
-      CompiledExpr c = compile(a, scope);
+      CompiledExpr c = text ? compileOutput(a, scope) : compile(a, scope);
       failed |= c == null;
       compiled.add(c);
     }

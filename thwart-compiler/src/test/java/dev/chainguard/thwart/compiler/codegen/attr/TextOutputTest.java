@@ -104,14 +104,19 @@ class TextOutputTest {
     compile("Pet[] pets", "<p t:text=\"${pets}\">x</p>").assertError("page.html:1:", "as text");
     compile("Optional<Pet> pet", "<p t:text=\"${pet}\">x</p>").assertError("page.html:1:", "as text");
     compile("Map<String, Pet> m", "<p t:text=\"${m}\">x</p>").assertError("page.html:1:", "as text");
-    // Properties, List<String> and enums still print.
+    // strings.* and html.* call toString() on their Object arguments.
+    compile("Pet pet", "<p t:text=\"${strings.toUpperCase(pet)}\">x</p>").assertError("page.html:1:", asText);
+    compile("List<Pet> pets", "<p t:text=\"${strings.join(pets, ',')}\">x</p>").assertError("page.html:1:", "as text");
+    compile("Pet pet", "<p t:utext=\"${html.sanitize(pet)}\">x</p>").assertError("page.html:1:", asText);
+    // Properties, List<String>, enums and lists.size(List<Pet>) still print.
     Compilation ok = compile(
-            "View v, List<String> xs, Color color",
-            "<p t:text=\"${v.name}\">x</p><a t:href=\"@{/p(q=${xs})}\">x</a><p t:text=\"${color}\">x</p>")
+            "View v, List<String> xs, Color color, List<Pet> pets",
+            "<p t:text=\"${v.name}\">x</p><a t:href=\"@{/p(q=${xs})}\">x</a><p t:text=\"${color}\">x</p>"
+                + "<p t:text=\"${lists.size(pets)}\">x</p>")
         .assertSuccess();
     assertEquals(
-        "<div><p>v</p><a href=\"/p?q=a&amp;q=b\">x</a><p>RED</p></div>",
-        ok.render("page", model("v", ok.newInstance("com.example.View"), "xs", List.of("a", "b"), "color", ok.enumConstant("com.example.Color", "RED"))));
+        "<div><p>v</p><a href=\"/p?q=a&amp;q=b\">x</a><p>RED</p><p>0</p></div>",
+        ok.render("page", model("v", ok.newInstance("com.example.View"), "xs", List.of("a", "b"), "color", ok.enumConstant("com.example.Color", "RED"), "pets", List.of())));
     // JSON writes the components it is given, not toString(): still allowed.
     Compilation c = compile("Pet pet", "<script type=\"application/json\" t:text=\"pet\"></script>").assertSuccess();
     assertEquals(
