@@ -194,7 +194,8 @@ class AttributesEndToEndTest {
     String col = "t.html:1:" + (HEADER.length() + 4) + ":";
     compile("<p th:if=\"${b}\">secret</p>").assertError(col, "th:if on <p> is not allowed", "t:", "thwart-migrate");
     for (String t : new String[] {"<p sec:authorize=\"isAuthenticated()\">x</p>", "<p layout:fragment=\"c\">x</p>",
-        "<p data-th-text=\"${s}\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>"}) {
+        "<p data-th-text=\"${s}\">x</p>", "<p data-sec-authorize=\"isAuthenticated()\">x</p>",
+        "<p data-layout-fragment=\"c\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>"}) {
       compile(t).assertError("t.html:1:", "is not allowed: it is a template attribute");
     }
   }
