@@ -19,6 +19,14 @@ import java.util.Objects;
  * calls the typed render method.
  */
 public final class TemplateEntry {
+  /**
+   * The version of the contract between generated code and this package: generated code is
+   * only run by the runtime of the Thwart release that compiled it. Generated registries return
+   * the compiler's copy from {@link TemplateRegistry#abi}, and {@link TemplateRegistry#load} fails
+   * on a mismatch. Bump it with any change to this package that code generated earlier can't use.
+   */
+  public static final int ABI = 1;
+
   private final String name;
   private final List<Param> params;
   private final ModelRenderer renderer;

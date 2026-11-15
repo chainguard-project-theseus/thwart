@@ -15,6 +15,7 @@
 
   <!-- What ships in the application runs on Java 8 (#154); its tests and the build stay on 21. -->
   <properties>
+    <thwart.module.name>dev.chainguard.thwart.runtime</thwart.module.name>
     <maven.compiler.release>8</maven.compiler.release>
     <maven.compiler.testRelease>21</maven.compiler.testRelease>
   </properties>

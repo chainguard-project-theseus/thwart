@@ -6,9 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.chainguard.thwart.runtime.internal.Output;
 import dev.chainguard.thwart.runtime.internal.TemplateEntry;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class TemplateRegistryTest {
 
@@ -56,5 +62,41 @@ class TemplateRegistryTest {
     IllegalStateException ex =
         assertThrows(IllegalStateException.class, () -> TemplateRegistry.of(List.of(a, aAgain)));
     assertTrue(ex.getMessage().contains("home"), ex.getMessage());
+  }
+
+  /** A registry generated before the ABI check, or by another release's compiler, fails to load. */
+  @Test
+  void loadRejectsARegistryFromAnotherCompiler(@TempDir Path dir) throws Exception {
+    assertEquals(1, TemplateRegistry.load(loader(dir, CurrentRegistry.class)).all().size());
+    IllegalStateException ex = assertThrows(IllegalStateException.class,
+        () -> TemplateRegistry.load(loader(dir, OldRegistry.class)));
+    assertTrue(ex.getMessage().contains(OldRegistry.class.getName()), ex.getMessage());
+    assertTrue(ex.getMessage().contains("(ABI 0)"), ex.getMessage());
+  }
+
+  private static ClassLoader loader(Path dir, Class<?> provider) throws Exception {
+    Path services = dir.resolve(provider.getSimpleName() + "/META-INF/services");
+    Files.createDirectories(services);
+    Files.write(services.resolve(TemplateRegistry.class.getName()), provider.getName().getBytes(StandardCharsets.UTF_8));
+    return new URLClassLoader(new URL[] {services.getParent().getParent().toUri().toURL()}, TemplateRegistryTest.class.getClassLoader());
+  }
+
+  public static class OldRegistry implements TemplateRegistry {
+    @Override
+    public java.util.Optional<TemplateEntry> find(String viewName) {
+      return java.util.Optional.empty();
+    }
+
+    @Override
+    public java.util.Collection<TemplateEntry> all() {
+      return List.of(new TemplateEntry("home", List.of(), (Map<String, ?> m, RenderContext c, Output o) -> o.write("hi")));
+    }
+  }
+
+  public static class CurrentRegistry extends OldRegistry {
+    @Override
+    public int abi() {
+      return TemplateEntry.ABI;
+    }
   }
 }
