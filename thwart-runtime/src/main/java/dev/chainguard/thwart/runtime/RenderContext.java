@@ -16,7 +16,8 @@ import java.util.Optional;
  * {@code nonce="..."} on every {@code <script>} and {@code <style>} start tag the template
  * writes. A context also numbers the ids {@code t:field} writes on checkboxes and radio buttons
  * and {@code ids.seq/next/prev} return ({@link #sequenceId}), so use a new one for every render,
- * as the Spring integration does.
+ * as the Spring integration does, and don't share or cache one: it has identity, not value,
+ * equality.
  */
 public final class RenderContext {
   private final Locale locale;
@@ -24,7 +25,7 @@ public final class RenderContext {
   private final Links links;
   private final Forms forms;
   private final String cspNonce;
-  /** Per-render id counters ({@link #sequenceId}); not part of equals, hashCode or toString. */
+  /** Per-render id counters ({@link #sequenceId}); not part of toString. */
   private final Map<String, Integer> idSequences = new HashMap<>();
 
   public RenderContext(Locale locale, Messages messages, Links links, Forms forms) {
@@ -55,7 +56,9 @@ public final class RenderContext {
     this.cspNonce = cspNonce;
   }
 
-  /** Context for rendering outside a web request: no messages, empty context path, no forms. */
+  /**
+   * A new context for one render outside a web request: no messages, empty context path, no forms.
+   */
   public static RenderContext defaults() {
     return new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), Forms.NONE);
   }
@@ -126,24 +129,6 @@ public final class RenderContext {
   /** The Content Security Policy nonce written on every {@code <script>} and {@code <style>}. */
   public Optional<String> cspNonce() {
     return Optional.ofNullable(cspNonce);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof RenderContext)) {
-      return false;
-    }
-    RenderContext other = (RenderContext) o;
-    return locale.equals(other.locale)
-        && messages.equals(other.messages)
-        && links.equals(other.links)
-        && forms.equals(other.forms)
-        && Objects.equals(cspNonce, other.cspNonce);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(locale, messages, links, forms, cspNonce);
   }
 
   /** The nonce itself is not included, so a logged context does not reveal it. */

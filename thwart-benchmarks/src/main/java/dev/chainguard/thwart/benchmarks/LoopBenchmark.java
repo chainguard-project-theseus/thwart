@@ -34,7 +34,6 @@ public class LoopBenchmark {
 
   private List<String> collection;
   private Iterable<String> iterable;
-  private RenderContext ctx;
 
   @Setup
   public void setUp() {
@@ -43,34 +42,33 @@ public class LoopBenchmark {
       collection.add("item " + i);
     }
     iterable = collection::iterator;
-    ctx = RenderContext.defaults();
   }
 
   @Benchmark
   public String iterableUnusedStatus() {
     StringOutput out = new StringOutput(size * 40);
-    IterableTemplate.render(iterable, ctx, out);
+    IterableTemplate.render(iterable, RenderContext.defaults(), out);
     return out.toString();
   }
 
   @Benchmark
   public String iterableUsedStatus() {
     StringOutput out = new StringOutput(size * 40);
-    IterableStatusTemplate.render(iterable, ctx, out);
+    IterableStatusTemplate.render(iterable, RenderContext.defaults(), out);
     return out.toString();
   }
 
   @Benchmark
   public String collectionUnusedStatus() {
     StringOutput out = new StringOutput(size * 40);
-    CollectionTemplate.render(collection, ctx, out);
+    CollectionTemplate.render(collection, RenderContext.defaults(), out);
     return out.toString();
   }
 
   @Benchmark
   public String collectionUsedStatus() {
     StringOutput out = new StringOutput(size * 40);
-    CollectionStatusTemplate.render(collection, ctx, out);
+    CollectionStatusTemplate.render(collection, RenderContext.defaults(), out);
     return out.toString();
   }
 }
