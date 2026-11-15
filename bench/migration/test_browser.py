@@ -190,6 +190,10 @@ class ForcedOnlyTest(unittest.TestCase):
     def test_text_after_a_script_is_still_compared(self):
         self.assertFalse(bench.forced_only([" <div>", "   <script>", "-  <p>", "+  <p class='x'>"]))
 
+    def test_a_script_ends_at_its_hunk(self):
+        self.assertFalse(bench.forced_only(["   <script>", "-    a()", "+    b()", "     c()", "@@ -9 +9 @@",
+                                            "     <td>", "-      Total: 10", "+      Total: 0"]))
+
     def test_a_diff_compare_cut_short_is_not(self):
         self.assertFalse(bench.forced_only(HANDLER_MOVED + ["... 12 more diff line(s)"]))
 

@@ -310,7 +310,10 @@ def forced_only(diff):
     for line in diff:
         if line.startswith("... "):
             return False
-        if not line.startswith(("--- recorded ", "+++ now", "@@")):
+        if line.startswith("@@"):
+            for side in sides:
+                side.append(None)  # a hunk boundary: a <script> never spans it
+        elif not line.startswith(("--- recorded ", "+++ now")):
             for side, mark in zip(sides, "-+"):
                 if line[:1] in (" ", mark):
                     side.append(line[1:])
@@ -318,6 +321,9 @@ def forced_only(diff):
     def kept(lines):
         out, script = [], None  # script: the indent of the <script> tag whose lines are dropped
         for l in lines:
+            if l is None:
+                script = None
+                continue
             indent = len(l) - len(l.lstrip())
             if script is not None and indent > script:
                 continue
