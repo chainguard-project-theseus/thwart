@@ -114,6 +114,62 @@ class MigratorTest {
             + " with the element's `t:field` path, merged into any existing `t:classappend`");
   }
 
+  /** #822: the exact forms with a 1:1 Thwart spelling are rewritten; the rest stay reported. */
+  @Test
+  void secAuthorizeAttrAndErrorClassExactFormsAreRewritten() throws Exception {
+    String src = "<form t:params=\"Owner o, String x\" t:object=\"${o}\">"
+        + "<p sec:authorize=\"hasRole('ADMIN')\">a</p><p sec:authorize=\" isAuthenticated() \">b</p>"
+        + "<p sec:authorize=\"hasAnyAuthority('P_A', 'P_B')\">c</p>"
+        + "<a th:attr=\"data-lightbox=${x},aria-expanded=${#strings.isEmpty(x)}\">d</a>"
+        + "<input th:errorclass=\"has-error\" th:field=\"*{name}\"/>"
+        + "<input th:field=\"*{city}\" th:errorclass=\"'is-invalid x'\"></form>";
+    assertEquals("<form t:params=\"Owner o, String x\" t:object=\"o\">"
+        + "<p t:if=\"auth.hasRole('ADMIN')\">a</p><p t:if=\"auth.isAuthenticated()\">b</p>"
+        + "<p t:if=\"auth.hasAnyAuthority('P_A', 'P_B')\">c</p>"
+        + "<a t:data-lightbox=\"x\" t:aria-expanded=\"strings.isEmpty(x)\">d</a>"
+        + "<input t:classappend=\"fields.hasErrors('name') ? 'has-error'\" t:field=\"*{name}\"/>"
+        + "<input t:field=\"*{city}\" t:classappend=\"fields.hasErrors('city') ? 'is-invalid x'\"></form>",
+        convert(src));
+    // Each sec:authorize rewrite names the RoleHierarchy/prefix caveats of guide section 4.10.
+    String rewritten = "1: rewritten: `sec:authorize` to `t:if=\"auth.";
+    assertMessages(src, rewritten + "hasRole('ADMIN')\"`", rewritten + "isAuthenticated()\"`",
+        rewritten + "hasAnyAuthority('P_A', 'P_B')\"`");
+    assertTrue(messages(src).get(0).contains("RoleHierarchy"));
+    // A model variable named auth is still a root that gets a t:params stub; only auth.f( is the namespace.
+    assertTrue(convert("<p th:text=\"${auth.user.name}\">x</p>").contains("Object auth"));
+  }
+
+  @Test
+  void secAuthorizeAttrAndErrorClassWithoutAnExactFormAreReported() throws Exception {
+    for (String tag : List.of("<p sec:authorize=\"isAnonymous()\">", "<p sec:authorize=\"hasRole(${r})\">",
+        "<p sec:authorize=\"hasRole('A') and hasRole('B')\">", "<p th:if=\"${x}\" sec:authorize=\"hasRole('A')\">",
+        "<p th:attr=\"title=${x}\">", "<p th:attr=\"data-A=${x}\" t:data-a=\"x\">", "<p th:attr=\"data-a=${x} + 'b'\">", "<p th:attr=\"data-a=${T(X).y}\">",
+        "<p th:attr=\"data-a=${x}\" th:data-a=\"${x}\">", "<input th:errorclass=\"err\">",
+        "<input th:field=\"*{a}\" th:classappend=\"${x}\" th:errorclass=\"err\">",
+        "<input th:field=\"*{a[0]}\" th:errorclass=\"err\">", "<input th:field=\"*{a}\" th:errorclass=\"${e}\">")) {
+      String src = "<div t:params=\"String x, String r, String e\">" + tag + "</p></div>";
+      String out = convert(src);
+      assertTrue(out.contains("sec:authorize") || out.contains("th:attr") || out.contains("th:errorclass"), out);
+      assertTrue(messages(src).stream().anyMatch(m -> m.contains("dialect") || m.contains("not supported")), tag);
+    }
+  }
+
+  @Test
+  void preprocessedPathSegmentsBecomePathVariables() throws Exception {
+    String src = "<p t:params=\"Owner owner, Pet pet\"><a th:href=\"@{/owners/__${owner.id}__/edit}\">a</a>"
+        + "<a th:href=\"@{__${owner.id}__/pets/__${pet.id}__/edit}\">b</a><a th:href=\"@{/o/__${ owner.id }__}\">c</a></p>";
+    assertEquals("<p t:params=\"Owner owner, Pet pet\"><a t:href=\"@{/owners/{ownerId}/edit(ownerId=owner.id)}\">a</a>"
+        + "<a t:href=\"@{{ownerId}/pets/{petId}/edit(ownerId=owner.id, petId=pet.id)}\">b</a>"
+        + "<a t:href=\"@{/o/{ownerId}(ownerId=owner.id)}\">c</a></p>", convert(src));
+    // Not a property path, no literal '/', a query or a name clash: left in place and reported.
+    for (String link : List.of("@{__${link}__}", "@{/f/__${#locale}__.png}", "@{/u?id=__${u.id}__}",
+        "@{/a/__${a.bC}__/__${aB.c}__}", "@{/a/__${x}__(p=1)}")) {
+      String one = "<a th:href=\"" + link + "\">x</a>";
+      assertEquals("<a t:href=\"" + link + "\">x</a>", convert(one).replaceFirst(" t:params=\"[^\"]*\"", ""), link);
+      assertTrue(messages(one).stream().anyMatch(m -> m.contains("preprocessing")), link);
+    }
+  }
+
   @Test
   void renamesNamespaceAttributesAndBlocks() throws Exception {
     assertEquals(
@@ -300,7 +356,7 @@ class MigratorTest {
 
   @Test
   void preprocessingIsLeftInPlaceAndReported() throws Exception {
-    String src = "<div>\n\n<input th:field=\"*{__${name}__}\"/><a th:href=\"@{/x/__${i}__}\">x</a>"
+    String src = "<div>\n\n<input th:field=\"*{__${name}__}\"/><a th:href=\"@{/x/__${i + 1}__}\">x</a>"
         + "<a th:href=\"@{'/x?p=__${i}__&q=1'}\">y</a></div>";
     assertEquals(src.replace("th:", "t:"), convert(src));
     assertMessages(src,
@@ -633,7 +689,7 @@ class MigratorTest {
   @Test
   void unsupportedAttributesInlineAndDialectsAreNotRenamed() throws Exception {
     String src = "<div xmlns:sec=\"x\">\n<b th:styleappend=\"${s2}\" th:inline=\"javascript\""
-        + " sec:authorize=\"hasRole('A')\" layout:fragment=\"c\" data-th-text=\"${t}\" th:include=\"f\">x</b></div>";
+        + " sec:authorize=\"hasIpAddress('A')\" layout:fragment=\"c\" data-th-text=\"${t}\" th:include=\"f\">x</b></div>";
     assertEquals(src, convert(src));
     assertMessages(src,
         "2: `th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and"

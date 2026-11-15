@@ -278,16 +278,18 @@ parameters with their real types, rewrite the markup, and run `mvn clean compile
 
 For Thymeleaf, `thwart-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
 mechanical rewrite of a whole directory first: `th:` to `t:`, utility objects, common string-built
-links, layouts built from `th:replace` fragment calls, script inlines; Layout Dialect pages
-(`layout:decorate`) are reported and ported by hand (section 4.8, Layouts). It stubs parameter types
-as `Object`, which fails to compile until you write the real types: one error per stub, since the
-compiler checks neither a template's body nor the calls into its fragments until its parameter types
-resolve. Its report lists what it couldn't convert and every read of a scope the template can't see
-(`session.x`, `param.x`, `#request`, `@bean`, `T(...)`, ...) with where the value should come from
-instead: that is the controller-side checklist. Forms the compiler rejects with the fix (event
-handlers such as `th:onclick`, a computed `th:style`, raw output) are converted without a report:
-the build error names the fix. It can't see a plain name the old engine found in a request
-attribute; those show up in `compare` as an empty value or a 500.
+links and `__${a.b}__` path segments, `sec:authorize` calls with an `auth.` twin, `th:attr` of
+`data-*`/`aria-*` pairs, `th:errorclass` beside a `th:field`, layouts built from `th:replace`
+fragment calls, script inlines; Layout Dialect pages (`layout:decorate`) are reported and ported by
+hand (section 4.8, Layouts). It stubs parameter types as `Object`, which fails to compile until you
+write the real types: one error per stub, since the compiler checks neither a template's body nor
+the calls into its fragments until its parameter types resolve. Its report lists what it couldn't
+convert and every read of a scope the template can't see (`session.x`, `param.x`, `#request`, `@bean`,
+`T(...)`, ...) with where the value should come from instead: that is the controller-side
+checklist. Forms the compiler rejects with the fix (event handlers such as `th:onclick`, a computed
+`th:style`, raw output, `th:remove="body"`) are converted without a report: the build error names
+the fix. It can't see a plain name the old engine found in a request attribute; those show up in
+`compare` as an empty value or a 500.
 
 **Nulls are where a converted page most often fails at runtime.** A `null` link path variable
 fails the render where the old engine wrote an empty segment, and an empty one is rejected too:
