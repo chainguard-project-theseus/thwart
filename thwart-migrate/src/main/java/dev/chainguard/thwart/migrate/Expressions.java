@@ -21,6 +21,7 @@ final class Expressions {
   private Expressions() {}
 
   private static final Pattern IDENT = Pattern.compile("(?<![\\w$#.@])[A-Za-z_]\\w*");
+  private static final Pattern AUTH_CALL = Pattern.compile("\\.\\s*\\w+\\s*\\(");
   private static final Pattern UTILITY = Pattern.compile("(?<![\\w$])#([A-Za-z_]\\w*)\\s*\\.");
   /** {@code #request}, {@code #ctx.session}, ...: an ambient expression object and its property, if any. */
   private static final Pattern AMBIENT_OBJECT = Pattern.compile("(?<![\\w$])#("
@@ -658,7 +659,9 @@ final class Expressions {
     int nextAt = nextNonSpaceIndex(masked, m.end());
     boolean assignment = next == '=' && !(nextAt + 1 < masked.length() && masked.charAt(nextAt + 1) == '=');
     boolean namespace = next == '.'
-        && (ConversionRules.NAMESPACES.containsKey("#" + name) || name.equals(ConversionRules.AUTH));
+        && (ConversionRules.NAMESPACES.containsKey("#" + name)
+            // Only an `auth.f(` call is the namespace; `auth.user` stays a model variable.
+            || (name.equals(ConversionRules.AUTH) && AUTH_CALL.matcher(masked).region(nextAt, masked.length()).lookingAt()));
     return !(prev == '.' || next == '(' || assignment || namespace || ConversionRules.KEYWORDS.contains(name));
   }
 

@@ -130,7 +130,13 @@ class MigratorTest {
         + "<input t:classappend=\"fields.hasErrors('name') ? 'has-error'\" t:field=\"*{name}\"/>"
         + "<input t:field=\"*{city}\" t:classappend=\"fields.hasErrors('city') ? 'is-invalid x'\"></form>",
         convert(src));
-    assertMessages(src);
+    // Each sec:authorize rewrite names the RoleHierarchy/prefix caveats of guide section 4.10.
+    String rewritten = "1: rewritten: `sec:authorize` to `t:if=\"auth.";
+    assertMessages(src, rewritten + "hasRole('ADMIN')\"`", rewritten + "isAuthenticated()\"`",
+        rewritten + "hasAnyAuthority('P_A', 'P_B')\"`");
+    assertTrue(messages(src).get(0).contains("RoleHierarchy"));
+    // A model variable named auth is still a root that gets a t:params stub; only auth.f( is the namespace.
+    assertTrue(convert("<p th:text=\"${auth.user.name}\">x</p>").contains("Object auth"));
   }
 
   @Test

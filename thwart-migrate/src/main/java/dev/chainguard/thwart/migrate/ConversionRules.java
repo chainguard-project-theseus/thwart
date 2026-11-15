@@ -185,6 +185,8 @@ final class ConversionRules {
   private static final String QUOTED = "\\s*'[^'\\\\]*'\\s*";
   static final Pattern AUTHORIZE_CALL = Pattern.compile("\\s*(?:(?:hasRole|hasAuthority)\\(" + QUOTED + "\\)"
       + "|(?:hasAnyRole|hasAnyAuthority)\\(" + QUOTED + "(?:," + QUOTED + ")*\\)|isAuthenticated\\(\\s*\\))\\s*");
+  static final String AUTHORIZE_REWRITTEN_MESSAGE =
+      "rewritten: `sec:authorize` to `%s`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide section 4.10, Spring Security tags)";
 
   /** {@code th:attr} pairs rewritten to one {@code t:<name>} each: {@code data-*} and {@code aria-*}, never a processor name. */
   static final Pattern ATTR_PAIR = Pattern.compile("\\s*((?:data|aria)-[a-z0-9_-]+)\\s*=\\s*(\\$\\{[^{}]*\\})\\s*");

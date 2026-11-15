@@ -381,6 +381,9 @@ final class Migrator {
           report(line, ConversionRules.unsupportedAttribute(name));
         } else {
           edits.add(from, to, t);
+          if (lower.equals(ConversionRules.SEC_AUTHORIZE)) {
+            report(line, String.format(ConversionRules.AUTHORIZE_REWRITTEN_MESSAGE, t));
+          }
         }
       });
       return true;
