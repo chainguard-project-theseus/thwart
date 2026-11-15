@@ -13,6 +13,7 @@ the application's javac) and `thwart-migrate` are built with `--release 8` and t
 template code compiles at `--release 8`, so the app builds with JDK 8+ and runs on Java 8+.
 Everything else (benchmarks, examples, most tests) is `--release 21`, so building this repo needs
 JDK 21+. The table names the main classes only. The public API of the runtime and the starter is the sorted `public-api.txt`; `PublicApiTest` fails until a change to it is copied there.
+Its `runtime.internal` lines are not app API: they are the contract between generated code and the runtime of the same Thwart release. Bump `TemplateEntry.ABI` with any change there that earlier generated code can't use; `TemplateRegistry.load` refuses, at startup, a registry generated with another ABI. The runtime, compiler and starter jars carry an `Automatic-Module-Name` (`dev.chainguard.thwart.runtime`, `.compiler`, `.spring`; the javax starter shares `.spring`).
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|

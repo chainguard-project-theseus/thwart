@@ -17,6 +17,7 @@
        3.0+ (jakarta.servlet; thwart-spring-boot-starter-javax is this jar relocated to
        javax.servlet). Compiled against Boot 4.1; thwart-spring-tests runs the shared test sources below on older generations. -->
   <properties>
+    <thwart.module.name>dev.chainguard.thwart.spring</thwart.module.name>
     <maven.compiler.release>8</maven.compiler.release>
     <maven.compiler.testRelease>8</maven.compiler.testRelease>
   </properties>

@@ -15,6 +15,7 @@
 
   <!-- The processor runs inside the application's javac, so it is Java 8 too (#166); tests stay on 21. -->
   <properties>
+    <thwart.module.name>dev.chainguard.thwart.compiler</thwart.module.name>
     <maven.compiler.release>8</maven.compiler.release>
     <maven.compiler.testRelease>21</maven.compiler.testRelease>
     <!-- JDK 8 home for Jdk8ProcessorTest; CI sets JDK8_HOME. -->

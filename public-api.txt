@@ -122,6 +122,7 @@ dev.chainguard.thwart.runtime.TemplateModelException: public final class dev.cha
 dev.chainguard.thwart.runtime.TemplateRegistry: public abstract interface dev.chainguard.thwart.runtime.TemplateRegistry
 dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> all()
 dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Optional<dev.chainguard.thwart.runtime.internal.TemplateEntry> find(java.lang.String)
+dev.chainguard.thwart.runtime.TemplateRegistry: public default int abi()
 dev.chainguard.thwart.runtime.TemplateRegistry: public default java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> fragments()
 dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry load(java.lang.ClassLoader)
 dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry of(java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry>)
@@ -251,6 +252,7 @@ dev.chainguard.thwart.runtime.internal.TemplateEntry: public int hashCode()
 dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.lang.String name()
 dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.lang.String toString()
 dev.chainguard.thwart.runtime.internal.TemplateEntry: public java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry$Param> params()
+dev.chainguard.thwart.runtime.internal.TemplateEntry: public static final int ABI
 dev.chainguard.thwart.runtime.internal.UrlEncoding: public final class dev.chainguard.thwart.runtime.internal.UrlEncoding
 dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String firstQuery(java.lang.String)
 dev.chainguard.thwart.runtime.internal.UrlEncoding: public static java.lang.String pathSegment(java.lang.String)
