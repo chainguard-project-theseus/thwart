@@ -278,11 +278,12 @@ parameters with their real types, rewrite the markup, and run `mvn clean compile
 For Thymeleaf, `thwart-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
 mechanical rewrite of a whole directory first: `th:` to `t:`, utility objects, common string-built
 links, layout markup, script inlines. It stubs parameter types as `Object`, which fails to compile
-until you write the real types. Its report lists what it couldn't convert and every read of a
-scope the template can't see (`session.x`, `param.x`, `#request`, `@bean`, `T(...)`, ...) with
-where the value should come from instead: that is the controller-side checklist. It can't see a
-plain name the old engine found in a request attribute; those show up in `compare` as an empty
-value or a 500.
+until you write the real types: one error per stub, since the compiler checks neither a template's
+body nor the calls into its fragments until its parameter types resolve. Its report lists what it
+couldn't convert and every read of a scope the template can't see (`session.x`, `param.x`,
+`#request`, `@bean`, `T(...)`, ...) with where the value should come from instead: that is the
+controller-side checklist. It can't see a plain name the old engine found in a request attribute;
+those show up in `compare` as an empty value or a 500.
 
 **Nulls are where a converted page most often fails at runtime.** A `null` link path variable
 fails the render where the old engine wrote an empty segment, and an empty one is rejected too:
