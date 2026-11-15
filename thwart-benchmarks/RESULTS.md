@@ -8,8 +8,9 @@ that both engines produce identical HTML for the benchmark data.
 | Owner table | `owners.html` | 100 rows, `each` with a status variable, path-variable and query links, `if`/`unless`, ternaries, string concatenation, escaping (some names contain `'`, `&`, `<`) |
 | Layout page | `home.html`, `fragments/{layout,menu,cards}.html` | petclinic-style `~{::body}` layout, 4 parameterized menu items with `classappend`, 20 cards, each making nested fragment calls for pet labels and a status badge |
 
-The two pages are `RenderBenchmark`. The other classes are microbenchmarks of one feature each
-(links, loops, escaping, JSON, formatting) against the same feature in Thymeleaf.
+The two pages are `RenderBenchmark`, the only class that runs Thymeleaf. The other classes are
+microbenchmarks of one Thwart feature each (links, loops, escaping, JSON, formatting) and measure
+Thwart alone.
 
 Thwart templates live in `src/main/thwart` (compiled by the annotation processor), Thymeleaf
 templates in `src/main/resources/thymeleaf`. Both use a root context path. Thwart renders through
@@ -57,3 +58,11 @@ For reference, the measure run of Nov 2, 2026 on commit `c0f02b3f` (JDK 21.0.13,
 The fragment-heavy page shows the larger gap: a Thwart fragment call is a static method call,
 while Thymeleaf resolves the fragment template, evaluates the selector and binds parameters as
 variables on every insertion.
+
+What these numbers do not show: they are render-only, to a `String`, against a plain Thymeleaf
+`TemplateEngine` with OGNL, not the `SpringTemplateEngine` with SpEL that Spring apps use, and
+they leave out the request path (dispatch, binding, the view resolver, writing the response).
+Much of the gap comes from not interpreting templates at runtime, which other compiled engines
+share: JTE, for example, renders in the same range (an audit run measured it about 1.2x faster
+than Thwart on the owner table). Thwart's aim is safety at compiled-engine speed, not being the
+fastest engine.
