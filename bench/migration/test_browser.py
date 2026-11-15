@@ -154,5 +154,68 @@ class RecheckTest(unittest.TestCase):
         self.assertIn("luckyblog run-1: no checkout in work/runs, not rechecked", out.getvalue())
 
 
+HANDLER_MOVED = """--- recorded 01.html
++++ now
+@@ -3,7 +3,9 @@
+   <body>
+-    <a href="javascript:void(0)" onclick="day_night()">
++    <a data-action="day-night" href="#">
+       Night
+-    <form action="/s" method="post" onsubmit="store()">
++    <form action="/s" data-action="store" method="post">
+     <script>
+-      function store(){}
++      function store(){} document.addEventListener('click',function(e){});
++    <script src="/js/actions.js">
+   <div>""".splitlines()
+
+
+class ForcedOnlyTest(unittest.TestCase):
+    """pass_forced (#863): diffs confined to what Thwart forces, from run-15's compare.txt."""
+
+    def test_handlers_moved_to_data_attributes_and_scripts(self):
+        self.assertTrue(bench.forced_only(HANDLER_MOVED))
+
+    def test_hashset_order_is_allowed(self):
+        self.assertTrue(bench.forced_only([" <span>", "-  size", "+  blank", " <br>", "-  blank", "+  size"]))
+
+    def test_any_other_change_is_not(self):
+        for old, new in (('<a href="/ranking/pdf?mode=">', '<a href="/ranking/pdf?mode">'),
+                         ('<h2 id="h2-notes">', '<h2 id="user-content-h2-notes">'),
+                         ('<form action="/login" onsubmit="go()">', '<form action="/login" id="f">'),
+                         ("  Jay", "  Jay &lt;i&gt;"),
+                         ('<input name="id" th:value="*{id}">', '<input name="id">')):
+            self.assertFalse(bench.forced_only([" <body>", "-  " + old, "+  " + new]), old)
+
+    def test_text_after_a_script_is_still_compared(self):
+        self.assertFalse(bench.forced_only([" <div>", "   <script>", "-  <p>", "+  <p class='x'>"]))
+
+    def test_a_diff_compare_cut_short_is_not(self):
+        self.assertFalse(bench.forced_only(HANDLER_MOVED + ["... 12 more diff line(s)"]))
+
+    def test_score_keeps_strict_pass_and_adds_pass_forced(self):
+        results = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, results)
+        base, run = os.path.join(results, "app", "baseline"), os.path.join(results, "app", "run-1")
+        os.makedirs(os.path.join(base, "pages"))
+        os.makedirs(os.path.join(run, "check"))
+        files = {os.path.join(base, "pages", "index.tsv"): "01.html\t200\t/\tGET /\n02.html\t200\t/b\tGET /b\n",
+                 os.path.join(run, "check", "build.exit"): "0", os.path.join(run, "check", "test.exit"): "0",
+                 os.path.join(run, "check", "compare.exit"): "1", os.path.join(run, "diff.patch"): "",
+                 os.path.join(run, "agent.json"): "{}", os.path.join(base, "build.exit"): "0"}
+        for compare, forced in ((["01 differs   GET /", *HANDLER_MOVED, "02 same      GET /b"], True),
+                                (["01 differs   GET /", *HANDLER_MOVED, "   <p>", "-x", "+y", "02 same      GET /b"], False),
+                                (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED,
+                                  "02 same      GET /b"], False)):
+            files[os.path.join(run, "check", "compare.txt")] = "\n".join(compare + ["thwart-migrate compare: 2 page(s)"])
+            for p, text in files.items():
+                with open(p, "w") as f:
+                    f.write(text)
+            with mock.patch.object(bench, "RESULTS", results), \
+                    mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
+                s = bench.score("app", run)
+            self.assertEqual((s["pass"], s["pass_forced"]), (False, forced), compare)
+
+
 if __name__ == "__main__":
     unittest.main()

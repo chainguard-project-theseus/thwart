@@ -10,6 +10,7 @@
   "ready": "/catalog",
   "base": "http://localhost:8080",
   "ignore": [
-    "\\d{4}/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d"
+    "\\d{4}/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d",
+    "Jay (<i>|&lt;i&gt;)"
   ]
 }

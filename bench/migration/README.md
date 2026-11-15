@@ -82,6 +82,14 @@ and commit from `app.json`).
    view-engine dependency is left (Apache Tiles counts as one: a `tiles-*` dependency or a Tiles
    definitions XML file fails the run whatever the app's engine). Runs from #115 were scored by an older Python crawler and
    normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
+   - **Pass with forced diffs (`pass_forced`, report only).** Thwart rejects inline `on*`
+     handlers and `javascript:` URLs (a strict CSP blocks them), so a correct migration moves them
+     to `data-*` attributes and a listener script, and its pages differ. A run gets `pass_forced`
+     when it meets every other Pass condition and each differing page's diff in `compare.txt` is
+     equal on both sides, in any order, once `on*` and `data-*` attributes, `href="javascript:…"`
+     and `href="#"` are deleted from tag lines and `<script>` elements are dropped. A diff compare
+     cut short never qualifies. The summary shows such a run as `forced` and counts it beside the
+     strict passes; the strict Pass is unchanged. `rescore` applies it to archived runs.
    - **Browser smoke check (report only).** `compare` reads HTML and never runs a script, so a
      page can compare as acceptable while its scripts throw or the starter's CSP blocks them.
      `lib/browser.py` replays `pages.txt` in one headless Chromium tab (from the image's Wolfi
@@ -145,8 +153,10 @@ the starter now registers that filter too, #122, so these can go once a bench ro
 the segment matches), JobSearch's `<span text-bg-...">`, an
 attribute built from an unbalanced quote in the original template, and its
 `+ (spring.status.error?then(...))` left as literal attribute text in two inputs, the Mustache
-petclinic's `<span">` typo on the pagination pages, order timestamps (jpetstore:
-stamped from the clock; no seeded order has one), and order numbers, times of day and
+petclinic's `<span">` typo on the pagination pages and the stray `th:*` attributes its
+templates send to the browser (Thwart rejects them, #833), order timestamps (jpetstore:
+stamped from the clock; no seeded order has one), jpetstore's seeded `Jay <i>` first name (the
+original prints it unescaped; Thwart escapes it), and order numbers, times of day and
 month-name dates (posters-demo-store: order numbers are `ORD-` plus the clock in milliseconds,
 and orders, users and the audit log are stamped at request time). Held-out: the request
 timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar

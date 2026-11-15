@@ -9,6 +9,7 @@
   "ready": "/",
   "base": "http://localhost:8080",
   "ignore": [
-    "(?<=<span)\"(?=>)"
+    "(?<=<span)\"(?=>)",
+    " th:[a-z]+=\"[^\"]*\""
   ]
 }
