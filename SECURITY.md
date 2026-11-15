@@ -8,8 +8,7 @@ accepts, rule by rule, is [docs/context-model.md](docs/context-model.md).
 
 ## Reporting a vulnerability
 
-Don't open a public issue. Follow the wolfi-dev
-[security policy](https://github.com/wolfi-dev/.github/blob/main/SECURITY.md).
+Don't open a public issue. Email security@chainguard.dev.
 
 ## Summary
 
