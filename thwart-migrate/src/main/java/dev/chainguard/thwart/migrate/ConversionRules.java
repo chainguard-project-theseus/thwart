@@ -205,7 +205,9 @@ final class ConversionRules {
    */
   static final List<Unsupported> UNSUPPORTED_EXPRESSIONS = Compat.listOf(
       new Unsupported(Pattern.compile("\\*\\{\\s*__"), true,
-          "dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)"),
+          "dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)"),
+      new Unsupported(Pattern.compile("\\$\\{\\{"), false,
+          "`${{...}}` conversion-service formatting is not supported; format the value in the view type"),
       new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
           "`__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field"),
       new Unsupported(Pattern.compile("(?<![\\w.])T\\s*\\("), false,
