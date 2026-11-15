@@ -261,7 +261,8 @@ The registry also has `fragments()`: an entry named `page :: name` per fragment 
   `thwart.csp.enabled=false`.
 - `auth` namespace (`dev.chainguard.thwart.spring.fn.Auth`): `isAuthenticated()`, `hasRole(String)`,
   `hasAnyRole(String...)`, `hasAuthority(String)`, `hasAnyAuthority(String...)`, `name()`, via
-  `SecurityContextHolder` (optional dependency).
+  `SecurityContextHolder` (optional dependency). It honours no `RoleHierarchy`, `GrantedAuthorityDefaults`
+  or `SecurityContextHolderStrategy` bean (guide, Spring Security tags).
 
 ## Test strategy
 
