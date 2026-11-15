@@ -230,6 +230,24 @@ class NeutralValuesTest {
         + " data-or=\"0\">x</p></div>", render(c, "big", new BigDecimal("1.5"), "flag", false));
   }
 
+  /** #807: {@code x ?: d} on a variable evaluates {@code d} only when {@code x} is null. */
+  @Test
+  void elvisOnAVariableSkipsTheFallback() {
+    Compilation c =
+        Compilation.builder()
+            .template("t.html", "<div xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"java.math.BigDecimal x,"
+                + " java.math.BigDecimal d\"><p t:data-n=\"${x ?: d}\">x</p></div>")
+            .compile()
+            .assertSuccess();
+    // A BigDecimal subclass fails the neutral-number check, so the render fails if the fallback runs.
+    BigDecimal hostile = new BigDecimal("2") {};
+    assertEquals("<div><p data-n=\"1\">x</p></div>", c.render("t", Map.of("x", BigDecimal.ONE, "d", hostile)));
+    Map<String, Object> model = new HashMap<>();
+    model.put("x", null);
+    model.put("d", hostile);
+    assertThrows(IllegalArgumentException.class, () -> c.render("t", model));
+  }
+
   /**
    * A neutral value goes into any data-* name, on a custom element too; it writes
    * no JSON (#599 deleted jsonAttr), and a null leaves the attribute out.
