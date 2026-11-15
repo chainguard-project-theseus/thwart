@@ -39,6 +39,18 @@ public final class Contexts {
   private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
   /**
+   * The elements a computed URL attribute is allowed on, as {@code "element attribute"}: those HTML
+   * defines it for. Elsewhere ({@code <portal src>}, a custom element) Thwart can't know what the
+   * element does with the URL, so a computed one is FORBIDDEN (#809).
+   */
+  private static final Set<String> URL_ELEMENTS =
+      Backports.setOf(
+          "a href", "area href", "base href", "link href", "audio src", "embed src", "frame src", "iframe src",
+          "img src", "input src", "script src", "source src", "track src", "video src", "form action",
+          "button formaction", "input formaction", "blockquote cite", "del cite", "ins cite", "q cite",
+          "video poster");
+
+  /**
    * Why nothing inside {@code <svg>} or {@code <math>} is computed, with the fix-it, naming
    * {@code root} when it is one of them (null or another name: both).
    */
@@ -170,7 +182,8 @@ public final class Contexts {
    * Why a computed attribute {@code attributeName} on {@code element} is FORBIDDEN, with the fix-it,
    * or null if it is not: every attribute of an SVG or MathML element; a name that is not
    * {@code [A-Za-z_][A-Za-z0-9_.:-]*}; {@code srcdoc}; a {@link #URL_LIST_ATTRIBUTES URL list};
-   * a {@link #treeBuilderInput tree-builder input}; and a name off the {@link #allowed allow-list}.
+   * a {@link #treeBuilderInput tree-builder input}; a name off the {@link #allowed allow-list}; and a
+   * URL attribute on an element off {@link #URL_ELEMENTS}.
    * The only place that decides an attribute is FORBIDDEN.
    */
   public static String forbidden(Element element, String attributeName) {
@@ -189,7 +202,14 @@ public final class Contexts {
           + " src or href instead";
     }
     String tree = treeBuilderInput(element, attributeName, attr);
-    return tree != null || allowed(element, attr) ? tree : offList(attributeName, attr);
+    if (tree != null || !allowed(element, attr)) {
+      return tree != null ? tree : offList(attributeName, attr);
+    }
+    String el = HtmlParser.asciiLower(element.name());
+    return !URL_ATTRIBUTES.contains(attr) || URL_ELEMENTS.contains(el + " " + attr) ? null
+        : "a computed '" + attributeName + "' is checked as a URL only on the elements HTML defines it for (<a href>,"
+            + " <img src>, <form action>, ...: docs/guide.md section 4.4); Thwart can't know what <" + el + "> does"
+            + " with it, so write it as a static value, or put the link in t:data-" + attr + " for your script";
   }
 
   /**
