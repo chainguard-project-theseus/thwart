@@ -63,6 +63,6 @@ What these numbers do not show: they are render-only, to a `String`, against a p
 `TemplateEngine` with OGNL, not the `SpringTemplateEngine` with SpEL that Spring apps use, and
 they leave out the request path (dispatch, binding, the view resolver, writing the response).
 Much of the gap comes from not interpreting templates at runtime, which other compiled engines
-share: JTE, for example, renders in the same range (an audit run measured it about 1.2x faster
-than Thwart on the owner table). Thwart's aim is safety at compiled-engine speed, not being the
+share, JTE for example. This module does not benchmark them, so expect them in the same range
+rather than behind Thwart. Thwart's aim is safety at compiled-engine speed, not being the
 fastest engine.
