@@ -527,7 +527,7 @@ def report():
             had = [s for s in ss if "skill_invoked" in s]
             return f"{sum(s['skill_invoked'] for s in had)}/{len(had)}" if had else "-"
         def passed(ss):  # strict passes, then passes once Thwart-forced diffs are allowed
-            return f"{sum(s['pass'] for s in ss)}/{len(ss)} (forced {sum(bool(s.get('pass_forced')) for s in ss)}/{len(ss)})"
+            return f"{sum(s['pass'] for s in ss)}/{len(ss)} (forced {sum(bool(s['pass'] or s.get('pass_forced')) for s in ss)}/{len(ss)})"
         for app, ss in group.items():
             n = len(ss)
             mean = sum((s["pages_identical"] + s["pages_reordered"]) / max(1, s["pages_total"]) for s in ss) / n

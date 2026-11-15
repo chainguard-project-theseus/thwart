@@ -234,22 +234,26 @@ class ForcedOnlyTest(unittest.TestCase):
     def test_report_shows_strict_and_forced_verdicts(self):
         results = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, results)
-        for run, ok, forced in (("run-1", True, False), ("run-2", False, True), ("run-3", False, False)):
+        # run-1 is an old pages.diff run: rescore leaves it without a pass_forced key.
+        for run, ok, forced in (("run-1", True, None), ("run-2", False, True), ("run-3", False, False)):
             os.makedirs(os.path.join(results, "app", run))
             with open(os.path.join(results, "app", run, "score.json"), "w") as f:
-                json.dump({"app": "app", "run": run, "pass": ok, "pass_forced": forced, "build_ok": True,
-                           "tests_ok": True, "tests": {"tests": 1, "failures": 0, "errors": 0}, "baseline_tests": 1,
-                           "legacy_templates": [], "legacy_deps": [], "cost_usd": None, "pages_identical": 1,
-                           "pages_reordered": 0, "pages_total": 1, "status_mismatch": [], "insecure": [],
-                           "wall_minutes": 1, "tokens": {}}, f)
+                score = {"app": "app", "run": run, "pass": ok, "pass_forced": forced, "build_ok": True,
+                         "tests_ok": True, "tests": {"tests": 1, "failures": 0, "errors": 0}, "baseline_tests": 1,
+                         "legacy_templates": [], "legacy_deps": [], "cost_usd": None, "pages_identical": 1,
+                         "pages_reordered": 0, "pages_total": 1, "status_mismatch": [], "insecure": [],
+                         "wall_minutes": 1, "tokens": {}}
+                if forced is None:
+                    del score["pass_forced"]
+                json.dump(score, f)
         with mock.patch.object(bench, "RESULTS", results), mock.patch.object(bench, "apps", lambda a: ["app"]), \
                 mock.patch.object(bench, "config", lambda app: {}), contextlib.redirect_stdout(io.StringIO()):
             bench.report()
         with open(os.path.join(results, "summary.md")) as f:
             rows = [l.split(" | ")[:3] for l in f.read().splitlines() if l.startswith("| app |") or l.startswith("| all |")]
         self.assertEqual(rows, [["| app", "run-1 (crawl.py)", "yes"], ["| app", "run-2 (crawl.py)", "forced"],
-                                ["| app", "run-3 (crawl.py)", "no"], ["| app", "3", "1/3 (forced 1/3)"],
-                                ["| all", "3", "1/3 (forced 1/3)"]])
+                                ["| app", "run-3 (crawl.py)", "no"], ["| app", "3", "1/3 (forced 2/3)"],
+                                ["| all", "3", "1/3 (forced 2/3)"]])
 
 
 if __name__ == "__main__":
