@@ -57,108 +57,6 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest(classes = ViewNameInjectionTest.App.class)
 class ViewNameInjectionTest {
 
-  /**
-   * View names that Thymeleaf evaluated as expressions (Spring View Manipulation, CVE-2021-43466,
-   * CVE-2026-40478), plus fragment selectors. {@code ThwartViewResolverTest} also runs them
-   * against the resolver itself, over a registry of the same names.
-   */
-  static final List<String> PAYLOADS =
-      Arrays.asList(
-          "__${T(java.lang.Runtime).getRuntime().exec('id')}__::.x",
-          "__${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec('id').getInputStream()).next()}__::.x",
-          "__${T (java.lang.Runtime).getRuntime().exec('id')}__::.x",
-          "__${new\tjava.io.File('/etc/passwd')}__::x",
-          "__|${T(java.lang.Runtime)}|__::x",
-          "__${T(java.lang.Runtime)}__",
-          "__${#ctx}__",
-          "__${@environment.getProperty('x')}__",
-          "${T(java.lang.Runtime).getRuntime().exec('id')}",
-          "*{T(java.lang.Runtime)}",
-          "#{T(java.lang.Runtime)}",
-          "@{T(java.lang.Runtime)}",
-          "~{greeting :: frag}",
-          "~{greeting}",
-          "~{::frag}",
-          "greeting :: frag",
-          "greeting::frag",
-          "greeting :: #main",
-          "greeting :: div.x",
-          "greeting :: ${T(java.lang.Runtime)}",
-          "greeting :: __${T(java.lang.Runtime)}__",
-          "greeting::__${7*7}__",
-          // Fragment syntax Thwart doesn't support, and names near the registered "greeting :: row".
-          "greeting :: row(x=1)",
-          "greeting::row()",
-          "greeting :: row (x)",
-          "greeting :: #row",
-          "greeting :: .row",
-          "greeting :: tr",
-          "greeting :: [id='row']",
-          "greeting :: ${row}",
-          "greeting :: __${row}__",
-          "~{greeting :: row}",
-          "greeting :: ~{row}",
-          "greeting :: row :: row",
-          "greeting :: greeting :: row",
-          "greeting :: ROW",
-          "greeting :: ../row",
-          "greeting :: row/",
-          "greeting :: ",
-          ":: row",
-          "this :: row",
-          "../greeting :: row",
-          "//greeting :: row",
-          "owners/../greeting :: row",
-          "greeting.html :: row",
-          "greeting : : row",
-          "owners/details :: row",
-          "|greeting|",
-          "greeting ",
-          " greeting",
-          "greeting/",
-          "GREETING",
-          "greeting\n",
-          "Greeting",
-          "greeting.html",
-          "./greeting",
-          "//greeting",
-          "/./greeting",
-          "/../greeting",
-          "/greeting :: frag",
-          "../greeting",
-          "owners/../greeting",
-          "owners/./details",
-          "owners//details",
-          "owners\\details",
-          "owners%2Fdetails",
-          "greeting;x",
-          "greeting?x",
-          "greeting#x",
-          "greeting\u0000",
-          "forward:greeting",
-          "redirect:greeting",
-          // More near misses of the registered page and fragment names.
-          "nope",
-          "x?y",
-          "../x",
-          "x :: frag",
-          "__${T(java.lang.Runtime)}__::.x",
-          "~{greeting :: row",
-          "greeting ::",
-          "greeting :: r ow",
-          "greeting :: row\u0000x",
-          "greeting :: row.html",
-          "greeting :: owners/details",
-          "Greeting :: row",
-          "./greeting :: row",
-          "greeting/ :: row",
-          "owners :: details :: row",
-          "redirect:greeting :: row",
-          "//owners/details",
-          "/ greeting",
-          "/greeting/",
-          "\\greeting");
-
   @Autowired WebApplicationContext context;
   @Autowired RecordingRegistry registry;
   @Autowired FallbackResolver fallback;
@@ -198,7 +96,7 @@ class ViewNameInjectionTest {
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void requestParameterViewName(String payload) throws Exception {
     ResultActions result = mvc.perform(get("/param").param("v", payload));
     if (!payload.startsWith("redirect:")) {
@@ -208,7 +106,7 @@ class ViewNameInjectionTest {
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void headerViewName(String payload) throws Exception {
     if (payload.indexOf('\n') >= 0 || payload.indexOf('\u0000') >= 0) {
       return; // not a valid header value
@@ -218,7 +116,7 @@ class ViewNameInjectionTest {
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void cookieViewName(String payload) throws Exception {
     String encoded = URLEncoder.encode(payload, "UTF-8").replace("+", "%20");
     mvc.perform(get("/cookie").cookie(new Cookie("view", encoded)));
@@ -226,21 +124,21 @@ class ViewNameInjectionTest {
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void concatenatedViewName(String payload) throws Exception {
     mvc.perform(get("/lang").param("lang", payload));
     assertNeverRendered("user/" + payload + "/welcome");
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void fragmentSelectorFromInput(String payload) throws Exception {
     mvc.perform(get("/section").param("section", payload));
     assertNeverRendered("greeting :: " + payload);
   }
 
   @ParameterizedTest
-  @FieldSource("PAYLOADS")
+  @FieldSource("dev.chainguard.thwart.spring.view.ThwartViewResolverTest#PAYLOADS")
   void pathVariableViewName(String payload) throws Exception {
     if (payload.indexOf('/') >= 0 || payload.indexOf('\\') >= 0 || payload.indexOf('\u0000') >= 0
         || payload.indexOf('%') >= 0 || payload.indexOf(';') >= 0 || payload.trim().isEmpty()
@@ -318,7 +216,7 @@ class ViewNameInjectionTest {
   @Test
   void selectorFromInputSelectsOnlyARegisteredFragment() throws Exception {
     // "greeting :: " + input reaches the page's registered fragments, as "prefix" + input reaches
-    // registered pages, and nothing else (the payloads above).
+    // registered pages, and nothing else (the PAYLOADS).
     mvc.perform(get("/section").param("section", "row"))
         .andExpect(status().isOk())
         .andExpect(content().string("<tr><td>row</td></tr>"));

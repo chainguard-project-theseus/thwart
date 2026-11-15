@@ -43,6 +43,11 @@
     <boot.free.tests>
       dev/chainguard/thwart/spring/plain/**,
       dev/chainguard/thwart/spring/OldEngineWarningTest.java,
+      dev/chainguard/thwart/spring/context/**,
+      dev/chainguard/thwart/spring/fn/**,
+      dev/chainguard/thwart/spring/view/CspFilterTest.java,
+      dev/chainguard/thwart/spring/view/ThwartViewTest.java,
+      dev/chainguard/thwart/spring/view/ThwartViewResolverTest.java,
       org/thymeleaf/test/**,
       org/springframework/web/servlet/view/tiles2/test/**,
       org/springframework/web/servlet/view/tiles3/test/**,

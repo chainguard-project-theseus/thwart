@@ -280,8 +280,9 @@ The registry also has `fragments()`: an entry named `page :: name` per fragment 
   a `@WebMvcTest` slice over templates compiled from `src/test/templates`. The test sources are
   Java 8 and run unchanged on every generation: `thwart-spring-tests` copies them (rewriting
   `jakarta.servlet` for the javax modules and Boot 4's `@WebMvcTest` package for Boot 1.5-3) and
-  runs them on Boot 3.5, 2.7, 2.0 and 1.5; its Boot-free `spring50` and `spring43` modules run only
-  the plain-Spring tests.
+  runs them on Boot 3.5, 2.7, 2.0 and 1.5; its Boot-free `spring50` and `spring43` modules
+  run every test that needs no Boot (the plain-Spring app, render contexts, forms, CSRF, CSP,
+  `auth`, the view resolver), with the Spring Security generation that pairs with each.
   Petclinic: its own MockMvc suite plus rendered-HTML assertions.
 - `mvn -B -ntp verify` must stay green. CI runs it as three shards (`verify`, `verify-release8`,
   `verify-rest` in `.chainguard/ci/maven.yaml`), plus the Gradle example (`gradle.yaml`), the

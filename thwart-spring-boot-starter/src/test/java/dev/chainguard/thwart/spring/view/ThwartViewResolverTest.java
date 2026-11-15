@@ -19,6 +19,108 @@ import org.springframework.core.Ordered;
 
 class ThwartViewResolverTest {
 
+  /**
+   * View names that Thymeleaf evaluated as expressions (Spring View Manipulation, CVE-2021-43466,
+   * CVE-2026-40478), plus fragment selectors. They run here against the resolver, and end to end
+   * in {@code ViewNameInjectionTest}; they live here so the Spring modules without Boot run them.
+   */
+  static final List<String> PAYLOADS =
+      Arrays.asList(
+          "__${T(java.lang.Runtime).getRuntime().exec('id')}__::.x",
+          "__${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec('id').getInputStream()).next()}__::.x",
+          "__${T (java.lang.Runtime).getRuntime().exec('id')}__::.x",
+          "__${new\tjava.io.File('/etc/passwd')}__::x",
+          "__|${T(java.lang.Runtime)}|__::x",
+          "__${T(java.lang.Runtime)}__",
+          "__${#ctx}__",
+          "__${@environment.getProperty('x')}__",
+          "${T(java.lang.Runtime).getRuntime().exec('id')}",
+          "*{T(java.lang.Runtime)}",
+          "#{T(java.lang.Runtime)}",
+          "@{T(java.lang.Runtime)}",
+          "~{greeting :: frag}",
+          "~{greeting}",
+          "~{::frag}",
+          "greeting :: frag",
+          "greeting::frag",
+          "greeting :: #main",
+          "greeting :: div.x",
+          "greeting :: ${T(java.lang.Runtime)}",
+          "greeting :: __${T(java.lang.Runtime)}__",
+          "greeting::__${7*7}__",
+          // Fragment syntax Thwart doesn't support, and names near the registered "greeting :: row".
+          "greeting :: row(x=1)",
+          "greeting::row()",
+          "greeting :: row (x)",
+          "greeting :: #row",
+          "greeting :: .row",
+          "greeting :: tr",
+          "greeting :: [id='row']",
+          "greeting :: ${row}",
+          "greeting :: __${row}__",
+          "~{greeting :: row}",
+          "greeting :: ~{row}",
+          "greeting :: row :: row",
+          "greeting :: greeting :: row",
+          "greeting :: ROW",
+          "greeting :: ../row",
+          "greeting :: row/",
+          "greeting :: ",
+          ":: row",
+          "this :: row",
+          "../greeting :: row",
+          "//greeting :: row",
+          "owners/../greeting :: row",
+          "greeting.html :: row",
+          "greeting : : row",
+          "owners/details :: row",
+          "|greeting|",
+          "greeting ",
+          " greeting",
+          "greeting/",
+          "GREETING",
+          "greeting\n",
+          "Greeting",
+          "greeting.html",
+          "./greeting",
+          "//greeting",
+          "/./greeting",
+          "/../greeting",
+          "/greeting :: frag",
+          "../greeting",
+          "owners/../greeting",
+          "owners/./details",
+          "owners//details",
+          "owners\\details",
+          "owners%2Fdetails",
+          "greeting;x",
+          "greeting?x",
+          "greeting#x",
+          "greeting\u0000",
+          "forward:greeting",
+          "redirect:greeting",
+          // More near misses of the registered page and fragment names.
+          "nope",
+          "x?y",
+          "../x",
+          "x :: frag",
+          "__${T(java.lang.Runtime)}__::.x",
+          "~{greeting :: row",
+          "greeting ::",
+          "greeting :: r ow",
+          "greeting :: row\u0000x",
+          "greeting :: row.html",
+          "greeting :: owners/details",
+          "Greeting :: row",
+          "./greeting :: row",
+          "greeting/ :: row",
+          "owners :: details :: row",
+          "redirect:greeting :: row",
+          "//owners/details",
+          "/ greeting",
+          "/greeting/",
+          "\\greeting");
+
   private final ThwartViewResolver resolver =
       new ThwartViewResolver(registry(), (request, response, model) -> RenderContext.defaults());
 
@@ -80,7 +182,7 @@ class ThwartViewResolverTest {
   }
 
   @ParameterizedTest
-  @FieldSource("dev.chainguard.thwart.spring.security.ViewNameInjectionTest#PAYLOADS")
+  @FieldSource("PAYLOADS")
   void payloadsFallThrough(String name) {
     assertThat(resolver.resolveViewName(name, Locale.ROOT)).isNull();
   }
