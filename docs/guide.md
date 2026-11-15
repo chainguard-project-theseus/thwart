@@ -23,7 +23,10 @@ the same name, or else from the handler's `@PathVariable` of that name. There is
 session, application or bean scope, no request parameters, cookies or headers. Engines you are
 leaving often fall back to those scopes when a name is not in the model; Thwart doesn't, so **a
 missing model attribute is `null`**, which prints nothing, and reading a property of it fails the
-render with a `NullPointerException` (write `a?.b` where `null` is expected). Before converting a
+render with a `TemplateModelException` naming the `null` attributes, its cause the
+`NullPointerException` (write `a?.b` where `null` is expected). Generic element types aren't
+checked: a `List<String>` passed for `List<Owner>` fails with a `ClassCastException` where an
+element is read. Before converting a
 template, find everything it reads that the controller doesn't put in the model, and make the
 controller provide it. Values every page needs (the current user, the request URI) come from
 `@ModelAttribute` methods in a `@ControllerAdvice`.
