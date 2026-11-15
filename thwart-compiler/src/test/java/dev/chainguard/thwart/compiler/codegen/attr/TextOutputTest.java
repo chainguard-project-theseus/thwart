@@ -24,6 +24,10 @@ class TextOutputTest {
         .java("com.example.Color", "package com.example; public enum Color { RED, GREEN }")
         .java("com.example.Pet", "package com.example; public record Pet(String name) {}")
         .java("com.example.Pojo", "package com.example; public class Pojo { public String getName() { return \"p\"; } }")
+        .java(
+            "com.example.View",
+            "package com.example; @dev.chainguard.thwart.runtime.TemplateView public class View {"
+                + " public String getName() { return \"v\"; } }")
         .template("page.html", "<div t:import=\"com.example.*\" t:params=\"" + params + "\">" + body + "</div>")
         .compile();
   }
@@ -91,6 +95,23 @@ class TextOutputTest {
     compile("Pet pet", "<p t:title=\"${pet}\">x</p>").assertError("page.html:1:", asText);
     compile("Pet pet", "<a t:href=\"@{/p(q=${pet})}\">x</a>").assertError("page.html:1:", asText);
     compile("List<Pet> pets", "<p t:text=\"${pets}\">x</p>").assertError("page.html:1:", "List<com.example.Pet> as text");
+    compile("Pet pet", "<p t:classappend=\"${pet}\">x</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<p t:text=\"#{m(${pet})}\">x</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<a t:href=\"@{/p/{id}(id=${pet})}\">x</a>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<p t:text=\"|x ${pet}|\">x</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<label t:for=\"${ids.next(pet)}\">x</label>").assertError("page.html:1:", asText);
+    compile("View v", "<p t:text=\"${v}\">x</p>").assertError("page.html:1:", "com.example.View as text");
+    compile("Pet[] pets", "<p t:text=\"${pets}\">x</p>").assertError("page.html:1:", "as text");
+    compile("Optional<Pet> pet", "<p t:text=\"${pet}\">x</p>").assertError("page.html:1:", "as text");
+    compile("Map<String, Pet> m", "<p t:text=\"${m}\">x</p>").assertError("page.html:1:", "as text");
+    // Properties, List<String> and enums still print.
+    Compilation ok = compile(
+            "View v, List<String> xs, Color color",
+            "<p t:text=\"${v.name}\">x</p><a t:href=\"@{/p(q=${xs})}\">x</a><p t:text=\"${color}\">x</p>")
+        .assertSuccess();
+    assertEquals(
+        "<div><p>v</p><a href=\"/p?q=a&amp;q=b\">x</a><p>RED</p></div>",
+        ok.render("page", model("v", ok.newInstance("com.example.View"), "xs", List.of("a", "b"), "color", ok.enumConstant("com.example.Color", "RED"))));
     // JSON writes the components it is given, not toString(): still allowed.
     Compilation c = compile("Pet pet", "<script type=\"application/json\" t:text=\"pet\"></script>").assertSuccess();
     assertEquals(
