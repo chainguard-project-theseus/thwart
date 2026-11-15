@@ -170,8 +170,8 @@ final class SpringForms implements Forms {
   /** Holds the Spring Security references so they load only when Security is on the classpath. */
   private static final class Security {
     static Optional<CsrfToken> csrfToken(HttpServletRequest request) {
-      // CsrfFilter always sets this key; "_csrf" is only its configurable alias (as Thymeleaf's
-      // CsrfRequestDataValueProcessor also reads this key).
+      // CsrfFilter always sets this key; "_csrf" is only its configurable alias (Spring
+      // Security's CsrfRequestDataValueProcessor, which Thymeleaf uses, reads this key too).
       Object attribute =
           request.getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
       if (attribute instanceof org.springframework.security.web.csrf.CsrfToken) {

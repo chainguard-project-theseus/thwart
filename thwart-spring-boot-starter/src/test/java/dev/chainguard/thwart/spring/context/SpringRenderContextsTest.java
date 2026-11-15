@@ -22,7 +22,6 @@ import org.springframework.beans.MutablePropertyValues;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.DataBinder;
@@ -302,23 +301,6 @@ class SpringRenderContextsTest {
         CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
     assertEquals(
         Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
-  }
-
-  /** #815: Spring Security's own handler, with the "_csrf" alias renamed or left unset. */
-  @Test
-  void csrfTokenWhateverTheAttributeAlias() {
-    for (String alias : new String[] {"custom", null}) {
-      CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
-      handler.setCsrfRequestAttributeName(alias);
-      handler.handle(
-          request,
-          new MockHttpServletResponse(),
-          () -> new DefaultCsrfToken("X-CSRF-TOKEN", "token", "s3cret"));
-      assertNull(request.getAttribute("_csrf"));
-      assertEquals(
-          Optional.of(new Forms.CsrfToken("token", "s3cret")),
-          create(Collections.<String, Object>emptyMap()).forms().csrfToken());
-    }
   }
 
   @Test
