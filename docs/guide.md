@@ -1075,7 +1075,12 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
 - **Spring Security tags.** `sec:authorize="hasRole('A')"` and
   `<sec:authorize access="hasRole('A')">` become `t:if="auth.hasRole('A')"`, and
   `sec:authentication="name"` is `t:text="auth.name()"`. Any other expression is computed in the
-  controller.
+  controller. `auth` reads `SecurityContextHolder` and compares the user's own authorities, with
+  `ROLE_` as the role prefix. It ignores a `RoleHierarchy` (an `ADMIN` who implies `USER` fails
+  `auth.hasRole('USER')`), a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy`
+  bean, which `sec:authorize` honours. If the app uses one, compute the flag in the controller and
+  pass it as a `boolean` param, for example `roleHierarchy.getReachableGrantedAuthorities(
+  authentication.getAuthorities())` contains `ROLE_USER`.
 - **Whitespace and comments.** Write template-only comments (`{{! }}`, `<%-- --%>`, `<#-- -->`,
   `##`, `{# #}`) as `<!--/* ... */-->`. Whitespace between `t:case` siblings is output.
 
