@@ -4,15 +4,15 @@ Converted 9 template(s); 51 item(s) need manual attention.
 
 ## fragments/inputField.html
 
-- `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
+- `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)
 - `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
 - `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
 - `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
 
 ## fragments/layout.html
 
-- `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
-- `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
+- `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)
+- `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)
 - `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
 
 ## misc/fixits.html

@@ -298,13 +298,17 @@ class FragmentsTest {
         .assertError(
             "page.html:2:17",
             "wrong number of arguments for fragment fragments/cards :: card(java.lang.String title,"
-                + " dev.chainguard.thwart.runtime.Fragment content): expected 2 but got 1");
+                + " dev.chainguard.thwart.runtime.Fragment content): expected 2 but got 1; every call passes"
+                + " every argument, `null` for an optional one");
     page("<div t:replace=\"~{fragments/cards :: user}\"></div>\n")
         .assertError("page.html:2:17", "fragments/cards :: user(com.example.User user)", "expected 1 but got 0");
     page("<div t:replace=\"~{fragments/cards :: plain(u)}\"></div>\n")
         .assertError("fragments/cards :: plain()", "expected 0 but got 1");
     page("<div t:replace=\"~{fragments/cards :: card(title='a')}\"></div>\n")
-        .assertError("page.html:2:17", "missing argument 'content' for fragment fragments/cards :: card(");
+        .assertError(
+            "page.html:2:17",
+            "missing argument 'content' for fragment fragments/cards :: card(",
+            "every call passes every argument, `null` for an optional one");
     page("<div t:replace=\"~{fragments/cards :: user(name=u)}\"></div>\n")
         .assertError("page.html:2:43", "unknown argument 'name' for fragment fragments/cards :: user(");
     page("<div t:replace=\"~{fragments/cards :: user(user=u, user=u)}\"></div>\n")

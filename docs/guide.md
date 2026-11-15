@@ -881,6 +881,10 @@ parameters.
 - References: `~{path :: name(args)}`, `path :: name(args)`, `~{::name}` (same file), or a
   `Fragment` value. Paths are relative to the templates root, without `.html`. Arguments are
   positional or all named, and type-checked; every call passes every argument (no defaults).
+  Where a Thymeleaf call omitted an optional parameter, pass `null` and test for it in the
+  fragment (`t:if="glyph != null"`). If most calls pass `null`, split the fragment in two: a
+  shorter one with only the common parameters, and a longer one that takes the extra parameters,
+  calls the shorter one and adds its extra markup around that call.
 - `~{::name}` is a `Fragment` over the same-file fragment `name`, or else the first element with
   tag `name` (`~{::dl}`, `~{::my-card}`, `~{::t:block}`), rendered with the call site's variables.
   Put it inside the host so it doesn't also render in place. Only the first match; no `#id` or
