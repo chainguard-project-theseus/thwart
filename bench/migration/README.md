@@ -80,7 +80,8 @@ and commit from `app.json`).
    or `@Ignore` (bench.py still rejects the removed `SafeHtml.unchecked` and
    `TrustedUrl.unchecked` as a tripwire), and no legacy template or
    view-engine dependency is left (Apache Tiles counts as one: a `tiles-*` dependency or a Tiles
-   definitions XML file fails the run whatever the app's engine). Runs from #115 were scored by an older Python crawler and
+   definitions XML file fails the run whatever the app's engine), and the browser smoke check
+   below finds nothing new (#866). Runs from #115 were scored by an older Python crawler and
    normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
    - **Pass with forced diffs (`pass_forced`, report only).** Thwart rejects inline `on*`
      handlers and `javascript:` URLs (a strict CSP blocks them), so a correct migration moves them
@@ -90,7 +91,7 @@ and commit from `app.json`).
      and `href="#"` are deleted from tag lines and `<script>` elements are dropped. A diff compare
      cut short never qualifies. The summary shows such a run as `forced` and counts it beside the
      strict passes; the strict Pass is unchanged. `rescore` applies it to archived runs.
-   - **Browser smoke check (report only).** `compare` reads HTML and never runs a script, so a
+   - **Browser smoke check.** `compare` reads HTML and never runs a script, so a
      page can compare as acceptable while its scripts throw or the starter's CSP blocks them.
      `lib/browser.py` replays `pages.txt` in one headless Chromium tab (from the image's Wolfi
      packages, over the DevTools protocol) against a fresh start of the app, in its own container:
@@ -103,14 +104,18 @@ and commit from `app.json`).
      `recheck` make it when it is missing) and on each migrated checkout after its check.
      `browser.txt` in the run directory lists, per page, only what is **new** in the migrated app,
      after line and column numbers and nonces are removed (the originals have their own console
-     noise), and the summary's Browser column counts it. It never changes the Pass verdict.
+     noise), and the summary's Browser column counts it. Anything new fails both Pass and
+     `pass_forced`: in run-15 this check alone found the real breakage (third-party scripts that
+     need `eval`, blocked by the CSP), which markup comparison can't see.
      Only load-time behaviour is checked: nothing is clicked and no handler runs. That still
      catches listener-wiring scripts that throw at load, data reads that fail and anything the
      CSP blocks at load; a handler that breaks only when it fires is not seen, and neither is an
      inline `on*` attribute blocked by the CSP, which Chromium reports only when it fires (Thwart
      rejects static ones anyway, #768). Chromium runs with `--ignore-certificate-errors` so that
      CDN scripts load behind a TLS-intercepting proxy. If the check leaves no `browser.json` (the
-     app doesn't build, Chromium fails), the run's Browser column is `-`, never an older result.
+     app doesn't build, Chromium fails), the run's Browser column is `-`, never an older result,
+     and the run doesn't pass (before #866 it could). `rescore` of a run checked before #790
+     fails it the same way; `recheck` adds the browser check.
      Tests: `python3 -m unittest bench/migration/test_browser.py` (its end-to-end test needs
      Chromium and websocket-client, as in the image, and is skipped without them).
 5. **Report.** `results/summary.md` has a row per run, then a row per app in three tables:
