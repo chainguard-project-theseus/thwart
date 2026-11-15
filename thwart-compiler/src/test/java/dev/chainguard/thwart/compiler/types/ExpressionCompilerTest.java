@@ -255,6 +255,17 @@ class ExpressionCompilerTest {
     h.compile(elvis(prop(v("u"), "name"), lit(1))).assertError("incompatible types");
   }
 
+  /** #807: {@code x ?: d} on a variable evaluates {@code d} only when {@code x} is null. */
+  @Test
+  void elvisOnVariableIsLazy() {
+    TypesHarness h = users().local("s", "java.lang.String", "\"a\"").local("n", "java.lang.String", "null");
+    // u.manager is null, so evaluating u.manager.name would throw.
+    Expr throwing = prop(prop(v("u"), "manager"), "name");
+    assertEquals("a", h.eval(elvis(v("s"), throwing)));
+    assertEquals("(s != null ? s : u.manager().name())", h.compile(elvis(v("s"), throwing)).code());
+    assertEquals("Ann", h.eval(elvis(v("n"), prop(v("u"), "name"))));
+  }
+
   @Test
   void ternaryTyping() {
     TypesHarness h = users();

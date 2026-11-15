@@ -851,6 +851,9 @@ public final class ExpressionCompiler {
       return error(e.pos(), "the operands of ?: have incompatible types " + describe(v.type()) + " and "
           + describe(f.type()) + ": make the default the same type as the value");
     }
+    if (e.value() instanceof Expr.Var) { // a local read: a ternary evaluates the fallback only when needed
+      return new CompiledExpr("(" + v.code() + " != null ? " + coerce(v, t) + " : " + coerce(f, t) + ")", t, e.pos());
+    }
     return new CompiledExpr(VALUES + ".<" + JavaStrings.typeName(t) + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
   }
 
