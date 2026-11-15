@@ -33,10 +33,12 @@ verifier ([docs/security-architecture.md](docs/security-architecture.md) §11).
    `@TemplateFunction`. The never-view-safe list (`Object` methods, `Class`, `ClassLoader`,
    `java.lang.reflect`, `java.lang.invoke`, `Thread`, `Runtime`, `ProcessBuilder`,
    servlet/Spring context objects) can never be reached, even if registered. Markup is held to
-   the same rule: the compiler accepts a closed profile of HTML, and any element, attribute name,
-   or construct outside it is a build error. The profile is specified in
-   [docs/context-model.md](docs/context-model.md), and the threat model in
-   [docs/security-model.md](docs/security-model.md).
+   the same rule: the compiler accepts a closed profile of HTML, and any element, computed
+   attribute name, or construct outside it is a build error. Static attribute names are the
+   author's markup and are copied as written, except leftover template attributes such as
+   `th:*`, `sec:*`, `layout:*` and `data-th-*`, which are build errors (context-model.md §6.2).
+   The profile is specified in [docs/context-model.md](docs/context-model.md), and the threat
+   model in [docs/security-model.md](docs/security-model.md).
 4. **No reflection at runtime.** All access is generated Java. No `java.lang.reflect`,
    `MethodHandle`, SpEL, OGNL, or `ScriptEngine` in runtime or generated code.
 5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
@@ -88,6 +90,9 @@ Thwart is young and pre-release. Prefer the smallest thing that is correct and s
   `thwart-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
+- `thwart-migrate` translates Thymeleaf syntax and reports the constructs it can't translate. It never
+  copies a compiler rule or message: the build already reports those, so a compiler PR doesn't
+  add a matching check to migrate.
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
 
 ## Repo layout and ownership
