@@ -239,7 +239,7 @@ class FormsTest {
     Throwable t = org.junit.jupiter.api.Assertions.assertThrows(
         Throwable.class, () -> render(c, owner(c, "Ann", null), new TestForms()));
     assertTrue(String.valueOf(rootCause(t).getMessage()).contains("Cannot obtain previous ID count for ID \"pet\""), t.toString());
-    Compilation n = compile("<label t:for=\"${ids.next(owner.address)}\">x</label>");
+    Compilation n = compile("<label t:for=\"${ids.next(owner.address?.city)}\">x</label>");
     Throwable u = org.junit.jupiter.api.Assertions.assertThrows(
         Throwable.class, () -> render(n, owner(n, "Ann", null), new TestForms()));
     assertTrue(String.valueOf(rootCause(u).getMessage()).contains("ids.next: the id is null"), u.toString());
