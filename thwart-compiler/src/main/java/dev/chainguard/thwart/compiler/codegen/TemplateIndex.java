@@ -212,7 +212,9 @@ public final class TemplateIndex {
     /**
      * Whether a {@code t:params} or {@code t:fragment} parameter declaration was rejected. The
      * template's body and its callers' arguments are then not compiled: the declaration's error is
-     * reported once instead of again at every use of the parameter.
+     * reported once instead of again at every use of the parameter. The flag is per template on
+     * purpose: one rejected declaration hides the checks of the whole template (its other fragments
+     * and calls to them) until it is fixed, which is safe because that error already stops the build.
      */
     public boolean paramsRejected() {
       return paramsRejected;

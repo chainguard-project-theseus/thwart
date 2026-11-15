@@ -578,7 +578,8 @@ class MigratorTest {
   void formObjectIsAParameterEvenIfALaterLoopReusesItsName() throws Exception {
     String src = "<div><form th:object=\"${visit}\"><input th:field=\"*{date}\"></form>"
         + "<p th:each=\"visit : ${pet.visits}\" th:text=\"${visit.date}\"></p>"
-        + "<p th:each=\"v : ${pet.visits}\"><form th:object=\"${v}\"></form></p></div>";
+        + "<p th:each=\"v : ${pet.visits}\"><form th:object=\"${v}\"></form></p>"
+        + "<tr th:object=\"${item}\" th:each=\"item : ${pet.items}\"></tr></div>";
     assertTrue(convert(src).startsWith("<div t:params=\"Object visit, Object pet\">"), convert(src));
   }
 
