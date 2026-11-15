@@ -1082,6 +1082,32 @@ server, a `metadata-complete` `web.xml`, Boot importing `ThwartConfiguration`) r
 for REQUEST, ASYNC and ERROR, or the starter logs `CspFilter is not in the filter chain`. The one
 off switch is `thwart.csp.enabled=false`. Delete `th:nonce`.
 
+**A third-party script that needs `eval`.** The default policy has no `'unsafe-eval'`, so a library
+that calls `eval` or `new Function` (an old `owl.carousel.min.js`, `jquery-rotate.js`) throws an
+`EvalError`, and whatever it set up is missing (`owl.owlCarousel is not a function`). Neither the
+build, the tests nor `compare` see it; the browser console does. Prefer replacing or upgrading the
+library. Otherwise allow `eval` in a policy of your own, a visible choice that the starter's
+default then stands aside for (above). It gives up part of the CSP backstop (security-model.md):
+any script on those pages, not just that library, may then run a string as code, including DOM
+text or attributes it reads, so limit it to the pages that need it (for example with a
+`FilterRegistrationBean` and URL patterns). It must keep the nonce
+(`dev.chainguard.thwart.spring.CspNonce`), or no script runs:
+
+```java
+@Bean
+OncePerRequestFilter cspAllowingEval() { // for jquery-rotate.js; delete with it
+  return new OncePerRequestFilter() {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
+      response.setHeader("Content-Security-Policy", "script-src 'nonce-" + CspNonce.get(request)
+          + "' 'strict-dynamic' 'unsafe-eval'; object-src 'none'; base-uri 'none'");
+      chain.doFilter(request, response);
+    }
+  };
+}
+```
+
 ### 4.10 Notes for specific engines
 
 What is easy to get wrong when leaving a particular engine. Read the part for yours.
