@@ -61,7 +61,20 @@ public final class Emitted {
   }
 
   private static Emitted of(String java, Skeleton.Node node) {
-    return new Emitted(new Parts().code(java), null, Collections.singletonList(node));
+    return new Emitted(new Parts().code(at(java, node.pos())), null, Collections.singletonList(node));
+  }
+
+  /**
+   * {@code java} with {@code // file:line:col} at the end of its first line, so that the line of a
+   * stack trace into generated code leads back to the template (#805). No runtime cost.
+   */
+  static String at(String java, SourcePos pos) {
+    if (pos == null) {
+      return java;
+    }
+    String comment = " // " + TemplateClassSource.javadocSafe(pos.file()) + ":" + pos.line() + ":" + pos.column();
+    int nl = java.indexOf('\n');
+    return nl < 0 ? java + comment + "\n" : java.substring(0, nl) + comment + java.substring(nl);
   }
 
   /** The Java statements. */
@@ -110,7 +123,8 @@ public final class Emitted {
    * compile, if this body is ({@link #MAX_METHOD_CHARS}).
    */
   public void checkMethodSize(DiagnosticSink diagnostics, SourcePos pos, String what) {
-    if (java().length() > MAX_METHOD_CHARS) {
+    // Not counted: the position comments of at() compile to nothing.
+    if (java().replaceAll(" // [A-Za-z0-9/._-]*:[0-9]+:[0-9]+\n", "").length() > MAX_METHOD_CHARS) {
       diagnostics.error(pos, what + " is too large for one Java method: its generated code may exceed the JVM's 64 KB"
           + " limit per method, and javac would fail with \"code too large\"; split it into smaller fragments"
           + " (t:fragment, in this file or in other templates) and insert them with t:insert or t:replace");
@@ -382,7 +396,7 @@ public final class Emitted {
 
     /** Opens {@code w}: its open code, then the statements until {@link #close}. */
     public void open(ElementPlan.Wrapper w) {
-      stmt(w.openEmitted().java());
+      stmt(at(w.openEmitted().java(), w.pos()));
       if (w.kind() != ElementPlan.Wrapper.Kind.REP && !w.openEmitted().nodes.isEmpty()) {
         throw new IllegalStateException("only a loop writes in its open code: " + w);
       }
