@@ -784,9 +784,10 @@ public final class ExpressionCompiler {
     String code;
     if (isNumeric(l.type()) && isNumeric(r.type())) {
       code = "(" + l.code() + op + r.code() + ")";
-    } else if (isComparable(l.type())
+    } else if (l.type().getKind() == TypeKind.DECLARED
         && r.type().getKind() == TypeKind.DECLARED
-        && (types().isAssignable(r.type(), l.type()) || types().isAssignable(l.type(), r.type()))) {
+        // l.compareTo(r) compiles only when l is a Comparable<? super R>.
+        && types().isAssignable(l.type(), types().getDeclaredType(elements().getTypeElement("java.lang.Comparable"), types().getWildcardType(null, r.type())))) {
       code = "(" + l.code() + ".compareTo(" + r.code() + ")" + op + "0)";
     } else {
       return error(b.pos(), "cannot compare " + describe(l.type()) + " and " + describe(r.type()) + " with" + JavaStrings.stripJavaTrailing(op));
@@ -961,10 +962,6 @@ public final class ExpressionCompiler {
 
   private static boolean isReference(TypeMirror t) {
     return t.getKind() == TypeKind.DECLARED || t.getKind() == TypeKind.ARRAY;
-  }
-
-  private boolean isComparable(TypeMirror t) {
-    return t.getKind() == TypeKind.DECLARED && isSubtypeOf(t, "java.lang.Comparable");
   }
 
   private static String stringLiteral(Expr e) {

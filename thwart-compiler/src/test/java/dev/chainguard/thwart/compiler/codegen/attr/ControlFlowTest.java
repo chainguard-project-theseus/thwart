@@ -70,6 +70,21 @@ class ControlFlowTest {
     compile("", "<i t:if=\"nope\">x</i>").assertError("page.html:1:", "unknown identifier 'nope'");
   }
 
+  @Test
+  void orderingNeedsTheRightSideToFitCompareTo() {
+    // s.compareTo(cs) does not compile: a template error, not a javac error on generated code.
+    compile("String s, CharSequence cs", "<p t:if=\"${s < cs}\">x</p>")
+        .assertError("page.html:1:", "cannot compare java.lang.String and java.lang.CharSequence with <");
+    compile("String s, CharSequence cs", "<p t:if=\"${cs < s}\">x</p>").assertError("page.html:1:", "cannot compare");
+    // LocalDate is a Comparable<ChronoLocalDate>, not Comparable<LocalDate>: still accepted.
+    Compilation c =
+        compile(
+            "java.time.LocalDate d, java.time.LocalDate e",
+            "<i t:if=\"${d < e}\">a</i><b t:if=\"${e < d}\">b</b>");
+    java.time.LocalDate today = java.time.LocalDate.of(2026, 1, 1);
+    assertEquals("<i>a</i>", render(c, model("d", today, "e", today.plusDays(1))));
+  }
+
   // ---- t:each ----
 
   private static final String ABC =
