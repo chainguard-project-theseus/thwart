@@ -78,7 +78,7 @@ final class TemplateClassSource {
   }
 
   /** Keeps a file name harmless inside a comment (no comment end, no unicode escapes). */
-  private static String javadocSafe(String s) {
+  static String javadocSafe(String s) {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
