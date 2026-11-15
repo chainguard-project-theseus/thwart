@@ -745,6 +745,11 @@ public final class ExpressionParser {
         i++;
       }
       String path = JavaStrings.stripJava(s.substring(pathAt, i));
+      // @{'/owners?page=1'}: one quoted literal without escapes is a constant (#806).
+      if (path.length() > 2 && path.charAt(0) == '\'' && path.indexOf('\'', 1) == path.length() - 1 && path.indexOf('\\') < 0) {
+        path = path.substring(1, path.length() - 1);
+        pathAt++;
+      }
       if (path.isEmpty()) {
         throw error(pathAt, "expected a link path after '@{' but " + found());
       }
