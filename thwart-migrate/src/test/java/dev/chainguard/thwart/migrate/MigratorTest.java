@@ -304,11 +304,21 @@ class MigratorTest {
         + "<a th:href=\"@{'/x?p=__${i}__&q=1'}\">y</a></div>";
     assertEquals(src.replace("th:", "t:"), convert(src));
     assertMessages(src,
-        "3: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per"
-            + " field (a typed alternative is tracked in #43)",
+        "3: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a"
+            + " fragment's `Field` parameter (guide section 4.8, Reusable form fields)",
         "3: `__...__` preprocessing is not supported",
         "3: `__...__` preprocessing is not supported",
         "3: link with a non-literal path");
+  }
+
+  /** #821: {@code ${{...}}} formats with the conversion service; dropping its {@code $} changed its meaning. */
+  @Test
+  void conversionServiceFormattingIsLeftInPlaceAndReported() throws Exception {
+    String src = "<div t:params=\"Order order\"><p th:text=\"${{order.date}}\">d</p><p th:text=\"${order.date}\">d</p></div>";
+    assertEquals("<div t:params=\"Order order\"><p t:text=\"${{order.date}}\">d</p><p t:text=\"order.date\">d</p></div>",
+        convert(src));
+    assertEquals(List.of("1: `${{...}}` conversion-service formatting is not supported; format the value in the view type"),
+        messages(src));
   }
 
   // ---- mechanical rewrites found by the petclinic port (#42) ----

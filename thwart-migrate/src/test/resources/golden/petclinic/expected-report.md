@@ -5,9 +5,9 @@ Converted 9 template(s); 51 item(s) need manual attention.
 ## fragments/inputField.html
 
 - `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)
-- `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
-- `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
-- `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
+- `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
+- `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
+- `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
 
 ## fragments/layout.html
 
