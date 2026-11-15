@@ -68,7 +68,7 @@ inside `|...|` and `+` a `null` prints `null`.
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`, an `Instant`) in the model. |
-| prints a whole object (`th:text="${pet.type}"`, `'x' + ${owner}`), relying on its `toString()` | A build error for a record or `@TemplateView` class (or a list of them): print the property the page shows (`t:text="pet.type?.name"`), or format it with a `@TemplateFunction` (section 4.6). |
+| prints a whole object (`th:text="${pet.type}"`, `'x' + ${owner}`), relying on its `toString()` | A build error for a record or `@TemplateView` class (or a list of them): print the property the page shows, with `?.` if the value can be null (`t:text="pet.type?.name"`); for a list or `strings.join(owner.pets, ', ')`, print each item in a loop (`<t:block t:each="pet : owner.pets" t:text="petStat.last ? pet.name : pet.name + ', '"></t:block>`); or format it with a `@TemplateFunction` (section 4.6). |
 
 ## 2. Build setup
 

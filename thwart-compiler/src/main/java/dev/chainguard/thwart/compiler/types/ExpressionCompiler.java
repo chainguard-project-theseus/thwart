@@ -298,8 +298,9 @@ public final class ExpressionCompiler {
     if (text && !safety.isText(type) && !FormPaths.isField(type)) {
       env.diagnostics()
           .error(pos, "cannot output a value of type " + type + " as text: the toString() of a record or"
-              + " @TemplateView class prints its whole state. Output one of its properties instead (such as"
-              + " ${pet.name}), loop over a list with t:each, or format it with a @TemplateFunction");
+              + " @TemplateView class prints its whole state. Output one of its properties instead, with ?. if"
+              + " the value can be null (such as pet.type?.name); for a list or strings.join, print each"
+              + " item's property in a t:each loop; or format it with a @TemplateFunction");
       return false;
     }
     return true;
