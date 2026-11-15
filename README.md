@@ -105,6 +105,13 @@ Depend on one starter, `dev.chainguard.thwart:thwart-spring-boot-starter:0.1.0-S
     </compilerArgs>
   </configuration>
 </plugin>
+<!-- check: recompiles when only a template changed; Maven skips javac otherwise -->
+<plugin>
+  <groupId>dev.chainguard.thwart</groupId>
+  <artifactId>thwart-maven-plugin</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <executions><execution><goals><goal>check</goal></goals></execution></executions>
+</plugin>
 ```
 
 With Gradle (no plugin; the `inputs` line recompiles when only a template changed):
@@ -122,10 +129,9 @@ tasks.named('compileJava') {
 ```
 
 [Guide §2](docs/guide.md#2-build-setup) has the full setup for both: other annotation processors,
-message-key checks, and Maven's `thwart-maven-plugin` `check` goal, which recompiles when only a
-template changed. [examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with
-Gradle in CI. Plain Spring
-MVC without Boot adds `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`. Thwart's view
+message-key checks, and the `check` goal's options (it needs Maven 3.6.3+).
+[examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with Gradle in CI. Plain
+Spring MVC without Boot adds `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`. Thwart's view
 resolver runs before the old engine's, so both run side by side; until it is removed, the old
 engine still renders every view Thwart doesn't know, outside Thwart's guarantees.
 
