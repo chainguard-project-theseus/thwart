@@ -83,6 +83,72 @@ class CodegenEndToEndTest {
   }
 
   @Test
+  void missingAttributeReadFailsNamingIt() {
+    Compilation c =
+        Compilation.builder()
+            .java("com.example.User", "package com.example; public record User(String name) {}")
+            .template(
+                "p.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"com.example.User u, String s\""
+                    + " t:text=\"${u.name}\">x</p>")
+            .template(
+                "q.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"com.example.User u\""
+                    + " t:text=\"${u?.name}\">x</p>")
+            .compile()
+            .assertSuccess();
+    TemplateModelException e =
+        assertThrows(TemplateModelException.class, () -> c.render("p", Map.of("s", "a")));
+    assertEquals(
+        "template 'p': NullPointerException while rendering; null model attributes: 'u'"
+            + " (the cause's stack trace has the template position)",
+        e.getMessage());
+    assertTrue(e.getCause() instanceof NullPointerException, String.valueOf(e.getCause()));
+    // A missing attribute stays null: a template that expects it renders.
+    assertEquals("<p></p>", c.render("q", Map.of()));
+  }
+
+  @Test
+  void npeWithNoNullAttributeIsRethrownAndListedNullsAssertNoCause() {
+    Compilation c =
+        Compilation.builder()
+            .java("com.example.Address", "package com.example; public record Address(String city) {}")
+            .java("com.example.Owner", "package com.example; public record Owner(Address address) {}")
+            .template(
+                "o.html",
+                "<div xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"com.example.Owner owner, String message\">"
+                    + "<p t:if=\"${message}\" t:text=\"${message}\">m</p>"
+                    + "<span t:text=\"${owner.address.city}\">c</span></div>")
+            .template(
+                "n.html",
+                "<p xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"int n\" t:text=\"${n}\">x</p>")
+            .template(
+                "f.html",
+                "<div xmlns:t=\"https://thwart.chainguard.dev\">"
+                    + "<p t:fragment=\"card(com.example.Owner owner)\" t:text=\"${owner.address.city}\">c</p></div>")
+            .compile()
+            .assertSuccess();
+    Object owner = c.newInstance("com.example.Owner", (Object) null);
+    // Every reference attribute present, the NPE from a nested null: rethrown as is.
+    assertThrows(
+        NullPointerException.class,
+        () -> c.render("o", Map.of("owner", owner, "message", "hi")));
+    assertThrows(NullPointerException.class, () -> c.render("f :: card", Map.of("owner", owner)));
+    // An optional attribute null, the NPE from elsewhere: the message lists it without blaming it.
+    TemplateModelException e =
+        assertThrows(TemplateModelException.class, () -> c.render("o", Map.of("owner", owner)));
+    assertTrue(e.getMessage().contains("null model attributes: 'message'"), e.getMessage());
+    assertTrue(e.getCause() instanceof NullPointerException, String.valueOf(e.getCause()));
+    // Fragment entries go through the same adapter.
+    assertThrows(TemplateModelException.class, () -> c.render("f :: card", Map.of()));
+    // Only a primitive param: no catch is emitted, and the render works.
+    assertEquals("<p>3</p>", c.render("n", Map.of("n", 3)));
+    assertTrue(
+        !c.generatedSource("thwart.generated.ThwartRegistry").contains("throw nulls(\"n\""),
+        "primitive-only entry has no NPE catch");
+  }
+
+  @Test
   void selfClosingElementWithReplacedBodyGetsAnEndTag() {
     // petclinic's ownersList writes <td th:text="..." />; Thymeleaf renders <td>text</td>.
     Compilation c =

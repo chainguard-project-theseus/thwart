@@ -6,10 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.chainguard.thwart.compiler.SourcePos;
 import dev.chainguard.thwart.compiler.testing.Compilation;
+import dev.chainguard.thwart.runtime.TemplateModelException;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** The line of a stack trace into generated code names the template position (#805). */
+/** The line of a stack trace into generated code names the template position (#805), through the model exception's cause (#814). */
 class SourcePositionCommentTest {
 
   private static final String USER =
@@ -36,7 +37,7 @@ class SourcePositionCommentTest {
             .compile()
             .assertSuccess();
     NullPointerException e =
-        assertThrows(NullPointerException.class, () -> c.render("owners/show", Map.of()));
+        (NullPointerException) assertThrows(TemplateModelException.class, () -> c.render("owners/show", Map.of())).getCause();
     String line = failingLine(c, "thwart.generated.owners.ShowTemplate", e);
     assertTrue(line.endsWith(" // owners/show.html:2:16"), line);
   }
@@ -52,7 +53,7 @@ class SourcePositionCommentTest {
             .compile()
             .assertSuccess();
     NullPointerException e =
-        assertThrows(NullPointerException.class, () -> c.render("cond", Map.of()));
+        (NullPointerException) assertThrows(TemplateModelException.class, () -> c.render("cond", Map.of())).getCause();
     String line = failingLine(c, "thwart.generated.CondTemplate", e);
     assertTrue(line.contains(" // cond.html:3:6"), line);
   }
