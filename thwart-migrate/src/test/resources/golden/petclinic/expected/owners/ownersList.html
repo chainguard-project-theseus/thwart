@@ -20,7 +20,7 @@
     <tbody>
       <tr t:each="owner : listOwners">
         <td>
-          <a t:href="@{/owners/__${owner.id}__}" t:text="owner.firstName + ' ' + owner.lastName"></a>
+          <a t:href="@{/owners/{ownerId}(ownerId=owner.id)}" t:text="owner.firstName + ' ' + owner.lastName"></a>
         </td>
         <td t:text="owner.address" />
         <td t:text="owner.city" />

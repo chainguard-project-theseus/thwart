@@ -46,7 +46,7 @@ Converted 9 template(s); 51 item(s) need manual attention.
 - `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`
 - `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Thwart does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide section 1)
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
-- `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Thwart does not support; port it by hand
+- `misc/unsupported.html:12`: rewritten: `sec:authorize` to `t:if="auth.isAuthenticated()"`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide section 4.10, Spring Security tags)
 - `misc/unsupported.html:13`: `th:attr` is not supported; write one `t:<name>` per attribute: `th:attr="title=${a}, href=${b}"` becomes `t:title="a" t:href="b"`
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
@@ -74,7 +74,7 @@ Converted 9 template(s); 51 item(s) need manual attention.
 - `owners/ownersList.html:3`: `totalPages` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:3`: `currentPage` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:6`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
-- `owners/ownersList.html:23`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+- `owners/ownersList.html:23`: link `@{/owners/{ownerId}(ownerId=owner.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
 
 ## welcome.html
 
