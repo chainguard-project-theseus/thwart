@@ -10,8 +10,9 @@
 # file, whose environment the guest takes as .chainguard/develop.yaml's
 # `from:` does. Every guest also has apk-tools.
 #
-# These entries take over version updates. Dependabot's security updates
-# stay on in the repository settings; there is no dependabot.yml.
+# These entries are the only dependency updater: Dependabot (version and
+# security updates) is off in the repository settings, and there is no
+# dependabot.yml.
 #
 # Pins no entry moves:
 # - the validator.nu htmlparser the build-time verifier runs:
@@ -21,8 +22,8 @@
 #   corpus and seed verdicts diffed (docs/security-architecture.md §11.4,
 #   and the comment in thwart-html5/pom.xml).
 # - the Spring generations thwart-spring-tests targets on purpose (Boot
-#   1.5, 2.0 and 2.7, Spring MVC 4.3 and 5.0) with their servlet API and
-#   JAF test jars, and its JUnit 5 line (JUnit 6 needs Java 17). Boot 3.5
+#   1.5, 2.0 and 2.7, Spring MVC 4.3 and 5.0) with their servlet API, JAF
+#   and Spring Security test jars, and its JUnit 5 line (JUnit 6 needs Java 17). Boot 3.5
 #   (boot35) and the starter's Boot 4.1 take patch releases only: README.md
 #   lists the tested lines.
 # - lombok16.version (1.16.6, the Lombok of the JDK 8 javac test) and
@@ -68,8 +69,9 @@ updates:
     build-time verifier runs (docs/security-architecture.md §11.4: bumping
     it is its own pull request, with the corpus and seed verdicts diffed);
     the Boot and Spring BOMs of thwart-spring-tests' boot15, boot20,
-    boot27, spring43 and spring50 modules, and their javax.servlet-api and
-    javax.activation versions, which are test targets on purpose;
+    boot27, spring43 and spring50 modules, and their javax.servlet-api,
+    javax.activation and spring-security-web versions, which are test
+    targets on purpose;
     lombok16.version (the JDK 8 javac test's Lombok); and
     maven-plugin-api.version (the oldest Maven API thwart-maven-plugin
     supports). spring-boot.version and boot35's Boot 3.5 BOM take patch
