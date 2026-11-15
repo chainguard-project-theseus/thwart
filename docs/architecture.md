@@ -38,6 +38,7 @@ JDK 21+. The table names the main classes only. The public API of the runtime an
 | `thwart-maven-plugin` | `dev.chainguard.thwart.maven` | `CheckMojo` (`thwart:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles. `WatchMojo` (`thwart:watch`, no phase): reruns `mvn compile` when the templates or messages change, for hot reload with DevTools. Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `thwart-benchmarks` | | JMH, Thwart vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Thwart | starter |
+| `examples/gradle` | | a Spring Boot app built with Gradle against the installed artifacts; not in the Maven reactor (`examples/gradle/verify.sh`) | starter |
 
 The annotation processor lives in `thwart-compiler` (`META-INF/services/javax.annotation.processing.Processor`);
 a separate module would only add a jar.
@@ -216,9 +217,10 @@ Plus `com.example.templates.ThwartRegistry implements TemplateRegistry`, whose e
 `Map<String, ?>` model: `instanceof` check per param (`TemplateModelException` on mismatch; missing
 means `null`, except for a primitive param, which needs a value; generic arguments unchecked), then
 the static `render`. Registered via `META-INF/services/dev.chainguard.thwart.runtime.TemplateRegistry`. No
-reflection anywhere. A template without `t:params` has no static `render` (it would clash with the
-instance method): call `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated
-code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
+reflection in rendering; `TemplateRegistry.load` finds registries with `ServiceLoader`. A template
+without `t:params` has no static `render` (it would clash with the instance method): call
+`XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated code
+(`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
 A fragment compiles to a `private static` method in its class and a copy in every class that calls
 it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>`.
 The registry also has `fragments()`: an entry named `page :: name` per fragment that
@@ -278,4 +280,7 @@ The registry also has `fragments()`: an entry named `page :: name` per fragment 
   runs them on Boot 3.5, 2.7, 2.0 and 1.5; its Boot-free `spring50` and `spring43` modules run only
   the plain-Spring tests.
   Petclinic: its own MockMvc suite plus rendered-HTML assertions.
-- `mvn -B -ntp verify` must stay green; CI runs exactly that (`.chainguard/ci/maven.yaml`).
+- `mvn -B -ntp verify` must stay green. CI runs it as three shards (`verify`, `verify-release8`,
+  `verify-rest` in `.chainguard/ci/maven.yaml`), plus the Gradle example (`gradle.yaml`), the
+  benchmark smoke run (`benchmarks.yaml`) and, after merge or on request, the Node oracle
+  (`oracle-node.yaml`).

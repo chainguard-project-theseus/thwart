@@ -1,7 +1,11 @@
 # Security architecture
 
 This document describes how Thwart makes template injection and XSS impossible by construction,
-as the code does it today. The threat model is [security-model.md](security-model.md), the markup
+as the code does it today. Here and below, "impossible by construction" is relative to the pinned
+WHATWG parser (validator.nu htmlparser) and the documented exclusions
+([security-model.md §7](security-model.md#7-assumptions) and [§9](security-model.md#9-known-gaps)):
+inertness is argued against that parser, and agreement with real browsers is tested after merge
+(the Node oracle), not proved. The threat model is [security-model.md](security-model.md), the markup
 rules as tables are [context-model.md](context-model.md), and the porting recipe for every
 rejection is [guide.md](guide.md). How the design got here is in the appendix and in git history.
 
