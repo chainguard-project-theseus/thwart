@@ -205,8 +205,11 @@ public final class Contexts {
     if (tree != null || !allowed(element, attr)) {
       return tree != null ? tree : offList(attributeName, attr);
     }
+    // A static is= upgrades the element to custom code, like an autonomous custom element (#809).
     String el = HtmlParser.asciiLower(element.name());
-    return !URL_ATTRIBUTES.contains(attr) || URL_ELEMENTS.contains(el + " " + attr) ? null
+    boolean custom = element.attributes().stream()
+        .anyMatch(a -> !a.isThwart() && HtmlParser.asciiLower(a.name()).equals("is"));
+    return !URL_ATTRIBUTES.contains(attr) || (!custom && URL_ELEMENTS.contains(el + " " + attr)) ? null
         : "a computed '" + attributeName + "' is checked as a URL only on the elements HTML defines it for (<a href>,"
             + " <img src>, <form action>, ...: docs/guide.md section 4.4); Thwart can't know what <" + el + "> does"
             + " with it, so write it as a static value, or put the link in t:data-" + attr + " for your script";
