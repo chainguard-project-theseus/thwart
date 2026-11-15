@@ -208,28 +208,43 @@ class ForcedOnlyTest(unittest.TestCase):
     def test_a_diff_compare_cut_short_is_not(self):
         self.assertFalse(bench.forced_only(HANDLER_MOVED + ["... 12 more diff line(s)"]))
 
-    def test_score_keeps_strict_pass_and_adds_pass_forced(self):
+    def test_score_needs_no_new_browser_errors_and_adds_pass_forced(self):
         results = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, results)
         base, run = os.path.join(results, "app", "baseline"), os.path.join(results, "app", "run-1")
         os.makedirs(os.path.join(base, "pages"))
-        os.makedirs(os.path.join(run, "check"))
+        os.makedirs(os.path.join(base, "browser"))
+        os.makedirs(os.path.join(run, "check", "browser"))
         files = {os.path.join(base, "pages", "index.tsv"): "01.html\t200\t/\tGET /\n02.html\t200\t/b\tGET /b\n",
                  os.path.join(run, "check", "build.exit"): "0", os.path.join(run, "check", "test.exit"): "0",
-                 os.path.join(run, "check", "compare.exit"): "1", os.path.join(run, "diff.patch"): "",
-                 os.path.join(run, "agent.json"): "{}", os.path.join(base, "build.exit"): "0"}
-        for compare, forced in ((["01 differs   GET /", *HANDLER_MOVED, "02 same      GET /b"], True),
-                                (["01 differs   GET /", *HANDLER_MOVED, "   <p>", "-x", "+y", "02 same      GET /b"], False),
-                                (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED,
-                                  "02 same      GET /b"], False)):
-            files[os.path.join(run, "check", "compare.txt")] = "\n".join(compare + ["thwart-migrate compare: 2 page(s)"])
+                 os.path.join(run, "diff.patch"): "", os.path.join(run, "agent.json"): "{}",
+                 os.path.join(base, "build.exit"): "0",
+                 os.path.join(base, "browser", "browser.json"): json.dumps({"pages": [page(1), page(2)]})}
+        same, forced = ["01 same      GET /"], ["01 differs   GET /", *HANDLER_MOVED]
+        # run-15's jprime and fredbet: a third-party script that needs eval, blocked by the CSP (#866).
+        clean, evil = [page(1), page(2)], [page(1, csp=[{"directive": "script-src", "blocked": "eval", "source": "http://h/r.js"}]), page(2)]
+        for compare, browser, verdict in ((same, clean, (True, True)), (same, evil, (False, False)), (same, None, (False, False)),
+                                          (forced, clean, (False, True)), (forced, evil, (False, False)),
+                                          (forced, None, (False, False)),
+                                          (forced + ["   <p>", "-x", "+y"], clean, (False, False)),
+                                          (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED],
+                                           clean, (False, False))):
+            files[os.path.join(run, "check", "compare.txt")] = "\n".join(
+                compare + ["02 same      GET /b", "thwart-migrate compare: 2 page(s)"])
+            files[os.path.join(run, "check", "compare.exit")] = "1" if compare is not same else "0"
             for p, text in files.items():
                 with open(p, "w") as f:
                     f.write(text)
+            browser_json = os.path.join(run, "check", "browser", "browser.json")
+            if browser is None:
+                os.remove(browser_json)
+            else:
+                with open(browser_json, "w") as f:
+                    json.dump({"pages": browser}, f)
             with mock.patch.object(bench, "RESULTS", results), \
                     mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
                 s = bench.score("app", run)
-            self.assertEqual((s["pass"], s["pass_forced"]), (False, forced), compare)
+            self.assertEqual((s["pass"], s["pass_forced"]), verdict, (compare, browser))
 
     def test_report_shows_strict_and_forced_verdicts(self):
         results = tempfile.mkdtemp()

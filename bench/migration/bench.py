@@ -265,7 +265,7 @@ def browser_messages(page):
 
 def browser_report(app, run_dir):
     """What the migrated app's pages log in the browser at load that the original's don't, per
-    page (run_dir/browser.txt). Report only: it doesn't change the Pass verdict. None when either
+    page (run_dir/browser.txt). Anything new fails Pass and pass_forced. None when either
     browser.json is missing."""
     paths = [os.path.join(RESULTS, app, "baseline", "browser", "browser.json"),
              os.path.join(run_dir, "check", "browser", "browser.json")]
@@ -289,7 +289,7 @@ def browser_report(app, run_dir):
          "loaded": sum(1 for p in got.values() if p.get("loaded")), "total": len(got),
          "base_loaded": sum(1 for p in base.values() if p.get("loaded")), **totals}
     head = [f"# Browser smoke check (lib/browser.py): CSP violations, uncaught exceptions and console errors at",
-            "# page load that the migrated app has and the original doesn't, per page. Report only.",
+            "# page load that the migrated app has and the original doesn't, per page. Any fails Pass.",
             f"# {s['new']} new on {s['pages']} pages ({s['csp']} CSP, {s['exception']} exceptions, {s['console']} console,"
             f" {s['not loaded']} not loaded); {s['loaded']}/{s['total']} pages loaded (original {s['base_loaded']})"]
     with open(os.path.join(run_dir, "browser.txt"), "w") as f:
@@ -409,14 +409,15 @@ def score(app, run_dir):
         "thwart_templates": got["counts"].get("thwart", {}).get("templates", 0),
         "baseline_templates": base["counts"].get(engine, {}).get("templates", 0),
     }
+    # None (shown as "-") when the browser check left no browser.json, for example when the app no
+    # longer builds: a stale result is never carried over, and the run doesn't pass (#866).
+    s["browser"] = browser_report(app, run_dir)
     rest = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and not status_mismatch
-            and not insecure and not s["legacy_templates"] and not legacy_deps)
+            and not insecure and not s["legacy_templates"] and not legacy_deps
+            and s["browser"] is not None and s["browser"]["new"] == 0)
     s["pass"] = rest and got["compare_exit"] == 0 and identical + reordered == len(base["pages"])
     # Pass, except that pages may differ in what Thwart forces (#863). Report only, beside Pass.
     s["pass_forced"] = s["pass"] or rest and all(forced_only(diffs[n]) for n, v in verdicts.items() if v == "differs")
-    # Report only. None (shown as "-") when the browser check left no browser.json, for example
-    # when the app no longer builds: a stale result is never carried over.
-    s["browser"] = browser_report(app, run_dir)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     transcript = os.path.join(run_dir, "transcript.jsonl")
     if os.path.exists(transcript):  # gitignored, so absent in a fresh clone; agent.json has the totals
@@ -493,7 +494,7 @@ def report():
                 rows.append(s)
                 per_app.setdefault(app, []).append(s)
     out = ["| App | Run | Pass | Build | Tests | Pages identical+reordered | Status diffs | Insecure | Legacy left"
-           " | Browser (report only) | Skill | Minutes | Cost $ | Output tokens |", "|" + "---|" * 14]
+           " | Browser | Skill | Minutes | Cost $ | Output tokens |", "|" + "---|" * 14]
     for s in rows:
         t = s["tests"]
         tests = f"{(t['tests'] or 0) - (t['failures'] or 0) - (t['errors'] or 0)}/{t['tests'] or 0} (base {s['baseline_tests']})"
