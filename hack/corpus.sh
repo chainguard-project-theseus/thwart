@@ -12,9 +12,13 @@
 # Install Thwart first: in a fresh session `mvn -B -q install -DskipTests -Dinvoker.skip` (tier0 installs
 # nothing on a clean checkout), after a change `hack/quick.sh tier0`. Needs git, jq, procps,
 # JDK 21 and 8 under /usr/lib/jvm, network for the apps' own dependencies, and nodejs/npm for
-# ewp-registry. Env: RESULTS (bench output to read, default bench/migration/results; point it at
-# an archive of past runs laid out the same way), CORPUS_DIR (work dir, default
-# /tmp/thwart-corpus), JOBS (parallel apps, default 2).
+# ewp-registry. Env: RESULTS (bench output to read, default bench/migration/results, which holds
+# only runs made locally), CORPUS_DIR (work dir, default /tmp/thwart-corpus), JOBS (parallel
+# apps, default 2).
+#
+# Past runs are archived in github.com/dlorenc/tessera-bench-results: clone it and set
+# RESULTS=<clone>/bench/migration/results. Its patches use the old Tessera names, which are
+# renamed as each patch is applied. espd, jobsearch and jprime have no diff.patch there.
 set -uo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 bench=$root/bench/migration
@@ -44,7 +48,8 @@ one() {
     git -C "$cache" fetch -q origin "$commit" &&
       git clone -q --no-checkout "$cache" "$src" &&
       git -C "$src" checkout -q -B bench "$commit" &&
-      git -C "$src" apply --whitespace=nowarn "$RESULTS/$app/run-$run/diff.patch"
+      sed 's/tessera\.dev/thwart.chainguard.dev/g; s/dev\.tessera/dev.chainguard.thwart/g; s/Tessera/Thwart/g; s/tessera/thwart/g' \
+        "$RESULTS/$app/run-$run/diff.patch" | git -C "$src" apply --whitespace=nowarn
   } > "$out/setup.log" 2>&1 || { echo setup > "$out/build.exit"; return; }
   # The bench container mounts the app's fixtures at /bench/app and lib/ at /bench/lib.
   local build test
@@ -71,7 +76,7 @@ else
     [ -n "$(latest_run "$a")" ] && apps+=("$a")
   done
 fi
-[ ${#apps[@]} -gt 0 ] || { echo "no run-*/diff.patch under $RESULTS" >&2; exit 2; }
+[ ${#apps[@]} -gt 0 ] || { echo "no run-*/diff.patch under $RESULTS (set RESULTS; see the header)" >&2; exit 2; }
 for a in "${apps[@]}"; do
   [ -f "$bench/apps/$a/app.json" ] && [ -n "$(latest_run "$a")" ] || { echo "no app.json or diff.patch for $a" >&2; exit 2; }
 done
