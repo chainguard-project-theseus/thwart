@@ -55,6 +55,23 @@ class ParsedExpressionTest {
   }
 
   @Test
+  void nullSafeResultIsNotComparedOrComputed() {
+    TypesHarness h = harness().local("none", "java.util.List<com.example.User>", "java.util.List.of()");
+    for (String bad :
+        List.of("u.manager?.age > 18", "1 <= u.manager?.age", "u.manager?.age + 1", "-u.manager?.age", "u.manager?.name < 'b'")) {
+      Result r = h.compile(parse(bad));
+      assertNull(r.code(), bad);
+      assertTrue(r.errors().get(0).contains("a ?. result may be null"), r.errors().toString());
+    }
+    assertEquals(false, h.eval(parse("(u.manager?.age ?: 0) > 18")));
+    assertEquals(false, h.eval(parse("u.manager != null and u.manager.age > 18")));
+    assertEquals(true, h.eval(parse("u.manager?.age == null")));
+    assertEquals("x null", h.eval(parse("'x ' + u.manager?.name")));
+    assertNull(h.eval(parse("none.first?.name")));
+    assertNull(h.eval(parse("none.last")));
+  }
+
+  @Test
   void parsedAttacksFail() {
     TypesHarness h = harness();
     for (String attack :

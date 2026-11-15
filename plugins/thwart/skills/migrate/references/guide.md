@@ -465,6 +465,9 @@ that runs code. What differs:
   Comparing types that never share a value (a `String` variable with an enum or a number) is a
   build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
   `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types.
+- `<`, `>`, `<=`, `>=`, `-` and arithmetic are Java's, so a `null` number (an `Integer`
+  property) fails the render. Using an `a?.b` there is a build error: write `(u?.age ?: 0) > 18`
+  or `u != null and u.age > 18`. `list.first` and `list.last` are `null` for an empty list.
 - `|...|` and `+` are Java string concatenation, so a `null` prints `null`. To print nothing,
   write `x ?: ''` for a `String` and `x == null ? '' : '' + x` otherwise.
 - `t:if` is false for `null`, `false`, `0` and the strings `"false"`, `"off"` and `"no"`, and true
@@ -1200,8 +1203,8 @@ Gaps in Thwart today, with what to do instead.
   attribute value omits the attribute; `<script>` and `<style>` get a CSP
   nonce. `compare` ignores these.
 - **Runtime errors** are model type mismatches, missing primitive parameters, reading a property
-  of `null`, `null` link path variables, `first`/`last` of an empty list and `ids.prev` before any
-  input. Everything else is a build error.
+  of `null`, a `null` number in `<` or arithmetic, `null` link path variables and `ids.prev`
+  before any input. Everything else is a build error.
 - **Markup rejections** and their fixes are in this table. Verifier errors end with `[verifier:RULE]`:
   a spec HTML parser rejects markup a browser reads only by error recovery or where browsers
   build different trees. For an expression inside a fragment, the error is at the call site.
