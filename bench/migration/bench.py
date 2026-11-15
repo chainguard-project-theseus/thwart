@@ -299,7 +299,14 @@ def browser_report(app, run_dir):
 
 # What Thwart forces a migration to change (#863): inline on* handlers and javascript: URLs, which
 # a strict CSP blocks, and the data-* attributes, href="#" and <script> elements that replace them.
-FORCED_ATTR = re.compile(r' (?:on[a-z]+|data-[\w.:-]+)(?:="[^"]*")?| href="(?:javascript:[^"]*|#)"')
+# A tag line is walked attribute by attribute (quoted values and text after the tag are skipped
+# whole), so a word inside a value or text, such as value="Pick one", is never taken for one.
+ATTR = re.compile(r' ([^\s=>"]+)(="[^"]*")?|"[^"]*"|>.*')
+FORCED_ATTR = re.compile(r'(?:on[a-z]+|data-[\w.:-]+)(?:="[^"]*")?|href="(?:javascript:[^"]*|#)"')
+
+
+def unforced(tag_line):
+    return ATTR.sub(lambda m: "" if m.group(1) and FORCED_ATTR.fullmatch(m.group(0)[1:]) else m.group(0), tag_line)
 
 
 def forced_only(diff):
@@ -329,7 +336,7 @@ def forced_only(diff):
                 continue
             script = indent if l.lstrip().startswith("<script") else None
             if script is None:
-                out.append(FORCED_ATTR.sub("", l) if l.lstrip().startswith("<") else l)
+                out.append(unforced(l) if l.lstrip().startswith("<") else l)
         return out
     return sorted(kept(sides[0])) == sorted(kept(sides[1]))  # in any order, as compare's reordered
 
