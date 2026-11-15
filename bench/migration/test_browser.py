@@ -154,5 +154,107 @@ class RecheckTest(unittest.TestCase):
         self.assertIn("luckyblog run-1: no checkout in work/runs, not rechecked", out.getvalue())
 
 
+HANDLER_MOVED = """--- recorded 01.html
++++ now
+@@ -3,7 +3,9 @@
+   <body>
+-    <a href="javascript:void(0)" onclick="day_night()">
++    <a data-action="day-night" href="#">
+       Night
+-    <form action="/s" method="post" onsubmit="store()">
++    <form action="/s" data-action="store" method="post">
+     <script>
+-      function store(){}
++      function store(){} document.addEventListener('click',function(e){});
++    <script src="/js/actions.js">
+   <div>""".splitlines()
+
+
+class ForcedOnlyTest(unittest.TestCase):
+    """pass_forced (#863): diffs confined to what Thwart forces, from run-15's compare.txt."""
+
+    def test_handlers_moved_to_data_attributes_and_scripts(self):
+        self.assertTrue(bench.forced_only(HANDLER_MOVED))
+
+    def test_hashset_order_is_allowed(self):
+        # <span>size<br>blank</span>: siblings under one parent, as compare prints them.
+        self.assertTrue(bench.forced_only([" <span>", "-  size", "+  blank", "   <br>", "-  blank", "+  size"]))
+
+    def test_text_moved_between_elements_is_not(self):
+        self.assertFalse(bench.forced_only(["   <label for=\"name\">", "-    Name", "+    Email",
+                                            "   <input id=\"name\">", "   <label for=\"email\">",
+                                            "-    Email", "+    Name"]))
+        self.assertFalse(bench.forced_only(["@@ -1 +1 @@", "   <td>", "-    1", "+    2",
+                                            "@@ -9 +9 @@", "   <td>", "-    2", "+    1"]))
+
+    def test_any_other_change_is_not(self):
+        for old, new in (('<a href="/ranking/pdf?mode=">', '<a href="/ranking/pdf?mode">'),
+                         ('<h2 id="h2-notes">', '<h2 id="user-content-h2-notes">'),
+                         ('<form action="/login" onsubmit="go()">', '<form action="/login" id="f">'),
+                         ("  Jay", "  Jay &lt;i&gt;"),
+                         ('<input name="id" th:value="*{id}">', '<input name="id">'),
+                         ('<input value="Pick one">', '<input value="Pick">'),
+                         ('<a title="a data-driven view">', '<a title="a view">'),
+                         ('<p>Go online</p>', '<p>Go</p>')):
+            self.assertFalse(bench.forced_only([" <body>", "-  " + old, "+  " + new]), old)
+
+    def test_text_after_a_script_is_still_compared(self):
+        self.assertFalse(bench.forced_only([" <div>", "   <script>", "-  <p>", "+  <p class='x'>"]))
+
+    def test_a_script_ends_at_its_hunk(self):
+        self.assertFalse(bench.forced_only(["   <script>", "-    a()", "+    b()", "     c()", "@@ -9 +9 @@",
+                                            "     <td>", "-      Total: 10", "+      Total: 0"]))
+
+    def test_a_diff_compare_cut_short_is_not(self):
+        self.assertFalse(bench.forced_only(HANDLER_MOVED + ["... 12 more diff line(s)"]))
+
+    def test_score_keeps_strict_pass_and_adds_pass_forced(self):
+        results = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, results)
+        base, run = os.path.join(results, "app", "baseline"), os.path.join(results, "app", "run-1")
+        os.makedirs(os.path.join(base, "pages"))
+        os.makedirs(os.path.join(run, "check"))
+        files = {os.path.join(base, "pages", "index.tsv"): "01.html\t200\t/\tGET /\n02.html\t200\t/b\tGET /b\n",
+                 os.path.join(run, "check", "build.exit"): "0", os.path.join(run, "check", "test.exit"): "0",
+                 os.path.join(run, "check", "compare.exit"): "1", os.path.join(run, "diff.patch"): "",
+                 os.path.join(run, "agent.json"): "{}", os.path.join(base, "build.exit"): "0"}
+        for compare, forced in ((["01 differs   GET /", *HANDLER_MOVED, "02 same      GET /b"], True),
+                                (["01 differs   GET /", *HANDLER_MOVED, "   <p>", "-x", "+y", "02 same      GET /b"], False),
+                                (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED,
+                                  "02 same      GET /b"], False)):
+            files[os.path.join(run, "check", "compare.txt")] = "\n".join(compare + ["thwart-migrate compare: 2 page(s)"])
+            for p, text in files.items():
+                with open(p, "w") as f:
+                    f.write(text)
+            with mock.patch.object(bench, "RESULTS", results), \
+                    mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
+                s = bench.score("app", run)
+            self.assertEqual((s["pass"], s["pass_forced"]), (False, forced), compare)
+
+    def test_report_shows_strict_and_forced_verdicts(self):
+        results = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, results)
+        # run-1 is an old pages.diff run: rescore leaves it without a pass_forced key.
+        for run, ok, forced in (("run-1", True, None), ("run-2", False, True), ("run-3", False, False)):
+            os.makedirs(os.path.join(results, "app", run))
+            with open(os.path.join(results, "app", run, "score.json"), "w") as f:
+                score = {"app": "app", "run": run, "pass": ok, "pass_forced": forced, "build_ok": True,
+                         "tests_ok": True, "tests": {"tests": 1, "failures": 0, "errors": 0}, "baseline_tests": 1,
+                         "legacy_templates": [], "legacy_deps": [], "cost_usd": None, "pages_identical": 1,
+                         "pages_reordered": 0, "pages_total": 1, "status_mismatch": [], "insecure": [],
+                         "wall_minutes": 1, "tokens": {}}
+                if forced is None:
+                    del score["pass_forced"]
+                json.dump(score, f)
+        with mock.patch.object(bench, "RESULTS", results), mock.patch.object(bench, "apps", lambda a: ["app"]), \
+                mock.patch.object(bench, "config", lambda app: {}), contextlib.redirect_stdout(io.StringIO()):
+            bench.report()
+        with open(os.path.join(results, "summary.md")) as f:
+            rows = [l.split(" | ")[:3] for l in f.read().splitlines() if l.startswith("| app |") or l.startswith("| all |")]
+        self.assertEqual(rows, [["| app", "run-1 (crawl.py)", "yes"], ["| app", "run-2 (crawl.py)", "forced"],
+                                ["| app", "run-3 (crawl.py)", "no"], ["| app", "3", "1/3 (forced 2/3)"],
+                                ["| all", "3", "1/3 (forced 2/3)"]])
+
+
 if __name__ == "__main__":
     unittest.main()
