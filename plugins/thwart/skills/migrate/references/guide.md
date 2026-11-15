@@ -470,6 +470,8 @@ that runs code. What differs:
   Comparing types that never share a value (a `String` variable with an enum or a number) is a
   build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
   `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types.
+  `x ?: d` evaluates `d` only when the variable `x` is null; `a.b ?: d` evaluates `d` either way,
+  so when `d` could fail or is costly, name the value first: `t:with="b=${a.b}"`, then `b ?: d`.
 - `<`, `>`, `<=`, `>=`, `-` and arithmetic are Java's, so a `null` number (an `Integer`
   property) fails the render. Using an `a?.b` there is a build error: write `(u?.age ?: 0) > 18`
   or `u != null and u.age > 18`. `list.first` and `list.last` are `null` for an empty list.

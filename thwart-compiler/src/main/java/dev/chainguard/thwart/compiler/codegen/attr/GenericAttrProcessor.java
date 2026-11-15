@@ -201,7 +201,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * render time, {@link Escapers#neutralNumber}) or a boolean type, a {@link #neutralLink neutral
    * link} ({@link Escapers#neutralPath}), or a choice ({@code c ? a : b}, {@code a ?: b}) between
    * those. Every branch is checked, so all errors are reported. Both operands of an elvis are
-   * evaluated, as in the compiler's {@code ?:}. Static values are not checked: the author wrote them.
+   * evaluated. Static values are not checked: the author wrote them.
    */
   private static String neutralCode(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name) {
     if (e instanceof Expr.Literal) {
@@ -434,8 +434,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * {@code BigInteger} piece is wrapped in {@link Escapers#styleNumber}. Every piece is checked, so
    * all errors are reported. A {@code +} with a String operand is concatenation; any other
    * {@code +} is arithmetic on primitives and boxes, so it has no such piece. The condition of a
-   * choice is not output. As in the compiler's {@code ?:}, both operands of an elvis are evaluated,
-   * so a hostile fallback fails the render even when the value is not null.
+   * choice is not output. Both operands of an elvis with a wrapped piece are evaluated, so a
+   * hostile fallback fails the render even when the value is not null.
    */
   private static String styleCode(
       CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, OutputContext context) {
