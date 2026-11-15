@@ -6,6 +6,7 @@ import dev.chainguard.thwart.compiler.Backports;
 import dev.chainguard.thwart.compiler.CompilerEnv;
 import dev.chainguard.thwart.compiler.GeneratedFile;
 import dev.chainguard.thwart.compiler.forms.FormPaths;
+import dev.chainguard.thwart.runtime.internal.TemplateEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -104,6 +105,7 @@ public final class RegistryGenerator {
     sb.append("    for (").append(entry).append(" e : FRAGMENTS) {\n      BY_NAME.put(e.name(), e);\n    }\n  }\n\n");
     sb.append("  @Override\n  public java.util.Optional<").append(entry).append("> find(java.lang.String viewName) {\n");
     sb.append("    return java.util.Optional.ofNullable(viewName == null ? null : BY_NAME.get(viewName));\n  }\n\n");
+    sb.append("  @Override\n  public int abi() {\n    return ").append(TemplateEntry.ABI).append(";\n  }\n\n");
     sb.append("  @Override\n  public java.util.Collection<").append(entry).append("> all() {\n    return ENTRIES;\n  }\n\n");
     sb.append("  @Override\n  public java.util.Collection<").append(entry).append("> fragments() {\n    return FRAGMENTS;\n  }\n");
     for (int i = 0; i < templates.size(); i++) {
