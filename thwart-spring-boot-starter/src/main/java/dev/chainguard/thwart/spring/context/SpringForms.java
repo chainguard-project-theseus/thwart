@@ -24,8 +24,6 @@ import org.springframework.web.servlet.support.RequestContext;
  * without a {@code BindingResult} in the model use the current value and have no errors.
  */
 final class SpringForms implements Forms {
-  static final String CSRF_ATTRIBUTE = "_csrf";
-
   private static final boolean SECURITY_PRESENT =
       ClassUtils.isPresent(
           "org.springframework.security.web.csrf.CsrfToken", SpringForms.class.getClassLoader());
@@ -153,8 +151,8 @@ final class SpringForms implements Forms {
   }
 
   /**
-   * The {@code _csrf} request attribute, read lazily so that a deferred token is only loaded
-   * (and a session only created) when a template actually renders a POST form.
+   * The request's Spring Security {@code CsrfToken}, read lazily so that a deferred token is only
+   * loaded (and a session only created) when a template actually renders a POST form.
    */
   @Override
   public Optional<CsrfToken> csrfToken() {
@@ -172,7 +170,10 @@ final class SpringForms implements Forms {
   /** Holds the Spring Security references so they load only when Security is on the classpath. */
   private static final class Security {
     static Optional<CsrfToken> csrfToken(HttpServletRequest request) {
-      Object attribute = request.getAttribute(CSRF_ATTRIBUTE);
+      // CsrfFilter always sets this key; "_csrf" is only its configurable alias (Spring
+      // Security's CsrfRequestDataValueProcessor, which Thymeleaf uses, reads this key too).
+      Object attribute =
+          request.getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
       if (attribute instanceof org.springframework.security.web.csrf.CsrfToken) {
         org.springframework.security.web.csrf.CsrfToken token =
             (org.springframework.security.web.csrf.CsrfToken) attribute;

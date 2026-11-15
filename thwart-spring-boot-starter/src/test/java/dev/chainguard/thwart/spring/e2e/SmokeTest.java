@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -170,7 +171,7 @@ class SmokeTest {
   @Test
   void csrfTokenRendersInPostForm() throws Exception {
     mvc.perform(
-            get("/page").requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
+            get("/page").requestAttr(CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
         .andExpect(
             content()
                 .string(containsString("<input type=\"hidden\" name=\"_csrf\" value=\"t0k\"")));
@@ -188,7 +189,7 @@ class SmokeTest {
             get("/app/action")
                 .contextPath("/app")
                 .param("target", "/app/signup")
-                .requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
+                .requestAttr(CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
         .andExpect(status().isOk())
         .andExpect(
             content()
@@ -202,7 +203,7 @@ class SmokeTest {
     mvc.perform(
             get("/action")
                 .param("target", "https://evil.example/steal")
-                .requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
+                .requestAttr(CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
         .andExpect(status().isOk())
         .andExpect(
             content()
