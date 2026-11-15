@@ -374,7 +374,10 @@ class ContextsTest {
   void urlAttributesOnlyOnTheirElements(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
     if (expected == OutputContext.FORBIDDEN) {
-      assertTrue(Contexts.forbidden(element(element), attribute).contains("t:data-"), element);
+      String why = Contexts.forbidden(element(element), attribute);
+      // #856: t:data-* rejects a String, so the fix-it leads with <a t:href> and scopes t:data-* to neutral values.
+      assertTrue(why.contains("<a t:href>") && why.contains("role=\"button\""), why);
+      assertTrue(why.contains("t:data-" + attribute + " takes only a neutral value"), why);
     }
   }
 

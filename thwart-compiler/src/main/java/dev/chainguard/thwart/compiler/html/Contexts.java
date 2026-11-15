@@ -212,7 +212,8 @@ public final class Contexts {
     return !URL_ATTRIBUTES.contains(attr) || (!custom && URL_ELEMENTS.contains(el + " " + attr)) ? null
         : "a computed '" + attributeName + "' is checked as a URL only on the elements HTML defines it for (<a href>,"
             + " <img src>, <form action>, ...: docs/guide.md section 4.4); Thwart can't know what <" + el + "> does"
-            + " with it, so write it as a static value, or put the link in t:data-" + attr + " for your script";
+            + " with it, so make a link an <a t:href> (add role=\"button\" to style it as a button) or write a static"
+            + " value; t:data-" + attr + " takes only a neutral value (a literal-path @{...} link, a number, a boolean)";
   }
 
   /**

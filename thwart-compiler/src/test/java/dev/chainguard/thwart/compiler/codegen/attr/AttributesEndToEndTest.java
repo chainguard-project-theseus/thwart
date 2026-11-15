@@ -47,6 +47,19 @@ class AttributesEndToEndTest {
         render("<a t:href=\"s\">x</a>", model("s", "vbscript:x")));
   }
 
+  /**
+   * #856: a String link on a {@code <button>} is a build error whose fix-it, an {@code <a role="button">},
+   * compiles and still checks the scheme; the t:data-href it also names rejects the String.
+   */
+  @Test
+  void buttonLinkFixItCompiles() {
+    compile("<button t:href=\"s\">x</button>").assertError("t.html:1:", "<a t:href>", "role=\"button\"", "neutral value");
+    compile("<button t:data-href=\"s\">x</button>").assertError("t.html:1:", "neutral");
+    assertEquals(
+        "<a role=\"button\" href=\"about:invalid#thwart\">x</a>",
+        render("<a role=\"button\" t:href=\"s\">x</a>", model("s", "javascript:alert(1)")));
+  }
+
   /** Negative (#668): no type vouches for a URL, so nothing skips the scheme or origin checks. */
   @Test
   void trustedUrlDoesNotExist() {
