@@ -180,7 +180,10 @@ class LinkCompilerTest {
             "@{data:text/html,x}",
             "@{mailto:a@b.c}",
             "@{file:///etc/passwd}",
-            "@{ftp://x.org}")) {
+            "@{ftp://x.org}",
+            // #806: a quoted constant gets the same checks.
+            "@{'javascript:alert'}",
+            "@{ 'data:text/html,x' }")) {
       r.compile(bad).assertError("only http and https");
     }
   }

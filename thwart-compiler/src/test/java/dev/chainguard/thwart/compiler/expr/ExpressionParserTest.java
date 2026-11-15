@@ -207,6 +207,9 @@ class ExpressionParserTest {
     assertEquals("(link /cart add itemId=(. item id))", ast("@{/cart(add,itemId=${item.id})}"));
     assertEquals("(link /a x=1 form)", ast("@{/a(x=1, form )}"));
     assertEquals("(link ../x.css)", ast("@{ ../x.css }"));
+    // #806: one quoted literal is a constant path.
+    assertEquals("(link /owners?page=1)", ast("@{'/owners?page=1'}"));
+    assertEquals("(link /owners/{id} id=1)", ast("@{ '/owners/{id}'(id=1)}"));
   }
 
   @Test
@@ -403,6 +406,10 @@ class ExpressionParserTest {
     "#{'k' + x}|dynamic message keys are not supported; the key must be a literal such as #{owner.name}|3",
     "@{${url}}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
     "@{'/a/' + x}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
+    "@{'/a/' + 'b'}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
+    "@{'/a\\'b'}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
+    "@{'/a\\b'}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
+    "@{'/a${x}'}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|4",
     "@{/a/*{x}}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
     "@{/a/{{id}}}|nested '{' in link path: write a path variable such as {id}|7",
     "@{/a/{x{y}}}|nested '{' in link path: write a path variable such as {id}|8",

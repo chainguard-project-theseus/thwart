@@ -227,6 +227,9 @@ class ExpressionCompilerTest {
     h.compile(idx(prop(v("u"), "items"), lit("a"))).assertError("list index must be an int");
     h.compile(idx(prop(v("u"), "groups"), lit(1))).assertError("map key must be a java.lang.String");
     h.compile(idx(prop(v("u"), "name"), lit(0))).assertError("cannot index java.lang.String");
+    // #806: m.key is not SpEL's map read here; the error says to index.
+    h.compile(prop(prop(v("u"), "groups"), "a")).assertError("'a' is not a property", "m['a']");
+    h.compile(call(prop(v("u"), "nick"), "get")).assertError("'get' is not a property", "unwrap the Optional");
   }
 
   @Test
@@ -328,6 +331,22 @@ class ExpressionCompilerTest {
     assertEquals(true, h.eval(bin(LT, prop(v("u"), "name"), lit("B"))));
     h.compile(bin(LT, prop(v("u"), "name"), lit(1))).assertError("cannot compare java.lang.String and int");
     h.compile(bin(LT, prop(v("u"), "name"), lit(null))).assertError("cannot compare");
+  }
+
+  /** #806: a BigDecimal compares with any number; arithmetic on one stays an error with a fix-it. */
+  @Test
+  void bigDecimalComparesWithNumbers() {
+    TypesHarness h = TypesHarness.create()
+        .local("p", "java.math.BigDecimal", "new java.math.BigDecimal(\"10.50\")")
+        .local("i", "java.lang.Integer", "11");
+    assertEquals(true, h.eval(bin(GT, v("p"), lit(10))));
+    assertEquals(false, h.eval(bin(GT, v("p"), lit(10.5))));
+    assertEquals(true, h.eval(bin(GE, v("p"), lit(10.5))));
+    assertEquals(true, h.eval(bin(LT, v("p"), v("i"))));
+    assertEquals(true, h.eval(bin(GT, lit(100L), v("p"))));
+    assertEquals(false, h.eval(bin(LT, v("p"), v("p"))));
+    h.compile(bin(MUL, v("p"), lit(2))).assertError("needs numbers", "no BigDecimal arithmetic", "@TemplateFunction");
+    h.compile(bin(LT, v("p"), lit("1"))).assertError("cannot compare java.math.BigDecimal and java.lang.String");
   }
 
   @Test
