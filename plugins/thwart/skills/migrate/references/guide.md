@@ -403,9 +403,10 @@ import java.math.BigDecimal;
 public record Order(String number, BigDecimal total) {}
 ```
 
-- `t:params` is `Type name, ...` with Java types (generics, arrays, `Outer.Inner`). A primitive
-  parameter must be present in the model. `t:import` lists classes or packages; `java.lang`,
-  `java.util`, `java.time`, `java.math` and `dev.chainguard.thwart.runtime` are always imported.
+- `t:params` is `Type name, ...` with Java types (generics, arrays, `Outer.Inner`), without
+  wildcards: write `List<Owner>`, not `List<? extends Owner>`. A primitive parameter must be
+  present in the model. `t:import` lists classes or packages; `java.lang`, `java.util`,
+  `java.time`, `java.math` and `dev.chainguard.thwart.runtime` are always imported.
 - The template compiles to `<thwart.package>.guide.HelloTemplate` with
   `of(Customer, List<Order>, boolean)`.
 - Static attribute values and text are prototypes that `t:` attributes replace. `<t:block>`
@@ -426,7 +427,8 @@ view-safe. A view type, any class it is nested in, and its type arguments must b
 On a view-safe type a template can read record components (`owner.name()`), public no-argument
 getters (`owner.name`, `owner.getName()`, `isX()` for booleans; `new` is a keyword, so write
 `pet.isNew()`), `size()`/`isEmpty()`/`first`/`last` on collections, `length` on arrays, and index
-access (`list[0]`, `map['key']`). Nothing else.
+access (`list[0]`, `map['key']`). Nothing else. So `map.key` is a build error (write
+`map['key']`), and an `Optional` offers only `present`: unwrap it in the view type (`orElse(null)`).
 
 **Recommended: a view record per page**, built by the controller from its entities. Lazy loading
 then happens in the controller, the template sees only what the record lists, and shaping is plain
@@ -469,12 +471,15 @@ that runs code. What differs:
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant's name.
   Comparing types that never share a value (a `String` variable with an enum or a number) is a
   build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
-  `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types.
+  `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types
+  (an `Integer` and a `Long` don't mix: give the view type one number type).
   `x ?: d` evaluates `d` only when the variable `x` is null; `a.b ?: d` evaluates `d` either way,
   so when `d` could fail or is costly, name the value first: `t:with="b=${a.b}"`, then `b ?: d`.
 - `<`, `>`, `<=`, `>=`, `-` and arithmetic are Java's, so a `null` number (an `Integer`
   property) fails the render. Using an `a?.b` there is a build error: write `(u?.age ?: 0) > 18`
   or `u != null and u.age > 18`. `list.first` and `list.last` are `null` for an empty list.
+  A `BigDecimal` compares with any number (`price > 100`), but arithmetic on one (`price * 2`)
+  is a build error: compute it in the view type or a `@TemplateFunction`.
 - `|...|` and `+` are Java string concatenation, so a `null` prints `null`. To print nothing,
   write `x ?: ''` for a `String` and `x == null ? '' : '' + x` otherwise.
 - `t:if` is false for `null`, `false`, `0` and the strings `"false"`, `"off"` and `"no"`, and true
@@ -736,10 +741,11 @@ welcome.html=Hello <b>{0}</b>!
 
 **Links** are Thymeleaf's: `@{/owners/{id}(id=owner.id, q=term)}` fills `{id}` (percent-encoded)
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
-links must be `http`/`https`. Links get the context path and `response.encodeURL`. A `null`, empty,
-`.` or `..` path variable fails the render: guard the link with `t:if`. A URL computed in Java goes
-in `t:href` as a `String` (scheme-checked); a URL with another scheme (`sms:`, `data:`, ...) must be
-a static attribute.
+links must be `http`/`https`. A path in quotes is the same constant (`@{'/owners?page=1'}`), but
+one built with `+` or `${...}` is a build error: write `@{/owners(page=${i})}`. Links get the
+context path and `response.encodeURL`. A `null`, empty, `.` or `..` path variable fails the
+render: guard the link with `t:if`. A URL computed in Java goes in `t:href` as a `String`
+(scheme-checked); a URL with another scheme (`sms:`, `data:`, ...) must be a static attribute.
 
 ### 4.6 Functions
 

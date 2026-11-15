@@ -61,6 +61,7 @@ import javax.lang.model.util.Types;
 public final class ExpressionCompiler {
   private static final String VALUES = "dev.chainguard.thwart.runtime.internal.Values";
   private static final String FRAGMENT = Fragment.class.getName();
+  private static final String BIG_DECIMAL = "java.math.BigDecimal";
   private static final Set<String> OBJECT_METHODS =
       Backports.setOf("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
 
@@ -444,7 +445,9 @@ public final class ExpressionCompiler {
         return error(
             pos,
             "'" + name + "' is not a property of " + type + ": templates can read record components, public"
-                + " getX()/isX() getters and built-ins (size, isEmpty, length, first, last)");
+                + " getX()/isX() getters and built-ins (size, isEmpty, length, first, last)"
+                + (isSubtypeOf(type, "java.util.Map") ? "; read a map value by key as m['" + name + "']" : "")
+                + (isSubtypeOf(type, "java.util.Optional") ? "; unwrap the Optional in the view type (orElse(null))" : ""));
       }
       ExecutableType et = (ExecutableType) types().asMemberOf((DeclaredType) owner, accessor);
       suffix = "." + accessor.getSimpleName() + "()";
@@ -782,6 +785,12 @@ public final class ExpressionCompiler {
     Expr.BinaryOp o = b.op();
     String op = o == Expr.BinaryOp.LT ? " < " : o == Expr.BinaryOp.GT ? " > " : o == Expr.BinaryOp.LE ? " <= " : " >= ";
     String code;
+    // price > 100: a BigDecimal compares with a number as BigDecimal.valueOf(number) (#806).
+    if (isDeclared(l.type(), BIG_DECIMAL) && isNumeric(r.type())) {
+      r = new CompiledExpr(BIG_DECIMAL + ".valueOf(" + r.code() + ")", l.type(), r.pos());
+    } else if (isDeclared(r.type(), BIG_DECIMAL) && isNumeric(l.type())) {
+      l = new CompiledExpr(BIG_DECIMAL + ".valueOf(" + l.code() + ")", r.type(), l.pos());
+    }
     if (isNumeric(l.type()) && isNumeric(r.type())) {
       code = "(" + l.code() + op + r.code() + ")";
     } else if (l.type().getKind() == TypeKind.DECLARED
@@ -808,7 +817,9 @@ public final class ExpressionCompiler {
             ? " + "
             : o == Expr.BinaryOp.SUB ? " - " : o == Expr.BinaryOp.MUL ? " * " : o == Expr.BinaryOp.DIV ? " / " : " % ";
     if (!isNumeric(l.type()) || !isNumeric(r.type())) {
-      return error(b.pos(), "operator" + JavaStrings.stripJavaTrailing(op) + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type()));
+      return error(b.pos(), "operator" + JavaStrings.stripJavaTrailing(op) + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type())
+          + (isDeclared(l.type(), BIG_DECIMAL) || isDeclared(r.type(), BIG_DECIMAL)
+              ? ": templates do no BigDecimal arithmetic, so compute the value in the view type or a @TemplateFunction" : ""));
     }
     TypeMirror t = promote(unboxed(l.type()), unboxed(r.type()));
     return new CompiledExpr("(" + l.code() + op + r.code() + ")", t, b.pos());
