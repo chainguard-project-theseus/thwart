@@ -145,13 +145,14 @@ public final class TemplateGenerator implements CodegenContext {
     }
     fragment = null;
     Emitted.Builder body = builder();
-    for (Node n : document.children()) {
+    for (Node n : info.paramsRejected() ? Collections.<Node>emptyList() : document.children()) {
       node(body, n, scope);
     }
     Emitted bodyCode = body.build();
     bodyCode.checkMethodSize(
         diagnostics(), new SourcePos(info.document().source().path(), 1, 1), "template '" + info.viewName() + "'");
-    Map<String, Skeleton.Seq> fragments = FragmentMethods.generate(this);
+    Map<String, Skeleton.Seq> fragments =
+        info.paramsRejected() ? Collections.<String, Skeleton.Seq>emptyMap() : FragmentMethods.generate(this);
     for (int i = 0; i < pending.size(); i++) {
       Skeleton.FragmentId id = pending.get(i);
       TemplateIndex.TemplateInfo t = index.template(id.view()).get();

@@ -100,6 +100,10 @@ final class Migrator {
     private final List<Report.Item> items = new ArrayList<>();
     private final Set<String> roots = new LinkedHashSet<>();
     private final Set<String> locals = new LinkedHashSet<>();
+    /** {@code t:object} roots not yet a local where read: the form object, even if a later loop reuses its name. */
+    private final Set<String> formObjects = new LinkedHashSet<>();
+    /** The current element's {@code t:object} roots, checked at its end; see {@link #flushFormObjects}. */
+    private final List<String> pendingFormObjects = new ArrayList<>();
     /** Names declared in a {@code t:params} already in the template. */
     private final Set<String> declared = new LinkedHashSet<>();
     /** Reads of ambient scopes ({@code session.user}), each with its line; see {@link #addRoots}. */
@@ -186,8 +190,15 @@ final class Migrator {
       renameElement(buffer, nameOffset, nameLen);
     }
 
+    /** Thymeleaf runs {@code th:each} before {@code th:object}, so the check waits for the element's last attribute. */
+    private void flushFormObjects() {
+      pendingFormObjects.stream().filter(r -> !locals.contains(r)).forEach(formObjects::add);
+      pendingFormObjects.clear();
+    }
+
     private void elementStart(char[] buffer, int nameOffset, int nameLen, int line) {
       checkBuffer(buffer);
+      flushFormObjects();
       openName = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
       scriptType = "";
       inlineMode = null;
@@ -361,6 +372,9 @@ final class Migrator {
       if (!selection) {
         rewritten = selections(line, rewritten);
         addRoots(line, rewritten, fragmentReference);
+      }
+      if (local.equals(ConversionRules.OBJECT)) {
+        pendingFormObjects.addAll(Expressions.roots(rewritten, false));
       }
       nullablePathVariables(line, rewritten);
       if (thymeleaf && ConversionRules.EMPTY_FOR_NULL.contains(local) && Expressions.mayBeNull(rewritten)) {
@@ -721,8 +735,9 @@ final class Migrator {
     }
 
     Result finish(String source) {
+      flushFormObjects();
       Set<String> params = new LinkedHashSet<>(roots);
-      params.removeAll(locals);
+      params.removeIf(p -> locals.contains(p) && !formObjects.contains(p));
       // An ambient read moves into the model under its own name: no `Object session` stub for it.
       Set<String> reported = new HashSet<>();
       for (Map.Entry<Integer, String> read : ambientReads) {

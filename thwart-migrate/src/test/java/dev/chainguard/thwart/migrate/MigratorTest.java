@@ -574,6 +574,16 @@ class MigratorTest {
         "1: `owner` is declared as `Object`");
   }
 
+  /** #820: PetClinic's visit form binds {@code visit}, and a later loop reuses the name for each past visit. */
+  @Test
+  void formObjectIsAParameterEvenIfALaterLoopReusesItsName() throws Exception {
+    String src = "<div><form th:object=\"${visit}\"><input th:field=\"*{date}\"></form>"
+        + "<p th:each=\"visit : ${pet.visits}\" th:text=\"${visit.date}\"></p>"
+        + "<p th:each=\"v : ${pet.visits}\"><form th:object=\"${v}\"></form></p>"
+        + "<tr th:object=\"${item}\" th:each=\"item : ${pet.items}\"></tr></div>";
+    assertTrue(convert(src).startsWith("<div t:params=\"Object visit, Object pet\">"), convert(src));
+  }
+
   @Test
   void ambientExpressionObjectsAreReportedWithAFixIt() throws Exception {
     String src = "<div><p th:text=\"${#httpServletRequest.requestURI}\"></p>"
