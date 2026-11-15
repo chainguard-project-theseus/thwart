@@ -673,7 +673,7 @@ public final class ExpressionCompiler {
       return c == null ? null : new CompiledExpr("(!" + c.code() + ")", c.type(), u.pos());
     }
     CompiledExpr x = compile(u.operand(), scope);
-    if (x == null) {
+    if (x == null || nullSafe(u.operand())) {
       return null;
     }
     if (!isNumeric(x.type())) {
@@ -697,6 +697,11 @@ public final class ExpressionCompiler {
     if (l == null || r == null) {
       return null;
     }
+    boolean concat = isDeclared(l.type(), "java.lang.String") || isDeclared(r.type(), "java.lang.String");
+    boolean eq = b.op() == Expr.BinaryOp.EQ || b.op() == Expr.BinaryOp.NE;
+    if (!eq && !(concat && b.op() == Expr.BinaryOp.ADD) && (nullSafe(b.left()) | nullSafe(b.right()))) {
+      return null;
+    }
     switch (b.op()) {
       case EQ:
       case NE:
@@ -707,12 +712,21 @@ public final class ExpressionCompiler {
       case GE:
         return comparison(b, l, r);
       case ADD:
-        return isDeclared(l.type(), "java.lang.String") || isDeclared(r.type(), "java.lang.String")
-            ? concat(b, l, r)
-            : arithmetic(b, l, r);
+        return concat ? concat(b, l, r) : arithmetic(b, l, r);
       default:
         return arithmetic(b, l, r);
     }
+  }
+
+  /** Reports {@code e} if it is an {@code a?.b}, whose null Java would unbox or dereference. */
+  private boolean nullSafe(Expr e) {
+    boolean ns = e instanceof Expr.Property && ((Expr.Property) e).nullSafe()
+        || e instanceof Expr.MethodCall && ((Expr.MethodCall) e).nullSafe();
+    if (ns) {
+      error(e.pos(), "a ?. result may be null, so it can't be compared with <, >, <=, >= or used in arithmetic:"
+          + " give it a default ((u?.age ?: 0) > 18) or test first (u != null and u.age > 18)");
+    }
+    return ns;
   }
 
   private CompiledExpr equality(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
