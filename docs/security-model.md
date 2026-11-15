@@ -202,3 +202,11 @@ These, and only these, are known ways the guarantee falls short:
 3. **Tier1's parser oracle shares the verifier's engine.** `SeedVerifierTest` and
    `HostileSweepTest` parse with the same pinned htmlparser the verifier uses; the Node postsubmit
    (parse5, Chromium, Firefox ESR, WebKit) is the independent check.
+4. **DOM clobbering through computed `id`, `name` and `form`.** These take any value (guide
+   §4.4), so a model value can name an element after a page global (`<img t:name>` or `<form
+   t:name>` as `cookie` shadows `document.cookie`; any `t:id` adds a `window` property) or move a
+   control into another form on the page with `t:form`. No script runs, but page JavaScript that
+   reads those globals sees the value (principle 7). Real templates compute all three (form and
+   row ids, `t:form` on inputs outside their form), and every attacker string is a valid name, so
+   the compiler doesn't restrict them: compute them from the application's own keys or a prefixed
+   id, not raw user input. `HtmlPolicy` prefixes ids in sanitized HTML (`user-content-`).
