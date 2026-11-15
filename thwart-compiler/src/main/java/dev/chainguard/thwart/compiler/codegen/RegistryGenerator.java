@@ -25,7 +25,8 @@ import javax.lang.model.type.TypeMirror;
  * naming the template, the parameter, the expected and the actual type. Generic arguments are
  * not checked. A primitive parameter needs a value of its box type; a missing one throws. A
  * {@code NullPointerException} from the render, while some reference parameter is null, becomes a
- * {@code TemplateModelException} naming the template and those parameters (cause: the NPE).
+ * {@code TemplateModelException} listing the template and those parameters (cause: the NPE; the
+ * list says which were null, not which was read); with none null, the NPE is rethrown as is.
  *
  * <p>Fragment entries ({@code TemplateRegistry.fragments()}): one per fragment named in
  * {@code servable} (as {@code page :: fragment}, the fragments the verifier checked as a response
@@ -127,8 +128,8 @@ public final class RegistryGenerator {
     sb.append("    for (java.lang.String p : params) {\n      if (model.get(p) == null) {\n        names.add(\"'\" + p + \"'\");\n      }\n    }\n");
     sb.append("    if (names.isEmpty()) {\n      return e;\n    }\n");
     sb.append("    java.lang.RuntimeException x = new ").append(RT).append("TemplateModelException(\"template '\" + template\n");
-    sb.append("        + \"': NullPointerException while rendering, with model attribute \" + java.lang.String.join(\", \", names)\n");
-    sb.append("        + \" missing or null (write a?.b where null is expected)\");\n");
+    sb.append("        + \"': NullPointerException while rendering; null model attributes: \" + java.lang.String.join(\", \", names)\n");
+    sb.append("        + \" (the cause's stack trace has the template position)\");\n");
     sb.append("    x.initCause(e);\n    return x;\n  }\n}\n");
     return sb.toString();
   }
