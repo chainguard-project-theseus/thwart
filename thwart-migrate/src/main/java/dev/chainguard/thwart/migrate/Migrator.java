@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -134,6 +135,10 @@ final class Migrator {
     private final Deque<Open> open = new ArrayDeque<>();
     /** The end of the previous attribute's quoted value in this tag, or -1. */
     private int quotedValueEnd = -1;
+    /** This start tag's {@link #queueRewrite}s, the local names of its {@code th:}/{@code t:} attributes, its field path. */
+    private final List<Runnable> rewrites = new ArrayList<>();
+    private final Set<String> tagLocals = new HashSet<>();
+    private String fieldPath;
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -152,7 +157,19 @@ final class Migrator {
     }
 
     @Override
+    public void handleStandaloneElementEnd(
+        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
+      applyRewrites();
+    }
+
+    private void applyRewrites() {
+      rewrites.forEach(Runnable::run);
+      rewrites.clear();
+    }
+
+    @Override
     public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
+      applyRewrites();
       // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
       String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
       boolean none = ConversionRules.INLINE_NONE.equals(mode);
@@ -204,6 +221,8 @@ final class Migrator {
       inlineMode = null;
       inScript = false;
       quotedValueEnd = -1;
+      tagLocals.clear();
+      fieldPath = null;
       inRoot = !rootSeen;
       if (!rootSeen) {
         rootSeen = true;
@@ -260,6 +279,9 @@ final class Migrator {
         }
         return;
       }
+      if (value != null && queueRewrite(name, lower, value, nameOffset, valueOuterOffset + valueOuterLen, nameLine)) {
+        return;
+      }
       String unsupported = ConversionRules.unsupportedAttribute(name);
       if (unsupported != null) {
         report(nameLine, unsupported);
@@ -273,6 +295,11 @@ final class Migrator {
         local = lower.substring(ConversionRules.THWART_PREFIX.length());
       } else {
         return; // plain HTML attribute
+      }
+      tagLocals.add(local);
+      if (local.equals(ConversionRules.FIELD) && value != null) {
+        Matcher m = ConversionRules.FIELD_PATH.matcher(value);
+        fieldPath = m.matches() ? m.group(1) : null;
       }
       if (thymeleaf) {
         edits.add(nameOffset, nameOffset + ConversionRules.THYMELEAF_PREFIX.length(),
@@ -306,6 +333,57 @@ final class Migrator {
           edits.add(valueContentOffset, valueContentOffset + valueContentLen, converted);
         }
       }
+    }
+
+    /**
+     * Queues the exact rewrites (#822): {@code sec:authorize="hasRole('A')"} to
+     * {@code t:if="auth.hasRole('A')"}, {@code th:errorclass="err"} with a {@code th:field="*{p}"} to
+     * {@code t:classappend="fields.hasErrors('p') ? 'err'"}, and {@code th:attr} of {@code data-*}
+     * and {@code aria-*} pairs to one {@code t:<name>} each. False if {@code value} has none. Each
+     * applies at the end of the start tag, unless the tag has one of the attributes it adds (or, for
+     * {@code th:errorclass}, no field path): then the attribute is reported as before.
+     */
+    private boolean queueRewrite(String name, String lower, String value, int from, int to, int line) {
+      Matcher m;
+      List<String> adds = new ArrayList<>();
+      Supplier<String> text;
+      if (lower.equals(ConversionRules.SEC_AUTHORIZE) && ConversionRules.AUTHORIZE_CALL.matcher(value).matches()) {
+        adds.add("if");
+        text = () -> "t:if=\"" + ConversionRules.AUTH + "." + Compat.strip(value) + "\"";
+      } else if (lower.equals("th:errorclass") && (m = ConversionRules.ERROR_CLASSES.matcher(value)).matches()) {
+        String classes = m.group(1) != null ? m.group(1) : m.group(2);
+        adds.add("classappend");
+        text = () -> fieldPath == null ? null
+            : "t:classappend=\"fields.hasErrors('" + fieldPath + "') ? '" + classes + "'\"";
+      } else if (lower.equals("th:attr") && value.indexOf('"') < 0) {
+        List<String> exprs = new ArrayList<>();
+        for (String pair : Expressions.splitTopLevel(value, false)) {
+          if (!(m = ConversionRules.ATTR_PAIR.matcher(pair)).matches() || !Expressions.unsupported(m.group(2)).isEmpty()) {
+            return false;
+          }
+          adds.add(m.group(1));
+          exprs.add(m.group(2));
+        }
+        text = () -> {
+          List<String> attrs = new ArrayList<>();
+          for (int i = 0; i < adds.size(); i++) {
+            attrs.add(ConversionRules.THWART_PREFIX + adds.get(i) + "=\""
+                + expressionValue(adds.get(i), exprs.get(i), true, "th:" + adds.get(i), line) + "\"");
+          }
+          return String.join(" ", attrs);
+        };
+      } else {
+        return false;
+      }
+      rewrites.add(() -> {
+        String t = Collections.disjoint(adds, tagLocals) ? text.get() : null;
+        if (t == null) {
+          report(line, ConversionRules.unsupportedAttribute(name));
+        } else {
+          edits.add(from, to, t);
+        }
+      });
+      return true;
     }
 
     /** {@code f(a, b)} becomes {@code f(Object a, Object b)} plus a report item to type it. */

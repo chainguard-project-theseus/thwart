@@ -297,8 +297,9 @@ final class Expressions {
   }
 
   /**
-   * {@code @{'/p?k=' + ${x}}} and {@code @{'/p?k=__${x}__'}} become {@code @{/p(k=${x})}}. Runs
-   * before {@link #unsupported}, which reports the string-built forms it does not cover.
+   * {@code @{'/p?k=' + ${x}}} and {@code @{'/p?k=__${x}__'}} become {@code @{/p(k=${x})}}, and
+   * {@code @{/o/__${owner.id}__/e}} becomes {@code @{/o/{ownerId}/e(ownerId=${owner.id})}}. Runs
+   * before {@link #unsupported}, which reports the string-built and preprocessed forms it does not cover.
    */
   static String rewriteLinks(String expr) {
     String s = expr;
@@ -306,7 +307,28 @@ final class Expressions {
       s = replaceOutsideLiterals(s, p,
           m -> "@{" + m.group(1) + "(" + m.group(2) + "=${" + Compat.strip(m.group(3)) + "})}");
     }
-    return s;
+    return replaceOutsideLiterals(s, ConversionRules.PREPROCESSED_PATH_LINK, Expressions::pathVariables);
+  }
+
+  /** Each {@code __${a.b}__} in a link's path becomes {@code {aB}}; unchanged if two paths share a name. */
+  private static String pathVariables(MatchResult link) {
+    Map<String, String> vars = new LinkedHashMap<>();
+    StringBuffer path = new StringBuffer();
+    Matcher m = ConversionRules.PATH_SEGMENT.matcher(link.group(1));
+    while (m.find()) {
+      String[] names = m.group(1).split("\\.");
+      StringBuilder var = new StringBuilder(names[0]);
+      for (int i = 1; i < names.length; i++) {
+        var.append(Character.toUpperCase(names[i].charAt(0))).append(names[i], 1, names[i].length());
+      }
+      if (!m.group(1).equals(vars.computeIfAbsent(var.toString(), k -> m.group(1)))) {
+        return link.group();
+      }
+      m.appendReplacement(path, "{" + var + "}");
+    }
+    List<String> params = new ArrayList<>();
+    vars.forEach((var, value) -> params.add(var + "=${" + value + "}"));
+    return vars.isEmpty() ? link.group() : "@{" + m.appendTail(path) + "(" + String.join(", ", params) + ")}";
   }
 
   private static final Pattern BLOCK_SELECTOR = Pattern.compile("::(\\s*)th:block(?![\\w:-])");
@@ -635,7 +657,8 @@ final class Expressions {
     char next = nextNonSpace(masked, m.end());
     int nextAt = nextNonSpaceIndex(masked, m.end());
     boolean assignment = next == '=' && !(nextAt + 1 < masked.length() && masked.charAt(nextAt + 1) == '=');
-    boolean namespace = next == '.' && ConversionRules.NAMESPACES.containsKey("#" + name);
+    boolean namespace = next == '.'
+        && (ConversionRules.NAMESPACES.containsKey("#" + name) || name.equals(ConversionRules.AUTH));
     return !(prev == '.' || next == '(' || assignment || namespace || ConversionRules.KEYWORDS.contains(name));
   }
 

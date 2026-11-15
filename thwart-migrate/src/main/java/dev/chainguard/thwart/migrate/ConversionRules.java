@@ -170,6 +170,29 @@ final class ConversionRules {
       Pattern.compile(LINK_PATH + "'\\s*\\+\\s*\\$\\{([^{}',]+)\\}\\s*\\}"),
       Pattern.compile(LINK_PATH + "__\\$\\{([^{}',]+)\\}__'\\s*\\}"));
 
+  /**
+   * {@code @{/owners/__${owner.id}__/edit}}: a literal path whose preprocessed parts are property
+   * paths, rewritten to {@code @{/owners/{ownerId}/edit(ownerId=${owner.id})}}. Group 1 is the
+   * path; {@link #PATH_SEGMENT} finds each part (group 1, its property path).
+   */
+  private static final String PATH_PART = "(?:[^'?{}()\\s_$]|_(?!_)|__\\$\\{\\s*[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*\\s*\\}__)*";
+  static final Pattern PREPROCESSED_PATH_LINK = Pattern.compile("@\\{\\s*(" + PATH_PART + "/" + PATH_PART + ")\\s*\\}");
+  static final Pattern PATH_SEGMENT = Pattern.compile("__\\$\\{\\s*([\\w.]+?)\\s*\\}__");
+
+  /** {@code sec:authorize} calls with an {@code auth.} twin (guide section 4.10, Spring Security tags). */
+  static final String SEC_AUTHORIZE = "sec:authorize";
+  static final String AUTH = "auth";
+  private static final String QUOTED = "\\s*'[^'\\\\]*'\\s*";
+  static final Pattern AUTHORIZE_CALL = Pattern.compile("\\s*(?:(?:hasRole|hasAuthority)\\(" + QUOTED + "\\)"
+      + "|(?:hasAnyRole|hasAnyAuthority)\\(" + QUOTED + "(?:," + QUOTED + ")*\\)|isAuthenticated\\(\\s*\\))\\s*");
+
+  /** {@code th:attr} pairs rewritten to one {@code t:<name>} each: {@code data-*} and {@code aria-*}, never a processor name. */
+  static final Pattern ATTR_PAIR = Pattern.compile("\\s*((?:data|aria)-[a-z0-9_-]+)\\s*=\\s*(\\$\\{[^{}]*\\})\\s*");
+  /** {@code th:errorclass} classes, a token or a literal, and the {@code th:field} path it reads. */
+  static final Pattern ERROR_CLASSES = Pattern.compile("\\s*(?:([\\w-]+)|'([\\w-]+(?:\\s+[\\w-]+)*)')\\s*");
+  static final String FIELD = "field";
+  static final Pattern FIELD_PATH = Pattern.compile("\\s*\\*\\{\\s*([A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*)\\s*\\}\\s*");
+
   static final String UNKNOWN_UTILITY_MESSAGE =
       "Thymeleaf utility object `#%s` has no Thwart equivalent; use a `@TemplateFunctions` namespace or a view-type property";
 
