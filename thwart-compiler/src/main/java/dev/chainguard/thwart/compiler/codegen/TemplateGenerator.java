@@ -748,7 +748,7 @@ public final class TemplateGenerator implements CodegenContext {
    * inline script ({@code on*}, {@code javascript:} URLs) is rejected: {@link Contexts#staticScript}.
    * So is a namespaced name outside {@code t:} whose prefix has no '-' ({@code th:}, {@code sec:},
    * {@code layout:}, {@code T:}, {@code foo:}; not {@code xml:}, {@code xmlns:}, {@code xlink:} or a
-   * directive such as {@code v-on:}), and {@code data-th-}: it would drop its effect and print its
+   * directive such as {@code v-on:}), and {@code data-th-}/{@code data-sec-}: it would drop its effect and print its
    * source (#801).
    */
   private void checkStaticAttributes(Element e) {
@@ -756,7 +756,7 @@ public final class TemplateGenerator implements CodegenContext {
       if (a.isThwart()) {
         continue;
       }
-      if (a.name().matches("(?is)(?!(xml|xmlns|xlink):)[a-z0-9_]+:.*|data-th-.*")) {
+      if (a.name().matches("(?is)(?!(xml|xmlns|xlink):)[a-z0-9_]+:.*|data-(th|sec)-.*")) {
         diagnostics().error(a.pos(), a.name() + " on <" + e.name() + "> is not allowed: it is a prefixed attribute"
             + " that Thwart would print as text; write the t: attribute it stands for (thwart-migrate rewrites th:"
             + " ones, guide 4.3) or remove it");

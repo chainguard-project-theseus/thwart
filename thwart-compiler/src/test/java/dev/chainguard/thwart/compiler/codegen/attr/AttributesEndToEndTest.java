@@ -195,7 +195,7 @@ class AttributesEndToEndTest {
     compile("<p th:if=\"${b}\">secret</p>").assertError(col, "th:if on <p> is not allowed", "t:", "thwart-migrate");
     for (String t : new String[] {"<p sec:authorize=\"isAuthenticated()\">x</p>", "<p layout:fragment=\"c\">x</p>",
         "<p data-th-text=\"${s}\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>",
-        "<p foo:bar=\"2\">x</p>"}) {
+        "<p foo:bar=\"2\">x</p>", "<p data-sec-authorize=\"isAuthenticated()\">x</p>"}) {
       compile(t).assertError("t.html:1:", "is not allowed: it is a prefixed attribute");
     }
   }
@@ -206,7 +206,7 @@ class AttributesEndToEndTest {
    */
   @Test
   void otherStaticNamesStayAccepted() {
-    String ok = "<p data-thing=\"1\" data-layout-mode=\"d\" data-sec-x=\"1\" xyzzy=\"1\" xml:lang=\"en\""
+    String ok = "<p data-thing=\"1\" data-layout-mode=\"d\" xyzzy=\"1\" xml:lang=\"en\""
         + " v-on:click=\"go\" hx-on::after-request=\"x()\">x</p>"
         + "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"#i\"/></svg>";
     assertEquals(ok, render(ok, model()));

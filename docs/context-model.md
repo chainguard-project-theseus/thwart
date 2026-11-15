@@ -188,7 +188,7 @@ name is classified by client framework.
 Static attributes are copied verbatim, except a static `is`. A static `on*` handler, or a static
 `javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both. So is a
 prefixed name outside `t:` whose prefix has no `-` (`th:*`, `sec:*`, `layout:*`, `T:*`, `foo:*`;
-the HTML foreign-attribute prefixes `xml:`, `xmlns:` and `xlink:` excepted), and `data-th-*`: a
+the HTML foreign-attribute prefixes `xml:`, `xmlns:` and `xlink:` excepted), and `data-th-*` or `data-sec-*`: a
 leftover template attribute would print its expression and drop its effect
 (`AttributesEndToEndTest`). Other static names, including `data-*` and hyphenated directives
 such as `v-on:` or `hx-on:`, are the author's markup and are copied as written
