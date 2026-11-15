@@ -326,19 +326,24 @@ def forced_only(diff):
                     side.append(line[1:])
 
     def kept(lines):
-        out, script = [], None  # script: the indent of the <script> tag whose lines are dropped
+        # Each kept line keyed by its hunk and its ancestors there (the shallower kept lines above
+        # it), so a line may move only among its siblings, as in compare's reordered.
+        out, script, hunk, stack = [], None, 0, []  # script: the indent of a dropped <script> tag
         for l in lines:
             if l is None:
-                script = None
+                script, hunk, stack = None, hunk + 1, []
                 continue
             indent = len(l) - len(l.lstrip())
             if script is not None and indent > script:
                 continue
             script = indent if l.lstrip().startswith("<script") else None
             if script is None:
-                out.append(unforced(l) if l.lstrip().startswith("<") else l)
+                while stack and stack[-1][0] >= indent:
+                    stack.pop()
+                stack.append((indent, unforced(l) if l.lstrip().startswith("<") else l))
+                out.append((hunk, tuple(stack)))
         return out
-    return sorted(kept(sides[0])) == sorted(kept(sides[1]))  # in any order, as compare's reordered
+    return sorted(kept(sides[0])) == sorted(kept(sides[1]))
 
 
 def score(app, run_dir):

@@ -177,7 +177,15 @@ class ForcedOnlyTest(unittest.TestCase):
         self.assertTrue(bench.forced_only(HANDLER_MOVED))
 
     def test_hashset_order_is_allowed(self):
-        self.assertTrue(bench.forced_only([" <span>", "-  size", "+  blank", " <br>", "-  blank", "+  size"]))
+        # <span>size<br>blank</span>: siblings under one parent, as compare prints them.
+        self.assertTrue(bench.forced_only([" <span>", "-  size", "+  blank", "   <br>", "-  blank", "+  size"]))
+
+    def test_text_moved_between_elements_is_not(self):
+        self.assertFalse(bench.forced_only(["   <label for=\"name\">", "-    Name", "+    Email",
+                                            "   <input id=\"name\">", "   <label for=\"email\">",
+                                            "-    Email", "+    Name"]))
+        self.assertFalse(bench.forced_only(["@@ -1 +1 @@", "   <td>", "-    1", "+    2",
+                                            "@@ -9 +9 @@", "   <td>", "-    2", "+    1"]))
 
     def test_any_other_change_is_not(self):
         for old, new in (('<a href="/ranking/pdf?mode=">', '<a href="/ranking/pdf?mode">'),
