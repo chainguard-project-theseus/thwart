@@ -508,6 +508,10 @@ accepts:
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
 | Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
 
+A computed `id`, `name` or `form` takes any value, so it can clobber page globals (`<form
+name="cookie">` shadows `document.cookie`) or move a control into another form. Compute them from
+your own keys or a prefixed id, not raw user input (security-model.md §9).
+
 **A computed name that is not on the list.** Port it by what it is for:
 
 | The attribute is | Recipe |
