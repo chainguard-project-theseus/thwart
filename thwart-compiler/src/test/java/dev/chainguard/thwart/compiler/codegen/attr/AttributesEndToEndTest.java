@@ -194,16 +194,20 @@ class AttributesEndToEndTest {
     String col = "t.html:1:" + (HEADER.length() + 4) + ":";
     compile("<p th:if=\"${b}\">secret</p>").assertError(col, "th:if on <p> is not allowed", "t:", "thwart-migrate");
     for (String t : new String[] {"<p sec:authorize=\"isAuthenticated()\">x</p>", "<p layout:fragment=\"c\">x</p>",
-        "<p data-th-text=\"${s}\">x</p>", "<p data-sec-authorize=\"isAuthenticated()\">x</p>",
-        "<p data-layout-fragment=\"c\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>"}) {
-      compile(t).assertError("t.html:1:", "is not allowed: it is a template attribute");
+        "<p data-th-text=\"${s}\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>",
+        "<p foo:bar=\"2\">x</p>"}) {
+      compile(t).assertError("t.html:1:", "is not allowed: it is a prefixed attribute");
     }
   }
 
-  /** Positive (#801): other static names are the author's markup (#584), and are written as they are. */
+  /**
+   * Positive (#801): other static names are the author's markup (#584), and are written as they
+   * are: data-* (a theme's data-layout-mode too), xml:/xmlns:/xlink: and hyphenated directives.
+   */
   @Test
   void otherStaticNamesStayAccepted() {
-    String ok = "<p data-thing=\"1\" foo:bar=\"2\" xyzzy=\"1\">x</p>"
+    String ok = "<p data-thing=\"1\" data-layout-mode=\"d\" data-sec-x=\"1\" xyzzy=\"1\" xml:lang=\"en\""
+        + " v-on:click=\"go\" hx-on::after-request=\"x()\">x</p>"
         + "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"#i\"/></svg>";
     assertEquals(ok, render(ok, model()));
   }
