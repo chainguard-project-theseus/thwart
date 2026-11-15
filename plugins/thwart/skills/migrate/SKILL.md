@@ -88,6 +88,11 @@ start and run it again before deciding time is short.
 - Page parity: `compare` exits 0 on your `pages.txt`, so every page is `same` or `reordered` with
   its recorded status and final URL, or you can say why a remaining difference is right. A
   `pages.txt` that skips pages or states proves nothing.
+- Page scripts still run, which `compare` can't see: load the `pages.txt` pages in a headless
+  browser on both apps and diff the console. Check each CSP violation or uncaught exception the old
+  app doesn't have: a blocked inline script or `on*` handler is the guide's section 1 table; a
+  blocked `eval` is "A third-party script that needs `eval`" in 4.9. A report that breaks nothing
+  (no exception, nothing missing on the page) can be noted and left.
 - Security isn't weakened: no new `permitAll`,
   no CSRF or escaping turned off. Output the old engine printed raw and Thwart now escapes is the
   intended difference.
