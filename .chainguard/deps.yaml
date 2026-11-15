@@ -1,0 +1,207 @@
+# The Chainguard Checks deps agent (mono's ai-cicd/sandbox/cmd/deps) opens
+# one pull request per entry, on chainguard/deps/<name>, that updates the
+# entry's pins and fixes what the updates break. It answers review comments
+# from people with write access, failing checks on its own commits, and
+# conflicts. Schedules are UTC. The paths and prompt guide the agent; they
+# are not enforced. The agent sees only its entry's prompt, so each repeats
+# the rules it needs.
+#
+# The repository has no .chainguard/ci/env/, so each entry names a check
+# file, whose environment the guest takes as .chainguard/develop.yaml's
+# `from:` does. Every guest also has apk-tools.
+#
+# These entries take over version updates. Dependabot's security updates
+# stay on in the repository settings; there is no dependabot.yml.
+#
+# Pins no entry moves:
+# - the validator.nu htmlparser the build-time verifier runs:
+#   html5.source.version and its SHA-256 in thwart-html5/pom.xml, and the
+#   root pom's vnu-validator.version (the same release, the test-only
+#   spec-parser oracle). Bumping it is its own pull request, with the
+#   corpus and seed verdicts diffed (docs/security-architecture.md §11.4,
+#   and the comment in thwart-html5/pom.xml).
+# - the Spring generations thwart-spring-tests targets on purpose (Boot
+#   1.5, 2.0 and 2.7, Spring MVC 4.3 and 5.0) with their servlet API and
+#   JAF test jars, and its JUnit 5 line (JUnit 6 needs Java 17). Boot 3.5
+#   (boot35) and the starter's Boot 4.1 take patch releases only: README.md
+#   lists the tested lines.
+# - lombok16.version (1.16.6, the Lombok of the JDK 8 javac test) and
+#   maven-plugin-api.version (provided by the application's Maven, so it
+#   is the oldest Maven thwart-maven-plugin supports).
+# - openjdk-8: JDK 8 is a test target (Jdk8ProcessorTest), not a toolchain.
+# - bench/migration/Dockerfile: its wolfi-base has no digest pin, and its
+#   CLAUDE_CODE_VERSION is the migration benchmark's agent, which changes
+#   the results, so a person moves it between benchmark runs. No check
+#   builds the image.
+#
+# Every entry is merge: manual. The repository does not allow auto-merge,
+# and a person approves every pull request either way.
+version: 1
+updates:
+- name: maven
+  schedule: "0 11 * * 1" # Mondays
+  paths:
+    - "pom.xml"
+    - "*/pom.xml"
+    - "thwart-spring-tests/*/pom.xml"
+    - "examples/petclinic/pom.xml"
+    - "examples/gradle/build.gradle"
+    - "thwart-compiler/src/test/java/dev/chainguard/thwart/compiler/processor/LombokTest.java"
+    - "AGENTS.md"
+  environment: .chainguard/ci/maven.yaml
+  merge: manual
+  prompt: >-
+    Update the Maven pins to their newest releases, preferring releases at
+    least 7 days old: the version properties and pluginManagement versions
+    of the root pom.xml, and the version properties and plugin versions of
+    the module poms (thwart-compiler, thwart-maven-plugin, thwart-migrate,
+    thwart-benchmarks, examples/petclinic, thwart-spring-tests and its
+    modules). thwart-spring-tests/pom.xml is not a child of thwart-parent,
+    so its plugin versions repeat the root pom's and move with them; so do
+    the compiler.plugin.version and resources.plugin.version
+    filterProperties in thwart-maven-plugin/pom.xml. Stay on each pin's
+    current major line unless the new major changes nothing but the
+    version; name every update held back in the pull request body, with
+    why. Never move, whatever is newer: html5.source.version and
+    html5.source.sha256 in thwart-html5/pom.xml and the root pom's
+    vnu-validator.version, the pinned validator.nu htmlparser the
+    build-time verifier runs (docs/security-architecture.md §11.4: bumping
+    it is its own pull request, with the corpus and seed verdicts diffed);
+    the Boot and Spring BOMs of thwart-spring-tests' boot15, boot20,
+    boot27, spring43 and spring50 modules, and their javax.servlet-api and
+    javax.activation versions, which are test targets on purpose;
+    lombok16.version (the JDK 8 javac test's Lombok); and
+    maven-plugin-api.version (the oldest Maven API thwart-maven-plugin
+    supports). spring-boot.version and boot35's Boot 3.5 BOM take patch
+    releases only: README.md and docs/architecture.md name the tested Boot
+    lines (4.1 and 3.5), so a new minor is named in the body for a person.
+    The org.springframework.boot plugin in examples/gradle/build.gradle
+    stays equal to spring-boot.version, and its
+    io.spring.dependency-management plugin moves like the other pins.
+    tomcat.version and jackson.version are security pins over the Boot
+    BOM: move each to its line's newest release, and when the Boot BOM
+    manages that version or newer, drop the pin and its managed entries,
+    as the root pom's comment says. Keep AGENTS.md's mention of the
+    junit-bom version in step with junit.version. thwart-spring-tests'
+    junit5.version stays on JUnit 5. lombok.version must support the JDK
+    the tests run on: keep LombokTest.LOMBOK_MAX_JDK in step with it, as
+    thwart-compiler/pom.xml's comment says. Thymeleaf and jmh in
+    thwart-benchmarks, and attoparser and jsoup, move like the other pins.
+    Add no dependency. The shipped modules (thwart-runtime,
+    thwart-compiler, thwart-html5, thwart-migrate, thwart-maven-plugin and
+    both starters) and thwart-spring-tests keep compiling at --release 8:
+    leave out an update that needs a newer Java there, and name it.
+    thwart-runtime keeps zero third-party dependencies outside test scope,
+    and thwart-compiler shades only thwart-html5. Run, in the guest, with
+    JDK8_HOME as the environment sets it, `mvn -B -ntp verify` from the
+    repository root (about 4 minutes and 10,500 tests; Jdk8ProcessorTest
+    must run, not skip). Then run the Gradle example as
+    .chainguard/ci/gradle.yaml does: `apk add gradle-9` (its package), then
+    `mvn -B -ntp install -DskipTests -pl
+    thwart-compiler,thwart-spring-boot-starter -am && sh
+    examples/gradle/verify.sh`. Fix a failure an update causes only when
+    the fix is small and changes no security behaviour (the parser,
+    contexts, escapers or verifier); otherwise leave that update out and
+    say why in the body. Do not edit .chainguard/deps.yaml unless a person
+    asks in a comment.
+
+- name: toolchain
+  schedule: "0 11 * * 2" # Tuesdays
+  paths:
+    - ".chainguard/ci/*.yaml"
+    - ".chainguard/develop.yaml"
+    - "thwart-compiler/src/test/node/package.json"
+    - "thwart-compiler/pom.xml"
+    - "thwart-compiler/src/test/java/dev/chainguard/thwart/compiler/processor/LombokTest.java"
+    - "AGENTS.md"
+  environment: .chainguard/ci/maven.yaml
+  merge: manual
+  prompt: >-
+    Move the Wolfi toolchain streams the .chainguard/ci files name (and
+    .chainguard/develop.yaml, which takes maven.yaml's environment), all in
+    one pull request, each everywhere it is named:
+    openjdk-21-default-jdk, the build JDK, to the newest LTS JDK stream
+    Wolfi ships (21, 25, and so on; JAVA_HOME stays
+    /usr/lib/jvm/default-jvm); maven-3.9 to the newest maven-3.x stream
+    (Maven 4 is left out and named in the body); gradle-9 to the newest
+    gradle stream; and nodejs-22 to the newest Node LTS stream Wolfi ships
+    (an even major in active LTS). openjdk-8 and JDK8_HOME stay: JDK 8 is a
+    test target (Jdk8ProcessorTest), not the toolchain. If every stream is
+    already current, change nothing. Keep in step what names a moved
+    version: engines.node in thwart-compiler/src/test/node/package.json
+    and AGENTS.md's Node version for hack/corpus.sh move with the Node
+    stream; LombokTest.LOMBOK_MAX_JDK must cover the new JDK, with
+    lombok.version in thwart-compiler/pom.xml moved to a release that
+    supports it if needed. Leave the floors as they are: the root pom's
+    maven-enforcer requireJavaVersion [21,) and requireMavenVersion [3.9,),
+    every maven.compiler.release and testRelease, the docs' JDK 21+ and
+    Maven 3.9+, and the .chainguard/ci package lists' other packages. Leave
+    bench/migration/Dockerfile alone. Install the new streams with apk in
+    the guest and commit the moves before you run anything: the run has a
+    two-hour budget, and a run that stops after a commit still pushes it as
+    a draft, while one that committed nothing pushes nothing. Fold later
+    fixes in this run into that commit; on a turn, add a commit on top of
+    the pull request's head. Then run, with JDK8_HOME as the environment
+    sets it, `mvn -B -ntp verify` from the repository root
+    (Jdk8ProcessorTest must run, not skip); the Gradle example as
+    .chainguard/ci/gradle.yaml does (`mvn -B -ntp install -DskipTests -pl
+    thwart-compiler,thwart-spring-boot-starter -am && sh
+    examples/gradle/verify.sh`); and, after installing the packages
+    .chainguard/ci/oracle-node.yaml names, `bash
+    thwart-compiler/src/test/node/run.sh` with CHROMIUM_PATH=/usr/bin/chromium
+    and TMPDIR=/var/tmp. Its Firefox and WebKit builds are linux-x86_64
+    only: on another architecture (`uname -m`) run it with
+    ORACLE_ENGINES=parse5,chromium and say so. The oracle-node-pr check
+    runs only on request, so the body asks the reviewer to request it. The
+    oracle is a security check on the compiler: never change its fixtures,
+    known holes or checker to make it pass. A stream whose move breaks
+    something you cannot fix simply stays where it was, and the body names
+    it and what broke. The body names the suites the guest ran and any it
+    did not finish. Do not edit .chainguard/deps.yaml unless a person asks
+    in a comment.
+
+- name: oracle-node
+  schedule: "0 11 * * 3" # Wednesdays
+  paths:
+    - "thwart-compiler/src/test/node/package.json"
+    - "thwart-compiler/src/test/node/package-lock.json"
+    - "thwart-compiler/src/test/node/run.sh"
+  environment: .chainguard/ci/oracle-node.yaml
+  merge: manual
+  prompt: >-
+    thwart-compiler/src/test/node is a security oracle: parse5, headless
+    Chromium, Firefox ESR and WebKit parse what the compiler accepts, and
+    check.mjs compares their trees with the build-time verifier's, so a
+    browser-grade parser checks the compiler. Move it cautiously. Update
+    package.json's exact versions (acorn, parse5, playwright-core,
+    puppeteer-core) and package-lock.json to their newest releases at
+    least 7 days old, on each one's current major line unless the new
+    major changes nothing but the version; name every update held back in
+    the pull request body, with why. Keep the versions exact, add no
+    dependency, and keep engines.node as it is (the toolchain entry moves
+    Node). Regenerate the lockfile with npm, `--ignore-scripts`. In run.sh,
+    WEBKIT_REVISION and WEBKIT_SHA256 follow the WebKit revision the new
+    playwright-core's browsers.json names, as run.sh's comment says; the
+    Ubuntu 26.04 debs in UBUNTU_DEBS change only if the new build links
+    other libraries. FIREFOX_VERSION and FIREFOX_SHA256 move to the newest
+    140.x ESR release: the docs name Firefox 140 ESR, so a new ESR line is
+    named in the body for a person. Take every SHA-256 from the file
+    downloaded from the URL run.sh fetches it from. Commit the moves
+    before you run anything: the run has a two-hour budget, and a run
+    that stops after a commit still pushes it as a draft, while one that
+    committed nothing pushes nothing. Fold later fixes in this run into
+    that commit; on a turn, add a commit on top of the pull request's
+    head. Then run `bash thwart-compiler/src/test/node/run.sh` from the
+    repository root, as the oracle-node check does (the environment sets
+    JAVA_HOME, CHROMIUM_PATH and TMPDIR). Its Firefox and WebKit builds
+    are linux-x86_64 only: on another architecture (`uname -m`) run it
+    with ORACLE_ENGINES=parse5,chromium and say in the body which engines
+    did not run. The oracle-node-pr check runs only on request, so the
+    body asks the reviewer to request it. Never change fixture.jsonl,
+    fixture-known-holes.txt, check.mjs, tree.mjs, browsers.mjs, any
+    known-holes list, or the compiler to make the oracle pass. A new hole,
+    drift or failure after an update is a parser behaviour change: keep
+    the update, open the pull request as a draft, and describe the change
+    in the body (which cases, which engine, what each engine built before
+    and after) for a person to judge. Do not edit .chainguard/deps.yaml
+    unless a person asks in a comment.
