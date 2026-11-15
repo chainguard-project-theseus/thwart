@@ -11,6 +11,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.web.context.support.StaticWebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
@@ -26,7 +27,7 @@ class SpringRenderContextsWithoutSecurityTest {
     request.setAttribute(DispatcherServlet.WEB_APPLICATION_CONTEXT_ATTRIBUTE, wac);
     // Even a real token is ignored: the starter must not touch Security classes when absent.
     request.setAttribute(
-        SpringForms.CSRF_ATTRIBUTE, new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t"));
+        CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t"));
     try (NoSecurityClassLoader loader = new NoSecurityClassLoader()) {
       Class<?> contexts = loader.loadClass(SpringRenderContexts.class.getName());
       RenderContext ctx =

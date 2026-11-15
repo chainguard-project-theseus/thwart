@@ -251,9 +251,10 @@ The registry also has `fragments()`: an entry named `page :: name` per fragment 
   `UrlBasedViewResolver` for `redirect:`/`forward:` names only, which Boot otherwise provides.
 - `ThwartView` renders the registry entry with the model and `SpringRenderContexts.create(...)`:
   locale (`LocaleResolver`), `MessageSource` messages, `DefaultLinks(contextPath)` +
-  `response.encodeURL`, `Forms` over `BindingResult`/`BindStatus`, CSRF token from the request
-  attribute `_csrf`, and a per-request CSP nonce (`CspNonce.get(request)`, 128 bits from
-  `SecureRandom`). Content type `text/html;charset=UTF-8`. The view stamps the request with the
+  `response.encodeURL`, `Forms` over `BindingResult`/`BindStatus`, CSRF token from Spring
+  Security's `CsrfToken` request attribute (keyed by its class name, which `CsrfFilter` always
+  sets), and a per-request CSP nonce (`CspNonce.get(request)`, 128 bits from `SecureRandom`).
+  Content type `text/html;charset=UTF-8`. The view stamps the request with the
   nonce; `CspFilter`, first in the filter chain, sends `script-src 'nonce-N' 'strict-dynamic';
   object-src 'none'; base-uri 'none'` when a stamped response commits with no
   `Content-Security-Policy` (so Spring Security's and the application's win); the one switch is
