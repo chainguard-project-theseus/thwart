@@ -1,0 +1,14 @@
+# Dependabot. The thwart-spring-tests modules each pin one Spring generation
+# (Spring 4.3/5.0, Boot 1.5-3.5) on purpose: they exist to prove the starter
+# still works there. Never bump Spring in them. open-pull-requests-limit: 0
+# turns off version updates for these directories; the ignore rule also
+# applies to security updates.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories: ["/thwart-spring-tests/*"]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "org.springframework*"
