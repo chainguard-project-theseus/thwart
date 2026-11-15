@@ -252,7 +252,8 @@ class MigratorTest {
         convert(src));
     assertEquals(List.of("2: fragment `card` parameters declared as `Object` (`owner`); replace each with its type"
         + " (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null`"
-        + " where a Thymeleaf call omitted one (guide section 4.8)"), messages(src));
+        + " where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller"
+        + " variable it reads (guide section 4.8)"), messages(src));
   }
 
   @Test
@@ -363,8 +364,24 @@ class MigratorTest {
         "3: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a"
             + " fragment's `Field` parameter (guide section 4.8, Reusable form fields)",
         "3: `__...__` preprocessing is not supported",
-        "3: `__...__` preprocessing is not supported",
-        "3: link with a non-literal path");
+        "3: `__...__` preprocessing is not supported");
+  }
+
+  /** #857: a whole link from a variable gets the rewrite that works, not "inline the dynamic part". */
+  @Test
+  void preprocessedWholeLinkPointsAtPassingTheLink() throws Exception {
+    assertMessages("<a t:params=\"String link\" th:href=\"@{__${link}__}\">x</a>",
+        "1: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field;"
+            + " for a whole link `@{__${link}__}`, pass the link itself (`@{/owners}` from the caller) and write"
+            + " `t:href=\"link\"`");
+  }
+
+  /** #857: since #851 a path that is one quoted literal is a constant link and compiles. */
+  @Test
+  void quotedConstantLinksAreConvertedWithoutANote() throws Exception {
+    String src = "<p><a th:href=\"@{'/owners?page=1'}\">a</a><a th:href=\"@{ '/owners/{id}'(id=1)}\">b</a></p>";
+    assertEquals(src.replace("th:", "t:"), convert(src));
+    assertMessages(src);
   }
 
   /** #821: {@code ${{...}}} formats with the conversion service; dropping its {@code $} changed its meaning. */
@@ -478,7 +495,6 @@ class MigratorTest {
     assertMessages(src,
         "1: `th:action` = `u`: for a `null` value Thymeleaf wrote `action=\"\"`, but Thwart omits the attribute;"
             + " if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String`",
-        "1: `th:value` = `owner.name`: for a `null` value Thymeleaf wrote `value=\"\"`",
         "1: `th:name` = `owner.field`: for a `null` value Thymeleaf wrote `name=\"\"`",
         "2: `th:href` = `owner.url`: for a `null` value Thymeleaf wrote `href=\"\"`",
         "2: `th:src` = `owner.photo`: for a `null` value Thymeleaf wrote `src=\"\"`",
@@ -490,7 +506,7 @@ class MigratorTest {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
         + "<input th:value=\"'x'\" th:name=\"|f${owner.id}|\"><input th:value=\"42\" th:type=\"#{input.type}\">"
         + "<input th:title=\"${owner.name}\"><input t:value=\"owner.name\">"
-        + "<input th:value=\"checkbox\"></form>");
+        + "<input th:value=\"checkbox\"><input th:value=\"${owner.name}\"></form>"); // #857: value is not reported
   }
 
   @Test
