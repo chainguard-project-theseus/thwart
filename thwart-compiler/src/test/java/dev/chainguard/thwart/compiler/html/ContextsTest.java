@@ -42,8 +42,8 @@ class ContextsTest {
     "div, aria-label, ATTRIBUTE",
     "div, type, FORBIDDEN",
     // URL
-    // only object[data] is RESOURCE_URL; object[src] is an ordinary URL attribute
-    "object, src, URL",
+    // only object[data] is RESOURCE_URL; HTML defines no object[src] (#809)
+    "object, src, FORBIDDEN",
     "a, href, URL",
     "img, src, URL",
     "form, action, URL",
@@ -71,7 +71,7 @@ class ContextsTest {
     "rect, values, FORBIDDEN",
     // RESOURCE_URL
     "script, src, RESOURCE_URL",
-    "script, href, RESOURCE_URL",
+    "script, href, FORBIDDEN", // SVG's, not HTML's (#809)
     "script, xlink:href, FORBIDDEN",
     "iframe, src, RESOURCE_URL",
     "frame, src, RESOURCE_URL",
@@ -350,6 +350,34 @@ class ContextsTest {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
   }
 
+  /**
+   * #809: a computed URL attribute is allowed only on the elements HTML defines it for. On another
+   * element ({@code <portal>}, a custom element) Thwart can't know what loads the URL.
+   */
+  @ParameterizedTest(name = "<{0} {1}> -> {2}")
+  @CsvSource({
+    "a, href, URL",
+    "AREA, HREF, URL",
+    "img, src, URL",
+    "video, poster, URL",
+    "button, formaction, URL",
+    "q, cite, URL",
+    "portal, src, FORBIDDEN",
+    "x-loader, src, FORBIDDEN",
+    "x-link, href, FORBIDDEN",
+    "div, href, FORBIDDEN",
+    "span, action, FORBIDDEN",
+    "div, formaction, FORBIDDEN",
+    "img, poster, FORBIDDEN",
+    "p, cite, FORBIDDEN",
+  })
+  void urlAttributesOnlyOnTheirElements(String element, String attribute, OutputContext expected) {
+    assertEquals(expected, Contexts.attribute(element(element), attribute));
+    if (expected == OutputContext.FORBIDDEN) {
+      assertTrue(Contexts.forbidden(element(element), attribute).contains("t:data-"), element);
+    }
+  }
+
   /** #678: every attribute of an SVG or MathML element is FORBIDDEN computed, whatever its name. */
   @ParameterizedTest(name = "<{0} {1}> (foreign) -> {2}")
   @CsvSource({
@@ -382,8 +410,9 @@ class ContextsTest {
         "selected", "alt", "aria-label", "form", "accept", "colspan", "rowspan", "max", "min", "readonly")) {
       assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("input"), n), n);
     }
-    for (String n : List.of("href", "src", "action")) {
-      assertEquals(OutputContext.URL, Contexts.attribute(element("a"), n), n);
+    for (String n : List.of("a href", "img src", "form action")) {
+      String[] p = n.split(" ");
+      assertEquals(OutputContext.URL, Contexts.attribute(element(p[0]), p[1]), n);
     }
     assertEquals(OutputContext.STYLE, Contexts.attribute(element("p"), "style"));
     assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("label"), "for"));
