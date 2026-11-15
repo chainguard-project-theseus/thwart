@@ -477,6 +477,9 @@ that runs code. What differs:
   attribute matters, write `x ?: ''`. Boolean attributes (`t:checked`, ...) take a condition.
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
   `th:include` (use `t:insert`), `th:inline`; `th:attr` and `th:errorclass` (section 5's table).
+- A leftover `th:*`, `data-th-*`, `sec:*` or `layout:*` attribute is a build error, not text to
+  copy: write the `t:` attribute it stands for (`thwart-migrate` rewrites `th:` ones; `sec:` is in
+  4.10, layouts in 4.8), or remove it.
 
 ### 4.4 Output contexts
 

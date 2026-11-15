@@ -185,6 +185,28 @@ class AttributesEndToEndTest {
         .assertSuccess();
   }
 
+  /**
+   * Negative (#801): a leftover template attribute is a build error, so a th:if or sec:authorize
+   * can't silently drop its condition and print its expression into the page.
+   */
+  @Test
+  void leftoverTemplateAttributesAreBuildErrors() {
+    String col = "t.html:1:" + (HEADER.length() + 4) + ":";
+    compile("<p th:if=\"${b}\">secret</p>").assertError(col, "th:if on <p> is not allowed", "t:", "thwart-migrate");
+    for (String t : new String[] {"<p sec:authorize=\"isAuthenticated()\">x</p>", "<p layout:fragment=\"c\">x</p>",
+        "<p data-th-text=\"${s}\">x</p>", "<p TH:TEXT=\"${s}\">x</p>", "<p T:text=\"s\">x</p>"}) {
+      compile(t).assertError("t.html:1:", "is not allowed: it is a template attribute");
+    }
+  }
+
+  /** Positive (#801): other static names are the author's markup (#584), and are written as they are. */
+  @Test
+  void otherStaticNamesStayAccepted() {
+    String ok = "<p data-thing=\"1\" foo:bar=\"2\" xyzzy=\"1\">x</p>"
+        + "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"#i\"/></svg>";
+    assertEquals(ok, render(ok, model()));
+  }
+
   @Test
   void styleAndSrcdocAreBuildErrors() {
     compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed", "t:class");

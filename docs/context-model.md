@@ -186,7 +186,11 @@ name is classified by client framework.
 ### 6.2 Which computed names are accepted
 
 Static attributes are copied verbatim, except a static `is`. A static `on*` handler, or a static
-`javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both.
+`javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both. So is a
+leftover template attribute (`th:*`, `data-th-*`, `sec:*`, `layout:*`, or `T:*` in another case),
+which would print its expression and drop its effect (`AttributesEndToEndTest`). Other static
+names, prefixed or not, are the author's markup and are copied as written (`FrameworkDirectivesTest`);
+the closed allow-list below is for computed names.
 
 | Name | Accepted | Checked by |
 |---|---|---|
