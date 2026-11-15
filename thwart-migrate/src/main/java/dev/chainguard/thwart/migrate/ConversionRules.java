@@ -234,7 +234,7 @@ final class ConversionRules {
       new Unsupported(Pattern.compile("\\$\\{\\{"), false,
           "`${{...}}` conversion-service formatting is not supported; format the value in the view type"),
       new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
-          "`__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field"),
+          "`__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field; for a whole link `@{__${link}__}`, pass the link itself (`@{/owners}` from the caller) and write `t:href=\"link\"`"),
       new Unsupported(Pattern.compile("(?<![\\w.])T\\s*\\("), false,
           "`T(...)` static class access is not supported (never); compute the value in the controller, add it to the model and declare it in `t:params`, or call a static `@TemplateFunction`"),
       new Unsupported(Pattern.compile("(?<![\\w.])new\\s+[A-Za-z_]"), false,
@@ -243,7 +243,8 @@ final class ConversionRules {
           "Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`"),
       new Unsupported(Pattern.compile("\\.[?!^$]\\["), false,
           "collection selection/projection is not supported; compute the collection in Java"),
-      new Unsupported(Pattern.compile("@\\{\\s*['$|(*]"), false,
+      // A path that is one quoted literal (@{'/owners?page=1'}) is a constant link and compiles.
+      new Unsupported(Pattern.compile("@\\{\\s*(?!'[^']*'\\s*[}(])['$|(*]"), false,
           "link with a non-literal path; Thwart links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`"));
 
   /** How to move a value a template read from outside the model into it (guide section 1). */
@@ -377,7 +378,8 @@ final class ConversionRules {
 
   /**
    * Thymeleaf attributes that write an empty value for {@code null} (its non-removable attribute
-   * processors), where Thwart omits the attribute.
+   * processors), where Thwart omits the attribute. {@code value} stays: without one a checkbox
+   * or radio submits {@code on}, a button shows its default label, an option submits its text.
    */
   static final Set<String> EMPTY_FOR_NULL = Compat.setOf("value", "href", "src", "action", "name", "type");
   /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
@@ -391,7 +393,7 @@ final class ConversionRules {
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
-      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one (guide section 4.8)";
+      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide section 4.8)";
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 
