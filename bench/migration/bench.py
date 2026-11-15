@@ -297,6 +297,55 @@ def browser_report(app, run_dir):
     return s
 
 
+# What Thwart forces a migration to change (#863): inline on* handlers and javascript: URLs, which
+# a strict CSP blocks, and the data-* attributes, href="#" and <script> elements that replace them.
+# A tag line is walked attribute by attribute (quoted values and text after the tag are skipped
+# whole), so a word inside a value or text, such as value="Pick one", is never taken for one.
+ATTR = re.compile(r' ([^\s=>"]+)(="[^"]*")?|"[^"]*"|>.*')
+FORCED_ATTR = re.compile(r'(?:on[a-z]+|data-[\w.:-]+)(?:="[^"]*")?|href="(?:javascript:[^"]*|#)"')
+
+
+def unforced(tag_line):
+    return ATTR.sub(lambda m: "" if m.group(1) and FORCED_ATTR.fullmatch(m.group(0)[1:]) else m.group(0), tag_line)
+
+
+def forced_only(diff):
+    """Whether a page's compare diff is only what Thwart forces: the recorded and the new side of
+    its hunks are equal once FORCED_ATTR is deleted from tag lines and <script> elements (tag
+    and body lines) are dropped. A diff that compare cut short never is."""
+    sides = ([], [])
+    for line in diff:
+        if line.startswith("... "):
+            return False
+        if line.startswith("@@"):
+            for side in sides:
+                side.append(None)  # a hunk boundary: a <script> never spans it
+        elif not line.startswith(("--- recorded ", "+++ now")):
+            for side, mark in zip(sides, "-+"):
+                if line[:1] in (" ", mark):
+                    side.append(line[1:])
+
+    def kept(lines):
+        # Each kept line keyed by its hunk and its ancestors there (the shallower kept lines above
+        # it), so a line may move only among its siblings, as in compare's reordered.
+        out, script, hunk, stack = [], None, 0, []  # script: the indent of a dropped <script> tag
+        for l in lines:
+            if l is None:
+                script, hunk, stack = None, hunk + 1, []
+                continue
+            indent = len(l) - len(l.lstrip())
+            if script is not None and indent > script:
+                continue
+            script = indent if l.lstrip().startswith("<script") else None
+            if script is None:
+                while stack and stack[-1][0] >= indent:
+                    stack.pop()
+                stack.append((indent, unforced(l) if l.lstrip().startswith("<") else l))
+                out.append((hunk, tuple(stack)))
+        return out
+    return sorted(kept(sides[0])) == sorted(kept(sides[1]))
+
+
 def score(app, run_dir):
     base = load_check(os.path.join(RESULTS, app, "baseline"))
     got = load_check(os.path.join(run_dir, "check"))
@@ -305,16 +354,19 @@ def score(app, run_dir):
     # Pages: `thwart-migrate compare` against the baseline recording. A page passes as "same" or
     # "reordered" (siblings in another order, such as validation messages from a HashSet) and only
     # with its recorded status and final URL.
-    verdicts, mismatch, request = {}, [], None  # verdicts by page number
+    verdicts, mismatch, request, diffs = {}, [], None, {}  # verdicts and diff lines by page number
     for line in got["compare"].splitlines():
         m = VERDICT.match(line)
         if m:
             request = m.group(3)
             verdicts[int(m.group(1))] = m.group(2)
+            diffs[int(m.group(1))] = []
         elif request and line.startswith(("   status: ", "   final URL: ")):
             mismatch.append(f"{request}: {line.strip()}")
         else:
             request = None  # status lines come right after their verdict line
+            if diffs:
+                diffs[max(diffs)].append(line)
     identical = sum(1 for v in verdicts.values() if v == "same")
     reordered = sum(1 for v in verdicts.values() if v == "reordered")
     status_mismatch = mismatch + [f"{p['request']}: not compared" for i, p in enumerate(base["pages"], 1)
@@ -357,9 +409,11 @@ def score(app, run_dir):
         "thwart_templates": got["counts"].get("thwart", {}).get("templates", 0),
         "baseline_templates": base["counts"].get(engine, {}).get("templates", 0),
     }
-    s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
-                 and identical + reordered == len(base["pages"]) and not status_mismatch
-                 and not insecure and not s["legacy_templates"] and not legacy_deps)
+    rest = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and not status_mismatch
+            and not insecure and not s["legacy_templates"] and not legacy_deps)
+    s["pass"] = rest and got["compare_exit"] == 0 and identical + reordered == len(base["pages"])
+    # Pass, except that pages may differ in what Thwart forces (#863). Report only, beside Pass.
+    s["pass_forced"] = s["pass"] or rest and all(forced_only(diffs[n]) for n, v in verdicts.items() if v == "differs")
     # Report only. None (shown as "-") when the browser check left no browser.json, for example
     # when the app no longer builds: a stale result is never carried over.
     s["browser"] = browser_report(app, run_dir)
@@ -452,7 +506,8 @@ def report():
         skill = "-" if "skill_invoked" not in s else "invoked" if s["skill_invoked"] else "no"
         b = s.get("browser")  # runs before #790 had no browser check
         browser = f"{b['new']} new errors on {b['pages']} pages" if b else "-"
-        out.append(f"| {s['app']} | {run} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
+        verdict = "yes" if s["pass"] else "forced" if s.get("pass_forced") else "no"
+        out.append(f"| {s['app']} | {run} | {verdict} | {'ok' if s['build_ok'] else 'FAIL'}"
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
                    f" | {', '.join(s['insecure']) or '-'} | {legacy} | {browser} | {skill} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
@@ -471,14 +526,16 @@ def report():
         def skill_count(ss):  # only runs that had the plugin (#174) could invoke the skill
             had = [s for s in ss if "skill_invoked" in s]
             return f"{sum(s['skill_invoked'] for s in had)}/{len(had)}" if had else "-"
+        def passed(ss):  # strict passes, then passes once Thwart-forced diffs are allowed
+            return f"{sum(s['pass'] for s in ss)}/{len(ss)} (forced {sum(bool(s['pass'] or s.get('pass_forced')) for s in ss)}/{len(ss)})"
         for app, ss in group.items():
             n = len(ss)
             mean = sum((s["pages_identical"] + s["pages_reordered"]) / max(1, s["pages_total"]) for s in ss) / n
-            out.append(f"| {app} | {n} | {sum(s['pass'] for s in ss)}/{n} | {sum(s['build_ok'] for s in ss)}/{n}"
+            out.append(f"| {app} | {n} | {passed(ss)} | {sum(s['build_ok'] for s in ss)}/{n}"
                        f" | {sum(s['tests_ok'] for s in ss)}/{n} | {skill_count(ss)}"
                        f" | {mean:.0%} |")
         runs = [s for ss in group.values() for s in ss]
-        out.append(f"| all | {len(runs)} | {sum(s['pass'] for s in runs)}/{len(runs)} | | | | |")
+        out.append(f"| all | {len(runs)} | {passed(runs)} | | | | |")
     text = "\n".join(out) + "\n"
     with open(os.path.join(RESULTS, "summary.md"), "w") as f:
         f.write(text)
