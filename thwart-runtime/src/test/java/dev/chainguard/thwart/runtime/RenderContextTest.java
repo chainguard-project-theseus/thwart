@@ -1,8 +1,10 @@
 package dev.chainguard.thwart.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /** The per-render id counters behind t:field's numbered ids and ids.seq/next/prev (#136, #458). */
@@ -21,6 +23,16 @@ class RenderContextTest {
     assertEquals("roles3", ctx.nextSequenceId("roles"));
     // A new context starts again.
     assertEquals("roles1", RenderContext.defaults().nextSequenceId("roles"));
+  }
+
+  @Test
+  void contextsWithTheSameServicesAreNotEqual() {
+    // #818: a context carries per-render counters, so it has identity, not value, equality.
+    Links links = new DefaultLinks("");
+    RenderContext a = new RenderContext(Locale.ROOT, Messages.NONE, links, Forms.NONE);
+    RenderContext b = new RenderContext(Locale.ROOT, Messages.NONE, links, Forms.NONE);
+    a.sequenceId("roles");
+    assertNotEquals(a, b);
   }
 
   @Test

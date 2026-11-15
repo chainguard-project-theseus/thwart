@@ -11,11 +11,10 @@ import org.thymeleaf.TemplateEngine;
 /** The benchmarks only compare like with like if both engines produce the same HTML. */
 class EquivalenceTest {
   private final TemplateEngine thymeleaf = Engines.thymeleaf();
-  private final RenderContext ctx = RenderContext.defaults();
 
   @Test
   void ownersTableIsIdentical() {
-    String thwart = Engines.thwartOwners(ctx, BenchmarkData.owners(), 1);
+    String thwart = Engines.thwartOwners(RenderContext.defaults(), BenchmarkData.owners(), 1);
     assertEquals(Engines.thymeleafOwners(thymeleaf, BenchmarkData.owners(), 1), thwart);
     assertEquals(BenchmarkData.OWNER_COUNT, count(thwart, "<tr class="));
     assertTrue(thwart.contains("<a href=\"/owners/1\">George Franklin</a>"), thwart);
@@ -29,7 +28,7 @@ class EquivalenceTest {
 
   @Test
   void layoutPageIsIdentical() {
-    String thwart = Engines.thwartHome(ctx, BenchmarkData.featured());
+    String thwart = Engines.thwartHome(RenderContext.defaults(), BenchmarkData.featured());
     assertEquals(Engines.thymeleafHome(thymeleaf, BenchmarkData.featured()), thwart);
     assertEquals(BenchmarkData.CARD_COUNT, count(thwart, "<div class=\"card\">"));
     assertTrue(thwart.contains("<li class=\"nav-item active\">"), thwart);

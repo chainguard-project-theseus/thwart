@@ -35,7 +35,6 @@ public class JsonBenchmark {
   public int size;
 
   private Page page;
-  private RenderContext ctx;
 
   @Setup
   public void setUp() {
@@ -44,13 +43,12 @@ public class JsonBenchmark {
       rows.add(new Row(i, "Row </script> & ${" + i + "}", List.of(i, i + 1, i + 2)));
     }
     page = new Page(rows, Optional.of(rows.get(0)), Map.of("first", rows.get(0)));
-    ctx = RenderContext.defaults();
   }
 
   @Benchmark
   public String embeddedBeans() {
     StringOutput out = new StringOutput();
-    JsonTemplate.render(page, ctx, out);
+    JsonTemplate.render(page, RenderContext.defaults(), out);
     return out.toString();
   }
 }

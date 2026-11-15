@@ -35,8 +35,10 @@ import org.openjdk.jmh.annotations.Warmup;
 public class UrlBenchmark {
   private static final LiteralTemplate LITERAL = LiteralTemplate.of();
 
-  static final RenderContext CTX =
-      new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks("/app"), Forms.NONE);
+  /** A new context for every render: a context numbers {@code t:field} ids per render. */
+  static RenderContext ctx() {
+    return new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks("/app"), Forms.NONE);
+  }
 
   @State(Scope.Thread)
   public static class LinkData {
@@ -53,28 +55,28 @@ public class UrlBenchmark {
   @Benchmark
   public String pathVariable(LinkData data) {
     StringOutput out = new StringOutput(64);
-    PathVariableTemplate.render(data.value, CTX, out);
+    PathVariableTemplate.render(data.value, ctx(), out);
     return out.toString();
   }
 
   @Benchmark
   public String intPathVariable() {
     StringOutput out = new StringOutput(64);
-    IntPathVariableTemplate.render(42, CTX, out);
+    IntPathVariableTemplate.render(42, ctx(), out);
     return out.toString();
   }
 
   @Benchmark
   public String queryParameter(LinkData data) {
     StringOutput out = new StringOutput(64);
-    QueryParameterTemplate.render(data.value, CTX, out);
+    QueryParameterTemplate.render(data.value, ctx(), out);
     return out.toString();
   }
 
   @Benchmark
   public String literalLink() {
     StringOutput out = new StringOutput(64);
-    LITERAL.render(CTX, out);
+    LITERAL.render(ctx(), out);
     return out.toString();
   }
 
