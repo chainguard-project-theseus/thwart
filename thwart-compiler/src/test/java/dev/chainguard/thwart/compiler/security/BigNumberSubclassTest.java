@@ -224,6 +224,16 @@ class BigNumberSubclassTest {
         renderStyle(body, x, BigInteger.ONE, new BigDecimal("2")));
   }
 
+  /** #807: {@code x ?: d} on a variable does not evaluate (or check) {@code d} when {@code x} is not null. */
+  @Test
+  void elvisOnAVariableSkipsTheFallback() {
+    Price hostile = new Price(CSS_HOSTILE);
+    assertEquals("<div><p style=\"1\">p</p></div>", renderStyle("<p t:style=\"x ?: d\">p</p>", BigDecimal.ONE, BigInteger.ONE, hostile));
+    assertEquals(
+        "<div><p style=\"width: 1px\">p</p></div>",
+        renderStyle("<p t:style=\"|width: ${x ?: d}px|\">p</p>", BigDecimal.ONE, BigInteger.ONE, hostile));
+  }
+
   @Test
   void bigIntegerSubclassWithHostileTextFailsAStyleConcatenation() {
     String body = "<p t:style=\"'height: ' + z + 'px'\">p</p>";

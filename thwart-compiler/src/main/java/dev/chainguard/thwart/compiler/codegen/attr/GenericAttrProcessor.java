@@ -200,8 +200,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * shape only: a literal, an expression of a number type (an exact-class check and plain decimal at
    * render time, {@link Escapers#neutralNumber}) or a boolean type, a {@link #neutralLink neutral
    * link} ({@link Escapers#neutralPath}), or a choice ({@code c ? a : b}, {@code a ?: b}) between
-   * those. Every branch is checked, so all errors are reported. Both operands of an elvis are
-   * evaluated, as in the compiler's {@code ?:}. Static values are not checked: the author wrote them.
+   * those. Every branch is checked, so all errors are reported. An elvis is evaluated as
+   * {@link #elvis} says. Static values are not checked: the author wrote them.
    */
   private static String neutralCode(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name) {
     if (e instanceof Expr.Literal) {
@@ -220,10 +220,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       Expr.Elvis el = (Expr.Elvis) e;
       String value = neutralCode(ctx, el.value(), plan, label, name);
       String fallback = neutralCode(ctx, el.fallback(), plan, label, name);
-      return value == null || fallback == null
-          ? null
-          : "dev.chainguard.thwart.runtime.internal.Values.<java.lang.Object>elvis((java.lang.Object) " + value + ", (java.lang.Object) "
-              + fallback + ")";
+      return value == null || fallback == null ? null : elvis(ctx, el, plan, value, fallback);
     }
     if (e instanceof Expr.Link) {
       return neutralLink(ctx, (Expr.Link) e, plan, label, name);
@@ -429,13 +426,26 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   /**
+   * The code of {@code el} from the code of its operands. As in the expression compiler, a variable
+   * (side-effect free to read) gets a ternary that evaluates the fallback only when it is null
+   * (#807); any other value goes through {@code Values.elvis}, which evaluates both operands.
+   */
+  private static String elvis(CodegenContext ctx, Expr.Elvis el, ElementPlan plan, String value, String fallback) {
+    CompiledExpr v = el.value() instanceof Expr.Var ? ctx.expressions().compile(el.value(), plan.scope()) : null;
+    if (v != null && !v.type().getKind().isPrimitive()) {
+      return "(" + v.code() + " != null ? (java.lang.Object) " + value + " : (java.lang.Object) " + fallback + ")";
+    }
+    return "dev.chainguard.thwart.runtime.internal.Values.<java.lang.Object>elvis((java.lang.Object) " + value
+        + ", (java.lang.Object) " + fallback + ")";
+  }
+
+  /**
    * The code of a style value, or null after reporting why it is not allowed, at the offending
    * piece: what the expression compiler writes, except that each {@code BigDecimal} or
    * {@code BigInteger} piece is wrapped in {@link Escapers#styleNumber}. Every piece is checked, so
    * all errors are reported. A {@code +} with a String operand is concatenation; any other
    * {@code +} is arithmetic on primitives and boxes, so it has no such piece. The condition of a
-   * choice is not output. As in the compiler's {@code ?:}, both operands of an elvis are evaluated,
-   * so a hostile fallback fails the render even when the value is not null.
+   * choice is not output. An elvis is evaluated as {@link #elvis} says.
    */
   private static String styleCode(
       CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, OutputContext context) {
@@ -496,8 +506,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       if (t.getKind() == TypeKind.NULL) {
         return fallback;
       }
-      return "dev.chainguard.thwart.runtime.internal.Values.<java.lang.Object>elvis((java.lang.Object) " + value
-          + ", (java.lang.Object) " + fallback + ")";
+      return elvis(ctx, el, plan, value, fallback);
     }
     CompiledExpr c = ctx.expressions().compile(e, plan.scope());
     if (c == null) {
