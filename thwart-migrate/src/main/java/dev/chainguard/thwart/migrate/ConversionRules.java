@@ -378,10 +378,10 @@ final class ConversionRules {
 
   /**
    * Thymeleaf attributes that write an empty value for {@code null} (its non-removable attribute
-   * processors), where Thwart omits the attribute. Not {@code value}: an {@code <input>} without
-   * one submits the same empty string.
+   * processors), where Thwart omits the attribute. {@code value} stays: without one a checkbox
+   * or radio submits {@code on}, a button shows its default label, an option submits its text.
    */
-  static final Set<String> EMPTY_FOR_NULL = Compat.setOf("href", "src", "action", "name", "type");
+  static final Set<String> EMPTY_FOR_NULL = Compat.setOf("value", "href", "src", "action", "name", "type");
   /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
   static final String NULL_ATTRIBUTE_MESSAGE =
       "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Thwart omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide section 4.3)";

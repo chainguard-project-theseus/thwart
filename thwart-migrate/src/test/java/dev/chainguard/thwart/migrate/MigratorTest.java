@@ -489,12 +489,13 @@ class MigratorTest {
   @Test
   void attributesThymeleafWritesEmptyForNullAreReported() throws Exception {
     String src = "<form t:params=\"Owner owner, String u\" th:action=\"${u}\">"
-        + "<input th:value=\"${owner.name}\" th:name=\"${owner.field}\">\n"
+        + "<input type=\"checkbox\" th:value=\"${owner.name}\" th:name=\"${owner.field}\">\n"
         + "<a th:href=\"${owner.url}\">a</a><img th:src=\"${owner.photo}\"><button th:type=\"${owner.kind}\">b</button>"
         + "</form>";
     assertMessages(src,
         "1: `th:action` = `u`: for a `null` value Thymeleaf wrote `action=\"\"`, but Thwart omits the attribute;"
             + " if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String`",
+        "1: `th:value` = `owner.name`: for a `null` value Thymeleaf wrote `value=\"\"`",
         "1: `th:name` = `owner.field`: for a `null` value Thymeleaf wrote `name=\"\"`",
         "2: `th:href` = `owner.url`: for a `null` value Thymeleaf wrote `href=\"\"`",
         "2: `th:src` = `owner.photo`: for a `null` value Thymeleaf wrote `src=\"\"`",
@@ -506,7 +507,7 @@ class MigratorTest {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
         + "<input th:value=\"'x'\" th:name=\"|f${owner.id}|\"><input th:value=\"42\" th:type=\"#{input.type}\">"
         + "<input th:title=\"${owner.name}\"><input t:value=\"owner.name\">"
-        + "<input th:value=\"checkbox\"><input th:value=\"${owner.name}\"></form>"); // #857: value is not reported
+        + "<input th:value=\"checkbox\"></form>");
   }
 
   @Test
