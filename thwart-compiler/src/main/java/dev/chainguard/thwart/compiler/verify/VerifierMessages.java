@@ -414,6 +414,10 @@ final class VerifierMessages {
    * the migration recipes for the two shapes the bench corpus has (guide section 4.8).
    */
   static String unbalanced(String what, ParserState before, ParserState after) {
+    if (before.tokenizer() == TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
+      return what + " follows an unquoted attribute value, so whether it is written changes where that value"
+          + " ends; quote the attribute value before it (class=\"a\", not class=a)";
+    }
     String head = what + " " + ContentKinds.difference(before, after)
         + ", so what follows would parse differently depending on whether, or how often, it is written; ";
     if (!before.stack().isEmpty() && before.currentNode().localName().equals("table") && opens(before, after, "tbody")) {

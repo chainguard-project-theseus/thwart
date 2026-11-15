@@ -1217,7 +1217,7 @@ Gaps in Thwart today, with what to do instead.
 | Rule | What it means | Fix |
 |---|---|---|
 | `PARSE_ERROR` | The markup parses only by error recovery: a block in a `<p>`, a second `<body>`, content between `</head>` and `<body>`, content directly in a table, a stray end tag, a missing space between attributes, a literal `<` or `&` | Write the markup a browser reads without recovery: close the `<p>` first, write `&lt;` and `&amp;`, pass `~{::body}` with `t:remove="tag"` (4.8) |
-| `UNBALANCED` | A `t:if`, `t:unless`, `t:case`, `t:each`, computed attribute or fragment leaves an element open or closed, or implies a `<tbody>`, `<head>` or `<body>` | Close inside the body what it opens; write the `<tbody>` around rows; make a fragment library's root a `<t:block>` (4.8) |
+| `UNBALANCED` | A `t:if`, `t:unless`, `t:case`, `t:each`, computed attribute or fragment leaves an element open or closed, or implies a `<tbody>`, `<head>` or `<body>`, or a computed attribute follows an unquoted attribute value | Close inside the body what it opens; write the `<tbody>` around rows; make a fragment library's root a `<t:block>` (4.8); quote the attribute value before a computed attribute (`class="a"`, not `class=a`) |
 | `TEXT_IN_TABLE` | A value directly in a `<table>`, `<tbody>` or `<tr>`, where a browser moves it out of the table | Put it in a `<td>`, `<th>` or `<caption>` |
 | `TEXT_OUTSIDE_BODY` | A value in `<head>` or after `</body>` | Move it into `<title>` or the body |
 | `TEXT_IN_SCRIPT`, `JSON_NOT_IN_SCRIPT` | A value in a script or style position the compiler doesn't accept | A prelude declaration or a JSON block (4.4, Scripts); no expressions in `<style>` (4.4, CSS) |
