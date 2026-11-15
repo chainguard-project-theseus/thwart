@@ -65,6 +65,7 @@ inside `|...|` and `+` a `null` prints `null`.
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`, an `Instant`) in the model. |
+| prints a whole object (`th:text="${pet.type}"`, `'x' + ${owner}`), relying on its `toString()` | A build error for a record or `@TemplateView` class (or a list of them): print the property the page shows (`t:text="pet.type?.name"`), or format it with a `@TemplateFunction` (section 4.6). |
 
 ## 2. Build setup
 
@@ -487,9 +488,9 @@ accepts:
 
 | Context | Where | Accepts |
 |---|---|---|
-| Text | element text, `t:text`, `[[...]]` | Any value, escaped. |
+| Text | element text, `t:text`, `[[...]]` | Any value but a record or `@TemplateView` object (section 1), escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy (section 4.5). |
-| Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names | Any value, escaped. |
+| Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names | Any value but a record or `@TemplateView` object, escaped. |
 | Typed attribute | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster` | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart`. Forms: section 4.7. |
 | Resource URL | `script[src]`, `script[href]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |

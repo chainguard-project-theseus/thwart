@@ -53,7 +53,7 @@
           <dt t:text="#{birthDate}">Birth Date</dt>
           <dd t:text="temporals.format(pet.birthDate, 'yyyy-MM-dd')"></dd>
           <dt t:text="#{type}">Type</dt>
-          <dd t:text="pet.type"></dd>
+          <dd t:text="pet.type?.name"></dd>
         </dl>
       </td>
       <td valign="top">

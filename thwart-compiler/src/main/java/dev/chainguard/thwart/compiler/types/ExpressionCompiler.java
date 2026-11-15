@@ -113,10 +113,19 @@ public final class ExpressionCompiler {
     }
   }
 
-  /** Compiles {@code e} and checks its value may be output; reports and returns null on error. */
+  /** Compiles {@code e} and checks its value may be output as text; reports and returns null on error. */
   public CompiledExpr compileOutput(Expr e, Scope scope) {
     CompiledExpr c = compile(e, scope);
-    return c != null && checkOutputType(c.type(), e.pos()) ? c : null;
+    return c != null && checkOutputType(c.type(), e.pos(), true) ? c : null;
+  }
+
+  /**
+   * As {@link #compileOutput}, but any view-safe value is allowed, such as a record: for JSON,
+   * which writes a record's components instead of calling its {@code toString()}.
+   */
+  public CompiledExpr compileJsonOutput(Expr e, Scope scope) {
+    CompiledExpr c = compile(e, scope);
+    return c != null && checkOutputType(c.type(), e.pos(), false) ? c : null;
   }
 
   /** Compiles a value expression. */
@@ -264,9 +273,10 @@ public final class ExpressionCompiler {
 
   /**
    * Checks that {@code type} may be output (view-safe or primitive, or a {@code Field}, which
-   * outputs its path) and reports at {@code pos} if not.
+   * outputs its path) and reports at {@code pos} if not. As {@code text}, it must also print as a
+   * value ({@link ViewSafety#isText}), not a record's {@code toString()}.
    */
-  public boolean checkOutputType(TypeMirror type, SourcePos pos) {
+  boolean checkOutputType(TypeMirror type, SourcePos pos, boolean text) {
     if (type == null) {
       return false;
     }
@@ -282,6 +292,13 @@ public final class ExpressionCompiler {
     if (!safety.isViewSafe(type) && !FormPaths.isField(type)) {
       env.diagnostics()
           .error(pos, "cannot output a value of type " + type + ": it is not view-safe" + badTypeArgument(type, ""));
+      return false;
+    }
+    if (text && !safety.isText(type) && !FormPaths.isField(type)) {
+      env.diagnostics()
+          .error(pos, "cannot output a value of type " + type + " as text: the toString() of a record or"
+              + " @TemplateView class prints its whole state. Output one of its properties instead (such as"
+              + " ${pet.name}), loop over a list with t:each, or format it with a @TemplateFunction");
       return false;
     }
     return true;
@@ -762,8 +779,8 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr concat(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
-    boolean ok = checkOutputType(l.type(), b.left().pos());
-    ok &= checkOutputType(r.type(), b.right().pos());
+    boolean ok = checkOutputType(l.type(), b.left().pos(), true);
+    ok &= checkOutputType(r.type(), b.right().pos(), true);
     return ok ? new CompiledExpr("(" + l.code() + " + " + r.code() + ")", declared("java.lang.String"), b.pos()) : null;
   }
 

@@ -154,6 +154,29 @@ public final class ViewSafety {
   }
 
   /**
+   * Whether a view-safe {@code type} may be printed with {@code toString()}: no record or
+   * {@code @TemplateView} class in it (itself, an array component, a wildcard bound or a type
+   * argument). Their {@code toString()} is user code, and a record's prints every component.
+   */
+  boolean isText(TypeMirror type) {
+    switch (type.getKind()) {
+      case ARRAY:
+        return isText(((ArrayType) type).getComponentType());
+      case WILDCARD: {
+        TypeMirror bound = ((WildcardType) type).getExtendsBound();
+        return bound == null || isText(bound);
+      }
+      case DECLARED: {
+        DeclaredType dt = (DeclaredType) type;
+        TypeElement te = (TypeElement) dt.asElement();
+        return !isRecord(te) && !hasTemplateView(te) && dt.getTypeArguments().stream().allMatch(this::isText);
+      }
+      default:
+        return true;
+    }
+  }
+
+  /**
    * The first class in {@code type} (itself, an array component, a wildcard bound or a type
    * argument, depth-first) that generated code can't name because it, or a class it is nested in,
    * is not public; or null. Generated template classes are in their own packages, so

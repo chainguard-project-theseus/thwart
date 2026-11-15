@@ -488,17 +488,25 @@ class ExpressionCompilerTest {
         .run(
             f -> {
               ExpressionCompiler ec = f.compiler();
-              assertTrue(ec.checkOutputType(f.type("java.lang.String"), TypesHarness.P));
-              assertTrue(ec.checkOutputType(f.type("int"), TypesHarness.P));
-              assertTrue(ec.checkOutputType(f.type("com.example.Status"), TypesHarness.P));
-              assertTrue(ec.checkOutputType(f.type("dev.chainguard.thwart.runtime.SafeHtml"), TypesHarness.P));
+              assertTrue(ec.checkOutputType(f.type("java.lang.String"), TypesHarness.P, true));
+              assertTrue(ec.checkOutputType(f.type("int"), TypesHarness.P, true));
+              assertTrue(ec.checkOutputType(f.type("com.example.Status"), TypesHarness.P, true));
+              assertTrue(ec.checkOutputType(f.type("dev.chainguard.thwart.runtime.SafeHtml"), TypesHarness.P, true));
+              // A record or @TemplateView class is a value only where it is not printed (JSON).
+              assertTrue(ec.checkOutputType(f.type("com.example.User"), TypesHarness.P, false));
+              assertTrue(ec.checkOutputType(f.type("com.example.Account"), TypesHarness.P, false));
               assertTrue(f.errors().isEmpty());
-              assertFalse(ec.checkOutputType(f.type("com.example.Pojo"), at(4, 2)));
-              assertFalse(ec.checkOutputType(f.type("java.lang.Object"), at(4, 2)));
-              assertFalse(ec.checkOutputType(f.type("dev.chainguard.thwart.runtime.Fragment"), at(4, 2)));
-              assertFalse(ec.checkOutputType(f.type("java.lang.Thread"), at(4, 2)));
+              assertFalse(ec.checkOutputType(f.type("com.example.Pojo"), at(4, 2), true));
+              assertFalse(ec.checkOutputType(f.type("java.lang.Object"), at(4, 2), true));
+              assertFalse(ec.checkOutputType(f.type("dev.chainguard.thwart.runtime.Fragment"), at(4, 2), true));
+              assertFalse(ec.checkOutputType(f.type("java.lang.Thread"), at(4, 2), true));
               assertEquals(4, f.errors().size());
               assertTrue(f.errors().get(0).startsWith("t.html:4:2: error: cannot output"));
+              // As text, their toString() would print every component: rejected.
+              assertFalse(ec.checkOutputType(f.type("com.example.User"), at(4, 2), true));
+              assertFalse(ec.checkOutputType(f.type("com.example.Account"), at(4, 2), true));
+              assertEquals(6, f.errors().size());
+              assertTrue(f.errors().get(4).contains("com.example.User as text"), f.errors().get(4));
             });
   }
 

@@ -82,6 +82,23 @@ class TextOutputTest {
   }
 
   @Test
+  void textOfWholeRecordOrListIsBuildError() {
+    // toString() would print every component, named in the template or not (#802).
+    String asText = "com.example.Pet as text";
+    compile("Pet pet", "<p t:text=\"${pet}\">x</p>").assertError("page.html:1:", asText, "one of its properties");
+    compile("Pet pet", "<p t:text=\"${'x' + pet}\">x</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<p>[[${pet}]]</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<p t:title=\"${pet}\">x</p>").assertError("page.html:1:", asText);
+    compile("Pet pet", "<a t:href=\"@{/p(q=${pet})}\">x</a>").assertError("page.html:1:", asText);
+    compile("List<Pet> pets", "<p t:text=\"${pets}\">x</p>").assertError("page.html:1:", "List<com.example.Pet> as text");
+    // JSON writes the components it is given, not toString(): still allowed.
+    Compilation c = compile("Pet pet", "<script type=\"application/json\" t:text=\"pet\"></script>").assertSuccess();
+    assertEquals(
+        "<div><script type=\"application/json\">{\"name\":\"Rex\"}</script></div>",
+        c.render("page", model("pet", c.newInstance("com.example.Pet", "Rex"))));
+  }
+
+  @Test
   void textOnJsonScriptIsJson() {
     Compilation c = compile(
             "String s, List<Integer> xs",
