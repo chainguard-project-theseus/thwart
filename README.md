@@ -45,7 +45,7 @@ You get:
 - Escaping chosen for each output context, with no switch to turn it off.
 - Typed parameters, checked at build time.
 - A strict Content Security Policy by default.
-- Speed: about 20× Thymeleaf or more on the [benchmark pages](thwart-benchmarks/RESULTS.md).
+- Speed: about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request). Other compiled engines such as JTE skip runtime interpretation too, so expect them in the same range.
 
 It costs:
 - It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
