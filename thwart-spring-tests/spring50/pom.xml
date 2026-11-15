@@ -62,11 +62,11 @@
       <version>4.0.1</version>
       <scope>test</scope>
     </dependency>
-    <!-- The Spring Security generation that pairs with Spring 5.0: CSRF, CSP and auth tests. -->
+    <!-- CSRF, CSP and auth tests: the Spring Security version Boot 2.0.9 manages (boot20). -->
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-web</artifactId>
-      <version>5.0.19.RELEASE</version>
+      <version>5.0.12.RELEASE</version>
       <scope>test</scope>
     </dependency>
     <dependency>
