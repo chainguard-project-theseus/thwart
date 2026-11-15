@@ -44,7 +44,8 @@ public final class IdsCompiler {
           .error(pos, "ids." + function + " takes one argument, the id (a field name such as 'roles')");
       return null;
     }
-    CompiledExpr id = expressions.compile(args.get(0), scope);
+    // String.valueOf below prints the id: check it as text output, so a record is not toString()'d (#802).
+    CompiledExpr id = expressions.compileOutput(args.get(0), scope);
     if (id == null) {
       return null;
     }

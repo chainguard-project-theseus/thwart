@@ -11,7 +11,7 @@
 
         <div class="col-sm-10">
           <select t:field="name">
-            <option t:each="item : items" t:value="item" t:text="item">dog</option>
+            <option t:each="item : items" t:value="item.name" t:text="item.name">dog</option>
           </select>
           <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
           <t:block t:if="!valid">

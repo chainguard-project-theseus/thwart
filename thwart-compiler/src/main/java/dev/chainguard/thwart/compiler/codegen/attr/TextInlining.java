@@ -405,11 +405,13 @@ public final class TextInlining {
 
   /**
    * A statement writing {@code e} escaped for {@code context} (TEXT or SCRIPT), or nothing
-   * after reporting an error. The value must be view-safe; in SCRIPT it must also be
-   * JSON-serializable ({@link ScriptJson}).
+   * after reporting an error. In TEXT the value must print as text; in SCRIPT it must be
+   * view-safe and JSON-serializable ({@link ScriptJson}).
    */
   static Emitted valueStatement(CodegenContext ctx, Expr e, OutputContext context, Scope scope) {
-    CompiledExpr c = ctx.expressions().compileOutput(e, scope);
+    CompiledExpr c = context == OutputContext.SCRIPT
+        ? ctx.expressions().compileJsonOutput(e, scope)
+        : ctx.expressions().compileOutput(e, scope);
     if (c == null) {
       return Emitted.EMPTY;
     }

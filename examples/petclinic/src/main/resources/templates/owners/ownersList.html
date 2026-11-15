@@ -24,7 +24,7 @@
         <td t:text="owner.address" />
         <td t:text="owner.city" />
         <td t:text="owner.telephone" />
-        <td><span t:text="strings.join(owner.pets, ', ')" /></td>
+        <td><span><t:block t:each="pet : owner.pets" t:text="petStat.last ? pet.name : pet.name + ', '"></t:block></span></td>
       </tr>
     </tbody>
   </table>
