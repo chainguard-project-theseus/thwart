@@ -32,20 +32,18 @@ public class RenderBenchmark {
   private List<Owner> owners;
   private List<Owner> featured;
   private TemplateEngine thymeleaf;
-  private RenderContext ctx;
 
   @Setup
   public void setUp() {
     owners = BenchmarkData.owners();
     featured = BenchmarkData.featured();
     thymeleaf = Engines.thymeleaf();
-    ctx = RenderContext.defaults();
   }
 
   /** 100-row owner table with links and conditionals. */
   @Benchmark
   public String ownersTableThwart() {
-    return Engines.thwartOwners(ctx, owners, 1);
+    return Engines.thwartOwners(RenderContext.defaults(), owners, 1);
   }
 
   @Benchmark
@@ -56,7 +54,7 @@ public class RenderBenchmark {
   /** Layout page built from many fragment calls (menu items, cards, pet labels, badges). */
   @Benchmark
   public String layoutPageThwart() {
-    return Engines.thwartHome(ctx, featured);
+    return Engines.thwartHome(RenderContext.defaults(), featured);
   }
 
   @Benchmark

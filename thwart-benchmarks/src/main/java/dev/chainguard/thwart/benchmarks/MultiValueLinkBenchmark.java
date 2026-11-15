@@ -52,14 +52,14 @@ public class MultiValueLinkBenchmark {
   @Benchmark
   public String query() {
     StringOutput out = new StringOutput(256);
-    MultiQueryTemplate.render(list, objects, ints, UrlBenchmark.CTX, out);
+    MultiQueryTemplate.render(list, objects, ints, UrlBenchmark.ctx(), out);
     return out.toString();
   }
 
   @Benchmark
   public String path() {
     StringOutput out = new StringOutput(256);
-    MultiPathTemplate.render(list, objects, ints, UrlBenchmark.CTX, out);
+    MultiPathTemplate.render(list, objects, ints, UrlBenchmark.ctx(), out);
     return out.toString();
   }
 }
