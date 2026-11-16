@@ -45,6 +45,7 @@ import org.mozilla.javascript.ErrorReporter;
 import org.mozilla.javascript.EvaluatorException;
 import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.Token;
+import org.mozilla.javascript.ast.AbstractObjectProperty;
 import org.mozilla.javascript.ast.ArrayLiteral;
 import org.mozilla.javascript.ast.AstNode;
 import org.mozilla.javascript.ast.AstRoot;
@@ -704,8 +705,10 @@ class HostileSweepTest {
       return a.getElements().stream().allMatch(HostileSweepTest::literal);
     }
     if (n instanceof ObjectLiteral o) {
-      for (ObjectProperty p : o.getElements()) {
-        if (p.isMethod() || !(p.getLeft() instanceof StringLiteral) || !literal(p.getRight())) {
+      // Rhino 1.9: elements are AbstractObjectProperty; a spread ({...x}) is not a literal.
+      for (AbstractObjectProperty e : o.getElements()) {
+        if (!(e instanceof ObjectProperty p)
+            || p.isMethod() || !(p.getKey() instanceof StringLiteral) || !literal(p.getValue())) {
           return false;
         }
       }
