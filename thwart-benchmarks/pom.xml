@@ -18,7 +18,7 @@
     <maven.install.skip>true</maven.install.skip>
     <jmh.version>1.37</jmh.version>
     <!-- Thymeleaf is a dependency of this module only. -->
-    <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
+    <thymeleaf.version>3.1.6.RELEASE</thymeleaf.version>
   </properties>
 
   <dependencies>
