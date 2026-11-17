@@ -141,6 +141,8 @@ class CrawlerTest {
       // /cut promises more than it sends, then hangs up.
       ex.sendResponseHeaders(status, path.equals("/cut") ? page.length + 100 : page.length);
       ex.getResponseBody().write(page);
+      // Since JDK 25 the server drops a short response's buffered bytes on close: send them first.
+      ex.getResponseBody().flush();
       ex.close();
     });
     server.start();

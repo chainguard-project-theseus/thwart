@@ -1,11 +1,13 @@
 package dev.chainguard.thwart.migrate;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.CookieManager;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -252,19 +254,25 @@ final class Crawler {
    */
   private static String readBody(HttpURLConnection http, int status) throws IOException {
     InputStream stream = status >= 400 ? http.getErrorStream() : http.getInputStream();
-    byte[] bytes;
-    if (stream == null) {
-      bytes = new byte[0];
-    } else {
+    long length = http.getContentLengthLong();
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    if (stream != null) {
       try (InputStream in = stream) {
-        bytes = Compat.readAllBytes(in);
+        byte[] buf = new byte[8192];
+        for (int n; (n = in.read(buf)) > 0; ) {
+          bytes.write(buf, 0, n);
+        }
+      } catch (IOException e) {
+        // JDK 25 and later throw "Premature EOF" at a short body; older JDKs return it short.
+        if (e instanceof SocketTimeoutException || length < 0 || bytes.size() >= length) {
+          throw e;
+        }
       }
     }
-    long length = http.getContentLengthLong();
-    if (length >= 0 && bytes.length < length) {
-      throw new IOException("response truncated: got " + bytes.length + " of " + length + " bytes");
+    if (length >= 0 && bytes.size() < length) {
+      throw new IOException("response truncated: got " + bytes.size() + " of " + length + " bytes");
     }
-    return new String(bytes, StandardCharsets.UTF_8);
+    return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
   }
   private static boolean isRedirect(int status) {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;

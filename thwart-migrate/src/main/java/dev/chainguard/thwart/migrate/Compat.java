@@ -1,8 +1,6 @@
 package dev.chainguard.thwart.migrate;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,15 +91,5 @@ final class Compat {
   /** {@code Files.writeString(path, text, UTF_8)}. */
   static void writeString(Path path, CharSequence text) throws IOException {
     Files.write(path, text.toString().getBytes(StandardCharsets.UTF_8));
-  }
-
-  /** {@code InputStream.readAllBytes()}. */
-  static byte[] readAllBytes(InputStream in) throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    byte[] buf = new byte[8192];
-    for (int n; (n = in.read(buf)) > 0; ) {
-      out.write(buf, 0, n);
-    }
-    return out.toByteArray();
   }
 }
