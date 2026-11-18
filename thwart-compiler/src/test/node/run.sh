@@ -21,13 +21,12 @@ FIREFOX_SHA256=86d049070ad80b74d8e674793e22d28923b4a7a1da06b4d65402f91c67a10314
 
 # The WebKit revision playwright-core (package.json) drives: its browsers.json, "webkit" (WebKit
 # 27.2). Bump both together.
-WEBKIT_REVISION=2370
-WEBKIT_SHA256=d0667d52a00058b7fd8b5e338b54520bbb2c835c999f468790bec47df4534f01
-# Ubuntu 26.04 (resolute, release pocket) libraries the build links that Wolfi lacks (flite,
-# hyphen, libmanette and its gudev/hidapi, libsoup 3) or ships at another soname (libjxl 0.12).
+WEBKIT_REVISION=2388
+WEBKIT_SHA256=cb319df755931b7206411206e297105bf234939c3d7b9772c1156d993b8d0b1f
+# Ubuntu 26.04 (resolute, release pocket) libraries the build links that Wolfi lacks (hyphen,
+# libmanette and its gudev/hidapi, libsoup 3) or ships at another soname (libjxl 0.12).
 # They go into the bundle's sys/lib, which its MiniBrowser wrapper puts on LD_LIBRARY_PATH.
 UBUNTU_DEBS=(
-  "universe/f/flite/libflite1_2.2-7build1_amd64.deb c43b7d1624664e581b09bdd3ba1782f08baea8239295f0fed39093bb41757f4a"
   "main/h/hyphen/libhyphen0_2.8.8-7build4_amd64.deb eda68421ab4d85d79cc3bdc0ee5cac6bf80b8741187446f019a98d9e40bc1101"
   "universe/libm/libmanette/libmanette-0.2-0_0.2.13-1_amd64.deb 2e68b011e47dd553c3142794f0f1ad86bff4924b1f4072ef2be2a447c5d69631"
   "main/libg/libgudev/libgudev-1.0-0_238-7build1_amd64.deb fdf0708cb0fbc95c553e3379cf77f6b1c9bb485cf3244c6246c31c7312467c81"
