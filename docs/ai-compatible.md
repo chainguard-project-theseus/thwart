@@ -16,8 +16,12 @@ each result.
 **Summary of the results so far.** The latest round (run 15, details in [Results](#results)):
 
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
-  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.50.
-  Over every archived run, the family passed strictly in **41 of 42 runs**.
+  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.35.
+  Over every archived run, the family passed strictly in **41 of 42 runs**. All 7 are development
+  apps, and Thwart's design was shaped by its own PetClinic port, so this is the best case (see
+  [Limitations](#limitations)).
+- **Mustache PetClinic** (1 app): failed, with 23 of 30 pages matched; the rest are stray `th:*`
+  attributes that Thwart rejects. Over every archived run it passed strictly in 4 of 8.
 - **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf, Thymeleaf with
   htmx, FreeMarker, JSP, JSP with Apache Tiles, Velocity and Pebble): every migrated app builds
   and passes all of its tests, and each migration took 10 to 51 minutes and cost about $3.50 to
@@ -26,6 +30,7 @@ each result.
   passed strictly. Over every archived run, the larger apps passed strictly in 6 of 73 runs (5 of
   42 on the held-out apps), and all six are older runs; 70.6% of their pages matched, on average
   over runs.
+- **Round total:** 7 of 18 apps passed strictly, and 8 of 18 under `pass_forced`.
 - Some of the remaining differences are what Thwart requires (inline event handlers moved out
   for the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
   sanitizer). Some are agent mistakes, and some are scripts that Thwart's CSP blocks. Strict
@@ -43,10 +48,12 @@ each result.
    checked against. The guide covers what an agent can't find out from the tools: the model,
    build setup, the output contexts and the traps of each old engine.
 2. **Compiler errors written as fixes.** A template that Thwart can't prove safe is a build error.
-   The error names the file, line and column, says what is wrong, and says how to fix it:
+   The error names the file, line and column, says what is wrong, and says how to fix it. For the
+   README's example template with `<button onclick="newOrder()">` added right after
+   "No orders yet.":
 
    ```text
-   error: customers/show.html:7:55: error: onclick on <button> is not allowed: inline event handlers are not supported: a strict CSP blocks them; remove onclick and attach the listener from a <script> with addEventListener, or mark the element with a data-* attribute and handle it with one delegated listener
+   error: customers/show.html:7:54: error: onclick on <button> is not allowed: inline event handlers are not supported: a strict CSP blocks them; remove onclick and attach the listener from a <script> with addEventListener, or mark the element with a data-* attribute and handle it with one delegated listener
    ```
 
    The messages are the detailed documentation for each rule, so an agent's normal loop (edit,
