@@ -3,7 +3,7 @@
 This document specifies, as tables, the set of templates the compiler accepts and where each
 value may go. It is the detail behind [security-architecture.md](security-architecture.md) §5 and
 §11; the threat model is [security-model.md](security-model.md), and the porting recipe for each
-rejection is [guide.md](guide.md).
+rejection is the [guide](guide/README.md).
 
 The security boundary for markup is the build-time verifier (`verify/ContextVerifier`, rule table
 `verify/Rules`, section 9). It runs every template through the pinned spec HTML parser and
@@ -196,7 +196,7 @@ such as `v-on:` or `hx-on:`, are the author's markup and are copied as written
 
 | Name | Accepted | Checked by |
 |---|---|---|
-| `data-*`, `aria-*`, or a name on the closed allow-list (`Contexts.COMPUTED`, guide §4.4) on an HTML element | classified as in 6.1 | `ContextsTest` |
+| `data-*`, `aria-*`, or a name on the closed allow-list (`Contexts.COMPUTED`, [guide](guide/templates.md#output-contexts)) on an HTML element | classified as in 6.1 | `ContextsTest` |
 | Any other name | error, with a fix-it naming a static value, `t:if`, or a `data-*` attribute | `ContextsTest`, `NeutralValuesTest`, `InertAttributesTest` |
 | Static `is` | a valid custom element name only (ASCII, with `-`, not a reserved SVG/MathML name) | `NeutralValuesTest` |
 | Computed `action` on a `<form>` | a same-origin link, or a choice whose every branch is one | `FormActionTest`, `CsrfActionOriginTest` |
@@ -208,7 +208,7 @@ such as `v-on:` or `hx-on:`, are the author's markup and are copied as written
 There is no framework table: client code that evaluates attribute values or DOM text is outside
 the guarantee (principle 7), and the compiler constrains its own output only in `data-*` names
 (`NEUTRAL`); every other name outside HTML is off the allow-list. Client frameworks that compile the server's DOM as a template are
-unsupported; a strict CSP is the backstop (6.4, guide §4.9).
+unsupported; a strict CSP is the backstop (6.4, [guide](guide/templates.md#rendering)).
 
 | Rule | Enforced by | Checked by |
 |---|---|---|
@@ -220,7 +220,7 @@ unsupported; a strict CSP is the backstop (6.4, guide §4.9).
 ### 6.4 The CSP nonce
 
 Defence in depth beyond the guarantee: with a nonce-based `script-src`, which the application
-sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes from
+sends ([guide](guide/templates.md#rendering)), only the scripts the compiler wrote run. The nonce comes from
 `RenderContext.cspNonce()`; the Spring starter sets a fresh one per request.
 
 | Rule | Checked by |
@@ -260,8 +260,8 @@ sends (guide §4.9), only the scripts the compiler wrote run. The nonce comes fr
 
 `verify/Rules` and `verify/ContextVerifier`. Each path through a template holds one parser per
 scripting mode (off only if the template mentions `<noscript>`); a template is accepted only if
-every parser accepts it. The id in brackets ends every error message (`[verifier:ID]`); guide
-section 5 gives the fix for each.
+every parser accepts it. The id in brackets ends every error message (`[verifier:ID]`); the
+[guide's limitations](guide/limitations.md) give the fix for each.
 
 The parser state names the one escaper a value may have: `text` in data state (in body, cell,
 caption or template mode) and RCDATA; `json`/`javaScript` in the script data of an HTML

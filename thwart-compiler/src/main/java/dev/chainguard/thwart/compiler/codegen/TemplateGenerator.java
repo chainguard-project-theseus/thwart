@@ -760,7 +760,7 @@ public final class TemplateGenerator implements CodegenContext {
       if (a.name().matches("(?is)(?!(xml|xmlns|xlink):)[a-z0-9_]+:.*|data-(th|sec)-.*")) {
         diagnostics().error(a.pos(), a.name() + " on <" + e.name() + "> is not allowed: it is a prefixed attribute"
             + " that Thwart would print as text; write the t: attribute it stands for (thwart-migrate rewrites th:"
-            + " ones, guide 4.3) or remove it");
+            + " ones, guide templates.md, Expressions and attributes) or remove it");
       }
       if (HtmlParser.asciiEqualsIgnoreCase(a.name(), "is") && !Contexts.isCustomElementName(a.value())) {
         diagnostics().error(a.pos(), "is=\"" + a.value() + "\" on <" + e.name() + "> is not allowed: is may only name a"

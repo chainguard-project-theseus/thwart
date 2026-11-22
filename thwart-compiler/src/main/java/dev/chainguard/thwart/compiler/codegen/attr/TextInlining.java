@@ -452,7 +452,7 @@ public final class TextInlining {
           .error(
               c.pos(),
               form + " needs a value of type " + SAFE_HTML + ", but the expression has type " + type
-                  + ": use t:text or [[...]] (escaped); for stored HTML, html.sanitize(...) (guide section 4.10, Rich"
+                  + ": use t:text or [[...]] (escaped); for stored HTML, html.sanitize(...) (guide templates.md, Rich"
                   + " text); or build a SafeHtml in trusted Java code");
       return Emitted.EMPTY;
     }

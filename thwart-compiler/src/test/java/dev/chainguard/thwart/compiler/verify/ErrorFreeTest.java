@@ -50,7 +50,7 @@ class ErrorFreeTest {
         .compile()
         .assertError("page.html:2:", "in fragment layout :: layout, inserted here, at page.html:3:1",
             "a browser finds a second <body>", "<body t:remove=\"tag\">", "[verifier:PARSE_ERROR]");
-    // The fix (guide section 4.8): pass only the body's content.
+    // The fix (guide templates.md, Fragments and layouts): pass only the body's content.
     Compilation.builder()
         .template("layout.html", LAYOUT)
         .template("page.html", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String s\""

@@ -164,7 +164,7 @@ class HtmlPolicyTest {
     // Only tokens of [A-Za-z0-9_-] are kept: ':' ';' '{' never are
     assertEquals("<p class=\"a b-c d_e\">x</p>", SafeHtml.sanitize("<p class=\"a ng-init:x; b-c {{x}} d_e\">x</p>", any).html());
     assertEquals("<p>x</p>", SafeHtml.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>", any).html());
-    // #586: ng-like tokens of that form are kept like any other (AngularJS is not supported, guide §5)
+    // #586: ng-like tokens of that form are kept like any other (AngularJS is not supported, guide limitations.md)
     assertEquals("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>",
         SafeHtml.sanitize("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>", any).html());
     assertEquals("<p class=\"ng-x\">x</p>", SafeHtml.sanitize("<p class=\"ng-x other\">x</p>",

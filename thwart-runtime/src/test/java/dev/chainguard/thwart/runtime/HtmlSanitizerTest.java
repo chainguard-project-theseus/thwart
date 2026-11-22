@@ -125,7 +125,7 @@ class HtmlSanitizerTest {
     assertEquals("&notin; &Oacute; a&amp;notit;b a&amp;lt3;b x&amp;ampy; &amp;copyright; &amp;X; &amp;p;",
         clean("&notin; &Oacute; a&notit;b a&lt3;b x&ampy; &copyright; &X; &p;"));
     assertEquals("<p title=\"&eacute;&amp;notit;&amp;X;\">x</p>", SafeHtml.sanitize("<p title=\"&eacute;&notit;&X;\">x</p>", HtmlPolicy.RICH).html());
-    // Deliberate (guide.md §4.4): valid HTML5-only names are escaped too, so they show as written
+    // Deliberate (guide templates.md, Output contexts): valid HTML5-only names are escaped too, so they show as written
     // rather than as the character a browser would decode; an HTML 4 name next to them is kept.
     assertEquals("&amp;check; &amp;star; &amp;Rarr; &rarr;", clean("&check; &star; &Rarr; &rarr;"));
     assertEquals("� � � 😀", clean("&#0; &#xD800; &#99999999999; &#x1F600;"));

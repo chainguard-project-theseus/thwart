@@ -2,10 +2,9 @@ package dev.chainguard.thwart.compiler.verify;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.chainguard.thwart.compiler.guide.GuideFiles;
 import dev.chainguard.thwart.compiler.testing.Compilation;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,11 +15,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The verifier's build-time budget (#367): verifying the repo's own templates, the examples of
- * docs/guide.md, must not take longer than {@link #BOUND_MILLIS}, three times what it took when
- * the bound was set. The numbers for real applications are in the PR for #367.
+ * the guide ({@code docs/guide/}), must not take longer than {@link #BOUND_MILLIS}, three times
+ * what it took when the bound was set. The numbers for real applications are in the PR for #367.
  */
 class VerifierBudgetTest {
-  private static final Path GUIDE = Path.of("../docs/guide.md");
   private static final Pattern EXAMPLE =
       Pattern.compile("<!-- compile: (java|messages|template (\\S+)) -->\\n```\\w*\\n(.*?)\\n```", Pattern.DOTALL);
   private static final Pattern JAVA_NAME =
@@ -31,7 +29,7 @@ class VerifierBudgetTest {
 
   @Test
   void theGuideTemplatesVerifyWithinTheBound() throws IOException {
-    String guide = Files.readString(GUIDE);
+    String guide = GuideFiles.readAll();
     Compilation.Builder b = Compilation.builder().option("thwart.package", "com.example.templates");
     List<String> views = new ArrayList<>();
     StringBuilder bundle = new StringBuilder();

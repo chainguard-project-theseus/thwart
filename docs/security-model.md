@@ -26,7 +26,7 @@ output in attribute names outside HTML, a framework-neutral value (context-model
 a template are unsupported. Past that boundary, the defence in depth is a strict CSP: Thwart puts
 the request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
 starter sends a strict nonce policy for a Thwart page that commits without one, so a policy from
-Spring Security or the application wins (guide §4.9).
+Spring Security or the application wins ([guide](guide/templates.md#rendering)).
 
 The build-time verifier makes the first point hold for every template the compiler accepts:
 
@@ -61,7 +61,7 @@ This is the one trust table; SECURITY.md links here.
 | **Other `SafeHtml` sources** (`escape`, `sanitize`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. | The verifier: `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). |
 | **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (`thwart-html5/pom.xml`) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`, CDATA) | At build time, the verifier runs the pinned htmlparser and accepts only error-free parses outside the exclusions. In tests, parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (on Chainguard Checks after every merge and on request) |
-| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §5) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; `CspFilterTest`, `CspTest`: the starter's default policy header, never replacing one already set) |
+| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported ([guide](guide/limitations.md)) | Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); strict CSP with nonces (`CspNonceTest`: the nonce on compiler-written scripts; `CspFilterTest`, `CspTest`: the starter's default policy header, never replacing one already set) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
 | **The CSP nonce** (`RenderContext.cspNonce`) | Trusted, but escaped | The application (or the starter, from `SecureRandom`) supplies a fresh, unguessable value per response, used in the policy | Written only on compiler-written `<script>` and `<style>` start tags a browser reads as HTML (not in SVG, MathML or raw text), with `Escapers.attr`; a nonce in the template is a build error; the starter's default policy header takes only a base64 nonce |
 
@@ -111,8 +111,8 @@ differentials, B composition, C JavaScript position, D client frameworks, E URL 
 | XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; script prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
-| Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); text is plain-escaped and frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); a strict CSP is the backstop. A computed non-HTML attribute value that isn't neutral is in scope. See guide §5 |
-| What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` and with `connect-src 'self'` limits the damage (guide §4.9) |
+| Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); text is plain-escaped and frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); a strict CSP is the backstop. A computed non-HTML attribute value that isn't neutral is in scope. See [guide](guide/limitations.md) |
+| What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` and with `connect-src 'self'` limits the damage ([guide](guide/templates.md#rendering)) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | A hand-written `Template`'s own output | No | The Java that writes it owns it, like any other response code |
 | Views Thwart doesn't render (Thymeleaf or JSP still configured during a migration) | No | They get none of these guarantees; the Spring starter logs a warning at startup while that is the case |
@@ -166,7 +166,7 @@ accepts. None is modelled.
 ## 8. Proof table
 
 Each context a computed value can reach, what makes it safe, and the test that pins it. Anything
-not in this table is a build error (context-model.md §9; the guide's §5 table gives each fix).
+not in this table is a build error (context-model.md §9; the [guide's limitations](guide/limitations.md) table gives each fix).
 `ProofTableTest` checks that every test named here exists.
 
 | Accepted context | Escaper or rule | Pinned by |
@@ -202,9 +202,9 @@ These, and only these, are known ways the guarantee falls short:
 3. **Tier1's parser oracle shares the verifier's engine.** `SeedVerifierTest` and
    `HostileSweepTest` parse with the same pinned htmlparser the verifier uses; the Node postsubmit
    (parse5, Chromium, Firefox ESR, WebKit) is the independent check.
-4. **DOM clobbering through computed `id`, `name` and `form`.** These take any value (guide
-   §4.4), so a model value can name an element after a page global (`<img t:name>` or `<form
-   t:name>` as `cookie` shadows `document.cookie`; any `t:id` adds a `window` property) or move a
+4. **DOM clobbering through computed `id`, `name` and `form`.** These take any value
+   ([guide](guide/templates.md#output-contexts)), so a model value can name an element after a
+   page global (`<img t:name>` or `<form t:name>` as `cookie` shadows `document.cookie`; any `t:id` adds a `window` property) or move a
    control into another form on the page with `t:form`. No script runs, but page JavaScript that
    reads those globals sees the value (principle 7). Real templates compute all three (form and
    row ids, `t:form` on inputs outside their form), and every attacker string is a valid name, so

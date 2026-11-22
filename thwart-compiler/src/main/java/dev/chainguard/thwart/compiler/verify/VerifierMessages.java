@@ -14,14 +14,14 @@ import java.util.regex.Pattern;
  * It never shows a parser state, an insertion mode or an engine class. When the hole is inside a
  * fragment, the error is at the call site and the message names the fragment and the hole; when
  * only one scripting mode rejects it, the message says so. Every message ends with
- * {@code [verifier:RULE_ID]} ({@link Problem}, stable ids). Guide section 5 summarizes them, and
+ * {@code [verifier:RULE_ID]} ({@link Problem}, stable ids). The guide's limitations.md summarizes them, and
  * {@code VerifierMessagesTest} the golden text.
  */
 final class VerifierMessages {
   private VerifierMessages() {}
 
   private static final String RICH_TEXT = "for stored rich text, print it with t:utext=\"html.sanitize(...)\""
-      + " (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text)";
+      + " (or html.sanitizeRich, or an application HtmlPolicy; guide templates.md, Rich text)";
 
   static String message(Finding f) {
     StringBuilder sb = new StringBuilder();
@@ -86,8 +86,8 @@ final class VerifierMessages {
         return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it"
             + closedBy(f.detail) + ", so the rest of the page would parse differently; "
             + (f.source == Skeleton.Source.SAFE_HTML && f.detail != null && !f.detail.matches(".*<(select|opt).*")
-                ? "if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide section"
-                    + " 4.4, Inline HTML); otherwise insert it outside the open element"
+                ? "if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide"
+                    + " templates.md, Inline HTML); otherwise insert it outside the open element"
                 : "insert it outside the open element");
       case STRUCTURE_DEPENDS_ON_DATA:
         return structure(f);
@@ -221,7 +221,7 @@ final class VerifierMessages {
     String layout = "; a page has one <html>, <head> and <body>: a layout call such as"
         + " t:replace=\"~{layout :: layout(~{::body})}\" passes the whole element into the layout's own, so mark"
         + " the element the page passes t:remove=\"tag\" (<body t:remove=\"tag\">) to pass only its content"
-        + " (guide section 4.8, Layouts)";
+        + " (guide templates.md, Layouts)";
     Matcher m = SECOND_PAGE_ELEMENT.matcher(message);
     if (m.matches()) {
       String name = m.group(1) != null ? m.group(1) : m.group(3);
@@ -411,7 +411,7 @@ final class VerifierMessages {
   /**
    * The text of {@link Problem#UNBALANCED}: {@code what} (the body or fragment, in words),
    * how it leaves the parser ({@code after}) unlike it found it ({@code before}), and the fix, with
-   * the migration recipes for the two shapes the bench corpus has (guide section 4.8).
+   * the migration recipes for the two shapes the bench corpus has (guide templates.md, Fragments and layouts).
    */
   static String unbalanced(String what, ParserState before, ParserState after) {
     if (before.tokenizer() == TokenizerState.ATTRIBUTE_VALUE_UNQUOTED) {
@@ -429,7 +429,7 @@ final class VerifierMessages {
         || m == InsertionMode.AFTER_HEAD) {
       return head + "a browser opens or closes the <head> or <body> there: in a fragment library, make the root a"
           + " <t:block> instead of <html>, or move the fragments into the <body>; a page passes its parts to a layout"
-          + " on <html> (guide section 4.8, Layouts)";
+          + " on <html> (guide templates.md, Layouts)";
     }
     return head + "close inside it every element it opens, and leave open every element it found open";
   }

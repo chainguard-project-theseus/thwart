@@ -241,7 +241,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         codes, types, fragmentArgs);
   }
 
-  /** Fragment parameters have no defaults (guide section 4.8). */
+  /** Fragment parameters have no defaults (guide templates.md, Fragments and layouts). */
   private static final String NULL_FOR_OPTIONAL = "; every call passes every argument, `null` for an optional one";
 
   /**

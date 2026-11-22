@@ -7,22 +7,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that the Claude Code migration skill in {@code plugins/thwart} is well formed: the
- * {@code SKILL.md} frontmatter, the files it links to, the copy of {@code docs/guide.md} (the single
- * source of truth), the {@code thwart-migrate} coordinates it documents, and the plugin and
- * marketplace manifests that point at it.
+ * Checks that the Claude Code skill in {@code plugins/thwart} is well formed: the {@code SKILL.md}
+ * frontmatter, the files it links to, its references (byte copies of the guide in
+ * {@code docs/guide/}, the single source of truth), the {@code thwart-migrate} coordinates they
+ * document, and the plugin and marketplace manifests that point at it.
  */
-class MigrationSkillTest {
+class ThwartSkillTest {
   private static final Path ROOT = Path.of("..");
   private static final Path PLUGIN = ROOT.resolve("plugins/thwart");
-  private static final Path SKILL_DIR = PLUGIN.resolve("skills/migrate");
-  private static final Path GUIDE = ROOT.resolve("docs/guide.md");
-  private static final Path GUIDE_COPY = SKILL_DIR.resolve("references/guide.md");
+  private static final Path SKILL_DIR = PLUGIN.resolve("skills/thwart");
+  private static final Path REFERENCES = SKILL_DIR.resolve("references");
 
   private static String read(Path p) throws IOException {
     return Files.readString(p);
@@ -40,29 +42,42 @@ class MigrationSkillTest {
     assertTrue(description.find(), "frontmatter has no description");
     // Claude Code truncates description + when_to_use at 1,536 characters in the skill listing.
     assertTrue(description.group(1).length() <= 1536, "description is longer than 1536 characters");
+    // A plain YAML scalar ends at ": " or " #".
+    assertFalse(description.group(1).contains(": ") || description.group(1).contains(" #"),
+        "description must stay a plain YAML scalar (no ': ' or ' #')");
   }
 
   @Test
   void linkedFilesExist() throws IOException {
     String skill = read(SKILL_DIR.resolve("SKILL.md"));
     Matcher link = Pattern.compile("\\]\\(([^)#]+)(#[^)]*)?\\)").matcher(skill);
-    int links = 0;
+    List<String> linked = new ArrayList<>();
     while (link.find()) {
       String target = link.group(1);
       if (target.contains("://")) {
         continue;
       }
-      links++;
+      linked.add(target);
       assertTrue(Files.isRegularFile(SKILL_DIR.resolve(target)), "SKILL.md links to a missing file: " + target);
     }
-    assertTrue(links > 0, "SKILL.md should link to its reference files");
+    for (String name : GuideFiles.NAMES) {
+      assertTrue(linked.contains("references/" + name), "SKILL.md doesn't link to references/" + name);
+    }
   }
 
   @Test
-  void guideCopyMatchesDocsGuide() throws IOException {
-    assertEquals(read(GUIDE), read(GUIDE_COPY),
-        "plugins/thwart/skills/migrate/references/guide.md is stale; docs/guide.md is the source of truth. Run:"
-            + " cp docs/guide.md plugins/thwart/skills/migrate/references/guide.md");
+  void referencesAreCopiesOfTheGuide() throws IOException {
+    List<String> references;
+    try (Stream<Path> files = Files.list(REFERENCES)) {
+      references = files.map(p -> p.getFileName().toString()).sorted().toList();
+    }
+    assertEquals(GuideFiles.NAMES.stream().sorted().toList(), references,
+        "plugins/thwart/skills/thwart/references must hold exactly the guide's files");
+    for (String name : GuideFiles.NAMES) {
+      assertEquals(read(GuideFiles.DIR.resolve(name)), read(REFERENCES.resolve(name)),
+          "plugins/thwart/skills/thwart/references/" + name + " is stale; docs/guide/" + name
+              + " is the source of truth. Run: cp docs/guide/" + name + " plugins/thwart/skills/thwart/references/");
+    }
   }
 
   @Test
@@ -73,21 +88,17 @@ class MigrationSkillTest {
     String version = v.group(1);
     assertTrue(read(ROOT.resolve("thwart-migrate/pom.xml")).contains("<artifactId>thwart-migrate</artifactId>"));
 
-    String skill = read(SKILL_DIR.resolve("SKILL.md"));
+    String skill = read(SKILL_DIR.resolve("SKILL.md")) + GuideFiles.readAll();
     Matcher coords = Pattern.compile("-Dartifact=(\\S+)").matcher(skill);
     int found = 0;
     while (coords.find()) {
       found++;
-      assertEquals("dev.chainguard.thwart:thwart-migrate:" + version, coords.group(1), "SKILL.md documents the wrong artifact");
+      assertEquals("dev.chainguard.thwart:thwart-migrate:" + version, coords.group(1), "the skill documents the wrong artifact");
     }
-    assertEquals(1, found, "SKILL.md should state the thwart-migrate coordinates exactly once");
-    // The commands run the jar as .thwart/thwart-migrate.jar, which is where dependency:copy
-    // puts it with these two flags.
-    assertTrue(skill.contains("-Dmdep.stripVersion=true -DoutputDirectory=.thwart"));
-    Matcher jar = Pattern.compile("java -jar (\\S+)").matcher(skill);
-    while (jar.find()) {
-      assertEquals(".thwart/thwart-migrate.jar", jar.group(1));
-    }
+    assertEquals(1, found, "the skill should state the thwart-migrate coordinates exactly once");
+    // The fetch command runs the jar as .thwart/thwart-migrate.jar, which is where
+    // dependency:copy puts it with these two flags.
+    assertTrue(skill.contains("-Dmdep.stripVersion=true -DoutputDirectory=.thwart\n  java -jar .thwart/thwart-migrate.jar"));
   }
 
   @Test

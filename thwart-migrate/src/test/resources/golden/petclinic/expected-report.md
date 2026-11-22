@@ -4,15 +4,15 @@ Converted 9 template(s); 51 item(s) need manual attention.
 
 ## fragments/inputField.html
 
-- `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide section 4.8)
-- `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
-- `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
-- `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)
+- `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)
+- `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide templates.md, Reusable form fields)
+- `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide templates.md, Reusable form fields)
+- `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide templates.md, Reusable form fields)
 
 ## fragments/layout.html
 
-- `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide section 4.8)
-- `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide section 4.8)
+- `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)
+- `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)
 - `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field; for a whole link `@{__${link}__}`, pass the link itself (`@{/owners}` from the caller) and write `t:href="link"`
 
 ## misc/fixits.html
@@ -44,9 +44,9 @@ Converted 9 template(s); 51 item(s) need manual attention.
 - `misc/unsupported.html:3`: `layout:decorate` belongs to the `layout:` dialect, which Thwart does not support; port it by hand
 - `misc/unsupported.html:5`: `T(...)` static class access is not supported (never); compute the value in the controller, add it to the model and declare it in `t:params`, or call a static `@TemplateFunction`
 - `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`
-- `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Thwart does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide section 1)
+- `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Thwart does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide templates.md, The model)
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
-- `misc/unsupported.html:12`: rewritten: `sec:authorize` to `t:if="auth.isAuthenticated()"`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide section 4.10, Spring Security tags)
+- `misc/unsupported.html:12`: rewritten: `sec:authorize` to `t:if="auth.isAuthenticated()"`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide migrate.md, Spring Security tags)
 - `misc/unsupported.html:13`: `th:attr` is not supported; write one `t:<name>` per attribute: `th:attr="title=${a}, href=${b}"` becomes `t:title="a" t:href="b"`
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
@@ -56,26 +56,26 @@ Converted 9 template(s); 51 item(s) need manual attention.
 ## owners/createOrUpdateOwnerForm.html
 
 - `owners/createOrUpdateOwnerForm.html:1`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
-- `owners/createOrUpdateOwnerForm.html:4`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
+- `owners/createOrUpdateOwnerForm.html:4`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide templates.md, Layouts)
 
 ## owners/ownerDetails.html
 
 - `owners/ownerDetails.html:3`: `message` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownerDetails.html:3`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
-- `owners/ownerDetails.html:5`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
-- `owners/ownerDetails.html:24`: link `@{{id}/edit(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
-- `owners/ownerDetails.html:25`: link `@{{id}/pets/new(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
-- `owners/ownerDetails.html:49`: link `@{{ownerId}/pets/{petId}/edit(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
-- `owners/ownerDetails.html:50`: link `@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
+- `owners/ownerDetails.html:5`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide templates.md, Layouts)
+- `owners/ownerDetails.html:24`: link `@{{id}/edit(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)
+- `owners/ownerDetails.html:25`: link `@{{id}/pets/new(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)
+- `owners/ownerDetails.html:49`: link `@{{ownerId}/pets/{petId}/edit(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)
+- `owners/ownerDetails.html:50`: link `@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)
 
 ## owners/ownersList.html
 
 - `owners/ownersList.html:3`: `listOwners` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:3`: `totalPages` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:3`: `currentPage` is declared as `Object` in the generated `t:params` stub; replace it with its view type
-- `owners/ownersList.html:6`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
-- `owners/ownersList.html:23`: link `@{/owners/{ownerId}(ownerId=owner.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
+- `owners/ownersList.html:6`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide templates.md, Layouts)
+- `owners/ownersList.html:23`: link `@{/owners/{ownerId}(ownerId=owner.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)
 
 ## welcome.html
 
-- `welcome.html:5`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
+- `welcome.html:5`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide templates.md, Layouts)

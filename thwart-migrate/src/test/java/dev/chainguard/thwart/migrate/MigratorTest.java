@@ -87,7 +87,7 @@ class MigratorTest {
    * #587: migrate has no copy of the compiler's attribute-name rules. A computed name outside HTML
    * (data-*, htmx, Vue, Alpine, AngularJS spellings, a custom element's prop, any other name) is
    * converted like any other attribute, with no rename and no report: the compiler's neutral-value
-   * error and fix-it (guide section 4.4, Framework-neutral values) are the single source.
+   * error and fix-it (guide templates.md, Framework-neutral values) are the single source.
    */
   @Test
   void namesOutsideHtmlAreConvertedWithoutRenameOrReport() throws Exception {
@@ -130,7 +130,7 @@ class MigratorTest {
         + "<input t:classappend=\"fields.hasErrors('name') ? 'has-error'\" t:field=\"*{name}\"/>"
         + "<input t:field=\"*{city}\" t:classappend=\"fields.hasErrors('city') ? 'is-invalid x'\"></form>",
         convert(src));
-    // Each sec:authorize rewrite names the RoleHierarchy/prefix caveats of guide section 4.10.
+    // Each sec:authorize rewrite names the RoleHierarchy/prefix caveats of guide migrate.md, Spring Security tags.
     String rewritten = "1: rewritten: `sec:authorize` to `t:if=\"auth.";
     assertMessages(src, rewritten + "hasRole('ADMIN')\"`", rewritten + "isAuthenticated()\"`",
         rewritten + "hasAnyAuthority('P_A', 'P_B')\"`");
@@ -253,7 +253,7 @@ class MigratorTest {
     assertEquals(List.of("2: fragment `card` parameters declared as `Object` (`owner`); replace each with its type"
         + " (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null`"
         + " where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller"
-        + " variable it reads (guide section 4.8)"), messages(src));
+        + " variable it reads (guide templates.md, Fragments and layouts)"), messages(src));
   }
 
   @Test
@@ -362,7 +362,7 @@ class MigratorTest {
     assertEquals(src.replace("th:", "t:"), convert(src));
     assertMessages(src,
         "3: dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a"
-            + " fragment's `Field` parameter (guide section 4.8, Reusable form fields)",
+            + " fragment's `Field` parameter (guide templates.md, Reusable form fields)",
         "3: `__...__` preprocessing is not supported",
         "3: `__...__` preprocessing is not supported");
   }
@@ -649,7 +649,7 @@ class MigratorTest {
             + " the starter already adds the `_csrf` hidden input to every same-origin POST form, so delete a"
             + " hand-written one; for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from"
             + " a `@ModelAttribute(\"token\")` method in a `@ControllerAdvice`, declare it in `t:params` and read it as"
-            + " `token` (guide section 1) in a script declaration (`var token = [[${token}]];`, guide section 4.4), not a"
+            + " `token` (guide templates.md, The model) in a script declaration (`var token = [[${token}]];`, guide templates.md, Output contexts), not a"
             + " `<meta>`",
         "6: `param['q']` reads a request parameter, which a Thwart template cannot see; in the controller take it"
             + " as `@RequestParam(name = \"q\"",

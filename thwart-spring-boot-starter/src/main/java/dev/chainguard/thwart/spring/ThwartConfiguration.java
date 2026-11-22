@@ -42,7 +42,7 @@ public class ThwartConfiguration {
   /**
    * The default policy's filter. A servlet container registers {@link CspFilter} itself, as a
    * {@code WebApplicationInitializer}; this bean is for a Boot app that imports this class, where
-   * Boot registers it for REQUEST dispatches only (guide 4.9 has the registration for error and
+   * Boot registers it for REQUEST dispatches only (the guide's templates.md, Rendering, has the registration for error and
    * async pages too).
    */
   @Bean

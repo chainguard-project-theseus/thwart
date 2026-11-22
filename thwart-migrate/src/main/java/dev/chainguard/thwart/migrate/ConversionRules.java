@@ -38,7 +38,7 @@ final class ConversionRules {
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
-      "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
+      "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide templates.md, Output contexts), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
       "th:substituteby", "`th:substituteby` is not supported; use `t:replace`",
       "th:assert", "`th:assert` is not supported; check it in the controller (or guard the element with `t:if`)",
@@ -179,14 +179,14 @@ final class ConversionRules {
   static final Pattern PREPROCESSED_PATH_LINK = Pattern.compile("@\\{\\s*(" + PATH_PART + "/" + PATH_PART + ")\\s*\\}");
   static final Pattern PATH_SEGMENT = Pattern.compile("__\\$\\{\\s*([\\w.]+?)\\s*\\}__");
 
-  /** {@code sec:authorize} calls with an {@code auth.} twin (guide section 4.10, Spring Security tags). */
+  /** {@code sec:authorize} calls with an {@code auth.} twin (guide migrate.md, Spring Security tags). */
   static final String SEC_AUTHORIZE = "sec:authorize";
   static final String AUTH = "auth";
   private static final String QUOTED = "\\s*'[^'\\\\]*'\\s*";
   static final Pattern AUTHORIZE_CALL = Pattern.compile("\\s*(?:(?:hasRole|hasAuthority)\\(" + QUOTED + "\\)"
       + "|(?:hasAnyRole|hasAnyAuthority)\\(" + QUOTED + "(?:," + QUOTED + ")*\\)|isAuthenticated\\(\\s*\\))\\s*");
   static final String AUTHORIZE_REWRITTEN_MESSAGE =
-      "rewritten: `sec:authorize` to `%s`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide section 4.10, Spring Security tags)";
+      "rewritten: `sec:authorize` to `%s`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide migrate.md, Spring Security tags)";
 
   /** {@code th:attr} pairs rewritten to one {@code t:<name>} each: {@code data-*} and {@code aria-*}, never a processor name. */
   static final Pattern ATTR_PAIR = Pattern.compile("\\s*((?:data|aria)-[a-z0-9_-]+)\\s*=\\s*(\\$\\{[^{}]*\\})\\s*");
@@ -230,7 +230,7 @@ final class ConversionRules {
    */
   static final List<Unsupported> UNSUPPORTED_EXPRESSIONS = Compat.listOf(
       new Unsupported(Pattern.compile("\\*\\{\\s*__"), true,
-          "dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide section 4.8, Reusable form fields)"),
+          "dynamic form-field path `*{__...__}` is not supported (preprocessing); pass the path to a fragment's `Field` parameter (guide templates.md, Reusable form fields)"),
       new Unsupported(Pattern.compile("\\$\\{\\{"), false,
           "`${{...}}` conversion-service formatting is not supported; format the value in the view type"),
       new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
@@ -247,8 +247,8 @@ final class ConversionRules {
       new Unsupported(Pattern.compile("@\\{\\s*(?!'[^']*'\\s*[}(])['$|(*]"), false,
           "link with a non-literal path; Thwart links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`"));
 
-  /** How to move a value a template read from outside the model into it (guide section 1). */
-  private static final String TO_MODEL = "declare it in `t:params` and read it as `%2$s` (guide section 1)";
+  /** How to move a value a template read from outside the model into it (guide templates.md, The model). */
+  private static final String TO_MODEL = "declare it in `t:params` and read it as `%2$s` (guide templates.md, The model)";
   private static final String EVERY_PAGE = "a `@ModelAttribute(\"%2$s\")` method in a `@ControllerAdvice`";
 
   /**
@@ -269,12 +269,12 @@ final class ConversionRules {
       "application",
       "%1$s reads an application (servlet context) attribute, which a Thwart template cannot see; add `%2$s` to"
           + " the model from " + EVERY_PAGE + ", " + TO_MODEL,
-      // The model name is %2$s, as for every ambient read; the guide's recipe (4.7) calls it csrfToken.
+      // The model name is %2$s, as for every ambient read; the guide's recipe (templates.md, Forms) calls it csrfToken.
       "_csrf",
       "%1$s reads Spring Security's CSRF token request attribute, which a Thwart template cannot see; the starter"
           + " already adds the `_csrf` hidden input to every same-origin POST form, so delete a hand-written one;"
           + " for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from " + EVERY_PAGE
-          + ", " + TO_MODEL + " in a script declaration (`var %2$s = [[${%2$s}]];`, guide section 4.4), not a `<meta>`");
+          + ", " + TO_MODEL + " in a script declaration (`var %2$s = [[${%2$s}]];`, guide templates.md, Output contexts), not a `<meta>`");
 
   /** The model name suggested for an ambient read without a property ({@code ${session}}). */
   static final String AMBIENT_VALUE = "value";
@@ -289,21 +289,21 @@ final class ConversionRules {
       "%s reads the servlet request, which a Thwart template cannot see; compute the value in the controller, add"
           + " it to the model and declare it in `t:params` (a value every page needs, such as the request URI, comes"
           + " from a `@ModelAttribute` method in a `@ControllerAdvice` returning `request.getRequestURI()`; guide"
-          + " section 1)";
+          + " templates.md, The model)";
   private static final String RESPONSE_MESSAGE =
       "%s uses the servlet response, which a Thwart template cannot see; do it in the controller, and pass any"
-          + " value the page prints through the model and `t:params` (guide section 1)";
+          + " value the page prints through the model and `t:params` (guide templates.md, The model)";
   private static final String SESSION_MESSAGE =
       "%s reads the HTTP session, which a Thwart template cannot see; in the controller add the value to the"
           + " model (`@SessionAttribute` on the handler method, or a `@ModelAttribute` method in a"
-          + " `@ControllerAdvice` for a value every page needs) and declare it in `t:params` (guide section 1)";
+          + " `@ControllerAdvice` for a value every page needs) and declare it in `t:params` (guide templates.md, The model)";
   private static final String SERVLET_CONTEXT_MESSAGE =
       "%s reads the servlet context, which a Thwart template cannot see; add the value to the model from a"
-          + " `@ModelAttribute` method in a `@ControllerAdvice` and declare it in `t:params` (guide section 1)";
+          + " `@ModelAttribute` method in a `@ControllerAdvice` and declare it in `t:params` (guide templates.md, The model)";
   private static final String CONTEXT_MESSAGE =
       "%s reads Thymeleaf's evaluation context, which Thwart does not have; a template sees only its"
           + " `t:params`: read the parameter by name, and add any value the controller does not provide to the"
-          + " model and to `t:params` (guide section 1)";
+          + " model and to `t:params` (guide templates.md, The model)";
   static final Map<String, String> AMBIENT_OBJECTS = Compat.mapOf(
       "request", REQUEST_MESSAGE,
       "httpServletRequest", REQUEST_MESSAGE,
@@ -317,7 +317,7 @@ final class ConversionRules {
       "root", CONTEXT_MESSAGE,
       "execInfo",
       "%s reads Thymeleaf's execution info (template name and mode, time), which Thwart does not have; write"
-          + " the value as a literal, or add it to the model and declare it in `t:params` (guide section 1)");
+          + " the value as a literal, or add it to the model and declare it in `t:params` (guide templates.md, The model)");
 
   /**
    * The report message for an ambient root read such as {@code session.user} or
@@ -374,7 +374,7 @@ final class ConversionRules {
 
   /** {@code %1$s} is the link as a Markdown code span, {@code %2$s} its path variables and values. */
   static final String NULL_PATH_VARIABLE_MESSAGE =
-      "link %1$s fails the render if a path variable is `null` (%2$s), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)";
+      "link %1$s fails the render if a path variable is `null` (%2$s), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide migrate.md, The tools and the loop, step 4)";
 
   /**
    * Thymeleaf attributes that write an empty value for {@code null} (its non-removable attribute
@@ -384,16 +384,16 @@ final class ConversionRules {
   static final Set<String> EMPTY_FOR_NULL = Compat.setOf("value", "href", "src", "action", "name", "type");
   /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
   static final String NULL_ATTRIBUTE_MESSAGE =
-      "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Thwart omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide section 4.3)";
+      "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Thwart omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide templates.md, Expressions and attributes)";
 
   /** {@code %s} is the selection as a code span. */
   static final String COMPOUND_SELECTION_MESSAGE =
-      "%s is not converted: in Thwart `*{...}` holds one property path; write each path as its own selection, as in `*{firstName} + ' ' + *{lastName}` (guide section 4.3)";
+      "%s is not converted: in Thwart `*{...}` holds one property path; write each path as its own selection, as in `*{firstName} + ' ' + *{lastName}` (guide templates.md, Expressions and attributes)";
 
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
-      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide section 4.8)";
+      "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)";
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 
@@ -401,10 +401,10 @@ final class ConversionRules {
   private static final String PARSE_ERROR_REJECTED = "a parse error, which the build rejects";
   static final String LAYOUT_REMOVE_TAG_MESSAGE =
       "rewritten: added `t:remove=\"tag\"` to the `<%s>` this page passes to `%s`, which inserts it inside its own `<%s>`, so only its content is passed (a second one is "
-          + PARSE_ERROR_REJECTED + "; guide section 4.8, Layouts)";
+          + PARSE_ERROR_REJECTED + "; guide templates.md, Layouts)";
   static final String LAYOUT_ATTRIBUTES_MESSAGE =
       "`%s` is passed to `%s`, which inserts it inside its own `<%s>`: a second `<%s>` is " + PARSE_ERROR_REJECTED
-          + ". Not rewritten, because `t:remove=\"tag\"` would drop the attributes a browser merges into the layout's `<%s>`. Fix: %s, then mark this `<%s>` `t:remove=\"tag\"` (guide section 4.8, Layouts)";
+          + ". Not rewritten, because `t:remove=\"tag\"` would drop the attributes a browser merges into the layout's `<%s>`. Fix: %s, then mark this `<%s>` `t:remove=\"tag\"` (guide templates.md, Layouts)";
   /** Where to move attributes a removed tag would drop; {@link Layouts}. */
   static final String LAYOUT_PARAMETER_FIX =
       "give `%s` a `String` parameter for %s and set it on its `<%s>` (for example `String %s` and `<%s t:%s=\"%s\">`), and pass %s from this page and `null` from the layout's other calls";
