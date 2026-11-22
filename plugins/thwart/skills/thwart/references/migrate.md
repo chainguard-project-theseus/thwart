@@ -131,11 +131,14 @@ these only if a fixture holds the `null`.
 **5. Compare** the new app, started from the same data:
 `java -jar thwart-migrate.jar compare http://localhost:8080 pages.txt baseline/`. It compares
 status, final URL and the page as a browser builds it, ignoring whitespace, attribute order,
-comments, CSRF tokens and JSON formatting in scripts. Each page prints `same`, `reordered` or
-`differs`, with a diff for the last two. `reordered` passes but its diff is printed: check that
-what moved is harmless (validation messages from a `HashSet`, yes; table rows that lost their sort
-order, no). It exits 0 only if every page is `same` or `reordered` with its recorded status and
-final URL.
+comments, CSRF tokens and JSON formatting in scripts. Each page prints `same`, `reordered`,
+`forced` or `differs`, with a diff for all but `same`. `reordered` passes but its diff is printed:
+check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that lost
+their sort order, no). `forced` means the page differs only in what Thwart makes you change:
+`on*` handlers and `javascript:` URLs gone, `data-*` attributes the old page didn't have, `<script>`
+elements, and `hx-X` written as `data-hx-X` with the same value. Fix the `differs` pages first,
+then load each `forced` page in a browser and check that its scripts work. It exits 0 only if
+every page is `same` or `reordered` with its recorded status and final URL.
 
 For each difference, fix it or decide it is right and write down why. Few are right: output now
 escaped where the old engine printed it raw, broken markup the old engine passed through, and the
