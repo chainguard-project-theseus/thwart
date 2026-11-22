@@ -73,7 +73,7 @@ For each run, a fresh clone of the app goes into a new container, and Claude Cod
   repository, the plugin, JDK 8 and 21, Maven and Chromium. It has none of Thwart's source,
   docs or history. The agent's home directory is empty: no CLAUDE.md, memory, settings or
   other plugins.
-- **No web tools and no human.** Claude's web tools (web fetch and web search) are off; the
+- **No web tools and no human.** Claude's WebFetch, WebSearch and Workflow tools are off; the
   network is up so that Maven and npm can download dependencies. Nobody answers questions.
 - **A budget.** 90 minutes of wall time and $40 of API spend per run.
 - **One prompt**, [prompt.md](../bench/migration/prompt.md). It asks for the migration and says
@@ -205,8 +205,8 @@ the `pass_forced` rule doesn't accept, from their diffs and the browser check:
 | posters-demo-store | 64 | Computed `hx-*` attributes became `data-hx-*`, `hx-confirm` text moved into hidden elements, the CSRF token moved into a script; 1 page cut short | Mostly forced; not fully classified |
 | espd | 11 | Form actions lost `?lang=` on the language-switch pages. A hidden input holds a copy of the page for its PDF export, so it carries the forced script changes. One tooltip has a character that the message file mis-encodes, and it prints differently | Agent mistake; forced; encoding |
 | fredbet | 3 | A ranking link lost the `=` in `?mode=`; a settings error page lists options the original left empty; 1 page cut short. The browser check finds vendored jQuery Rotate calling `eval`, which the CSP blocks (3 pages) | Agent mistakes; blocked script |
-| jprime | 30 | `<meta name="description">` lost text (17 pages); 11 pages cut short. The carousel plugin calls `eval`, which the CSP blocks, so it fails on 62 pages | Agent mistake; blocked script; not classified |
-| budgetmaster | 77 | Script globals declared with `var`, `data-tooltip` moved to `title`, a seeded `<shop>` name escaped, dropped `<b>` emphasis; 37 pages cut short. The browser check finds Materialize's `<base>` blocked by `base-uri 'none'` on 93 pages, with no exception logged | Mostly forced or escaped where visible; mostly not classified |
+| jprime | 30 | `<meta name="description">` lost text (17 pages); a seeded `The <first> speakers`, which the original rendered as markup, now escaped (2 pages); 11 pages cut short. The carousel plugin calls `eval`, which the CSP blocks, so it fails on 62 pages | Agent mistake; output escaped (intended); blocked script; not classified |
+| budgetmaster | 77 | Script globals declared with `var`, `data-tooltip` moved to `title`, seeded names with `<shop>` and an unclosed `<b>` (`Savings <b>`), which the original rendered as markup, now escaped; 37 pages cut short. The browser check finds Materialize's `<base>` blocked by `base-uri 'none'` on 93 pages, with no exception logged | Mostly forced or escaped where visible; mostly not classified |
 
 So in run 15, one larger app passes with `pass_forced`, and in jpetstore, the Mustache PetClinic
 and luckyblog every remaining difference is intended. In purl-server and ewp-registry the rest is
@@ -236,8 +236,16 @@ run that failed (Spring Framework PetClinic, first round) also used that crawler
 
 Across all 123 runs, every migrated app builds and passes all of its tests, and no diff adds any of
 the security tripwires above. Two runs left old templates behind: budgetmaster run 4, which
-stopped early, and espd run 2, whose session ended before its last step. One run (fredbet run 12)
-was stopped at the time limit.
+stopped early, and espd run 2, whose session ended before its last step.
+
+fredbet run 12 is an incident, not a result. After 11.3 of its 90 minutes, the agent ran
+`kill $(lsof -t -i:8085)` to stop its app. The test image's `lsof` is busybox, which ignores
+those options and lists every open file, so the `kill` stopped every process, the agent's
+included. The run was recorded as "killed (time budget)" and scored 5 of 169 pages; fredbet run 13
+is its re-run. The cumulative tables count it, since they include every archived run. Without it,
+no strict-pass count changes, and mean pages matched (over runs, then app-weighted) becomes
+84.3% and 69.7% for the larger development apps (30 runs), 71.6% and 66.8% for all larger apps,
+92.4% and 85.5% for Thymeleaf, and 82.6% and 81.0% for all runs.
 
 ### Cumulative, by engine
 
