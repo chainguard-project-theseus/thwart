@@ -52,23 +52,24 @@ to it on its own and show that the app still works. Four parts make that possibl
    the agent load the pages in a headless browser on both apps and compare the console, which
    catches scripts that throw and CSP violations.
 4. **The migration test.** [bench/migration](bench/migration/README.md) gives a fresh agent the
-   plugin and a real app, with no web access and no human, and scores the result with the same
-   tools: the build and tests pass, every page matches, no security check or test is switched off,
-   no part of the old engine is left, and the browser shows no new errors.
+   plugin and a real app, with Claude's web tools off and no human, and scores the result with the
+   same tools: the build and tests pass, every page matches, no security check or test is switched
+   off, no part of the old engine is left, and the browser shows no new errors.
 
-The results so far, over every archived round, with times and costs from the latest round (run 15,
-2026-11-15):
+The results so far (the latest round is run 15, 2026-11-15):
 
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
-  JSP): a strict pass in **41 of 42 runs**. Each migration took 6 to 16 minutes and cost $2 to $4.
+  JSP): a strict pass in **41 of 42 runs** over all rounds. In the latest round each migration
+  took 6 to 16 minutes and cost about $2 to $4.50.
 - **Larger real-world apps** (10 apps; Thymeleaf with htmx, FreeMarker, JSP with Apache Tiles,
-  Velocity, Pebble): every run builds and passes all of the app's tests. Each migration took 10
-  to 51 minutes and cost $3.50 to $32.
-- **The gap: strict page-by-page parity on the larger apps is rare.** 6 of 73 runs pass, and 5 of
-  42 on the held-out apps (the plugin and `thwart-migrate` are never changed because of what a
-  held-out app does). Some differences are what Thwart requires (inline event handlers moved out
-  for the CSP, output the old engine printed raw now escaped). Some are mistakes. This is the gap
-  Thwart has to close.
+  Velocity, Pebble): every run builds and passes all of the app's tests. In the latest round each
+  migration took 10 to 51 minutes and cost $3.50 to $32.
+- **The gap: strict page-by-page parity on the larger apps.** In the latest round **0 of 10**
+  larger apps passed strictly, 1 of 10 passed under the looser `pass_forced` rule, and a mean of
+  about 46% of their pages matched. Every larger-app strict pass so far is from an older round
+  (5 of 42 runs on the held-out apps). Some differences are what Thwart requires (inline event
+  handlers moved out for the CSP, output the old engine printed raw now escaped). Some are
+  mistakes. This is the gap Thwart has to close.
 
 The plugin and guide have changed since run 15, and a fresh round will be run before the release.
 [docs/ai-compatible.md](docs/ai-compatible.md) has the method, the results by app and engine, and
@@ -90,7 +91,7 @@ the test's limitations.
   scripts without the nonce, and libraries that use `eval` or `new Function`, break. The off
   switch is `thwart.csp.enabled=false` ([Rendering](docs/guide/templates.md#rendering)).
 - **Typed parameters**, checked at build time.
-- **Speed:** about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request). Other compiled engines such as JTE skip runtime interpretation too, so expect them in the same range.
+- **Speed:** about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request).
 
 What it costs:
 
@@ -183,11 +184,10 @@ removed, the old engine still renders every view Thwart doesn't know, outside Th
 
 ## Compared with other engines
 
-Against the engines people migrate from (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, Pebble),
-the difference is mainly the runtime expression language and escaping that can be switched off.
-JTE, Rocker and JStachio are also compiled and typed, and JTE is the better pick for a new Spring
-Boot 3/4 app that doesn't need Thymeleaf syntax. [docs/comparison.md](docs/comparison.md) has the
-details and says where Thwart is weaker.
+Thwart is for moving an existing Spring MVC app off its old engine. JTE is the better pick for a
+new Spring Boot 3/4 app that doesn't need Thymeleaf syntax. [docs/comparison.md](docs/comparison.md)
+compares Thwart with the engines people migrate from and with other compiled engines, and says
+where Thwart is weaker.
 
 ## Status and contributing
 
