@@ -38,7 +38,8 @@ public final class Main {
       "One cookie jar per run; a POST sends the previous page's _csrf hidden input.",
       "record saves NN.html and index.tsv to <dir> from the old app. compare requests the same",
       "pages from the new app and prints same, reordered, forced (differs only in what Thwart",
-      "forces: handlers, data-* hooks, scripts) or differs (all but same with a diff) per page;",
+      "forces: on* handlers, javascript: and # links, data-* attributes, scripts) or differs",
+      "(all but same with a diff) per page;",
       "it exits 0 only if every page has its recorded status and final URL and is the same or",
       "reordered. --ignore REGEX (repeatable) deletes the matches from both pages before comparing.");
 

@@ -196,9 +196,9 @@ final class Parity {
     }
     out.println("thwart-migrate compare: " + requests.size() + " page(s): " + same + " same, "
         + reordered + " reordered, " + forced + " forced, " + differ + " differs"
-        + (differ + forced == 0 ? ""
-            : "; fix the differs pages first, then check the values in each forced page's script"
-                + " diff and its scripts in a browser"));
+        + (forced == 0 ? ""
+            : "; fix the differs pages first, then check the values in each forced page's diff"
+                + " and its scripts in a browser"));
     return differ + forced == 0 ? 0 : 1;
   }
 

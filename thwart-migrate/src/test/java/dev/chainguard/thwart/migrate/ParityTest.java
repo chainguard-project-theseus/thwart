@@ -251,8 +251,8 @@ class ParityTest {
     assertTrue(out().contains("04 forced    GET /errors"), out());
     assertTrue(out().contains("--- recorded 04.html"), out());
     assertTrue(out().contains("4 same, 0 reordered, 1 forced, 0 differs; fix the differs pages"
-        + " first, then check the values in each forced page's script diff and its scripts in a"
-        + " browser"), out());
+        + " first, then check the values in each forced page's diff and its scripts in a browser"),
+        out());
   }
 
   @Test
@@ -272,7 +272,8 @@ class ParityTest {
         -        numeric value out of bounds
         +        numeric value out of bound
         """), out());
-    assertTrue(out().contains("4 same, 0 reordered, 0 forced, 1 differs"), out());
+    assertTrue(out().contains("4 same, 0 reordered, 0 forced, 1 differs" + System.lineSeparator()),
+        out());
   }
 
   @Test

@@ -59,8 +59,8 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}): equal in that form, in any order, is
  * {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in a
- * browser, so compare does not pass it. Scripts are not compared at all in that form, so a wrong
- * value in one is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
+ * browser, so compare does not pass it. Scripts and {@code data-*} values are not compared in
+ * that form, so a wrong value in either is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
  * how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
@@ -160,32 +160,22 @@ final class PageNormalizer {
   /** Compares two pages. {@code REORDERED}: the same lines, but some element's children are in
    * a different order, or some script's prelude declarations were substituted back.
    * {@code FORCED}: equal, in any order, once what Thwart makes a migration change is set aside
-   * (see {@link #startTag(Element, Set)}). */
+   * (see {@link #startTag(Element, boolean)}). */
   static Verdict compare(String expected, String actual) {
     Document da = Jsoup.parse(expected);
     Document db = Jsoup.parse(actual);
-    List<Line> a = children(da, false, null);
-    List<Line> b = children(db, false, null);
+    List<Line> a = children(da, false, false);
+    List<Line> b = children(db, false, false);
     if (a.equals(b)) {
       return Verdict.SAME;
     }
     if (sortedForm(a).equals(sortedForm(b))) {
       return Verdict.REORDERED;
     }
-    if (sortedForm(children(da, true, null)).equals(sortedForm(children(db, true, null)))) {
+    if (sortedForm(children(da, true, false)).equals(sortedForm(children(db, true, false)))) {
       return Verdict.REORDERED;
     }
-    Set<String> recordedData = new HashSet<>();
-    for (Element e : da.getAllElements()) {
-      for (Attribute attr : e.attributes()) {
-        String name = attr.getKey().toLowerCase(Locale.ROOT);
-        if (name.startsWith("data-")) {
-          recordedData.add(name);
-        }
-      }
-    }
-    return sortedForm(children(da, false, recordedData))
-        .equals(sortedForm(children(db, false, recordedData)))
+    return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
   }
 
@@ -195,19 +185,17 @@ final class PageNormalizer {
   }
 
   private static List<Line> tree(String html) {
-    return children(Jsoup.parse(html), false, null);
+    return children(Jsoup.parse(html), false, false);
   }
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
-   * with their preludes expanded. With {@code recordedData} (the recorded page's {@code data-*}
-   * attribute names), {@code <script>} elements are dropped and tags print as
-   * {@link #startTag(Element, Set)} sets them aside. */
-  private static List<Line> children(Node parent, boolean expandPrelude,
-      Set<String> recordedData) {
+   * with their preludes expanded. With {@code forced}, {@code <script>} elements are dropped and
+   * tags print as {@link #startTag(Element, boolean)} sets them aside. */
+  private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (recordedData != null && node instanceof Element
+      if (forced && node instanceof Element
           && ((Element) node).normalName().equals("script")) {
         continue;
       }
@@ -231,8 +219,8 @@ final class PageNormalizer {
         flushText(text, out);
       }
       if (node instanceof Element) {
-        out.add(new Line(startTag((Element) node, recordedData),
-            children(node, expandPrelude, recordedData)));
+        out.add(new Line(startTag((Element) node, forced),
+            children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
         out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
@@ -597,13 +585,13 @@ final class PageNormalizer {
   }
 
   /**
-   * The start tag as compare prints it. With {@code recordedData}, what Thwart makes a migration
-   * change is set aside: inline {@code on*} handlers, {@code href="javascript:…"} and
-   * {@code href="#"} are dropped, {@code data-hx-X} prints as {@code hx-X} (htmx reads both), and
-   * a {@code data-*} attribute is dropped unless the recorded page has one of that name, so the
-   * hooks a migration adds are ignored but a recorded one that changed still differs.
+   * The start tag as compare prints it. With {@code forced}, what Thwart makes a migration change
+   * is set aside: {@code data-hx-X} prints as {@code hx-X} (htmx reads both), and inline
+   * {@code on*} handlers, {@code href="javascript:…"}, {@code href="#"} and every other
+   * {@code data-*} attribute are dropped. The guide's recipes move computed {@code data-*}
+   * strings to numbers, links, {@code title} or a JSON block, so their values are not compared.
    */
-  private static String startTag(Element e, Set<String> recordedData) {
+  private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
@@ -612,14 +600,14 @@ final class PageNormalizer {
         continue;
       }
       String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
-      if (recordedData != null) {
+      if (forced) {
         if (name.startsWith("data-hx-") && !e.hasAttr(name.substring(5))) {
           name = name.substring(5);
         }
         if (HANDLER.matcher(name).matches()
             || name.equals("href") && (value.equals("#")
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
-            || name.startsWith("data-") && !recordedData.contains(name)) {
+            || name.startsWith("data-")) {
           continue;
         }
       }

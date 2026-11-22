@@ -141,6 +141,8 @@ class PageNormalizerTest {
       data-hx- rename with a handler | <a hx-post="/x" onclick="a()" title="t">x</a> | <a data-hx-post="/x" data-action="a" title="t">x</a>
       kept data attribute            | <a data-id="1" onclick="d(1)">x</a>      | <a data-action="d" data-id="1">x</a>
       in another order               | <ul><li onclick="a()">a<li>b</ul>        | <ul><li>b<li data-action="a">a</ul>
+      recorded data value changed    | <a data-lightbox="" href="/g">x</a>       | <a data-lightbox="/g" href="/g">x</a>
+      recorded data attribute gone   | <a data-bs-target="#m" onclick="o()">x</a> | <a data-action="o">x</a>
       """)
   void forcedChanges(String rule, String a, String b) {
     assertEquals(FORCED, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
@@ -149,8 +151,6 @@ class PageNormalizerTest {
 
   @ParameterizedTest(name = "not forced: {0}")
   @CsvSource(delimiter = '|', quoteCharacter = '`', textBlock = """
-      recorded data value changed    | <a data-lightbox="" href="/g">x</a>       | <a data-lightbox="/g" href="/g">x</a>
-      recorded data attribute gone   | <a data-bs-target="#m" onclick="o()">x</a> | <a data-action="o">x</a>
       data-hx- value changed         | <form hx-get="/a b"></form>               | <form data-hx-get="/a%20b"></form>
       hx- attribute replaced         | <a hx-get="/p" href="/p">p</a>            | <a hx-boost="true" href="/p">p</a>
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>

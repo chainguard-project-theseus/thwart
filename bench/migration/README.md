@@ -91,10 +91,13 @@ and commit from `app.json`).
      when it meets every other Pass condition and compare reports every page `same`, `reordered`
      or `forced` (the page differs only in what Thwart forces; the rule is compare's, described in
      the [migration guide](../../docs/guide/migrate.md)). The summary shows such a run as `forced`
-     and counts it beside the strict passes; the strict Pass is unchanged. A `compare.txt` from
-     before compare had `forced` (run 15 and earlier) is rescored with the `pass_forced` its
-     `score.json` already has, which an older Python rule computed from the printed diff:
-     `rescore` can't rerun compare, and that rule also ignored changed `data-*` values.
+     and counts it beside the strict passes; the strict Pass is unchanged. The archived runs
+     (run 15 and earlier) keep their `compare.txt` in the run directory, not `check/`, so
+     `rescore` leaves them as they are ("no compare output" or "old-format run"); their
+     `pass_forced` figures were computed separately. If a run with a `check/compare.txt` from
+     before compare had `forced` is rescored, its pages count as forced only if its `score.json`
+     says so (`pages_forced_archived`, else `pass_forced`), since `rescore` can't rerun compare.
+     That can understate: the old `pass_forced` also needed that run's other conditions.
    - **Browser smoke check.** `compare` reads HTML and never runs a script, so a
      page can compare as acceptable while its scripts throw or the starter's CSP blocks them.
      `lib/browser.py` replays `pages.txt` in one headless Chromium tab (from the image's Wolfi
