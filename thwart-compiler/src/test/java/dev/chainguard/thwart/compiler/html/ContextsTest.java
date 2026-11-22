@@ -341,8 +341,22 @@ class ContextsTest {
     "template, for, FORBIDDEN",
     "meta, charset, FORBIDDEN",
     "META, CharSet, FORBIDDEN",
-    // The same names elsewhere: for is listed, the others are not.
+    // A <meta>'s name decides what its static content means; its other name-like attributes are off the list.
+    "meta, name, FORBIDDEN",
+    "META, Name, FORBIDDEN",
+    "meta, NAME, FORBIDDEN",
+    "meta, property, FORBIDDEN",
+    "meta, itemprop, FORBIDDEN",
+    "meta, scheme, FORBIDDEN",
+    "meta, media, FORBIDDEN",
+    // The same names elsewhere: for and name are listed, the others are not.
     "label, for, ATTRIBUTE",
+    "input, name, ATTRIBUTE",
+    "form, name, ATTRIBUTE",
+    "select, name, ATTRIBUTE",
+    "textarea, name, ATTRIBUTE",
+    "button, name, ATTRIBUTE",
+    "iframe, name, ATTRIBUTE",
     "div, shadowrootmode, FORBIDDEN",
     "p, charset, FORBIDDEN",
   })

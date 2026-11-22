@@ -232,7 +232,7 @@ accepts:
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
 | Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`, `css.var(name)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
-| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
+| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<meta name>` (it decides what `content` means), `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
 
 A computed `id`, `name` or `form` takes any value, so it can clobber page globals (`<form
 name="cookie">` shadows `document.cookie`) or move a control into another form. Compute them from

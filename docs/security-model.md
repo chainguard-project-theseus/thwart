@@ -172,7 +172,7 @@ not in this table is a build error (context-model.md §9; the [guide's limitatio
 | Accepted context | Escaper or rule | Pinned by |
 |---|---|---|
 | Element text, `t:text`, `[[...]]` | `Escapers.text`; the one text choke point | `EscapersTest`, `TextChokePointTest`, `HostileSweepTest` |
-| Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`) | `Escapers.attr` in a quoted value; any other computed name is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest` |
+| Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`) | `Escapers.attr` in a quoted value; any other computed name, and `name` on a `<meta>`, is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest` |
 | Typed attribute (`target`, some `value` and `for`) | Literals, numbers or a choice of literals, checked at build time | `ContextsTest`, `AttributesEndToEndTest` |
 | `data-*` and non-WAI-ARIA `aria-*` | Neutral values only: a number, a boolean or a literal-path same-origin link | `NeutralValuesTest`, `ClientTemplateInjectionTest` |
 | URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#thwart` | `EscapersTest`, `AttributesEndToEndTest` |

@@ -94,7 +94,8 @@ its own message, what it doesn't model:
   (`VALUE_IN_RAW_TEXT`).
 - **Attributes the tree builder reads** can't be computed: `type` on `<input>` and `<script>`,
   `<font color/face/size>`, `is`, `xmlns*`, `encoding`, `<meta charset/http-equiv>`, `<template>`
-  `shadowroot*` and `for`.
+  `shadowroot*` and `for`. Nor can `<meta name>`: it decides what a static `content` means (a
+  referrer policy, `htmx-config`, site verification). `property` and `itemprop` are off the list.
 
 ### 5.3 Attributes
 
