@@ -261,7 +261,7 @@ class MigratorTest {
     assertEquals("<div t:fragment=\"footer\">x</div>", convert("<div th:fragment=\"footer\">x</div>"));
   }
 
-  /** Thymeleaf renders the petclinic layout's {@code menuItem} where it is declared too, with {@code null} arguments. */
+  /** Thymeleaf renders the petclinic layout's {@code menuItem} where it is declared too, its own parameters {@code null}. */
   @Test
   void fragmentInsideAFragmentKeepsItsInPlaceCopy() throws Exception {
     String src = "<html th:fragment=\"layout (template)\"><ul>\n"
@@ -273,9 +273,21 @@ class MigratorTest {
         + "<li t:fragment=\"menuItem(Object link, Object text)\"><a t:href=\"@{${link}}\" t:text=\"text\">x</a></li>\n"
         + "<li t:fragment=\"plain\">p</li></ul></html>", out);
     assertEquals(out, convert(out));
-    assertTrue(messages(src).contains("2: Thymeleaf also renders fragment `menuItem` where it is declared, with `null`"
-        + " arguments, and Thwart doesn't: added `~{::menuItem(null, null)}` before it to keep that copy; delete the"
-        + " call if the page shouldn't show it (guide templates.md, Fragments and layouts)"), messages(src).toString());
+    assertTrue(messages(src).contains("2: Thymeleaf also renders fragment `menuItem` where it is declared, with its own"
+        + " parameters `null` and the enclosing fragment's variables in scope, and Thwart doesn't: added"
+        + " `~{::menuItem(null, null)}` before it to keep that copy. For each parameter you add for a variable it reads"
+        + " from the enclosing fragment, pass that fragment's value in this call, not `null`; delete the call if the"
+        + " page shouldn't show the copy (guide templates.md, Fragments and layouts)"), messages(src).toString());
+  }
+
+  /** A call before a {@code <head>} would land between {@code <html>} and {@code <head>}: none is added. */
+  @Test
+  void headFragmentInsideAFragmentGetsNoInPlaceCall() throws Exception {
+    String src = "<html th:fragment=\"layout (template)\"><head th:fragment=\"head (title)\"><title th:text=\"${title}\">x</title></head>"
+        + "<body><div th:replace=\"${template}\">c</div></body></html>";
+    String out = convert(src);
+    assertTrue(out.startsWith("<html t:fragment=\"layout(Object template)\"><head t:fragment=\"head(Object title)\">"), out);
+    assertTrue(messages(src).stream().noneMatch(m -> m.contains("renders fragment")), messages(src).toString());
   }
 
   /** A fragment outside any other renders in place only if its file is rendered as a page. */

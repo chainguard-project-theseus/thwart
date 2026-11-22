@@ -259,8 +259,9 @@ become fragment calls ([Fragments and layouts](templates.md#fragments-and-layout
   model values; a context-path prefix is `@{...}`.
 - With the JSP resolver gone, a view name no template provides is a 500 (`Could not resolve
   view`), where `InternalResourceViewResolver` let the container answer 404; if that matters, add
-  a last view resolver that answers 404. Removing Jasper or JSTL can also remove the EL
-  implementation Bean Validation needs: declare one (such as `org.glassfish:javax.el`).
+  a last view resolver that answers 404. Removing Jasper's `tomcat-jasper-el` can also remove the
+  EL implementation Bean Validation needs: declare one (`org.glassfish:javax.el` for `javax`,
+  `org.glassfish.expressly:expressly` for Jakarta).
 
 **FreeMarker.**
 

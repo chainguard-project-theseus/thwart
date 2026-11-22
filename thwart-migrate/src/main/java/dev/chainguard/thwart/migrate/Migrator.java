@@ -45,6 +45,8 @@ final class Migrator {
     }
   }
 
+  private static final Set<String> DOCUMENT_ELEMENTS = Compat.setOf("html", "head", "body");
+
   private static final Pattern FRAGMENT_SIGNATURE =
       Pattern.compile("(\\s*)([\\w-]+)\\s*(?:\\((.*)\\))?(\\s*)", Pattern.DOTALL);
 
@@ -408,11 +410,14 @@ final class Migrator {
      * renders one with parameters nowhere but its calls. For a fragment with parameters inside
      * another fragment, which renders wherever the outer one is called, adds a call with
      * {@code null} arguments just before it. One elsewhere renders in place only if its file is
-     * rendered as a page, which the converter can't tell.
+     * rendered as a page, which the converter can't tell. A call before an {@code <html>},
+     * {@code <head>} or {@code <body>} would land where a browser opens or closes that element, so
+     * none is added for one.
      */
     private void inPlaceCall(String value, int line) {
       Matcher m = FRAGMENT_SIGNATURE.matcher(value);
-      if (!m.matches() || m.group(3) == null || open.stream().noneMatch(o -> o.fragment)) {
+      if (!m.matches() || m.group(3) == null || open.stream().noneMatch(o -> o.fragment)
+          || DOCUMENT_ELEMENTS.contains(openName)) {
         return;
       }
       long params = Expressions.splitTopLevel(m.group(3), true).stream()

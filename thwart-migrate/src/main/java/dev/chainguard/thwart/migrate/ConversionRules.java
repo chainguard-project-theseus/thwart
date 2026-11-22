@@ -396,7 +396,7 @@ final class ConversionRules {
       "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)";
   /** {@code %1$s} is the fragment name, {@code %2$s} the call added before it. */
   static final String FRAGMENT_IN_PLACE_MESSAGE =
-      "Thymeleaf also renders fragment `%1$s` where it is declared, with `null` arguments, and Thwart doesn't: added `%2$s` before it to keep that copy; delete the call if the page shouldn't show it (guide templates.md, Fragments and layouts)";
+      "Thymeleaf also renders fragment `%1$s` where it is declared, with its own parameters `null` and the enclosing fragment's variables in scope, and Thwart doesn't: added `%2$s` before it to keep that copy. For each parameter you add for a variable it reads from the enclosing fragment, pass that fragment's value in this call, not `null`; delete the call if the page shouldn't show the copy (guide templates.md, Fragments and layouts)";
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 
