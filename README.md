@@ -56,24 +56,25 @@ to it on its own and show that the app still works. Four parts make that possibl
    same tools: the build and tests pass, every page matches, no security check or test is switched
    off, no part of the old engine is left, and the browser shows no new errors.
 
-The results so far (the latest round is run 15, 2026-11-15):
+The latest round (run 15, 2026-11-15):
 
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
-  JSP): a strict pass in **41 of 42 runs** over all rounds. In the latest round each migration
-  took 6 to 16 minutes and cost about $2 to $4.50.
-- **Larger real-world apps** (10 apps; Thymeleaf with htmx, FreeMarker, JSP with Apache Tiles,
-  Velocity, Pebble): every run builds and passes all of the app's tests. In the latest round each
-  migration took 10 to 51 minutes and cost $3.50 to $32.
-- **The gap: strict page-by-page parity on the larger apps.** In the latest round **0 of 10**
-  larger apps passed strictly, 1 of 10 passed under the looser `pass_forced` rule, and a mean of
-  about 46% of their pages matched. Every larger-app strict pass so far is from an older round
-  (5 of 42 runs on the held-out apps). Some differences are what Thwart requires (inline event
-  handlers moved out for the CSP, output the old engine printed raw now escaped). Some are
-  mistakes. This is the gap Thwart has to close.
+  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.50.
+  Over every archived run, the family passed strictly in **41 of 42 runs**.
+- **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf, Thymeleaf with
+  htmx, FreeMarker, JSP, JSP with Apache Tiles, Velocity and Pebble): every migrated app builds
+  and passes all of its tests, and each migration took 10 to 51 minutes and cost about $3.50 to
+  $32. **But none of the 10 passed strictly, and only 1 passed under the looser `pass_forced`
+  rule.** On average 46% of their pages matched. Over every archived run, the larger apps passed
+  strictly in 6 of 73 runs (5 of 42 on the held-out apps), and all six are older runs.
+- Some of the remaining differences are what Thwart requires (inline event handlers moved out for
+  the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
+  sanitizer). Some are agent mistakes, and some are scripts that Thwart's CSP blocks. Strict
+  parity on larger apps is the gap Thwart has to close.
 
 The plugin and guide have changed since run 15, and a fresh round will be run before the release.
-[docs/ai-compatible.md](docs/ai-compatible.md) has the method, the results by app and engine, and
-the test's limitations.
+[docs/ai-compatible.md](docs/ai-compatible.md) has the method, the results by app, what each
+remaining difference is, and the test's limitations.
 
 ## What's different
 
