@@ -93,6 +93,7 @@ already gets tokens, and its tokenizer tracks line and column.
   checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
   (`<form>`), `CsrfInjector.checkSubmitter` (every element), `CsrfInjector.checkBase` (`<base href>`),
+  `CsrfInjector.meta` (`<t:csrf-meta>`, which it writes in place of the element),
   `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
 ## Expression grammar

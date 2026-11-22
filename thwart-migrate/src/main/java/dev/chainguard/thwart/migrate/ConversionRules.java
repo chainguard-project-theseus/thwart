@@ -251,6 +251,26 @@ final class ConversionRules {
   private static final String TO_MODEL = "declare it in `t:params` and read it as `%2$s` (guide templates.md, The model)";
   private static final String EVERY_PAGE = "a `@ModelAttribute(\"%2$s\")` method in a `@ControllerAdvice`";
 
+  /** The Thwart element that writes Spring Security's CSRF {@code <meta>} pair. */
+  static final String CSRF_META_ELEMENT = "<t:csrf-meta/>";
+
+  /**
+   * One {@code <meta>} of Spring Security's documented pair for JavaScript, with exactly a
+   * {@code name} and a {@code th:content}, in either order: {@code <meta name="_csrf"
+   * th:content="${_csrf.token}"/>} or {@code <meta name="_csrf_header" th:content="${_csrf.headerName}"/>}.
+   * Group 2 or 8 is the name, 4 or 6 the property; {@link Migrator#csrfMeta} checks they match.
+   */
+  static final Pattern CSRF_META = Pattern.compile(
+      "<(?i:meta)\\s+(?:(?i:name)\\s*=\\s*([\"'])(_csrf|_csrf_header)\\1\\s+(?i:th:content)\\s*=\\s*([\"'])"
+          + "\\$\\{\\s*_csrf\\.(token|headerName)\\s*\\}\\3"
+          + "|(?i:th:content)\\s*=\\s*([\"'])\\$\\{\\s*_csrf\\.(token|headerName)\\s*\\}\\5\\s+(?i:name)\\s*=\\s*([\"'])"
+          + "(_csrf|_csrf_header)\\7)\\s*/?>");
+
+  /** Report item for the rewritten CSRF {@code <meta>} tags. */
+  static final String CSRF_META_MESSAGE = "Spring Security's CSRF `<meta>` tags became `" + CSRF_META_ELEMENT
+      + "`, which writes `<meta name=\"_csrf\">` and `<meta name=\"_csrf_header\">` with the request's token and"
+      + " header name; the script reading them is unchanged (guide templates.md, Forms)";
+
   /**
    * Thymeleaf's ambient scopes, read as root variables: a Thwart template sees only its
    * {@code t:params}, so each read moves into the model. Keys are the root names; {@code %1$s} is the
@@ -269,12 +289,13 @@ final class ConversionRules {
       "application",
       "%1$s reads an application (servlet context) attribute, which a Thwart template cannot see; add `%2$s` to"
           + " the model from " + EVERY_PAGE + ", " + TO_MODEL,
-      // The model name is %2$s, as for every ambient read; the guide's recipe (templates.md, Forms) calls it csrfToken.
+      // The token never goes into the model: the starter's form input and <t:csrf-meta/> write it.
       "_csrf",
       "%1$s reads Spring Security's CSRF token request attribute, which a Thwart template cannot see; the starter"
           + " already adds the `_csrf` hidden input to every same-origin POST form, so delete a hand-written one;"
-          + " for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from " + EVERY_PAGE
-          + ", " + TO_MODEL + " in a script declaration (`var %2$s = [[${%2$s}]];`, guide templates.md, Output contexts), not a `<meta>`");
+          + " for JavaScript (htmx, `fetch`) write `" + CSRF_META_ELEMENT + "` in the layout's `<head>`: it writes"
+          + " Spring Security's `<meta name=\"_csrf\">` and `<meta name=\"_csrf_header\">` from the request, and the"
+          + " script reads the token and header name from them (guide templates.md, Forms)");
 
   /** The model name suggested for an ambient read without a property ({@code ${session}}). */
   static final String AMBIENT_VALUE = "value";

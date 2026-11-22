@@ -434,6 +434,10 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   private void element(Emitted.Builder c, Element e, Scope scope, Set<String> ignored) {
+    if (e.name().equals(CsrfInjector.META_ELEMENT)) {
+      c.add(CsrfInjector.meta(this, e));
+      return;
+    }
     String outer = rawTextHost;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;

@@ -57,10 +57,85 @@ final class Migrator {
    */
   static Result migrate(String file, String source) throws ParseException {
     source = prototypeOnlyContent(source);
+    List<Integer> removedLines = new ArrayList<>();
+    List<Integer> metaLines = new ArrayList<>();
+    source = csrfMeta(source, removedLines, metaLines);
     char[] doc = source.toCharArray();
     Handler handler = new Handler(file, doc);
     Markup.PARSER.parse(doc, handler);
-    return handler.finish(source);
+    Result r = handler.finish(source);
+    if (metaLines.isEmpty()) {
+      return r;
+    }
+    List<Report.Item> items = new ArrayList<>();
+    for (int line : metaLines) {
+      items.add(new Report.Item(file, line, ConversionRules.CSRF_META_MESSAGE));
+    }
+    for (Report.Item i : r.items()) {
+      int line = i.line();
+      for (int removed : removedLines) {
+        line += removed < i.line() ? 1 : 0;
+      }
+      items.add(new Report.Item(file, line, i.message()));
+    }
+    return new Result(r.output(), Collections.unmodifiableList(items));
+  }
+
+  /**
+   * {@code source} with Spring Security's CSRF {@code <meta>} tags ({@link ConversionRules#CSRF_META})
+   * replaced by {@code <t:csrf-meta/>}, which writes both: the first of a {@code _csrf} and
+   * {@code _csrf_header} pair, or a lone one, becomes the element, and the other of the pair, when
+   * only whitespace separates them, is removed (with its line, if it has one of its own). Any other
+   * {@code <meta>}, or one whose name and property don't match, is left for the usual conversion
+   * and report. Adds to {@code removedLines} the output line after which each removed line was, and
+   * to {@code metaLines} the source line of each element written.
+   */
+  static String csrfMeta(String source, List<Integer> removedLines, List<Integer> metaLines) {
+    Matcher m = ConversionRules.CSRF_META.matcher(source);
+    StringBuilder sb = new StringBuilder();
+    int from = 0;
+    String pending = null; // the name of the tag just replaced, while its pair may follow
+    while (m.find()) {
+      String name = m.group(2) != null ? m.group(2) : m.group(8);
+      String property = m.group(4) != null ? m.group(4) : m.group(6);
+      if (!property.equals(name.equals("_csrf") ? "token" : "headerName")) {
+        pending = null;
+        continue;
+      }
+      String between = source.substring(from, m.start());
+      String removed;
+      if (pending != null && !pending.equals(name) && Compat.strip(between).isEmpty()) {
+        int nl = between.lastIndexOf('\n');
+        sb.append(between, 0, Math.max(nl, 0));
+        removed = between.substring(Math.max(nl, 0)) + m.group();
+        pending = null;
+      } else {
+        metaLines.add(lines(source, m.start()));
+        sb.append(between).append(ConversionRules.CSRF_META_ELEMENT);
+        removed = m.group();
+        pending = name;
+      }
+      // A line the rewrite removed (a tag of its own, or one written across lines) shifts the later report lines.
+      for (int i = 0, at = lines(sb); i < lines(removed) - 1; i++) {
+        removedLines.add(at);
+      }
+      from = m.end();
+    }
+    return from == 0 ? source : sb.append(source, from, source.length()).toString();
+  }
+
+  /** The 1-based line at the end of {@code s}. */
+  private static int lines(CharSequence s) {
+    int n = 1;
+    for (int i = 0; i < s.length(); i++) {
+      n += s.charAt(i) == '\n' ? 1 : 0;
+    }
+    return n;
+  }
+
+  /** The 1-based line of offset {@code at} in {@code s}. */
+  private static int lines(String s, int at) {
+    return lines(s.subSequence(0, at));
   }
 
   /**

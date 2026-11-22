@@ -80,17 +80,31 @@ public interface Forms {
     return !errors(objectName, path).isEmpty();
   }
 
-  /** CSRF token to insert into a form with a static {@code method="post"} that posts to the page's origin, if any. */
+  /**
+   * CSRF token to insert into a form with a static {@code method="post"} that posts to the page's
+   * origin, and to write in the {@code <meta>} tags of {@code <t:csrf-meta>}, if any.
+   */
   Optional<CsrfToken> csrfToken();
 
-  /** CSRF token parameter name and value. */
+  /**
+   * CSRF token parameter name, value and, if known, the request header that carries it
+   * ({@code <t:csrf-meta>} writes it as {@code <meta name="_csrf_header">}; without one that tag
+   * is left out).
+   */
   final class CsrfToken {
     private final String parameterName;
     private final String token;
+    private final String headerName;
 
+    /** A token without a header name. */
     public CsrfToken(String parameterName, String token) {
+      this(parameterName, token, null);
+    }
+
+    public CsrfToken(String parameterName, String token, String headerName) {
       this.parameterName = parameterName;
       this.token = token;
+      this.headerName = headerName;
     }
 
     public String parameterName() {
@@ -101,23 +115,29 @@ public interface Forms {
       return token;
     }
 
+    /** The request header that carries the token, or null if there is none. */
+    public String headerName() {
+      return headerName;
+    }
+
     @Override
     public boolean equals(Object o) {
       if (!(o instanceof CsrfToken)) {
         return false;
       }
       CsrfToken other = (CsrfToken) o;
-      return Objects.equals(parameterName, other.parameterName) && Objects.equals(token, other.token);
+      return Objects.equals(parameterName, other.parameterName) && Objects.equals(token, other.token)
+          && Objects.equals(headerName, other.headerName);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(parameterName, token);
+      return Objects.hash(parameterName, token, headerName);
     }
 
     @Override
     public String toString() {
-      return "CsrfToken[parameterName=" + parameterName + ", token=" + token + "]";
+      return "CsrfToken[parameterName=" + parameterName + ", token=" + token + ", headerName=" + headerName + "]";
     }
   }
 

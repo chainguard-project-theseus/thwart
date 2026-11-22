@@ -578,6 +578,8 @@ public final class ContextVerifier {
         return "this t:case";
       case ERRORS:
         return "this t:errors";
+      case CSRF_META:
+        return "the <t:csrf-meta> tags written here";
       default:
         return "the hidden input written here";
     }

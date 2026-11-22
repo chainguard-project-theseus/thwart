@@ -245,7 +245,8 @@ your own keys or a prefixed id, not raw user input.
 | read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A number, boolean or link in a `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. A string goes in a script declaration or a JSON block (Scripts, below). |
 | one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`, `<input type>`) | A static attribute, or one element per value under `t:if`/`t:switch` (the `fields` example in [Fragments and layouts](#fragments-and-layouts)). |
 | `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Thwart stamps the CSP nonce itself ([Rendering](#rendering)). |
-| `content` of a named `<meta>` (`description`, Open Graph `property`, `_csrf`) | A static `content`, or one `<meta>` per case under `t:if`. Page data for JavaScript, such as the CSRF token, goes in a script declaration ([Forms](#forms)). |
+| `content` of a named `<meta>` (`description`, Open Graph `property`) | A static `content`, or one `<meta>` per case under `t:if`. Other page data for JavaScript goes in a script declaration (Scripts, below). |
+| `<meta name="_csrf" th:content="${_csrf.token}">` and `<meta name="_csrf_header" th:content="${_csrf.headerName}">` | `<t:csrf-meta/>` writes both ([Forms](#forms)). |
 | `srcset`, `<font color>` | One `src` (or a static `srcset`); a `<span>` with a `t:class`. |
 
 SVG, MathML, CDATA and the obsolete raw-text elements are static or rejected: the table in [limitations.md](limitations.md).
@@ -583,12 +584,33 @@ link with a literal path starting with `/` (or a choice of such links); `method`
 nest. Any other form's computed `action` is held to the link rule too, since client code may submit
 it and swap in the response. A static action to another origin is allowed and gets no token. The
 compiler's error names the fix in each case. A form that writes its own `_csrf` hidden input as a
-direct, unconditional child keeps it and gets no second one. For htmx or `fetch`, put the token in
-the model (a `@ControllerAdvice` `@ModelAttribute("csrfToken")` reading the request's `CsrfToken`),
-declare it at the top of a script, `const csrfToken = [[${csrfToken}]];`, and send it as the
-`X-CSRF-TOKEN` header (htmx: in an `htmx:configRequest` listener). Use htmx 2 or set
-`htmx.config.selfRequestsOnly = true`. A `method="post"` form that only htmx submits gets the token
-input too, and htmx 2 puts it in the URL of an `hx-delete`: add `hx-params="not _csrf"` there.
+direct, unconditional child keeps it and gets no second one.
+
+For htmx or `fetch`, write `<t:csrf-meta/>` in the layout's `<head>`. It writes Spring Security's
+`<meta name="_csrf" content="...">` and `<meta name="_csrf_header" content="...">` with the
+request's token and header name (`X-CSRF-TOKEN` by default, `X-XSRF-TOKEN` with the cookie
+repository), or nothing when the request has no token (no Spring Security, or CSRF off). It takes
+no attributes and no content; to write it on some pages only, put it in a `<t:block t:if="...">`.
+The script reads both tags, `document.querySelector('meta[name="_csrf"]').content` and the same for
+`_csrf_header`, and sends the token in that header (htmx: set `event.detail.headers[header] = token`
+in an `htmx:configRequest` listener). A computed `content` on a `<meta>` is a build error. Use
+htmx 2 or set `htmx.config.selfRequestsOnly = true`. A `method="post"` form that only htmx submits
+gets the token input too, and htmx 2 puts it in the URL of an `hx-delete`: add
+`hx-params="not _csrf"` there.
+
+- The tags put the token on every page whose layout has them, not only on pages with a POST form,
+  and load a deferred token there (with the default repository, creating a session). Spring
+  Security sends `Cache-Control: no-store` unless the application sets its own: don't let a
+  shared cache keep such a page (`Cache-Control: public`, a CDN rule), or it serves one user's token
+  to another.
+- Before Spring Security 6 (Boot 1.5 to 2.7) the token is the same in every response of a session.
+  With HTTP compression on (`server.compression.enabled`, off by default) and a page that echoes
+  request input, an attacker who can watch response sizes may recover it (BREACH). Use Spring
+  Security's `XorCsrfTokenRequestAttributeHandler` (5.8 and later), which masks the token in each
+  response as 6 and later do by default, or don't compress HTML.
+- htmx's `hx-boost` swaps the `<body>` but not the `<head>`, so after a boosted login, which
+  changes the token, the tags keep the old one and the next htmx request gets a 403. Don't boost
+  the login form, or reload the page after it.
 
 ## Fragments and layouts
 
