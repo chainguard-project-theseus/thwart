@@ -140,6 +140,25 @@ class MigratorTest {
     assertTrue(convert("<p th:text=\"${auth.user.name}\">x</p>").contains("Object auth"));
   }
 
+  /**
+   * A {@code th:attr} {@code content} pair on a {@code <meta>} becomes {@code t:content}; the compiler
+   * decides whether that meta's content may be computed (a descriptive key). Elsewhere it is reported.
+   */
+  @Test
+  void attrContentOnMetaIsRewritten() throws Exception {
+    String src = "<div t:params=\"String d, String u\"><meta name=\"description\" th:attr=\"content=${d}\"/>"
+        + "<meta property=\"og:url\" th:attr=\"content=${u}\"></div>";
+    assertEquals("<div t:params=\"String d, String u\"><meta name=\"description\" t:content=\"d\"/>"
+        + "<meta property=\"og:url\" t:content=\"u\"></div>", convert(src));
+    assertEquals(List.of(), messages(src));
+    for (String tag : List.of("<p th:attr=\"content=${d}\">", "<meta th:attr=\"content=${d}\" th:content=\"${d}\">",
+        "<meta th:attr=\"content=${d} + 'x'\">", "<meta th:attr=\"content=${d},title=${d}\">")) {
+      String other = "<div t:params=\"String d\">" + tag + "</p></div>";
+      assertTrue(convert(other).contains("th:attr"), tag);
+      assertTrue(messages(other).stream().anyMatch(m -> m.contains("`th:attr` is not supported")), tag);
+    }
+  }
+
   @Test
   void secAuthorizeAttrAndErrorClassWithoutAnExactFormAreReported() throws Exception {
     for (String tag : List.of("<p sec:authorize=\"isAnonymous()\">", "<p sec:authorize=\"hasRole(${r})\">",

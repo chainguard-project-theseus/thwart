@@ -82,6 +82,15 @@ final class HostileSinks {
   /** Element/attribute pairs that load code or set the document base: also no cross-origin, no data:. */
   static final Set<String> CODE = Set.of("script/src", "script/href", "script/xlink:href", "link/href", "base/href",
       "object/data", "object/codebase", "embed/src", "iframe/src", "frame/src", "object/archive", "object/classid");
+  /**
+   * {@code <meta>} keys ({@code name} or {@code property}) whose content is display text for search
+   * results and link previews (HTML standard metadata names, Open Graph, Twitter cards). Any other
+   * {@code <meta>} content is a policy input: a browser, crawler or client library may act on it.
+   */
+  static final Set<String> META_TEXT = Set.of("description", "keywords", "author", "og:title", "og:description",
+      "og:site_name", "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt");
+  /** {@code <meta>} keys whose content is one URL (Open Graph, Twitter cards): a URL sink. */
+  static final Set<String> META_URL = Set.of("og:image", "og:url", "twitter:image");
   static final Pattern SCHEME = Pattern.compile("^([A-Za-z][A-Za-z0-9+.\\-]*):");
   static final Pattern CSS_FETCH = Pattern.compile(
       "(url|image|image-set|-webkit-image-set|cross-fade|element|expression|src)\\s*\\(|@import|-moz-binding|behavior\\s*:");
@@ -112,6 +121,8 @@ final class HostileSinks {
           out.add(new String[] {"URL_REFRESH_OFFSITE", "refresh to " + m.group(2)});
         }
       }
+    } else if (tag.equals("meta") && a.equals("content") && META_URL.contains(metaKey(el))) {
+      items.add(value);
     }
     boolean code = CODE.contains(tag + "/" + a);
     for (String item : items) {
@@ -145,7 +156,10 @@ final class HostileSinks {
     }
     boolean policy = (tag.equals("iframe") && Set.of("sandbox", "allow", "csp", "allowfullscreen").contains(a))
         || (tag.equals("link") && Set.of("rel", "as", "integrity", "crossorigin").contains(a))
-        || (tag.equals("script") && Set.of("integrity", "crossorigin", "nomodule", "nonce").contains(a));
+        || (tag.equals("script") && Set.of("integrity", "crossorigin", "nomodule", "nonce").contains(a))
+        || (tag.equals("meta") && a.equals("content") && !Set.of("refresh", "content-type")
+            .contains(el.getAttribute("http-equiv").strip().toLowerCase(Locale.ROOT))
+            && !META_TEXT.contains(metaKey(el)) && !META_URL.contains(metaKey(el)));
     if (policy && value.equals(hostile)) {
       out.add(new String[] {"POLICY_INPUT", "policy attribute holds '" + value + "'"});
     }
@@ -165,6 +179,19 @@ final class HostileSinks {
       out.add(new String[] {"NON_NEUTRAL_VALUE", attrName + " outside HTML holds '" + value + "'"});
     }
     return out;
+  }
+
+  /**
+   * The key of a {@code <meta>}: its one {@code name} or {@code property}, A-Z folded as a browser
+   * folds it and not trimmed, or "" if it has neither, both, or an {@code itemprop}.
+   */
+  static String metaKey(Element el) {
+    boolean name = el.hasAttribute("name");
+    boolean property = el.hasAttribute("property");
+    if (name == property || el.hasAttribute("itemprop")) {
+      return "";
+    }
+    return asciiLower(el.getAttribute(name ? "name" : "property"));
   }
 
   /** CSS: drop comments, decode escapes, lower-case. */

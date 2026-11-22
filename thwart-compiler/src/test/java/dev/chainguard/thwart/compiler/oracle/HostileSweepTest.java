@@ -126,6 +126,11 @@ class HostileSweepTest {
     html("option", "<select>", "option", "", false, "</select>");
     html("meta-refresh", "", "meta", "http-equiv=\"refresh\"", true, "");
     html("meta-ctype", "", "meta", "http-equiv=\"Content-Type\"", true, "");
+    // Descriptive <meta> keys (a text and a URL key) and a policy key: the head-element holes of a
+    // computed content, and one that must stay rejected.
+    html("meta-description", "", "meta", "name=\"description\"", true, "");
+    html("meta-og-url", "", "meta", "property=\"og:url\"", true, "");
+    html("meta-referrer", "", "meta", "name=\"referrer\"", true, "");
   }
 
   /**
@@ -784,7 +789,11 @@ class HostileSweepTest {
             hits.add("ATTRIBUTES " + out);
           }
           for (String[] f : HostileSinks.classify(m, "content", m.getAttribute("content"), h)) {
-            hits.add(f[0] + " " + f[1] + " " + out);
+            // The token tags are policy input by design: their names are fixed and their values
+            // round-trip as text (checked above).
+            if (!f[0].equals("POLICY_INPUT")) {
+              hits.add(f[0] + " " + f[1] + " " + out);
+            }
           }
         }
       }
@@ -852,6 +861,22 @@ class HostileSweepTest {
     assertKinds("<p data-tsweep style=\"u\\72l(//evil.example/x)\">", "u\\72l(//evil.example/x)", "CSS_FETCH");
     assertKinds("<meta data-tsweep http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\">",
         "0;url=javascript:alert(1)", "URL_REFRESH_OFFSITE", "URL_SCRIPT_SCHEME");
+    // <meta> content: a URL key is a URL sink, a key off the descriptive list a policy input, and a
+    // descriptive text key nothing.
+    // (property is a name outside HTML, so assertKinds also holds its static value to the neutral
+    // grammar; name keeps these probes to the content.)
+    assertKinds("<meta data-tsweep name=\"og:url\" content=\"javascript:alert(1)\">", "javascript:alert(1)",
+        "URL_SCRIPT_SCHEME");
+    assertKinds("<meta data-tsweep name=\"twitter:image\" content=\"https://cdn.example/x.png\">",
+        "https://cdn.example/x.png");
+    assertKinds("<meta data-tsweep name=\"referrer\" content=\"unsafe-url\">", "unsafe-url", "POLICY_INPUT");
+    assertKinds("<meta data-tsweep name=\"htmx-config\" content=\"x\">", "x", "POLICY_INPUT");
+    assertKinds("<meta data-tsweep name=\"description\" property=\"og:title\" content=\"x\">", "x", "POLICY_INPUT",
+        "NON_NEUTRAL_VALUE");
+    assertKinds("<meta data-tsweep name=\"description\" itemprop=\"description\" content=\"x\">", "x", "POLICY_INPUT");
+    assertKinds("<meta data-tsweep name=\" description\" content=\"x\">", "x", "POLICY_INPUT");
+    assertKinds("<meta data-tsweep http-equiv=\"set-cookie\" content=\"x\">", "x", "POLICY_INPUT");
+    assertKinds("<meta data-tsweep name=\"Description\" content=\"unsafe-url\">", "unsafe-url");
     // Client-framework bugs of the past (#529, #531, #557, #562, ...), now one rule that names no
     // framework: the value is not neutral.
     for (String[] old : List.of(new String[] {"data--ng-init", "alert(1)"},

@@ -95,7 +95,8 @@ its own message, what it doesn't model:
 - **Attributes the tree builder reads** can't be computed: `type` on `<input>` and `<script>`,
   `<font color/face/size>`, `is`, `xmlns*`, `encoding`, `<meta charset/http-equiv>`, `<template>`
   `shadowroot*` and `for`. Nor can `<meta name>`: it decides what a static `content` means (a
-  referrer policy, `htmx-config`, site verification). `property` and `itemprop` are off the list.
+  referrer policy, `htmx-config`, site verification). `property` and `itemprop` are off the list,
+  and a computed `content` needs one static descriptive key (§5.3).
 
 ### 5.3 Attributes
 
@@ -110,6 +111,12 @@ one class. Every other computed name is a build error with a fix-it.
   literals only.
 - **Single URL**: `href src action formaction cite poster` take a URL; the scheme is checked at
   render time.
+- **Descriptive `<meta>` content**: under exactly one static `name` or `property` whose key
+  (A-Z folded, not trimmed) is `description`, `keywords`, `author`, `og:title`,
+  `og:description`, `og:site_name`, `og:image:alt`, `twitter:title`, `twitter:description` or
+  `twitter:image:alt`, a computed `content` is inert text; under `og:image`, `og:url` or
+  `twitter:image` it is a single URL. No supported browser acts on these keys. The `<meta>` may
+  have no `http-equiv`, `charset` or `itemprop` and no computed key (context-model.md §6.1).
 - **Resource URL**: `script[src|href]`, `iframe/frame/embed[src]`, `object[data]` and
   `base/link[href]` take only a same-origin literal-path `@{...}` link with no query parameters: no
   scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked
@@ -120,7 +127,8 @@ one class. Every other computed name is a build error with a fix-it.
 - **Forbidden** (`Contexts.forbidden`, which also gives the fix-it): names that aren't plain
   (`:x`, `@x`), `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), the tree-builder inputs of
   §5.2, every attribute of an SVG or MathML element, and every name off the list (`hx-*`, `x-*`,
-  `v-*`, custom element attributes, `rel`, `type`, `nonce`, named `<meta>` content, ...). `on*` is
+  `v-*`, custom element attributes, `rel`, `type`, `nonce`, `<meta>` content other than a refresh
+  or a descriptive key, ...). `on*` is
   a build error too.
 
 `OutputContext.attributeEscaper()` gives each class its escaper, a `Skeleton.Escaper` naming one
@@ -238,8 +246,9 @@ when the token has a header name, `<meta name="_csrf_header" content="...">`, fr
 `Forms.csrfToken()`, or nothing without a token (`CsrfInjector.meta`). It takes no attributes and
 no content, so its names and markup are fixed and no model value reaches them; the values are
 escaped with `Escapers.attr`, and the verifier checks the written tags where they land. It sends
-nothing: where page JavaScript sends the header is principle 7. A computed `content` on a named
-`<meta>` stays off the allow-list (§5.3).
+nothing: where page JavaScript sends the header is principle 7. A computed `content` on a
+`<meta>` named `_csrf`, `_csrf_header`, `csrf-token` or `csrf-param` stays off the allow-list,
+with `<t:csrf-meta/>` as the fix-it (§5.3).
 
 ## 10. Tests that hold the line
 

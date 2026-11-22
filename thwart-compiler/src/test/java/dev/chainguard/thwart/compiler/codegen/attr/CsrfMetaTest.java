@@ -265,7 +265,8 @@ class CsrfMetaTest {
 
   @Test
   void computedContentOnCsrfNamedMetaPointsToTheElement() {
-    for (String name : List.of("_csrf", "_csrf_header", "_CSRF", " _csrf ", "\t_Csrf_Header\n")) {
+    for (String name : List.of("_csrf", "_csrf_header", "_CSRF", " _csrf ", "\t_Csrf_Header\n", "csrf-token",
+        "csrf-param", "CSRF-Token")) {
       compile("String x", "<meta name=\"" + name + "\" t:content=\"x\"/>")
           .assertError("m.html:", "t:content is not allowed", FIX_IT);
       compile("String x", "<meta name=\"" + name + "\" t:content=\"${x}\"/>").assertError(FIX_IT);
@@ -278,9 +279,7 @@ class CsrfMetaTest {
       "<meta name=\"htmx-config\" t:content=\"x\"/>",
       "<meta name=\"referrer\" t:content=\"x\"/>",
       "<meta name=\"_csrf_parameter\" t:content=\"x\"/>",
-      "<meta name=\"csrf-token\" t:content=\"x\"/>",
       "<meta name=\"_csrfx\" t:content=\"x\"/>",
-      "<meta name=\"description\" t:content=\"x\"/>",
       "<meta property=\"_csrf\" t:content=\"x\"/>",
       "<meta itemprop=\"_csrf\" t:content=\"x\"/>",
       "<meta t:content=\"x\"/>",

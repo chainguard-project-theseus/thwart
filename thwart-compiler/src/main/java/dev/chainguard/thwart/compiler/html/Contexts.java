@@ -79,7 +79,8 @@ public final class Contexts {
 
   /**
    * The closed allow-list of computed attribute names (#761), besides {@code data-*}, {@code aria-*},
-   * {@code <object data>} and the {@code content} of a {@code <meta http-equiv="refresh">}: the names
+   * {@code <object data>} and the {@code content} of a {@code <meta http-equiv="refresh">} or a
+   * {@link #descriptiveMeta descriptive} {@code <meta>}: the names
    * the migration corpus computes (#760) and their obvious form, table and accessibility siblings.
    * Each has one fixed context ({@link #attribute}). Every other computed name is a build error
    * ({@link #forbidden}); static attributes are not checked against it.
@@ -117,11 +118,33 @@ public final class Contexts {
       Backports.setOf("button", "data", "input", "li", "meter", "option", "progress", "select");
 
   /**
+   * The descriptive {@code <meta>} keys whose {@code content} is display text for search results and
+   * link previews, which no supported browser acts on: a computed content under one is ATTRIBUTE
+   * ({@link #descriptiveMeta}). Every other key (a policy such as {@code referrer}, a client
+   * library's configuration, a site-verification token, an unknown name) stays FORBIDDEN.
+   */
+  private static final Set<String> META_TEXT_KEYS =
+      Backports.setOf("description", "keywords", "author", "og:title", "og:description", "og:site_name",
+          "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt");
+
+  /** The descriptive {@code <meta>} keys whose {@code content} is one URL: URL ({@code Escapers.url}). */
+  private static final Set<String> META_URL_KEYS = Backports.setOf("og:image", "og:url", "twitter:image");
+
+  /** The descriptive keys as the guide lists them, for the fix-its. */
+  private static final String DESCRIPTIVE_LIST = "description, keywords, author, og:title, og:description,"
+      + " og:site_name, og:image:alt, twitter:title, twitter:description, twitter:image:alt, and the URLs og:image,"
+      + " og:url and twitter:image: docs/guide/templates.md, Output contexts";
+
+  /** The {@code <meta>} attributes that say what its {@code content} means. */
+  private static final Set<String> META_KEYS = Backports.setOf("name", "property", "itemprop", "http-equiv", "charset");
+
+  /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element} (the table is docs/context-model.md section 6.1). In order: what
    * {@link #forbidden} gives a reason for (every name off the {@link #COMPUTED allow-list} among
    * them) FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} STYLE; a refresh {@code content}
-   * REFRESH; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
+   * REFRESH; a {@link #descriptiveMeta descriptive} {@code <meta>} content ATTRIBUTE or URL;
+   * {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
    * {@code target}, a {@code value} off {@link #VALUE_TEXT_ELEMENTS} and a {@code for} off
    * {@code <label>} and {@code <output>} TYPED_ATTRIBUTE; {@code data-*} and an {@code aria-*} name
    * outside WAI-ARIA 1.2 NEUTRAL (client frameworks may run them as code); every other listed name
@@ -142,6 +165,9 @@ public final class Contexts {
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
     }
+    if (isDescriptiveContent(element, el, attr)) {
+      return descriptiveMeta(element);
+    }
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
@@ -158,31 +184,132 @@ public final class Contexts {
 
   /**
    * Whether a computed {@code attr} (A-Z folded) on {@code element} is on the closed allow-list:
-   * {@link #COMPUTED}, {@code data-*}, {@code aria-*}, {@code <object data>} and the {@code content}
-   * of a {@code <meta http-equiv="refresh">}. {@code on*} names are left to EVENT_HANDLER, which
+   * {@link #COMPUTED}, {@code data-*}, {@code aria-*}, {@code <object data>}, the {@code content}
+   * of a {@code <meta http-equiv="refresh">} and of a {@link #descriptiveMeta descriptive}
+   * {@code <meta>}. {@code on*} names are left to EVENT_HANDLER, which
    * rejects them with their own fix-it.
    */
   private static boolean allowed(Element element, String attr) {
     String el = HtmlParser.asciiLower(element.name());
     return COMPUTED.contains(attr) || attr.startsWith("data-") || attr.startsWith("aria-") || attr.startsWith("on")
-        || (el.equals("object") && attr.equals("data")) || isRefreshContent(element, el, attr);
+        || (el.equals("object") && attr.equals("data")) || isRefreshContent(element, el, attr)
+        || isDescriptiveContent(element, el, attr);
+  }
+
+  /** {@code content} on a {@code <meta>} that {@link #descriptiveMeta} classifies. */
+  private static boolean isDescriptiveContent(Element element, String el, String attr) {
+    return attr.equals("content") && el.equals("meta") && descriptiveMeta(element) != null;
+  }
+
+  /**
+   * The context of a computed {@code content} on {@code element}, a {@code <meta>}, if its key is
+   * descriptive, or null: exactly one static {@code name} or {@code property} whose value, A-Z
+   * folded and not trimmed, is a {@link #META_TEXT_KEYS text key} (ATTRIBUTE) or a
+   * {@link #META_URL_KEYS URL key} (URL); no static {@code itemprop}, {@code http-equiv} or
+   * {@code charset}; and no computed {@link #META_KEYS key} at all, which fails closed even while
+   * that attribute reports its own error.
+   */
+  private static OutputContext descriptiveMeta(Element element) {
+    String key = null;
+    int keys = 0;
+    for (Attribute a : element.attributes()) {
+      String n = HtmlParser.asciiLower(a.localName());
+      if (!META_KEYS.contains(n)) {
+        continue;
+      }
+      if (a.isThwart() || !(n.equals("name") || n.equals("property"))) {
+        return null;
+      }
+      keys++;
+      key = a.value() == null ? "" : HtmlParser.asciiLower(a.value());
+    }
+    if (keys != 1) {
+      return null;
+    }
+    return META_TEXT_KEYS.contains(key) ? OutputContext.ATTRIBUTE
+        : META_URL_KEYS.contains(key) ? OutputContext.URL : null;
+  }
+
+  /**
+   * Why a computed {@code content} on {@code element}, a {@code <meta>} that is not
+   * {@link #descriptiveMeta descriptive}, is rejected, with the fix-it for its case.
+   */
+  private static String metaContent(Element element) {
+    String key = null;
+    int keys = 0;
+    for (Attribute a : element.attributes()) {
+      String n = HtmlParser.asciiLower(a.localName());
+      if (a.isThwart() && META_KEYS.contains(n)) {
+        return "a computed content needs a static name or property on the <meta> to say what it means, and t:"
+            + a.localName() + " makes that depend on data; write a static name or property from the descriptive list ("
+            + DESCRIPTIVE_LIST + ")";
+      }
+      if (!a.isThwart() && (n.equals("name") || n.equals("property"))) {
+        keys++;
+        key = a.value() == null ? "" : a.value();
+      }
+    }
+    for (String csrf : new String[] {"_csrf", "_csrf_header", "csrf-token", "csrf-param"}) {
+      if (hasName(element, csrf)) {
+        return "a computed content on a <meta name=\"" + csrf + "\"> is not allowed; for the CSRF token, write"
+            + " <t:csrf-meta/> instead: it writes Spring Security's <meta name=\"_csrf\"> and <meta name=\"_csrf_header\">"
+            + " with the request's token and header name, so read those from your script (docs/guide/templates.md, Forms)";
+      }
+    }
+    if (hasStatic(element, "itemprop")) {
+      return "a computed content on a <meta itemprop> is microdata, which crawlers read as structured data; put"
+          + " structured data in a <script type=\"application/ld+json\"> block, where [[...]] writes JSON"
+          + " (docs/guide/templates.md, Output contexts)";
+    }
+    if (hasStatic(element, "http-equiv")) {
+      return "a <meta http-equiv> is a pragma the browser acts on, and only http-equiv=\"refresh\" takes a computed"
+          + " content (a literal delay and a same-origin link); write a static content";
+    }
+    if (hasStatic(element, "charset")) {
+      return "a <meta charset> sets the encoding a browser reads the page in and takes no content; write the content"
+          + " on a separate <meta>";
+    }
+    if (keys > 1) {
+      return "a <meta> with both a name and a property can mean different things to different readers; keep one, from"
+          + " the descriptive list (" + DESCRIPTIVE_LIST + ")";
+    }
+    if (keys == 0) {
+      return "a computed content on a <meta> needs a static name or property that says what it is, from the descriptive"
+          + " list (" + DESCRIPTIVE_LIST + ")";
+    }
+    String trimmed = HtmlParser.asciiLower(HtmlParser.stripAnySpace(key));
+    if (!trimmed.equals(HtmlParser.asciiLower(key))
+        && (META_TEXT_KEYS.contains(trimmed) || META_URL_KEYS.contains(trimmed))) {
+      return "'" + key + "' is on the descriptive list only without the surrounding whitespace: write \"" + trimmed
+          + "\"";
+    }
+    return "a computed content is allowed only on a <meta> whose static name or property is on Thwart's descriptive"
+        + " list (" + DESCRIPTIVE_LIST + "); '" + key + "' can be read as policy or configuration by a browser, crawler"
+        + " or script, so write a static content, or one <meta> per case under t:if; data for your script goes in a"
+        + " script declaration such as var x = [[${x}]]";
+  }
+
+  /** Whether {@code element} has a static attribute {@code name} (A-Z folded). */
+  private static boolean hasStatic(Element element, String name) {
+    for (Attribute a : element.attributes()) {
+      if (!a.isThwart() && HtmlParser.asciiLower(a.name()).equals(name)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
    * Why a computed {@code name} ({@code attr} A-Z folded) on {@code element} off the allow-list is
-   * rejected, with the fix-it. The {@code content} of a {@code <meta>} whose static {@code name} is
-   * Spring Security's {@code _csrf} or {@code _csrf_header} (trimmed, A-Z folded) stays rejected
-   * like any named {@code <meta>}; its fix-it is {@code <t:csrf-meta/>}.
+   * rejected, with the fix-it. A {@code <meta>} content that is not descriptive gets the fix-it for
+   * its case ({@link #metaContent}); for a CSRF name it is {@code <t:csrf-meta/>}.
    */
   private static String offList(Element element, String name, String attr) {
     if (attr.equals("nonce")) {
       return "Thwart stamps the CSP nonce itself; delete this attribute";
     }
-    if (attr.equals("content") && HtmlParser.asciiLower(element.name()).equals("meta")
-        && (hasName(element, "_csrf") || hasName(element, "_csrf_header"))) {
-      return "a computed content on a named <meta> is not allowed; for Spring Security's CSRF token, write"
-          + " <t:csrf-meta/> instead of both <meta name=\"_csrf\"> and <meta name=\"_csrf_header\">: it writes them"
-          + " with the request's token and header name (docs/guide/templates.md, Forms)";
+    if (attr.equals("content") && HtmlParser.asciiLower(element.name()).equals("meta")) {
+      return metaContent(element);
     }
     return "'" + name + "' is not on Thwart's list of computed attributes (docs/guide/templates.md, Output contexts); write it as"
         + " a static value, or one element per value under t:if; for data your script reads, put a number, boolean or"

@@ -255,11 +255,14 @@ class AttributesEndToEndTest {
         .assertError("t:content is not allowed", "same-origin path");
     compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv is not allowed: the http-equiv of a <meta>", "static http-equiv");
     compile("<meta t:http-equiv=\"s\" content=\"0;url=/x\">").assertError("t:http-equiv", "<meta>");
-    // A literal refresh written by the author is fine; other computed meta content is off the list (#761).
+    // A literal refresh written by the author is fine. Other computed meta content is off the list
+    // unless its static key is descriptive (DescriptiveMetaTest).
     assertEquals(
         "<meta http-equiv=\"refresh\" content=\"5\">",
         render("<meta http-equiv=\"refresh\" content=\"5\">", model()));
-    compile("<meta name=\"description\" t:content=\"s\">").assertError("t:content is not allowed", "is not on Thwart's list");
+    assertEquals("<meta name=\"description\" content=\"&lt;b&gt;\">",
+        render("<meta name=\"description\" t:content=\"s\">", model("s", "<b>")));
+    compile("<meta name=\"referrer\" t:content=\"s\">").assertError("t:content is not allowed", "descriptive list");
   }
 
   /**
@@ -335,7 +338,8 @@ class AttributesEndToEndTest {
         + "<template shadowrootmode=\"open\" for=\"x\"><p>x</p></template>").assertSuccess();
     compile("<label t:for=\"s\">x</label>").assertSuccess();
     // #761: shadowrootmode elsewhere, and content under another http-equiv, are off the list.
-    compile("<meta http-equiv=\"content-language\" t:content=\"'en'\">").assertError("t.html:1:", "t:content is not allowed", "not on");
+    compile("<meta http-equiv=\"content-language\" t:content=\"'en'\">").assertError("t.html:1:", "t:content is not allowed",
+        "pragma the browser acts on");
     compile("<div t:shadowrootmode=\"s\">x</div>").assertError("t.html:1:", "t:shadowrootmode is not allowed", "not on");
   }
 
