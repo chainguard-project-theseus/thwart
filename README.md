@@ -2,16 +2,12 @@
 
 Thwart is a compiled, safe-by-design successor to Thymeleaf for Spring MVC. It keeps Thymeleaf's
 natural-HTML `t:` attributes, forms, i18n and fragments, but compiles templates to plain Java in
-the application's own `javac`, which makes template injection and XSS impossible by construction,
-relative to the pinned WHATWG parser and the documented exclusions
-([security-model.md §7](docs/security-model.md#7-assumptions)).
-
-## Why
-
-Thymeleaf's recurring bug class is server-side template injection: its expressions are SpEL
-evaluated at runtime, `__${...}__` re-parses data as code, and its sandbox fixes have been
-deny-list patches that the next bypass gets around. Thwart removes the class by design: there is
-no runtime interpreter to inject into ([docs/strategy.md](docs/strategy.md)).
+the application's own `javac`. Nothing interprets a template at runtime, so server-side template
+injection is impossible by construction. No rendered value can run as a script, an event handler
+or a `javascript:` URL, relative to the pinned WHATWG parser and the documented exclusions
+([security model §1](docs/security-model.md#1-the-guarantee), [§7](docs/security-model.md#7-assumptions)).
+What page scripts or a client framework do with the DOM afterwards is outside the guarantee, with
+the strict CSP as a backstop ([§9](docs/security-model.md#9-known-gaps)).
 
 ## What it looks like
 
@@ -32,61 +28,123 @@ no runtime interpreter to inject into ([docs/strategy.md](docs/strategy.md)).
 
 `customers/show.html` compiles to a `ShowTemplate` class; the controller still does
 `return "customers/show";` with `customer` and `orders` in the model. Mistakes are build errors.
-Add `<button onclick="newOrder()">New order</button>` after "No orders yet." and `javac` prints:
+Add `<button onclick="newOrder()">New order</button>` right after "No orders yet." and `javac`
+prints:
 
 ```text
-error: customers/show.html:7:55: error: onclick on <button> is not allowed: inline event handlers are not supported: a strict CSP blocks them; remove onclick and attach the listener from a <script> with addEventListener, or mark the element with a data-* attribute and handle it with one delegated listener
+error: customers/show.html:7:54: error: onclick on <button> is not allowed: inline event handlers are not supported: a strict CSP blocks them; remove onclick and attach the listener from a <script> with addEventListener, or mark the element with a data-* attribute and handle it with one delegated listener
 ```
 
-## What you get, and what it costs
+## AI compatible
 
-You get:
-- No template interpreter at runtime: nothing at render time parses a template or evaluates an expression.
-- Escaping chosen for each output context, with no switch to turn it off.
-- Typed parameters, checked at build time.
-- A strict Content Security Policy by default.
-- Speed: about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request). Other compiled engines such as JTE skip runtime interpretation too, so expect them in the same range.
+Thwart is not a drop-in replacement for Thymeleaf, and it isn't API or ABI compatible on purpose.
+The things that make Thymeleaf unsafe are part of its API: expressions that reach any bean or
+static method, escaping a template can turn off, logic in templates, and inline scripts that a
+strict Content Security Policy (CSP) blocks. Most real templates need changes to compile.
 
-It costs:
+Thwart is **AI compatible** instead. It is built so that a coding agent that has never seen it can
+migrate an app on its own and show that the app still works; the migration test measures how far
+that holds. There are four parts:
+
+1. **A skill and a guide.** The Claude Code plugin in [plugins/thwart](plugins/thwart) has one
+   skill, [thwart](plugins/thwart/skills/thwart/SKILL.md), which works from the
+   [guide](docs/guide/README.md): setup, templates, migration and known limitations.
+2. **Compiler errors written as fixes.** Each names the file, line and column, says what is wrong,
+   and says what to write instead, like the one above.
+3. **A page-parity checker.** `thwart-migrate record` saves every page of the old app, and
+   `thwart-migrate compare` checks every page of the migrated app against it. The skill also has
+   the agent load the pages in a headless browser on both apps and compare the console, which
+   catches scripts that throw and CSP violations.
+4. **The migration test.** [bench/migration](bench/migration/README.md) gives a fresh agent the
+   plugin and a real app, with Claude's WebFetch, WebSearch and Workflow tools off and no human,
+   and scores the result with the same tools: the build and tests pass, every page matches, no
+   security check or test is switched off, no part of the old engine is left, and the browser
+   shows no new errors.
+
+The latest round is run 15 (2026-11-15). It was scored before new browser errors could fail a run
+(which changes none of its verdicts), and its `pass_forced` figures were computed afterwards from
+its archived output.
+
+- **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
+  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.35.
+  Over every archived run, the family passed strictly in **41 of 42 runs**. This is the best case:
+  all 7 are development apps, and Thwart's design was shaped by its own PetClinic port.
+- **Mustache PetClinic** (1 app): failed, with 23 of 30 pages matched; the rest are stray `th:*`
+  attributes that Thwart rejects. Over every archived run it passed strictly in 4 of 8.
+- **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf, Thymeleaf with
+  htmx, FreeMarker, JSP, JSP with Apache Tiles, Velocity and Pebble): every migrated app builds
+  and passes all of its tests, and each migration took 10 to 51 minutes and cost about $3.50 to
+  $32. **But none of the 10 passed strictly, and only 1 passed under the looser `pass_forced`
+  rule.** On average 46% of their pages matched. None of the 20 larger-app runs numbered 12 to 15
+  passed strictly. Over every archived run, the larger apps passed strictly in 6 of 73 runs (5 of
+  42 on the held-out apps); all six came before Thwart started rejecting inline handlers, and one
+  was scored by the first round's more lenient crawler.
+- **Round total:** 7 of 18 apps passed strictly, and 8 of 18 under `pass_forced`.
+- Some of the remaining differences are what Thwart requires (inline event handlers moved out for
+  the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
+  sanitizer). Some are agent mistakes, and some are scripts that Thwart's CSP blocks. Strict
+  parity on larger apps is the gap Thwart has to close.
+
+The plugin and guide have changed since run 15, and a fresh round will be run before the release.
+[docs/ai-compatible.md](docs/ai-compatible.md) has the method, the results by app, what each
+remaining difference is, and the test's limitations.
+
+## What's different
+
+- **No template interpreter at runtime.** Templates are Java classes. The runtime has no template
+  parser and no API that takes template source, and a template reaches only its typed `t:params`.
+  Thymeleaf's recurring bug class, SpEL evaluated at render time and `__${...}__` re-parsing data
+  as code, has nothing to attach to.
+- **Contextual escaping, checked at build time.** The compiler picks the escaper or check for each
+  output position (text, attribute, URL, script, style, ...), with no switch to turn it off. Each
+  template is also checked against a spec HTML parser and rejected where browsers could build a
+  different tree.
+- **A strict Content Security Policy by default.** Every `<script>` and `<style>` the template
+  writes gets the request's nonce, and the starter sends `script-src 'nonce-N' 'strict-dynamic';
+  object-src 'none'; base-uri 'none'` unless the app or Spring Security sets a policy. Inline
+  scripts without the nonce, and libraries that use `eval` or `new Function`, break. The off
+  switch is `thwart.csp.enabled=false` ([Rendering](docs/guide/templates.md#rendering)).
+- **Typed parameters**, checked at build time.
+- **Speed:** about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request).
+
+What it costs:
+
 - It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide/README.md).
 - Logic and formatting move to Java: getters, records the controller builds, registered functions.
 - Client frameworks that compile the server's DOM as a template are unsupported.
 - Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide/migrate.md#hot-reload)).
 - It is not published to any repository yet.
 
-## Status and contributing
+## Where it runs
 
-Version `0.1.0-SNAPSHOT`: run `mvn -B -ntp install` in this repo to put it in your local Maven repository.
+- **Spring MVC on servlets.** Applications build with JDK 8+ javac and run on Java 8+, with Spring
+  Framework 4.3+ or Spring Boot 1.5+ on Servlet 3.0+. Tested on Boot 1.5, 2.0, 2.7, 3.5 and 4.1
+  and Spring MVC 4.3 and 5.0; CI compiles applications with JDK 8 and 21.
+- **One starter, by servlet API.** `thwart-spring-boot-starter` for `jakarta.servlet` (Boot 3+,
+  Spring 6+), `thwart-spring-boot-starter-javax` for `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x).
+- **Spring MVC without Boot.** Add `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`
+  ([setup](docs/guide/setup.md#spring)).
+- **Outside a request** (a mail job): `XTemplate.of(...).renderToString(ctx)` ([Rendering](docs/guide/templates.md#rendering)).
+- **Not supported:** WebFlux, and web frameworks other than Spring MVC.
 
-- Java: applications build with JDK 8+ javac and run on Java 8+ (CI compiles them with JDK 8 and 21).
-- Spring: Framework 4.3+ or Boot 1.5+ on Servlet 3.0+; tested on Boot 1.5, 2.0, 2.7, 3.5, 4.1 and Spring MVC 4.3, 5.0.
+## Get started
 
-We're building Thwart in the open at Chainguard. We don't publish it to
-any package registry; it ships only from Chainguard's own repositories.
+Thwart isn't published yet: first run `mvn -B -ntp install -DskipTests` in this repo (JDK 21+,
+Maven 3.9+) to put version `0.1.0-SNAPSHOT` in your local Maven repository.
 
-We don't accept pull requests from external contributors. If you and your
-organization would seriously like to get involved, email
-dlorenc@chainguard.dev.
+**With a coding agent.** Install the Claude Code plugin:
 
-Use of the Thwart and Chainguard names is governed by Chainguard's
-trademark policy.
+```sh
+claude plugin marketplace add chainguard-project-theseus/thwart
+claude plugin install thwart@thwart
+```
 
-## Where to go next
+Or run `claude --plugin-dir plugins/thwart` from a checkout. Then ask Claude Code to add Thwart to
+an app or to migrate an app's views to it, or run `/thwart:thwart`. Other agents can start at
+[plugins/thwart/skills/thwart/SKILL.md](plugins/thwart/skills/thwart/SKILL.md).
 
-| Goal | Read |
-|---|---|
-| Add Thwart to an app | [Quick start](#quick-start), then [docs/guide/setup.md](docs/guide/setup.md) |
-| Migrate an existing app | [The Claude Code skill](#migrating) or the [porting guide](docs/guide/migrate.md) |
-| Check the security claims | [docs/security-model.md](docs/security-model.md), then [docs/security-architecture.md](docs/security-architecture.md) and [docs/context-model.md](docs/context-model.md) |
-| Compare with other engines | [docs/comparison.md](docs/comparison.md) |
-| Understand the internals | [docs/architecture.md](docs/architecture.md) |
-| Work on this repo | [AGENTS.md](AGENTS.md) |
-
-## Quick start
-
-Depend on one starter, `dev.chainguard.thwart:thwart-spring-boot-starter:0.1.0-SNAPSHOT` for
-`jakarta.servlet` (Boot 3+, Spring 6+) or `thwart-spring-boot-starter-javax` for `javax.servlet`
-(Boot 1.5-2.x, Spring 4.3-5.x), and run the annotation processor. With Maven:
+**By hand.** Depend on one starter (`dev.chainguard.thwart:thwart-spring-boot-starter:0.1.0-SNAPSHOT`
+or `thwart-spring-boot-starter-javax`) and run the annotation processor. With Maven:
 
 ```xml
 <plugin>
@@ -114,45 +172,45 @@ Depend on one starter, `dev.chainguard.thwart:thwart-spring-boot-starter:0.1.0-S
 </plugin>
 ```
 
-With Gradle (no plugin; the `inputs` line recompiles when only a template changed):
+For Gradle, and for other annotation processors, message-key checks and the `check` goal's options
+(it needs Maven 3.6.3+), see [docs/guide/setup.md](docs/guide/setup.md).
 
-```groovy
-dependencies {
-  annotationProcessor 'dev.chainguard.thwart:thwart-compiler:0.1.0-SNAPSHOT'
-}
+Thwart's view resolver runs before the old engine's, so both run side by side; until it is
+removed, the old engine still renders every view Thwart doesn't know, outside Thwart's guarantees.
 
-def templates = file('src/main/resources/templates')
-tasks.named('compileJava') {
-  options.compilerArgs += ["-Athwart.templates=$templates", '-Athwart.package=com.example.templates']
-  inputs.dir(templates).withPropertyName('thwartTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
-}
-```
+## Compared with other engines
 
-[docs/guide/setup.md](docs/guide/setup.md) has the full setup for both: other annotation processors,
-message-key checks, and the `check` goal's options (it needs Maven 3.6.3+).
-[examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with Gradle in CI. Plain
-Spring MVC without Boot adds `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`. Thwart's view
-resolver runs before the old engine's, so both run side by side; until it is removed, the old
-engine still renders every view Thwart doesn't know, outside Thwart's guarantees.
+Thwart is for moving an existing Spring MVC app off its old engine. JTE is the better pick for a
+new Spring Boot 3/4 app that doesn't need Thymeleaf syntax. [docs/comparison.md](docs/comparison.md)
+compares Thwart with the engines people migrate from and with other compiled engines, and says
+where Thwart is weaker.
 
-The starter sends `Content-Security-Policy: script-src 'nonce-N' 'strict-dynamic'; object-src
-'none'; base-uri 'none'` with Thwart pages unless a CSP header is already set (yours or Spring
-Security's wins). Scripts the template writes get the nonce; inline scripts without it, and
-libraries that use `eval` or `new Function`, break. Turn it off with `thwart.csp.enabled=false`
-([guide](docs/guide/templates.md#rendering)).
+## Status and contributing
 
-## Migrating
+Version `0.1.0-SNAPSHOT`, a prototype.
 
-```sh
-claude plugin marketplace add chainguard-project-theseus/thwart
-claude plugin install thwart@thwart
-```
+We're building Thwart in the open at Chainguard. We don't publish it to
+any package registry; it ships only from Chainguard's own repositories.
 
-Or run `claude --plugin-dir plugins/thwart` from a checkout. Then ask Claude Code to move an app's
-views to Thwart, or run `/thwart:thwart`. The same skill also covers adding Thwart to an app and
-writing its templates. For a migration it uses `thwart-migrate` to record the old app's pages and
-compare the new app against them, and its Thymeleaf converter for the mechanical `th:` to `t:`
-rewrite. Everything else is in the [porting guide](docs/guide/migrate.md).
+We don't accept pull requests from external contributors. If you and your
+organization would seriously like to get involved, email
+dlorenc@chainguard.dev.
+
+Use of the Thwart and Chainguard names is governed by Chainguard's
+trademark policy.
+
+## Where to go next
+
+| Goal | Read |
+|---|---|
+| Add Thwart to an app | [Get started](#get-started), then [docs/guide/setup.md](docs/guide/setup.md) |
+| Migrate an existing app | [The Claude Code plugin](#get-started) or the [migration guide](docs/guide/migrate.md) |
+| Write templates | [docs/guide/templates.md](docs/guide/templates.md) and [docs/guide/limitations.md](docs/guide/limitations.md) |
+| See how agents do at migrating | [docs/ai-compatible.md](docs/ai-compatible.md) |
+| Check the security claims | [docs/security-model.md](docs/security-model.md), then [docs/security-architecture.md](docs/security-architecture.md) and [docs/context-model.md](docs/context-model.md) |
+| Compare with other engines | [docs/comparison.md](docs/comparison.md) |
+| Understand the internals | [docs/architecture.md](docs/architecture.md) |
+| Work on this repo | [AGENTS.md](AGENTS.md) |
 
 ## For contributors
 
@@ -162,14 +220,13 @@ rewrite. Everything else is in the [porting guide](docs/guide/migrate.md).
 | `thwart-compiler` | Annotation processor; shades `thwart-html5`, the verifier's HTML parser |
 | `thwart-spring-boot-starter`, `-javax` | Spring MVC integration; `thwart-spring-tests` runs it on older Spring |
 | `thwart-migrate`, `thwart-maven-plugin` | Page record/compare and Thymeleaf converter; `thwart:check`, `thwart:watch` |
-| `thwart-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration benchmark |
+| `thwart-benchmarks`, `bench/migration` | JMH benchmarks against Thymeleaf; the migration test |
 | `examples/`, `plugins/thwart` | PetClinic and Gradle examples; the Claude Code plugin |
 
 Build and test with `mvn -B -ntp verify` (JDK 21+, Maven 3.9+; set `JDK8_HOME` to a JDK 8 to run
 `Jdk8ProcessorTest`). The files in `plugins/thwart/skills/thwart/references/` must stay copies of
-the guide in `docs/guide/` (`ThwartSkillTest`). The [migration benchmark](bench/migration/README.md)
-measures whether a coding agent can migrate a real app from the guide alone. Maintainer rules,
-for humans and agents, are in [AGENTS.md](AGENTS.md).
+the guide in `docs/guide/` (`ThwartSkillTest`). Maintainer rules, for humans and agents, are in
+[AGENTS.md](AGENTS.md).
 
 ## License
 
