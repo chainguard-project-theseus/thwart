@@ -262,6 +262,54 @@ class AttributesEndToEndTest {
     compile("<meta name=\"description\" t:content=\"s\">").assertError("t:content is not allowed", "is not on Thwart's list");
   }
 
+  /**
+   * Negative: a computed {@code name} on a {@code <meta>} decides what its static {@code content}
+   * means (a referrer policy, htmx-config JSON, a site-verification token), so it is a build error
+   * in every spelling, beside a computed content, in a fragment and in a loop.
+   */
+  @Test
+  void computedMetaNameIsABuildError() {
+    String col = "t.html:1:" + (HEADER.length() + 7) + ":";
+    for (String t : new String[] {"<meta t:name=\"s\" content=\"x\">", "<meta t:name=\"${s}\" content=\"x\">",
+        "<meta t:NAME=\"s\" content=\"x\">", "<META t:Name=\"s\" content=\"x\">", "<meta t:name=\"s\">",
+        "<meta t:name=\"b ? 'referrer' : 'description'\" content=\"x\">"}) {
+      compile(t).assertError(col, "is not allowed: a computed '", "on a <meta> decides what its content means",
+          "static name", "one <meta> per name under t:if");
+    }
+    compile("<meta content=\"no-referrer\" t:name=\"s\">").assertError("t.html:1:", "t:name is not allowed", "<meta>");
+    compile("<meta t:name=\"s\" t:content=\"c\">").assertError("t.html:1:", "t:name is not allowed", "<meta>");
+    compile("<meta http-equiv=\"refresh\" t:name=\"s\" content=\"0;url=/x\">").assertError("t:name is not allowed");
+    // T:NAME is not a Thwart attribute at all: it is a leftover prefixed attribute.
+    compile("<meta T:NAME=\"s\" content=\"x\">").assertError("t.html:1:", "is not allowed");
+    String ns = "xmlns:t=\"https://thwart.chainguard.dev\"";
+    Compilation.builder()
+        .template("lib.html", "<div " + ns + "><t:block t:fragment=\"m(String k)\"><meta t:name=\"${k}\" content=\"x\">"
+            + "</t:block></div>")
+        .compile()
+        .assertError("lib.html:1:", "t:name is not allowed", "on a <meta> decides what its content means");
+    Compilation.builder()
+        .template("t.html", "<div " + ns + " t:params=\"java.util.List<String> ks\"><meta t:each=\"k : ${ks}\""
+            + " t:name=\"${k}\" content=\"x\"></div>")
+        .compile()
+        .assertError("t.html:1:", "t:name is not allowed", "on a <meta> decides what its content means");
+    // The fix-its compile: a static name, or one <meta> per name under t:if.
+    assertEquals("<meta name=\"referrer\" content=\"no-referrer\">",
+        render("<meta name=\"referrer\" content=\"no-referrer\">", model()));
+    assertEquals("<meta name=\"description\" content=\"x\">",
+        render("<meta t:if=\"b\" name=\"referrer\" content=\"no-referrer\"><meta t:unless=\"b\" name=\"description\""
+            + " content=\"x\">", model("b", false)));
+  }
+
+  /** Positive: a computed name stays allowed on the elements that take one. */
+  @Test
+  void computedNameElsewhereStaysAllowed() {
+    assertEquals(
+        "<form name=\"f&quot;\"><input name=\"f&quot;\"><select name=\"f&quot;\"></select>"
+            + "<textarea name=\"f&quot;\"></textarea><button name=\"f&quot;\">b</button></form>",
+        render("<form t:name=\"s\"><input t:name=\"s\"><select t:name=\"s\"></select><textarea t:name=\"s\"></textarea>"
+            + "<button t:name=\"s\">b</button></form>", model("s", "f\"")));
+  }
+
   @Test
   void attributesTheTreeBuilderReadsAreABuildError() {
     // A browser reads these values while it builds the page, before any escaping applies.

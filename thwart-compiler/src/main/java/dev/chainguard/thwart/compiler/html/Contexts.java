@@ -339,7 +339,11 @@ public final class Contexts {
    * {@code face} and {@code size} on {@code <font>} (they end foreign content); a
    * {@code <template>}'s {@code shadowroot*} attributes (a declarative shadow root) and {@code for};
    * a {@code <meta>}'s {@code charset} and {@code http-equiv}, and its {@code content} when its
-   * static {@code http-equiv} is {@code Content-Type} (the encoding the page is read in).
+   * static {@code http-equiv} is {@code Content-Type} (the encoding the page is read in); and a
+   * {@code <meta>}'s {@code name}, which decides what its static {@code content} means (a referrer
+   * policy, a client library's configuration, a site-ownership token). The {@code <meta>}'s other
+   * name-like attributes ({@code property}, {@code itemprop}, {@code scheme}, {@code media}) are off
+   * the {@link #COMPUTED allow-list}.
    */
   private static String treeBuilderInput(Element element, String name, String attr) {
     String computed = "a computed '" + name + "' ";
@@ -375,6 +379,10 @@ public final class Contexts {
         if (attr.equals("http-equiv")) {
           return "the http-equiv of a <meta> cannot be computed; it decides whether content is"
               + " a refresh URL, so write a static http-equiv attribute";
+        }
+        if (attr.equals("name")) {
+          return computed + "on a <meta> decides what its content means to browsers, crawlers and scripts (referrer,"
+              + " htmx-config, site verification); write a static name, or one <meta> per name under t:if";
         }
         if (attr.equals("charset")) {
           return computed + "on a <meta> sets the encoding a browser reads the page in; write it as a static value,"
