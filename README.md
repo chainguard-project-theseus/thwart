@@ -52,9 +52,10 @@ to it on its own and show that the app still works. Four parts make that possibl
    the agent load the pages in a headless browser on both apps and compare the console, which
    catches scripts that throw and CSP violations.
 4. **The migration test.** [bench/migration](bench/migration/README.md) gives a fresh agent the
-   plugin and a real app, with Claude's web tools off and no human, and scores the result with the
-   same tools: the build and tests pass, every page matches, no security check or test is switched
-   off, no part of the old engine is left, and the browser shows no new errors.
+   plugin and a real app, with Claude's WebFetch, WebSearch and Workflow tools off and no human,
+   and scores the result with the same tools: the build and tests pass, every page matches, no
+   security check or test is switched off, no part of the old engine is left, and the browser
+   shows no new errors.
 
 The latest round (run 15, 2026-11-15):
 
