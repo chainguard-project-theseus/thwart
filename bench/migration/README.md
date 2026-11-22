@@ -1,9 +1,11 @@
-# Migration benchmark
+# The migration test
 
 Can one coding agent, given only the Claude Code plugin we ship
 ([plugins/thwart](../../plugins/thwart): the `thwart` skill and its guide) and a legacy Spring
 app, migrate the app's views to Thwart on its own without breaking anything? This directory
-measures that. Its output goes to `results/`, which is local and not committed.
+tests that; this page is the operator's manual. What the test shows so far, and why it exists:
+[docs/ai-compatible.md](../../docs/ai-compatible.md). Its output goes to `results/`, which is
+local and not committed.
 
 ## Run it
 
