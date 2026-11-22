@@ -27,7 +27,9 @@ M2 = "/home/bench/.m2"
 # app.json "java" picks the JDK the original app builds and runs with (default 21).
 JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
 # A line of `thwart-migrate compare` output: page number, verdict, request.
-VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
+VERDICT = re.compile(r"^(\d+) (same|reordered|forced|differs)\s+(.*)$")
+# compare's summary line since it has the forced verdict (#863); archived runs' lines lack it.
+FORCED_SUMMARY = re.compile(r"^thwart-migrate compare: .* \d+ forced, ", re.M)
 
 # Dependencies that mean the old view technology is still on the build.
 LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates|velocity)"
@@ -297,55 +299,6 @@ def browser_report(app, run_dir):
     return s
 
 
-# What Thwart forces a migration to change (#863): inline on* handlers and javascript: URLs, which
-# a strict CSP blocks, and the data-* attributes, href="#" and <script> elements that replace them.
-# A tag line is walked attribute by attribute (quoted values and text after the tag are skipped
-# whole), so a word inside a value or text, such as value="Pick one", is never taken for one.
-ATTR = re.compile(r' ([^\s=>"]+)(="[^"]*")?|"[^"]*"|>.*')
-FORCED_ATTR = re.compile(r'(?:on[a-z]+|data-[\w.:-]+)(?:="[^"]*")?|href="(?:javascript:[^"]*|#)"')
-
-
-def unforced(tag_line):
-    return ATTR.sub(lambda m: "" if m.group(1) and FORCED_ATTR.fullmatch(m.group(0)[1:]) else m.group(0), tag_line)
-
-
-def forced_only(diff):
-    """Whether a page's compare diff is only what Thwart forces: the recorded and the new side of
-    its hunks are equal once FORCED_ATTR is deleted from tag lines and <script> elements (tag
-    and body lines) are dropped. A diff that compare cut short never is."""
-    sides = ([], [])
-    for line in diff:
-        if line.startswith("... "):
-            return False
-        if line.startswith("@@"):
-            for side in sides:
-                side.append(None)  # a hunk boundary: a <script> never spans it
-        elif not line.startswith(("--- recorded ", "+++ now")):
-            for side, mark in zip(sides, "-+"):
-                if line[:1] in (" ", mark):
-                    side.append(line[1:])
-
-    def kept(lines):
-        # Each kept line keyed by its hunk and its ancestors there (the shallower kept lines above
-        # it), so a line may move only among its siblings, as in compare's reordered.
-        out, script, hunk, stack = [], None, 0, []  # script: the indent of a dropped <script> tag
-        for l in lines:
-            if l is None:
-                script, hunk, stack = None, hunk + 1, []
-                continue
-            indent = len(l) - len(l.lstrip())
-            if script is not None and indent > script:
-                continue
-            script = indent if l.lstrip().startswith("<script") else None
-            if script is None:
-                while stack and stack[-1][0] >= indent:
-                    stack.pop()
-                stack.append((indent, unforced(l) if l.lstrip().startswith("<") else l))
-                out.append((hunk, tuple(stack)))
-        return out
-    return sorted(kept(sides[0])) == sorted(kept(sides[1]))
-
-
 def score(app, run_dir):
     base = load_check(os.path.join(RESULTS, app, "baseline"))
     got = load_check(os.path.join(run_dir, "check"))
@@ -354,19 +307,16 @@ def score(app, run_dir):
     # Pages: `thwart-migrate compare` against the baseline recording. A page passes as "same" or
     # "reordered" (siblings in another order, such as validation messages from a HashSet) and only
     # with its recorded status and final URL.
-    verdicts, mismatch, request, diffs = {}, [], None, {}  # verdicts and diff lines by page number
+    verdicts, mismatch, request = {}, [], None  # verdicts by page number
     for line in got["compare"].splitlines():
         m = VERDICT.match(line)
         if m:
             request = m.group(3)
             verdicts[int(m.group(1))] = m.group(2)
-            diffs[int(m.group(1))] = []
         elif request and line.startswith(("   status: ", "   final URL: ")):
             mismatch.append(f"{request}: {line.strip()}")
         else:
             request = None  # status lines come right after their verdict line
-            if diffs:
-                diffs[max(diffs)].append(line)
     identical = sum(1 for v in verdicts.values() if v == "same")
     reordered = sum(1 for v in verdicts.values() if v == "reordered")
     status_mismatch = mismatch + [f"{p['request']}: not compared" for i, p in enumerate(base["pages"], 1)
@@ -416,8 +366,17 @@ def score(app, run_dir):
             and not insecure and not s["legacy_templates"] and not legacy_deps
             and s["browser"] is not None and s["browser"]["new"] == 0)
     s["pass"] = rest and got["compare_exit"] == 0 and identical + reordered == len(base["pages"])
-    # Pass, except that pages may differ in what Thwart forces (#863). Report only, beside Pass.
-    s["pass_forced"] = s["pass"] or rest and all(forced_only(diffs[n]) for n, v in verdicts.items() if v == "differs")
+    # Pass, except that pages may be compare's `forced` (#863). Report only, beside Pass. A
+    # compare.txt from before the forced verdict keeps the pages part of the pass_forced its
+    # score.json has (from the Python rule that preceded it), saved as pages_forced_archived so a
+    # later rescore with the other conditions failing doesn't lose it.
+    if FORCED_SUMMARY.search(got["compare"]):
+        forced = all(v != "differs" for v in verdicts.values())
+    else:
+        old = os.path.join(run_dir, "score.json")
+        old = json.load(open(old)) if os.path.exists(old) else {}
+        forced = s["pages_forced_archived"] = bool(old.get("pages_forced_archived", old.get("pass_forced")))
+    s["pass_forced"] = s["pass"] or rest and forced
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     transcript = os.path.join(run_dir, "transcript.jsonl")
     if os.path.exists(transcript):  # gitignored, so absent in a fresh clone; agent.json has the totals

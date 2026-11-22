@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.DataNode;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.DocumentType;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
@@ -53,12 +54,22 @@ import org.jsoup.nodes.TextNode;
  * such declarations by hand under the guide's script prelude rule, so a page equal only in that
  * form is {@link Verdict#REORDERED}, not {@link Verdict#SAME}: a declared {@code var} is not the
  * same JavaScript as the value written in place.
+ *
+ * <p>Pages that still differ are compared once more without what Thwart makes a migration change
+ * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
+ * computed {@code hx-*} renamed to {@code data-hx-*}): equal in that form, in any order, is
+ * {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in a
+ * browser, so compare does not pass it. Scripts and {@code data-*} values are not compared in
+ * that form, so a wrong value in either is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
+ * how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
   private PageNormalizer() {}
 
   /** Two pages compare as one of these. */
-  enum Verdict { SAME, REORDERED, DIFFERS }
+  enum Verdict { SAME, REORDERED, FORCED, DIFFERS }
+
+  private static final Pattern HANDLER = Pattern.compile("on[a-z]+");
 
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
@@ -147,18 +158,25 @@ final class PageNormalizer {
   }
 
   /** Compares two pages. {@code REORDERED}: the same lines, but some element's children are in
-   * a different order, or some script's prelude declarations were substituted back. */
+   * a different order, or some script's prelude declarations were substituted back.
+   * {@code FORCED}: equal, in any order, once what Thwart makes a migration change is set aside
+   * (see {@link #startTag(Element, boolean)}). */
   static Verdict compare(String expected, String actual) {
-    List<Line> a = tree(expected, false);
-    List<Line> b = tree(actual, false);
+    Document da = Jsoup.parse(expected);
+    Document db = Jsoup.parse(actual);
+    List<Line> a = children(da, false, false);
+    List<Line> b = children(db, false, false);
     if (a.equals(b)) {
       return Verdict.SAME;
     }
     if (sortedForm(a).equals(sortedForm(b))) {
       return Verdict.REORDERED;
     }
-    return sortedForm(tree(expected, true)).equals(sortedForm(tree(actual, true)))
-        ? Verdict.REORDERED : Verdict.DIFFERS;
+    if (sortedForm(children(da, true, false)).equals(sortedForm(children(db, true, false)))) {
+      return Verdict.REORDERED;
+    }
+    return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
+        ? Verdict.FORCED : Verdict.DIFFERS;
   }
 
   /** Strips session ids from a URL (redirect targets carry them before the cookie is set). */
@@ -167,20 +185,20 @@ final class PageNormalizer {
   }
 
   private static List<Line> tree(String html) {
-    return tree(html, false);
-  }
-
-  /** The page's tree; with {@code expandPrelude}, scripts as {@link #expandPrelude} prints them. */
-  private static List<Line> tree(String html, boolean expandPrelude) {
-    return children(Jsoup.parse(html), expandPrelude);
+    return children(Jsoup.parse(html), false, false);
   }
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
-   * with their preludes expanded. */
-  private static List<Line> children(Node parent, boolean expandPrelude) {
+   * with their preludes expanded. With {@code forced}, {@code <script>} elements are dropped and
+   * tags print as {@link #startTag(Element, boolean)} sets them aside. */
+  private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
+      if (forced && node instanceof Element
+          && ((Element) node).normalName().equals("script")) {
+        continue;
+      }
       if (node instanceof TextNode) {
         text.append(((TextNode) node).getWholeText());
         continue;
@@ -201,7 +219,8 @@ final class PageNormalizer {
         flushText(text, out);
       }
       if (node instanceof Element) {
-        out.add(new Line(startTag((Element) node), children(node, expandPrelude)));
+        out.add(new Line(startTag((Element) node, forced),
+            children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
         out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
@@ -565,7 +584,14 @@ final class PageNormalizer {
     }
   }
 
-  private static String startTag(Element e) {
+  /**
+   * The start tag as compare prints it. With {@code forced}, what Thwart makes a migration change
+   * is set aside: {@code data-hx-X} prints as {@code hx-X} (htmx reads both), and inline
+   * {@code on*} handlers, {@code href="javascript:…"}, {@code href="#"} and every other
+   * {@code data-*} attribute are dropped. The guide's recipes move computed {@code data-*}
+   * strings to numbers, links, {@code title} or a JSON block, so their values are not compared.
+   */
+  private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
@@ -574,6 +600,17 @@ final class PageNormalizer {
         continue;
       }
       String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
+      if (forced) {
+        if (name.startsWith("data-hx-") && !e.hasAttr(name.substring(5))) {
+          name = name.substring(5);
+        }
+        if (HANDLER.matcher(name).matches()
+            || name.equals("href") && (value.equals("#")
+                || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
+            || name.startsWith("data-")) {
+          continue;
+        }
+      }
       if (name.equals("class")) {
         String[] tokens = value.isEmpty() ? new String[0] : value.split(" ");
         Arrays.sort(tokens);

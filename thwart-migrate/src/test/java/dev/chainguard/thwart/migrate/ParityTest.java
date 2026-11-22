@@ -32,7 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 class ParityTest {
 
   /** How the app renders: the original, the same pages written differently, or regressions. */
-  enum Variant { ORIGINAL, REWRITTEN, REORDERED, BROKEN, NOT_FOUND_IS_200 }
+  enum Variant { ORIGINAL, REWRITTEN, REORDERED, FORCED, BROKEN, NOT_FOUND_IS_200 }
 
   @TempDir Path tmp;
 
@@ -116,6 +116,7 @@ class ParityTest {
       String b = "<li>numeric value out of bounds";
       send(ex, 200, switch (v) {
         case REORDERED -> "<ul class=errors>" + b + a + "</ul>";
+        case FORCED -> "<ul class=errors data-action=close>" + a + b + "</ul><script src=/a.js></script>";
         case BROKEN -> "<ul class=errors>" + a + "<li>numeric value out of bound</ul>";
         default -> "<ul class=errors>" + a + b + "</ul>";
       });
@@ -215,7 +216,7 @@ class ParityTest {
         03 same      POST /login username=ann&password=s3cret
         04 same      GET /errors
         05 same      GET /missing
-        thwart-migrate compare: 5 page(s): 5 same, 0 reordered, 0 differ
+        thwart-migrate compare: 5 page(s): 5 same, 0 reordered, 0 forced, 0 differs
         """, out().replace(System.lineSeparator(), "\n"));
   }
 
@@ -225,7 +226,7 @@ class ParityTest {
     variant = Variant.REWRITTEN;
 
     assertEquals(0, run("compare", base, pages.toString(), dir.toString()), out());
-    assertTrue(out().endsWith("5 same, 0 reordered, 0 differ" + System.lineSeparator()), out());
+    assertTrue(out().endsWith("5 same, 0 reordered, 0 forced, 0 differs" + System.lineSeparator()), out());
   }
 
   @Test
@@ -238,7 +239,20 @@ class ParityTest {
     // The diff is still shown so the reader can judge whether the order matters.
     assertTrue(out().contains("--- recorded 04.html"), out());
     assertTrue(out().lines().anyMatch(l -> l.startsWith("-") && l.contains("must not be empty")), out());
-    assertTrue(out().contains("4 same, 1 reordered, 0 differ"), out());
+    assertTrue(out().contains("4 same, 1 reordered, 0 forced, 0 differs"), out());
+  }
+
+  @Test
+  void forcedChangesAreForcedAndStillFail() throws IOException {
+    Path dir = record();
+    variant = Variant.FORCED;
+
+    assertEquals(1, run("compare", base, pages.toString(), dir.toString()));
+    assertTrue(out().contains("04 forced    GET /errors"), out());
+    assertTrue(out().contains("--- recorded 04.html"), out());
+    assertTrue(out().contains("4 same, 0 reordered, 1 forced, 0 differs; fix the differs pages"
+        + " first, then check the values in each forced page's diff and its scripts in a browser"),
+        out());
   }
 
   @Test
@@ -258,7 +272,8 @@ class ParityTest {
         -        numeric value out of bounds
         +        numeric value out of bound
         """), out());
-    assertTrue(out().contains("4 same, 0 reordered, 1 differ"), out());
+    assertTrue(out().contains("4 same, 0 reordered, 0 forced, 1 differs" + System.lineSeparator()),
+        out());
   }
 
   @Test
@@ -268,7 +283,7 @@ class ParityTest {
 
     assertEquals(0, run("compare", base, pages.toString(), dir.toString(), "--ignore", "out of bounds?"),
         out());
-    assertTrue(out().contains("5 same, 0 reordered, 0 differ"), out());
+    assertTrue(out().contains("5 same, 0 reordered, 0 forced, 0 differs"), out());
     // Only the matched text is ignored: a difference elsewhere on the page still counts.
     assertEquals(1, run("compare", base, pages.toString(), dir.toString(), "--ignore", "must not"));
   }

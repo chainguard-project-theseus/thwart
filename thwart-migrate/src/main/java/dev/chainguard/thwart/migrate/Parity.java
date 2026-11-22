@@ -141,6 +141,7 @@ final class Parity {
     Crawler crawler = new Crawler(base);
     int same = 0;
     int reordered = 0;
+    int forced = 0;
     int differ = 0;
     for (int i = 0; i < requests.size(); i++) {
       Entry entry = entries.get(i);
@@ -164,13 +165,15 @@ final class Parity {
       boolean urlOk = PageNormalizer.maskUrl(entry.finalUrl())
           .equals(PageNormalizer.maskUrl(response.finalUrl()));
       String word;
-      if (statusOk && urlOk && verdict != PageNormalizer.Verdict.DIFFERS) {
-        word = verdict == PageNormalizer.Verdict.SAME ? "same" : "reordered";
-        if (verdict == PageNormalizer.Verdict.SAME) {
-          same++;
-        } else {
-          reordered++;
-        }
+      if (statusOk && urlOk && verdict == PageNormalizer.Verdict.SAME) {
+        word = "same";
+        same++;
+      } else if (statusOk && urlOk && verdict == PageNormalizer.Verdict.REORDERED) {
+        word = "reordered";
+        reordered++;
+      } else if (statusOk && urlOk && verdict == PageNormalizer.Verdict.FORCED) {
+        word = "forced";
+        forced++;
       } else {
         word = "differs";
         differ++;
@@ -192,8 +195,11 @@ final class Parity {
       }
     }
     out.println("thwart-migrate compare: " + requests.size() + " page(s): " + same + " same, "
-        + reordered + " reordered, " + differ + " differ");
-    return differ == 0 ? 0 : 1;
+        + reordered + " reordered, " + forced + " forced, " + differ + " differs"
+        + (forced == 0 ? ""
+            : "; fix the differs pages first, then check the values in each forced page's diff"
+                + " and its scripts in a browser"));
+    return differ + forced == 0 ? 0 : 1;
   }
 
   private static void printDiff(PrintStream out, Entry entry, String expected, String actual) {

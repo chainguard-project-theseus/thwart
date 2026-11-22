@@ -62,7 +62,8 @@ each result.
    URL) from a list of requests. `thwart-migrate compare` replays the list against the migrated
    app and compares the pages as a browser builds them ([migration guide](guide/migrate.md)). It
    reports each page as `same`, `reordered` (the same elements, with some siblings in another
-   order, such as validation messages from a `HashSet`) or `differs`. Markup comparison can't
+   order, such as validation messages from a `HashSet`), `forced` (it differs only in what Thwart
+   makes a migration change, such as handlers moved to a script) or `differs`. Markup comparison can't
    see a script that throws or a CSP violation, so the migration guide also tells the agent to load
    the pages in a headless browser on both apps and compare the console.
 4. **The migration test.** [bench/migration](../bench/migration/README.md) runs the whole loop

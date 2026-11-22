@@ -74,7 +74,7 @@ and commit from `app.json`).
    compare` against the baseline recording: the same tool and the same page comparison the
    skill tells the agent to use. The migrated app builds, tests and runs on the app's JDK, like
    the original (Thwart builds and runs on JDK 8+). `results/<app>/run-<k>/` gets `score.json`, the agent's
-   `diff.patch`, `compare.txt` (compare's output: per page `same`, `reordered` or `differs`,
+   `diff.patch`, `compare.txt` (compare's output: per page `same`, `reordered`, `forced` or `differs`,
    status and final-URL mismatches, and a diff), the agent's `MIGRATION-REPORT.md`, and
    `agent.json` (wall time, cost, tokens, outcome, skill use). A run **passes** when the build and all tests
    pass (no fewer tests than the baseline), compare reports every page `same` or `reordered` with
@@ -88,11 +88,16 @@ and commit from `app.json`).
    - **Pass with forced diffs (`pass_forced`, report only).** Thwart rejects inline `on*`
      handlers and `javascript:` URLs (a strict CSP blocks them), so a correct migration moves them
      to `data-*` attributes and a listener script, and its pages differ. A run gets `pass_forced`
-     when it meets every other Pass condition and each differing page's diff in `compare.txt` is
-     equal on both sides, in any order, once `on*` and `data-*` attributes, `href="javascript:…"`
-     and `href="#"` are deleted from tag lines and `<script>` elements are dropped. A diff compare
-     cut short never qualifies. The summary shows such a run as `forced` and counts it beside the
-     strict passes; the strict Pass is unchanged. `rescore` applies it to archived runs.
+     when it meets every other Pass condition and compare reports every page `same`, `reordered`
+     or `forced` (the page differs only in what Thwart forces; the rule is compare's, described in
+     the [migration guide](../../docs/guide/migrate.md)). The summary shows such a run as `forced`
+     and counts it beside the strict passes; the strict Pass is unchanged. The archived runs
+     (run 15 and earlier) keep their `compare.txt` in the run directory, not `check/`, so
+     `rescore` leaves them as they are ("no compare output" or "old-format run"); their
+     `pass_forced` figures were computed separately. If a run with a `check/compare.txt` from
+     before compare had `forced` is rescored, its pages count as forced only if its `score.json`
+     says so (`pages_forced_archived`, else `pass_forced`), since `rescore` can't rerun compare.
+     That can understate: the old `pass_forced` also needed that run's other conditions.
    - **Browser smoke check.** `compare` reads HTML and never runs a script, so a
      page can compare as acceptable while its scripts throw or the starter's CSP blocks them.
      `lib/browser.py` replays `pages.txt` in one headless Chromium tab (from the image's Wolfi

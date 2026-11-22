@@ -160,53 +160,11 @@ HANDLER_MOVED = """--- recorded 01.html
    <body>
 -    <a href="javascript:void(0)" onclick="day_night()">
 +    <a data-action="day-night" href="#">
-       Night
--    <form action="/s" method="post" onsubmit="store()">
-+    <form action="/s" data-action="store" method="post">
-     <script>
--      function store(){}
-+      function store(){} document.addEventListener('click',function(e){});
-+    <script src="/js/actions.js">
-   <div>""".splitlines()
+       Night""".splitlines()
 
 
-class ForcedOnlyTest(unittest.TestCase):
-    """pass_forced (#863): diffs confined to what Thwart forces, from run-15's compare.txt."""
-
-    def test_handlers_moved_to_data_attributes_and_scripts(self):
-        self.assertTrue(bench.forced_only(HANDLER_MOVED))
-
-    def test_hashset_order_is_allowed(self):
-        # <span>size<br>blank</span>: siblings under one parent, as compare prints them.
-        self.assertTrue(bench.forced_only([" <span>", "-  size", "+  blank", "   <br>", "-  blank", "+  size"]))
-
-    def test_text_moved_between_elements_is_not(self):
-        self.assertFalse(bench.forced_only(["   <label for=\"name\">", "-    Name", "+    Email",
-                                            "   <input id=\"name\">", "   <label for=\"email\">",
-                                            "-    Email", "+    Name"]))
-        self.assertFalse(bench.forced_only(["@@ -1 +1 @@", "   <td>", "-    1", "+    2",
-                                            "@@ -9 +9 @@", "   <td>", "-    2", "+    1"]))
-
-    def test_any_other_change_is_not(self):
-        for old, new in (('<a href="/ranking/pdf?mode=">', '<a href="/ranking/pdf?mode">'),
-                         ('<h2 id="h2-notes">', '<h2 id="user-content-h2-notes">'),
-                         ('<form action="/login" onsubmit="go()">', '<form action="/login" id="f">'),
-                         ("  Jay", "  Jay &lt;i&gt;"),
-                         ('<input name="id" th:value="*{id}">', '<input name="id">'),
-                         ('<input value="Pick one">', '<input value="Pick">'),
-                         ('<a title="a data-driven view">', '<a title="a view">'),
-                         ('<p>Go online</p>', '<p>Go</p>')):
-            self.assertFalse(bench.forced_only([" <body>", "-  " + old, "+  " + new]), old)
-
-    def test_text_after_a_script_is_still_compared(self):
-        self.assertFalse(bench.forced_only([" <div>", "   <script>", "-  <p>", "+  <p class='x'>"]))
-
-    def test_a_script_ends_at_its_hunk(self):
-        self.assertFalse(bench.forced_only(["   <script>", "-    a()", "+    b()", "     c()", "@@ -9 +9 @@",
-                                            "     <td>", "-      Total: 10", "+      Total: 0"]))
-
-    def test_a_diff_compare_cut_short_is_not(self):
-        self.assertFalse(bench.forced_only(HANDLER_MOVED + ["... 12 more diff line(s)"]))
+class PassForcedTest(unittest.TestCase):
+    """pass_forced (#863): every page same, reordered or compare's forced."""
 
     def test_score_needs_no_new_browser_errors_and_adds_pass_forced(self):
         results = tempfile.mkdtemp()
@@ -220,21 +178,33 @@ class ForcedOnlyTest(unittest.TestCase):
                  os.path.join(run, "diff.patch"): "", os.path.join(run, "agent.json"): "{}",
                  os.path.join(base, "build.exit"): "0",
                  os.path.join(base, "browser", "browser.json"): json.dumps({"pages": [page(1), page(2)]})}
-        same, forced = ["01 same      GET /"], ["01 differs   GET /", *HANDLER_MOVED]
+        same, forced = ["01 same      GET /"], ["01 forced    GET /", *HANDLER_MOVED]
+        differs = ["01 differs   GET /", *HANDLER_MOVED]
         # run-15's jprime and fredbet: a third-party script that needs eval, blocked by the CSP (#866).
         clean, evil = [page(1), page(2)], [page(1, csp=[{"directive": "script-src", "blocked": "eval", "source": "http://h/r.js"}]), page(2)]
-        for compare, browser, verdict in ((same, clean, (True, True)), (same, evil, (False, False)), (same, None, (False, False)),
-                                          (forced, clean, (False, True)), (forced, evil, (False, False)),
-                                          (forced, None, (False, False)),
-                                          (forced + ["   <p>", "-x", "+y"], clean, (False, False)),
-                                          (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED],
-                                           clean, (False, False))):
-            files[os.path.join(run, "check", "compare.txt")] = "\n".join(
-                compare + ["02 same      GET /b", "thwart-migrate compare: 2 page(s)"])
+        summary = "thwart-migrate compare: 2 page(s): 1 same, 0 reordered, 1 forced, 0 differs"
+        # A compare.txt from before the forced verdict keeps the pass_forced score.json had.
+        archived = "thwart-migrate compare: 2 page(s): 1 same, 0 reordered, 1 differ"
+        for compare, browser, verdict, last, before in (
+                (same, clean, (True, True), summary, None), (same, evil, (False, False), summary, None),
+                (same, None, (False, False), summary, None),
+                (forced, clean, (False, True), summary, None), (forced, evil, (False, False), summary, None),
+                (forced, None, (False, False), summary, None),
+                (differs, clean, (False, False), summary, True),
+                (["01 differs   GET /", "   status: recorded 200, got 500", *HANDLER_MOVED], clean, (False, False),
+                 summary, None),
+                (differs, clean, (False, True), archived, True), (differs, clean, (False, False), archived, False),
+                (differs, evil, (False, False), archived, True), (differs, clean, (False, False), archived, None)):
+            files[os.path.join(run, "check", "compare.txt")] = "\n".join(compare + ["02 same      GET /b", last])
             files[os.path.join(run, "check", "compare.exit")] = "1" if compare is not same else "0"
             for p, text in files.items():
                 with open(p, "w") as f:
                     f.write(text)
+            if os.path.exists(os.path.join(run, "score.json")):
+                os.remove(os.path.join(run, "score.json"))
+            if before is not None:
+                with open(os.path.join(run, "score.json"), "w") as f:
+                    json.dump({"pass_forced": before}, f)
             browser_json = os.path.join(run, "check", "browser", "browser.json")
             if browser is None:
                 os.remove(browser_json)
@@ -244,7 +214,17 @@ class ForcedOnlyTest(unittest.TestCase):
             with mock.patch.object(bench, "RESULTS", results), \
                     mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
                 s = bench.score("app", run)
-            self.assertEqual((s["pass"], s["pass_forced"]), verdict, (compare, browser))
+            self.assertEqual((s["pass"], s["pass_forced"]), verdict, (compare, browser, last, before))
+        # The last case is archived: a rescore that fails another condition (the browser here)
+        # keeps the old rule's verdict on the pages for the next rescore.
+        with open(os.path.join(run, "score.json"), "w") as f:
+            json.dump({"pass_forced": True}, f)
+        for browser, want in ((evil, False), (clean, True)):
+            with open(os.path.join(run, "check", "browser", "browser.json"), "w") as f:
+                json.dump({"pages": browser}, f)
+            with mock.patch.object(bench, "RESULTS", results), \
+                    mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
+                self.assertEqual(bench.score("app", run)["pass_forced"], want, browser)
 
     def test_report_shows_strict_and_forced_verdicts(self):
         results = tempfile.mkdtemp()
