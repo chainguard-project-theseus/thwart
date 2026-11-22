@@ -124,8 +124,9 @@ class PageNormalizerTest {
       declared name in a string fails safe | <script>var id = 7; f(id); log("id = 1");</script> | <script>f(7); log("id = 1");</script>
       """)
   void differentPages(String rule, String a, String b) {
-    // A page that differs only inside a <script> is FORCED: compare can't judge JavaScript, so
-    // its scripts are left to the browser check.
+    // A page that differs only inside a <script> is FORCED, even for a wrong value: migrations
+    // rewrite scripts, so the forced form drops them all, and the guide has the agent check the
+    // values in a forced page's script diff (a documented gap, not machinery).
     check(a.contains("<script") ? FORCED : DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
   }
 

@@ -59,8 +59,9 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}): equal in that form, in any order, is
  * {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in a
- * browser, so compare does not pass it. The whole pages are compared, so how much of the diff
- * compare prints does not matter.
+ * browser, so compare does not pass it. Scripts are not compared at all in that form, so a wrong
+ * value in one is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
+ * how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
   private PageNormalizer() {}

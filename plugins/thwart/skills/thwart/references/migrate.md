@@ -136,9 +136,11 @@ comments, CSRF tokens and JSON formatting in scripts. Each page prints `same`, `
 check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that lost
 their sort order, no). `forced` means the page differs only in what Thwart makes you change:
 `on*` handlers and `javascript:` URLs gone, `data-*` attributes the old page didn't have, `<script>`
-elements, and `hx-X` written as `data-hx-X` with the same value. Fix the `differs` pages first,
-then load each `forced` page in a browser and check that its scripts work. It exits 0 only if
-every page is `same` or `reordered` with its recorded status and final URL.
+elements, and `hx-X` written as `data-hx-X` with the same value. Scripts aren't compared in
+that form, so a wrong value in one is `forced` too. Fix the `differs` pages first, then for each
+`forced` page check the values in its script diff and load it in a browser to check that its
+scripts work. It exits 0 only if every page is `same` or `reordered` with its recorded status
+and final URL.
 
 For each difference, fix it or decide it is right and write down why. Few are right: output now
 escaped where the old engine printed it raw, broken markup the old engine passed through, and the

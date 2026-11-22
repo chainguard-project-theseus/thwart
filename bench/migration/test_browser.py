@@ -215,6 +215,16 @@ class PassForcedTest(unittest.TestCase):
                     mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
                 s = bench.score("app", run)
             self.assertEqual((s["pass"], s["pass_forced"]), verdict, (compare, browser, last, before))
+        # The last case is archived: a rescore that fails another condition (the browser here)
+        # keeps the old rule's verdict on the pages for the next rescore.
+        with open(os.path.join(run, "score.json"), "w") as f:
+            json.dump({"pass_forced": True}, f)
+        for browser, want in ((evil, False), (clean, True)):
+            with open(os.path.join(run, "check", "browser", "browser.json"), "w") as f:
+                json.dump({"pages": browser}, f)
+            with mock.patch.object(bench, "RESULTS", results), \
+                    mock.patch.object(bench, "config", lambda app: {"engine": "thymeleaf"}):
+                self.assertEqual(bench.score("app", run)["pass_forced"], want, browser)
 
     def test_report_shows_strict_and_forced_verdicts(self):
         results = tempfile.mkdtemp()

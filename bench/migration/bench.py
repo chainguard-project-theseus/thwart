@@ -367,13 +367,15 @@ def score(app, run_dir):
             and s["browser"] is not None and s["browser"]["new"] == 0)
     s["pass"] = rest and got["compare_exit"] == 0 and identical + reordered == len(base["pages"])
     # Pass, except that pages may be compare's `forced` (#863). Report only, beside Pass. A
-    # compare.txt from before the forced verdict keeps the pass_forced its score.json has (from
-    # the Python rule that preceded it).
+    # compare.txt from before the forced verdict keeps the pages part of the pass_forced its
+    # score.json has (from the Python rule that preceded it), saved as pages_forced_archived so a
+    # later rescore with the other conditions failing doesn't lose it.
     if FORCED_SUMMARY.search(got["compare"]):
         forced = all(v != "differs" for v in verdicts.values())
     else:
         old = os.path.join(run_dir, "score.json")
-        forced = os.path.exists(old) and bool(json.load(open(old)).get("pass_forced"))
+        old = json.load(open(old)) if os.path.exists(old) else {}
+        forced = s["pages_forced_archived"] = bool(old.get("pages_forced_archived", old.get("pass_forced")))
     s["pass_forced"] = s["pass"] or rest and forced
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     transcript = os.path.join(run_dir, "transcript.jsonl")

@@ -251,7 +251,8 @@ class ParityTest {
     assertTrue(out().contains("04 forced    GET /errors"), out());
     assertTrue(out().contains("--- recorded 04.html"), out());
     assertTrue(out().contains("4 same, 0 reordered, 1 forced, 0 differs; fix the differs pages"
-        + " first, then load each forced page in a browser and check its scripts"), out());
+        + " first, then check the values in each forced page's script diff and its scripts in a"
+        + " browser"), out());
   }
 
   @Test
