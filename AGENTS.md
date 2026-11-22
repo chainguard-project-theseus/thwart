@@ -1,9 +1,7 @@
 # AGENTS.md — read this before touching code
 
-This repo is **Thwart**, a compiled, safe-by-design successor to Thymeleaf, the
-pilot of Chainguard's secure-by-design library portfolio.
+This repo is **Thwart**, a compiled, safe-by-design successor to Thymeleaf.
 
-- Strategy: [docs/strategy.md](docs/strategy.md)
 - **Architecture (how the compiler, runtime and starter work): [docs/architecture.md](docs/architecture.md)**
 
 ## North star
