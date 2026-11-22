@@ -87,6 +87,9 @@ Thwart is young and pre-release. Prefer the smallest thing that is correct and s
   and does not use attoparser, even in tests. Nothing from the parser runs at render time. Otherwise only
   `thwart-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
+- `thwart-migrate` translates Thymeleaf syntax and reports the constructs it can't translate. It
+  never copies a compiler rule or message: the build already reports those, so a compiler PR
+  doesn't add a matching check to migrate.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
 
