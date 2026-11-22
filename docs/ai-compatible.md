@@ -22,7 +22,8 @@ each result.
   6 held-out apps, none passed strictly and 1 passed under `pass_forced`.** On average 51% of
   their pages matched. Over every archived run, the larger apps passed strictly in 7 of 83 runs (5
   of 48 on the held-out apps), and only one of those (jpetstore, in this round) came after Thwart
-  started rejecting inline handlers; 68.2% of their pages matched, on average over runs.
+  started rejecting inline handlers. On average 64.7% of their pages matched, taking each app's
+  mean over its runs (68.2% as a mean over all 83 runs, which weighs apps with more runs more).
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
   JSP): all 7 passed strictly. Each migration took 6 to 11 minutes and cost about $1.85 to $3.70.
   Over every archived run, the family passed strictly in **48 of 49 runs**. All 7 are development
@@ -31,7 +32,7 @@ each result.
 - **Mustache PetClinic** (1 app): passed strictly, with all 30 pages matched. Over every archived
   run it passed strictly in 5 of 9.
 - **Round total:** 9 of 18 apps passed strictly (7 in run 15), and 12 of 18 under `pass_forced`
-  (8 in run 15).
+  (8 in run 15, computed afterwards by the earlier `pass_forced` rule).
 - Some of the remaining differences are what Thwart requires (inline event handlers moved out
   for the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
   sanitizer), and compare doesn't recognise all of them. Some are agent mistakes, and some are
@@ -210,21 +211,25 @@ compare reports as `differs`, from their diffs and the browser check:
 | App | Pages left | What they are | Kinds |
 |---|---|---|---|
 | fredbet, jobsearch, purl-server | 0 | Every page that differs is `forced` | Pass with `pass_forced` |
-| ewp-registry | 4 | Vue component content and attributes moved into JSON `<script>` blocks (Thwart rejects computed `:name` attributes) and a content-hashed `ui-*.js` name (3 pages); an absolute URL in a `data-*` attribute now set by a script, and sanitizer `rel` (1 page) | Forced, sanitizer and test noise |
+| ewp-registry | 4 | Vue component content and attributes moved into JSON `<script>` blocks (Thwart rejects computed `:name` attributes) and a content-hashed `ui-*.js` name, its path now absolute (3 pages, harmless); an absolute URL in a `data-*` attribute now set by a script, and sanitizer `rel` (1 page) | Forced, sanitizer and test noise |
 | posters-demo-store | 17 | Computed `hx-*` URLs: the agent moved the query string (or `hx-vals`) into `data-*` attributes that a script reads, and `hx-confirm` text into a hidden element (9 pages). Forms that only htmx submits gain the CSRF token input and lose an `hx-on` handler (6 pages). The customer list has one more customer than the recording (2 pages; every archived posters-demo-store run has it) | Forced, not recognised by compare; not classified |
 | espd | 16 | Form actions lost `?lang=` (3 pages) and an error container's id changed (1 page); two overview pages lost a criterion block. Sanitized message links gain `rel="noopener"` (4 pages); Thwart's attribute escaper replaces a stray control character in one tooltip message (3 pages); 3 overview pages cut short | Agent mistakes; sanitizer; escaped (intended); not classified |
 | luckyblog | 19 | The avatar's CSS `url(...)` is quoted (13 pages); sanitized posts gain `user-content-` ids (6 pages) | Sanitizer and forced (intended) |
 | jprime | 19 | `<meta name="description">` lost (17 pages): the agent wrote one `<meta>` per year from 2015 to 2050, and the seeded year is 2099. A seeded `The <first> speakers`, which the original rendered as markup, now escaped (2 pages). The carousel plugin calls `eval`, which the CSP blocks, so it fails on 62 pages | Agent mistake; output escaped (intended); blocked script |
-| budgetmaster | 70 | `data-tooltip` moved to `title` (43 pages); seeded names with markup in them (`Weekly <shop>`, an unclosed `Savings <b>`, `Old <i>`), which the original rendered as markup, now escaped (42 pages); 36 pages cut short. The browser check finds Materialize's `<base>` blocked by `base-uri 'none'` on 93 pages, with no exception logged | Mostly forced or escaped where visible; partly not classified |
+| budgetmaster | 70 | `data-tooltip` moved to `title` (42 pages where the diff shows both); seeded names with markup in them (`Weekly <shop>`, an unclosed `Savings <b>`, `Old <i>`), which the original rendered as markup, now escaped (42 pages); links gain `rel="noopener"` (4 pages); a broken attribute in the original's markup is gone (1 page); 36 pages cut short. The browser check finds Materialize's `<base>` reported by the `base-uri 'none'` CSP on 93 pages, with no exception logged | Mostly forced, escaped or sanitizer where visible; partly not classified |
 
-So in run 16, three larger apps pass with `pass_forced`, and in luckyblog every remaining
-difference is intended. In ewp-registry the rest is forced changes and test noise, and in
-posters-demo-store it is mostly forced changes that compare doesn't recognise. espd and jprime
-have real agent mistakes, which the agents' own compare lists missed. jprime and budgetmaster
-have scripts the CSP blocks; fredbet's agent removed the `eval` that blocked a script in run 15.
-budgetmaster can't be fully classified from the archived output. #883, merged after run 16, lets a
-template set a descriptive `<meta>`'s content from data, which is what jprime's description needs;
-no round has measured it yet.
+So in run 16, three larger apps pass only under `pass_forced` (four, counting jpetstore's strict
+pass), and in luckyblog every remaining difference is intended. In ewp-registry the rest is
+forced changes and test noise, and in posters-demo-store it is mostly forced changes that compare
+doesn't recognise. espd and jprime have real agent mistakes, which the agents' own compare lists
+missed. jprime has a script the CSP blocks; budgetmaster has CSP reports with no exception
+logged. fredbet's agent removed the `eval` that blocked a script in run 15. budgetmaster can't be
+fully classified from the archived output.
+
+#883, merged after run 16 and not yet measured, lets a template set the content of a descriptive
+`<meta>` (`description`, Open Graph, Twitter cards) from data. It was a deliberate decision for
+that general need. jprime, a held-out app, hit the same limit in run 16, so jprime's description
+in the next round won't be a clean held-out measure of that change.
 
 ### Cumulative, by group
 
@@ -260,10 +265,12 @@ no strict-pass count changes, and mean pages matched (over runs, then app-weight
 81.5% and 70.1% for the larger development apps (34 runs), 69.0% and 65.3% for all larger apps,
 91.1% and 85.8% for Thymeleaf, and 81.3% and 80.2% for all runs.
 
-spring-framework-petclinic-spring43 run 16 is a second such incident. After 7.9 minutes the agent
-killed its own `claude` process (exit 143), and the run was recorded as "killed (time budget)",
-with no cost and no `MIGRATION-REPORT.md`. Unlike fredbet run 12, the migration was already done:
-what it left builds, passes its tests and matches all 27 pages, so it counts as a strict pass.
+spring-framework-petclinic-spring43 run 16 is a second incident. Its `claude` process exited with
+status 143 (terminated) after 7.9 of its 90 minutes, with no result event, so the run has no cost
+and no `MIGRATION-REPORT.md`; "killed (time budget)" is the bench's label for any run without one.
+The round's notes attribute it to the agent's own `kill` command. Unlike fredbet run 12, the
+migration was complete: what it left builds, passes all 62 tests and matches all 27 pages, so it
+counts as a strict pass.
 
 ### Cumulative, by engine
 
@@ -292,7 +299,8 @@ says more about app size than about the engine.
   visible difference). The browser smoke check exists only from the last rounds, so earlier runs
   could not fail it; new browser errors fail a run only from run 16 on.
 - **One app per engine** for Mustache, Velocity, Pebble and Apache Tiles, and two for
-  FreeMarker. One FreeMarker app has a single test.
+  FreeMarker. One FreeMarker app has a single test, and luckyblog (held out) has none, so "passes
+  all of its tests" says nothing there.
 - **Not every page is reachable.** Pages that need multipart uploads, cookies the replay tool
   can't set, captchas or htmx request headers aren't checked.
 - **The PetClinic family shaped Thwart.** Thwart's own example port (`examples/petclinic`) was

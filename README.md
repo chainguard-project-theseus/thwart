@@ -70,7 +70,8 @@ The latest round is run 16 (2026-11-22), from Thwart commit `6329e7d4`.
   6 held-out apps, none passed strictly and 1 passed under `pass_forced`.** On average 51% of
   their pages matched. Over every archived run, the larger apps passed strictly in 7 of 83 runs (5
   of 48 on the held-out apps), and only one of those (jpetstore, in this round) came after Thwart
-  started rejecting inline handlers; 68.2% of their pages matched, on average over runs.
+  started rejecting inline handlers. On average 64.7% of their pages matched, taking each app's
+  mean over its runs (68.2% as a mean over all 83 runs, which weighs apps with more runs more).
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
   JSP): all 7 passed strictly. Each migration took 6 to 11 minutes and cost about $1.85 to $3.70.
   Over every archived run, the family passed strictly in **48 of 49 runs**. This is the best case:
@@ -78,7 +79,7 @@ The latest round is run 16 (2026-11-22), from Thwart commit `6329e7d4`.
 - **Mustache PetClinic** (1 app): passed strictly, with all 30 pages matched. Over every archived
   run it passed strictly in 5 of 9.
 - **Round total:** 9 of 18 apps passed strictly (7 in run 15), and 12 of 18 under `pass_forced`
-  (8 in run 15).
+  (8 in run 15, computed afterwards by the earlier `pass_forced` rule).
 - Some of the remaining differences are what Thwart requires (inline event handlers moved out for
   the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
   sanitizer), and compare doesn't recognise all of them. Some are agent mistakes, and some are
