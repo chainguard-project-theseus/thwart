@@ -6,6 +6,10 @@ pilot of Chainguard's secure-by-design library portfolio.
 - Strategy: [docs/strategy.md](docs/strategy.md)
 - **Architecture (how the compiler, runtime and starter work): [docs/architecture.md](docs/architecture.md)**
 
+This file is for working on Thwart itself. To use Thwart in an application (add it, write its
+templates, or migrate views to it), read
+[plugins/thwart/skills/thwart/SKILL.md](plugins/thwart/skills/thwart/SKILL.md) instead.
+
 ## North star
 
 > Thwart compiles the templates our target Spring apps actually use into fast, plain Java, and
