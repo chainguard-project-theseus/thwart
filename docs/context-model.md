@@ -202,6 +202,7 @@ such as `v-on:` or `hx-on:`, are the author's markup and are copied as written
 | Computed `action` on a `<form>` | a same-origin link, or a choice whose every branch is one | `FormActionTest`, `CsrfActionOriginTest` |
 | Computed `formaction` | a same-origin link, or a choice whose every branch is one | `CsrfFormactionTest` |
 | Computed `href` on `<base>` | a same-origin link, or a choice whose every branch is one; a static one must be same-origin by shape | `CsrfBaseTest` |
+| `<t:csrf-meta/>` (not an attribute: the one element besides `<t:block>`) | no attributes and no content; writes `<meta name="_csrf">` and `<meta name="_csrf_header">` with the request's token and header name, or nothing without a token. A computed `content` on a `<meta>` named `_csrf` or `_csrf_header` stays `FORBIDDEN`, with this element as the fix-it | `CsrfMetaTest`, `HostileSweepTest` |
 
 ### 6.3 Client code
 

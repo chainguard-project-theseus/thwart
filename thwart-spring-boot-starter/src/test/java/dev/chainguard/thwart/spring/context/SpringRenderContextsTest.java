@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
@@ -302,21 +303,41 @@ class SpringRenderContextsTest {
     request.setAttribute(
         CsrfToken.class.getName(), new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
     assertEquals(
-        Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
+        Optional.of(new Forms.CsrfToken("_csrf", "s3cret", "X-CSRF-TOKEN")),
+        create(Collections.<String, Object>emptyMap()).forms().csrfToken());
   }
 
   @Test
   void csrfTokenSetByRealCsrfFilterWithoutUnderscoreAlias() throws Exception {
     // Runs Spring Security's own CsrfFilter (every supported version), then drops the "_csrf"
     // alias, which 6.x sets whatever the parameter name: the token must come from the CsrfToken
-    // class-name key that the real filter sets.
+    // class-name key that the real filter sets. In 6.x and later the token is deferred and
+    // XOR-masked once per request, so both reads (a form input and <t:csrf-meta>) see one value.
     HttpSessionCsrfTokenRepository repo = new HttpSessionCsrfTokenRepository();
     repo.setParameterName("token");
     new CsrfFilter(repo).doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
     request.removeAttribute("_csrf");
-    Optional<Forms.CsrfToken> token = create(Collections.<String, Object>emptyMap()).forms().csrfToken();
+    Forms forms = create(Collections.<String, Object>emptyMap()).forms();
+    Optional<Forms.CsrfToken> token = forms.csrfToken();
     assertTrue(token.isPresent());
     assertEquals("token", token.get().parameterName());
+    assertEquals("X-CSRF-TOKEN", token.get().headerName());
+    assertFalse(token.get().token().isEmpty());
+    assertEquals(token, forms.csrfToken());
+  }
+
+  @Test
+  void csrfHeaderNameOfCookieRepository() throws Exception {
+    new CsrfFilter(new CookieCsrfTokenRepository()).doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+    assertEquals("X-XSRF-TOKEN", create(Collections.<String, Object>emptyMap()).forms().csrfToken().get().headerName());
+  }
+
+  @Test
+  void csrfHeaderNameSetOnRepository() throws Exception {
+    HttpSessionCsrfTokenRepository repo = new HttpSessionCsrfTokenRepository();
+    repo.setHeaderName("X-App-Csrf");
+    new CsrfFilter(repo).doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+    assertEquals("X-App-Csrf", create(Collections.<String, Object>emptyMap()).forms().csrfToken().get().headerName());
   }
 
   @Test

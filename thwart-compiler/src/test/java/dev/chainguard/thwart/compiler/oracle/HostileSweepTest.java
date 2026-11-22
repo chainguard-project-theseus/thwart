@@ -89,6 +89,9 @@ import org.w3c.dom.NodeList;
  *       oracle gate has none of its own (#591).
  * </ul>
  *
+ * <p>Beside the passes, {@link #csrfMetaSweep} renders {@code <t:csrf-meta/>} with the same hostile
+ * values as the request's token and header name. No baseline: any hit fails.
+ *
  * <p>The surefire {@code release-8} execution excludes {@code oracle/**}, so the sweep runs once.
  */
 class HostileSweepTest {
@@ -741,6 +744,85 @@ class HostileSweepTest {
       return true;
     });
     return sb.toString();
+  }
+
+  // =====================================================================================
+  // CSRF meta sweep
+  // =====================================================================================
+
+  /**
+   * {@code <t:csrf-meta/>} with every hostile value as the request's token and header name (a
+   * custom {@code CsrfTokenRepository}, or a cookie-backed token before Spring Security 6, can carry
+   * any string): the page must parse to the same two {@code <meta>} elements as with a benign
+   * token, with exactly {@code name} and {@code content}, the fixed names, the value round-tripped
+   * as text, and no sink hit. No baseline: any hit fails.
+   */
+  @Test
+  void csrfMetaSweep() {
+    Compilation c = Compilation.builder().template("csrfmeta.html", "<div t:params=\"\"><t:csrf-meta/></div>").compile()
+        .assertSuccess();
+    TemplateEntry entry = c.registry().find("csrfmeta").orElseThrow();
+    String bShape = shape(SpecParser.parse(wrap(renderCsrf(entry, BENIGN, "X-CSRF-TOKEN")), true));
+    List<String> values = new ArrayList<>(HOSTILE_ATTR);
+    values.addAll(List.of("\"><script>alert(1)</script>", "' onerror=alert(1) x='", "a\" http-equiv=\"refresh",
+        "x\" name=\"htmx-config", "</div><img src=x onerror=alert(1)>", "  "));
+    List<String> hits = new ArrayList<>();
+    for (String h : values) {
+      for (String[] pair : List.of(new String[] {h, h}, new String[] {h, "X-CSRF-TOKEN"}, new String[] {BENIGN, h})) {
+        String out = renderCsrf(entry, pair[0], pair[1]);
+        Document d = SpecParser.parse(wrap(out), true);
+        if (!shape(d).equals(bShape)) {
+          hits.add("STRUCTURE " + out);
+          continue;
+        }
+        NodeList metas = d.getElementsByTagName("meta");
+        String[] names = {"_csrf", "_csrf_header"};
+        for (int i = 0; i < 2; i++) {
+          Element m = (Element) metas.item(i);
+          if (!attrNames(m).equals(Set.of("content", "name")) || !m.getAttribute("name").equals(names[i])
+              || !m.getAttribute("content").equals(asText(pair[i]))) {
+            hits.add("ATTRIBUTES " + out);
+          }
+          for (String[] f : HostileSinks.classify(m, "content", m.getAttribute("content"), h)) {
+            hits.add(f[0] + " " + f[1] + " " + out);
+          }
+        }
+      }
+    }
+    assertTrue(hits.isEmpty(), String.join("\n", hits));
+  }
+
+  /** {@code s} as the escaper writes it, read back: controls other than HTML whitespace become U+FFFD. */
+  static String asText(String s) {
+    StringBuilder sb = new StringBuilder();
+    for (char ch : s.toCharArray()) {
+      sb.append(Character.isISOControl(ch) && "\t\n\f\r".indexOf(ch) < 0 ? (char) 0xFFFD : ch);
+    }
+    return sb.toString();
+  }
+
+  static String renderCsrf(TemplateEntry entry, String token, String header) {
+    dev.chainguard.thwart.runtime.Forms forms = new dev.chainguard.thwart.runtime.Forms() {
+      @Override
+      public String value(String objectName, String path, Object currentValue) {
+        return "";
+      }
+
+      @Override
+      public List<String> errors(String objectName, String path) {
+        return List.of();
+      }
+
+      @Override
+      public java.util.Optional<CsrfToken> csrfToken() {
+        return java.util.Optional.of(new CsrfToken("_csrf", token, header));
+      }
+    };
+    StringOutput out = new StringOutput();
+    entry.renderer().render(Map.of(),
+        new RenderContext(Locale.ROOT, dev.chainguard.thwart.runtime.Messages.NONE,
+            new dev.chainguard.thwart.runtime.DefaultLinks(""), forms), out);
+    return out.toString();
   }
 
   // =====================================================================================

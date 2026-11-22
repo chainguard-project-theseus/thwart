@@ -24,7 +24,7 @@ final class OldEngineWarning implements SmartInitializingSingleton, ApplicationC
   static final String MESSAGE =
       "Thwart: another template engine is still configured (%s); it renders every view name"
           + " Thwart doesn't know, so Thwart's guarantees (no template injection, contextual"
-          + " escaping, CSRF token only in same-origin POST forms) cover only Thwart's views"
+          + " escaping, CSRF token only in same-origin POST forms and <t:csrf-meta>) cover only Thwart's views"
           + " until it is removed. See the Thwart guide, migrate.md, The tools and the loop, step 6.";
 
   /** Class-name prefixes of other engines' resolvers, Spring 4.3 / Boot 1.5 through 7 / 4. */

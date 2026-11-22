@@ -88,6 +88,11 @@ public final class Skeleton {
     ATTRIBUTE,
     /** The CSRF hidden input: a token is present. */
     CSRF_TOKEN,
+    /**
+     * The {@code <t:csrf-meta>} tags: a token is present; within them, the {@code _csrf_header}
+     * tag: the token has a header name.
+     */
+    CSRF_META,
     /** The {@code t:field} checkbox's hidden {@code _name} input, when a computed {@code disabled} is null. */
     CHECKBOX_MARKER,
     /** A {@code t:errors} element, written when the field has errors. */

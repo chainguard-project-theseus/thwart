@@ -1,6 +1,7 @@
 package dev.chainguard.thwart.migrate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -668,7 +669,7 @@ class MigratorTest {
   @Test
   void ambientScopeReadsAreReportedWithAFixIt() throws Exception {
     String src = "<div>\n<p th:text=\"${session.user.name}\"></p>\n<p th:if=\"${param.error}\">e</p>\n"
-        + "<p th:text=\"${application.version}\"></p>\n<meta name=\"_csrf\" th:content=\"${_csrf.token}\">\n"
+        + "<p th:text=\"${application.version}\"></p>\n<p th:text=\"${_csrf.token}\"></p>\n"
         + "<p>[[${param['q']}]] [[${session}]]</p>\n<p th:text=\"${owner.name}\"></p></div>";
     String out = convert(src);
     assertTrue(out.contains("t:text=\"session.user.name\"") && out.contains("t:if=\"param.error\""),
@@ -684,14 +685,78 @@ class MigratorTest {
         "4: `application.version` reads an application (servlet context) attribute",
         "5: `_csrf.token` reads Spring Security's CSRF token request attribute, which a Thwart template cannot see;"
             + " the starter already adds the `_csrf` hidden input to every same-origin POST form, so delete a"
-            + " hand-written one; for JavaScript (htmx, `fetch`) add the token (`CsrfToken.getToken()`) to the model from"
-            + " a `@ModelAttribute(\"token\")` method in a `@ControllerAdvice`, declare it in `t:params` and read it as"
-            + " `token` (guide templates.md, The model) in a script declaration (`var token = [[${token}]];`, guide templates.md, Output contexts), not a"
-            + " `<meta>`",
+            + " hand-written one; for JavaScript (htmx, `fetch`) write `<t:csrf-meta/>` in the layout's `<head>`: it"
+            + " writes Spring Security's `<meta name=\"_csrf\">` and `<meta name=\"_csrf_header\">` from the request, and"
+            + " the script reads the token and header name from them (guide templates.md, Forms)",
         "6: `param['q']` reads a request parameter, which a Thwart template cannot see; in the controller take it"
             + " as `@RequestParam(name = \"q\"",
         "6: `session` reads the HTTP session, which a Thwart template cannot see; in the controller add `value`",
         "1: `owner` is declared as `Object`");
+  }
+
+  // ---- Spring Security's CSRF <meta> pair becomes <t:csrf-meta/> ----
+
+  private static final String TOKEN_META = "<meta name=\"_csrf\" th:content=\"${_csrf.token}\"/>";
+  private static final String HEADER_META = "<meta name=\"_csrf_header\" th:content=\"${_csrf.headerName}\"/>";
+
+  @Test
+  void csrfMetaPairBecomesTheElement() throws Exception {
+    String src = "<html>\n<head>\n  " + TOKEN_META + "\n  " + HEADER_META + "\n  <title>T</title>\n</head>\n"
+        + "<body><p th:text=\"${session.user}\"></p></body>\n</html>";
+    assertEquals("<html>\n<head>\n  <t:csrf-meta/>\n  <title>T</title>\n</head>\n"
+        + "<body><p t:text=\"session.user\"></p></body>\n</html>", convert(src));
+    // Report lines stay those of the source, after the removed line too.
+    assertMessages(src, "3: Spring Security's CSRF `<meta>` tags became `<t:csrf-meta/>`", "7: `session.user` reads");
+  }
+
+  @Test
+  void csrfMetaPairInEitherOrderAndSpelling() throws Exception {
+    assertEquals("<head><t:csrf-meta/></head>", convert("<head>" + HEADER_META + TOKEN_META + "</head>"));
+    assertEquals("<head><t:csrf-meta/></head>", convert("<head>" + TOKEN_META + " " + HEADER_META + "</head>"));
+    assertEquals("<head>\n<t:csrf-meta/>\n</head>", convert("<head>\n<META th:content='${ _csrf.token }'  NAME='_csrf'>\n"
+        + "<meta TH:CONTENT=\"${_csrf.headerName}\" name=\"_csrf_header\" >\n</head>"));
+  }
+
+  @Test
+  void loneCsrfMetaBecomesTheElement() throws Exception {
+    assertEquals("<head><t:csrf-meta/><title>T</title></head>", convert("<head>" + TOKEN_META + "<title>T</title></head>"));
+    assertEquals("<head><t:csrf-meta/></head>", convert("<head>" + HEADER_META + "</head>"));
+    // Two pairs apart are two elements; two tags of one name are not a pair.
+    assertEquals("<t:csrf-meta/><p>x</p><t:csrf-meta/>", convert(TOKEN_META + HEADER_META + "<p>x</p>" + HEADER_META + TOKEN_META));
+    assertEquals("<t:csrf-meta/><t:csrf-meta/>", convert(TOKEN_META + TOKEN_META));
+  }
+
+  @Test
+  void csrfMetaWrittenAcrossLinesKeepsReportLines() throws Exception {
+    String src = "<head>\n<meta\n  name=\"_csrf\"\n  th:content=\"${_csrf.token}\">\n" + HEADER_META + "\n</head>\n"
+        + "<p th:text=\"${session.user}\"></p>";
+    assertEquals("<head>\n<t:csrf-meta/>\n</head>\n<p t:text=\"session.user\"></p>", convert(src));
+    assertMessages(src, "2: Spring Security's CSRF `<meta>` tags became", "7: `session.user` reads");
+  }
+
+  /** Negative: any other shape is left for the usual conversion, and its `_csrf` read is reported. */
+  @Test
+  void otherCsrfMetaShapesAreNotRewritten() throws Exception {
+    String[] metas = {
+      "<meta name=\"_csrf\" th:content=\"${_csrf.headerName}\"/>",
+      "<meta name=\"_csrf_header\" th:content=\"${_csrf.token}\"/>",
+      "<meta name=\"_csrf_parameter\" th:content=\"${_csrf.parameterName}\"/>",
+      "<meta name=\"csrf-token\" th:content=\"${_csrf.token}\"/>",
+      "<meta name=\"_CSRF\" th:content=\"${_csrf.token}\"/>",
+      "<meta name=\"_csrf\" id=\"t\" th:content=\"${_csrf.token}\"/>",
+      "<meta name=\"_csrf\" th:content=\"${_csrf.token + 'x'}\"/>",
+      "<meta name=\"_csrf\" th:content=\"${token}\"/>",
+      "<meta name=\"_csrf\" content=\"${_csrf.token}\"/>",
+      "<meta th:name=\"_csrf\" th:content=\"${_csrf.token}\"/>",
+      "<link name=\"_csrf\" th:content=\"${_csrf.token}\"/>",
+    };
+    for (String meta : metas) {
+      String out = convert("<head>" + meta + "</head>");
+      assertFalse(out.contains("t:csrf-meta"), meta + ": " + out);
+      assertTrue(messages("<head>" + meta + "</head>").stream().noneMatch(m -> m.contains("became `<t:csrf-meta/>`")), meta);
+    }
+    assertMessages("<head>\n<meta name=\"_csrf_parameter\" th:content=\"${_csrf.parameterName}\"/>\n</head>",
+        "2: `_csrf.parameterName` reads Spring Security's CSRF token request attribute");
   }
 
   /** #820: PetClinic's visit form binds {@code visit}, and a later loop reuses the name for each past visit. */

@@ -46,9 +46,65 @@ import java.util.Optional;
  * <p>A form that writes its own token input keeps it and gets no second one: a direct child
  * {@code <input type="hidden">} whose literal {@code name} equals the token's parameter name at
  * render time ({@link #ownTokenNames}).
+ *
+ * <p>For JavaScript, {@code <t:csrf-meta>} ({@link #meta}) writes Spring Security's two
+ * {@code <meta>} tags with the same token. It takes no attributes and no content, so nothing in
+ * the template or the model picks its names or values, and it sends nothing anywhere.
  */
 public final class CsrfInjector {
   private CsrfInjector() {}
+
+  /** The element that writes the CSRF {@code <meta>} tags ({@link #meta}). */
+  public static final String META_ELEMENT = "t:csrf-meta";
+
+  /**
+   * The {@code <t:csrf-meta>} element {@code e}: {@code <meta name="_csrf" content="TOKEN" />}
+   * and, if the token has a header name, {@code <meta name="_csrf_header" content="HEADER" />},
+   * when the request has a token, else nothing. Names and markup are fixed; the values come only
+   * from {@code ctx.forms().csrfToken()}, escaped as attribute values. Any attribute or content
+   * on the element is a build error. The verifier checks the written tags where they land.
+   */
+  public static Emitted meta(CodegenContext ctx, Element e) {
+    boolean ok = true;
+    for (Attribute a : e.attributes()) {
+      ctx.diagnostics().error(a.pos(), "<" + META_ELEMENT + "> takes no attributes (found " + a.name() + "): it"
+          + " writes Spring Security's <meta name=\"_csrf\"> and <meta name=\"_csrf_header\"> itself; to write them"
+          + " only sometimes, put it in a <t:block t:if=\"...\">");
+      ok = false;
+    }
+    if (!e.children().isEmpty()) {
+      ctx.diagnostics().error(e.pos(), "<" + META_ELEMENT + "> takes no content; write <" + META_ELEMENT + "/>");
+      ok = false;
+    }
+    if (!ok) {
+      return Emitted.EMPTY;
+    }
+    SourcePos pos = e.pos();
+    String t = ctx.freshName("csrf");
+    Emitted header =
+        Emitted.opt(
+            Skeleton.OptKind.CSRF_META,
+            pos,
+            "if (" + t + ".get().headerName() != null) { ",
+            Emitted.concat(
+                Emitted.text("<meta name=\"_csrf_header\"", pos),
+                Emitted.attributeValue(Skeleton.Escaper.ATTR, "content", pos, t + ".get().headerName()"),
+                Emitted.text(" />", pos)),
+            " }");
+    Emitted tags =
+        Emitted.concat(
+            Emitted.text("<meta name=\"_csrf\"", pos),
+            Emitted.attributeValue(Skeleton.Escaper.ATTR, "content", pos, t + ".get().token()"),
+            Emitted.text(" />", pos),
+            header);
+    return Emitted.opt(
+        Skeleton.OptKind.CSRF_META,
+        pos,
+        "{ java.util.Optional<dev.chainguard.thwart.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if ("
+            + t + ".isPresent()) { ",
+        tags,
+        " } }");
+  }
 
   /** Adds the token input to a {@code <form>} in the closed shape. */
   public static void apply(CodegenContext ctx, ElementPlan plan) {

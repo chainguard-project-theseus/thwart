@@ -152,7 +152,8 @@ final class SpringForms implements Forms {
 
   /**
    * The request's Spring Security {@code CsrfToken}, read lazily so that a deferred token is only
-   * loaded (and a session only created) when a template actually renders a POST form.
+   * loaded (and a session only created) when a template actually renders a POST form or a
+   * {@code <t:csrf-meta>}.
    */
   @Override
   public Optional<CsrfToken> csrfToken() {
@@ -178,7 +179,7 @@ final class SpringForms implements Forms {
         org.springframework.security.web.csrf.CsrfToken token =
             (org.springframework.security.web.csrf.CsrfToken) attribute;
         if (token.getToken() != null) {
-          return Optional.of(new CsrfToken(token.getParameterName(), token.getToken()));
+          return Optional.of(new CsrfToken(token.getParameterName(), token.getToken(), token.getHeaderName()));
         }
       }
       return Optional.empty();

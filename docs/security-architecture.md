@@ -223,7 +223,7 @@ and its siblings in the compiler); Java text goes through `JavaStrings`. `AsciiO
 `equalsIgnoreCase`, `toLowerCase`, `trim`, `Character.isWhitespace`, regex `\s` and the like
 outside a pinned allow-list.
 
-## 9. CSRF: one closed form shape
+## 9. CSRF: one form shape and one meta element
 
 A `<form>` gets the token only if its method is a static `post` and its action is absent, static
 and same-origin by shape, or a computed same-origin `@{/...}` link re-checked by
@@ -231,6 +231,14 @@ and same-origin by shape, or a computed same-origin `@{/...}` link re-checked by
 computed `method`, any other computed action, and a cross-origin `formaction` or `<base href>` are
 build errors. Every computed form `action` is a same-origin link, since client code may submit
 any form.
+
+For JavaScript, `<t:csrf-meta/>` writes Spring Security's `<meta name="_csrf" content="...">` and,
+when the token has a header name, `<meta name="_csrf_header" content="...">`, from the same
+`Forms.csrfToken()`, or nothing without a token (`CsrfInjector.meta`). It takes no attributes and
+no content, so its names and markup are fixed and no model value reaches them; the values are
+escaped with `Escapers.attr`, and the verifier checks the written tags where they land. It sends
+nothing: where page JavaScript sends the header is principle 7. A computed `content` on a named
+`<meta>` stays off the allow-list (§5.3).
 
 ## 10. Tests that hold the line
 

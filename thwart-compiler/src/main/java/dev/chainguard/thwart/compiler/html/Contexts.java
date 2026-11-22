@@ -168,10 +168,21 @@ public final class Contexts {
         || (el.equals("object") && attr.equals("data")) || isRefreshContent(element, el, attr);
   }
 
-  /** Why a computed {@code name} ({@code attr} A-Z folded) off the allow-list is rejected, with the fix-it. */
-  private static String offList(String name, String attr) {
+  /**
+   * Why a computed {@code name} ({@code attr} A-Z folded) on {@code element} off the allow-list is
+   * rejected, with the fix-it. The {@code content} of a {@code <meta>} whose static {@code name} is
+   * Spring Security's {@code _csrf} or {@code _csrf_header} (trimmed, A-Z folded) stays rejected
+   * like any named {@code <meta>}; its fix-it is {@code <t:csrf-meta/>}.
+   */
+  private static String offList(Element element, String name, String attr) {
     if (attr.equals("nonce")) {
       return "Thwart stamps the CSP nonce itself; delete this attribute";
+    }
+    if (attr.equals("content") && HtmlParser.asciiLower(element.name()).equals("meta")
+        && (hasName(element, "_csrf") || hasName(element, "_csrf_header"))) {
+      return "a computed content on a named <meta> is not allowed; for Spring Security's CSRF token, write"
+          + " <t:csrf-meta/> instead of both <meta name=\"_csrf\"> and <meta name=\"_csrf_header\">: it writes them"
+          + " with the request's token and header name (docs/guide/templates.md, Forms)";
     }
     return "'" + name + "' is not on Thwart's list of computed attributes (docs/guide/templates.md, Output contexts); write it as"
         + " a static value, or one element per value under t:if; for data your script reads, put a number, boolean or"
@@ -203,7 +214,7 @@ public final class Contexts {
     }
     String tree = treeBuilderInput(element, attributeName, attr);
     if (tree != null || !allowed(element, attr)) {
-      return tree != null ? tree : offList(attributeName, attr);
+      return tree != null ? tree : offList(element, attributeName, attr);
     }
     // A static is= upgrades the element to custom code, like an autonomous custom element (#809).
     String el = HtmlParser.asciiLower(element.name());
@@ -275,6 +286,22 @@ public final class Contexts {
     for (Attribute a : element.attributes()) {
       if (!a.isThwart()
           && HtmlParser.asciiLower(a.name()).equals("http-equiv")
+          && a.value() != null
+          && HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value())).equals(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether {@code element} has a static {@code name} equal to the lower-case {@code value},
+   * folding A-Z only after trimming whitespace. Used only to pick a rejection message.
+   */
+  private static boolean hasName(Element element, String value) {
+    for (Attribute a : element.attributes()) {
+      if (!a.isThwart()
+          && HtmlParser.asciiLower(a.name()).equals("name")
           && a.value() != null
           && HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value())).equals(value)) {
         return true;
