@@ -38,8 +38,9 @@ each result.
    [plugins/thwart](../plugins/thwart) has one skill,
    [thwart](../plugins/thwart/skills/thwart/SKILL.md), which works from the guide, in four parts:
    [setup](guide/setup.md), [templates](guide/templates.md), [migration](guide/migrate.md) and
-   [limitations](guide/limitations.md). The skill says what Thwart is, which tools to use and
-   what "done" means. The guide covers what an agent can't find out from the tools: the model,
+   [limitations](guide/limitations.md). The skill says what Thwart is and which part of the guide
+   to read for the task; the migration part names the tools, how to work and what "done" is
+   checked against. The guide covers what an agent can't find out from the tools: the model,
    build setup, the output contexts and the traps of each old engine.
 2. **Compiler errors written as fixes.** A template that Thwart can't prove safe is a build error.
    The error names the file, line and column, says what is wrong, and says how to fix it:
@@ -55,8 +56,8 @@ each result.
    app and compares the pages as a browser builds them ([migration guide](guide/migrate.md)). It
    reports each page as `same`, `reordered` (the same elements, with some siblings in another
    order, such as validation messages from a `HashSet`) or `differs`. Markup comparison can't
-   see a script that throws or a CSP violation, so the skill also tells the agent to load the
-   pages in a headless browser on both apps and compare the console.
+   see a script that throws or a CSP violation, so the migration guide also tells the agent to load
+   the pages in a headless browser on both apps and compare the console.
 4. **The migration test.** [bench/migration](../bench/migration/README.md) runs the whole loop
    with a fresh agent on real applications and scores every result the same way. It is how we
    find out whether the first three parts work, and it is the rest of this page.
@@ -82,11 +83,11 @@ For each run, a fresh clone of the app goes into a new container, and Claude Cod
 The check's list of requests for each app (`pages.txt`) is never shown to the agent. It is written
 to cover every template, both states of each form (empty and with validation errors), and the
 error pages, though some pages can't be reached (see [Limitations](#limitations)). The agent
-writes its own list, as the skill tells it to.
+writes its own list, as the guide tells it to.
 
 ### What a pass means
 
-A run is scored by the same tools the skill tells the agent to use. It **passes** when all of these
+A run is scored by the same tools the guide tells the agent to use. It **passes** when all of these
 hold:
 
 - The app's normal Maven build passes, and so do all of its tests, with no fewer tests than
@@ -129,7 +130,8 @@ generation rather than the app.
 cumulative tables include every archived run: 123 runs, between 2 and 13 per app. Thwart, the
 plugin and the scoring changed between rounds, so the cumulative numbers mix setups (see
 [Limitations](#limitations)). The latest round, **run 15, ran on 2026-11-15 from Thwart commit
-`4e83f9ff`**, one run of each of the 18 apps. It cost $179 in total.
+`4e83f9ff`**, one run of each of the 18 apps. It cost $179 in total. Every round so far used the
+plugin's earlier layout: a skill named `migrate` with the guide as a single file.
 
 Run 15 was scored before `pass_forced` existed and before new browser errors failed a run: its
 browser check was report only. The `pass_forced` and "forced rule" figures for run 15 were
