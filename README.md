@@ -61,31 +61,31 @@ that holds. There are four parts:
    security check or test is switched off, no part of the old engine is left, and the browser
    shows no new errors.
 
-The latest round is run 15 (2026-11-15). It was scored before new browser errors could fail a run
-(which changes none of its verdicts), and its `pass_forced` figures were computed afterwards from
-its archived output.
+The latest round is run 16 (2026-11-22), from Thwart commit `6329e7d4`.
 
-- **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
-  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.35.
-  Over every archived run, the family passed strictly in **41 of 42 runs**. This is the best case:
-  all 7 are development apps, and Thwart's design was shaped by its own PetClinic port.
-- **Mustache PetClinic** (1 app): failed, with 23 of 30 pages matched; the rest are stray `th:*`
-  attributes that Thwart rejects. Over every archived run it passed strictly in 4 of 8.
 - **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf, Thymeleaf with
   htmx, FreeMarker, JSP, JSP with Apache Tiles, Velocity and Pebble): every migrated app builds
-  and passes all of its tests, and each migration took 10 to 51 minutes and cost about $3.50 to
-  $32. **But none of the 10 passed strictly, and only 1 passed under the looser `pass_forced`
-  rule.** On average 46% of their pages matched. None of the 20 larger-app runs numbered 12 to 15
-  passed strictly. Over every archived run, the larger apps passed strictly in 6 of 73 runs (5 of
-  42 on the held-out apps); all six came before Thwart started rejecting inline handlers, and one
-  was scored by the first round's more lenient crawler.
-- **Round total:** 7 of 18 apps passed strictly, and 8 of 18 under `pass_forced`.
+  and passes all of its tests, and each migration took 8 to 37 minutes and cost about $3.50 to
+  $28. **But only 1 of the 10 passed strictly, and 4 under the looser `pass_forced` rule. Of the
+  6 held-out apps, none passed strictly and 1 passed under `pass_forced`.** On average 51% of
+  their pages matched. Over every archived run, the larger apps passed strictly in 7 of 83 runs (5
+  of 48 on the held-out apps), and only one of those (jpetstore, in this round) came after Thwart
+  started rejecting inline handlers; 68.2% of their pages matched, on average over runs.
+- **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
+  JSP): all 7 passed strictly. Each migration took 6 to 11 minutes and cost about $1.85 to $3.70.
+  Over every archived run, the family passed strictly in **48 of 49 runs**. This is the best case:
+  all 7 are development apps, and Thwart's design was shaped by its own PetClinic port.
+- **Mustache PetClinic** (1 app): passed strictly, with all 30 pages matched. Over every archived
+  run it passed strictly in 5 of 9.
+- **Round total:** 9 of 18 apps passed strictly (7 in run 15), and 12 of 18 under `pass_forced`
+  (8 in run 15).
 - Some of the remaining differences are what Thwart requires (inline event handlers moved out for
   the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
-  sanitizer). Some are agent mistakes, and some are scripts that Thwart's CSP blocks. Strict
-  parity on larger apps is the gap Thwart has to close.
+  sanitizer), and compare doesn't recognise all of them. Some are agent mistakes, and some are
+  scripts that Thwart's CSP blocks. Strict parity on larger apps is the gap Thwart has to close.
 
-The plugin and guide have changed since run 15, and a fresh round will be run before the release.
+Changes merged since run 16 (#882, #883) aren't measured yet, and a fresh round will be run before
+the release.
 [docs/ai-compatible.md](docs/ai-compatible.md) has the method, the results by app, what each
 remaining difference is, and the test's limitations.
 
