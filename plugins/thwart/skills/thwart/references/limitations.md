@@ -17,8 +17,8 @@ Gaps in Thwart today, with what to do instead.
   or `LocalDate`. `[[...]]` serializes only the properties of the static type and ignores Jackson
   annotations.
 - **Client-side code.** What page JavaScript or a client framework does with the DOM is outside
-  the guarantee (security-model.md §9). Client frameworks that compile the server's DOM as a
-  template (Vue in-DOM templates, petite-vue, AngularJS) are unsupported.
+  the guarantee; the starter's default CSP mitigates it. Client frameworks that compile the
+  server's DOM as a template (Vue in-DOM templates, petite-vue, AngularJS) are unsupported.
 - **Not supported, by design:** runtime template loading and Kotlin.
 - **Expected output differences:** attributes set by `t:` may move within the tag; a `null`
   attribute value omits the attribute; `<script>` and `<style>` get a CSP
@@ -33,7 +33,7 @@ Gaps in Thwart today, with what to do instead.
 | Rule | What it means | Fix |
 |---|---|---|
 | `PARSE_ERROR` | The markup parses only by error recovery: a block in a `<p>`, a second `<body>`, content between `</head>` and `<body>`, content directly in a table, a stray end tag, a missing space between attributes, a literal `<` or `&` | Write the markup a browser reads without recovery: close the `<p>` first, write `&lt;` and `&amp;`, pass `~{::body}` with `t:remove="tag"` ([Fragments and layouts](templates.md#fragments-and-layouts)) |
-| `UNBALANCED` | A `t:if`, `t:unless`, `t:case`, `t:each`, computed attribute or fragment leaves an element open or closed, or implies a `<tbody>`, `<head>` or `<body>`, or a computed attribute follows an unquoted attribute value | Close inside the body what it opens; write the `<tbody>` around rows; make a fragment library's root a `<t:block>` ([Fragments and layouts](templates.md#fragments-and-layouts)); quote the attribute value before a computed attribute (`class="a"`, not `class=a`) |
+| `UNBALANCED` | A `t:if`, `t:unless`, `t:case`, `t:each`, computed attribute or fragment leaves an element open or closed, or implies a `<tbody>`, `<head>` or `<body>`, or a computed attribute follows an unquoted attribute value | Close inside the body what it opens; write the `<tbody>` around rows, with the `t:if` or `t:unless` on it if there can be none; make a fragment library's root a `<t:block>` ([Fragments and layouts](templates.md#fragments-and-layouts)); quote the attribute value before a computed attribute (`class="a"`, not `class=a`) |
 | `TEXT_IN_TABLE` | A value directly in a `<table>`, `<tbody>` or `<tr>`, where a browser moves it out of the table | Put it in a `<td>`, `<th>` or `<caption>` |
 | `TEXT_OUTSIDE_BODY` | A value in `<head>` or after `</body>` | Move it into `<title>` or the body |
 | `TEXT_IN_SCRIPT`, `JSON_NOT_IN_SCRIPT` | A value in a script or style position the compiler doesn't accept | A prelude declaration or a JSON block ([Output contexts](templates.md#output-contexts), Scripts); no expressions in `<style>` ([Output contexts](templates.md#output-contexts), CSS) |

@@ -261,6 +261,30 @@ class MigratorTest {
     assertEquals("<div t:fragment=\"footer\">x</div>", convert("<div th:fragment=\"footer\">x</div>"));
   }
 
+  /** Thymeleaf renders the petclinic layout's {@code menuItem} where it is declared too, with {@code null} arguments. */
+  @Test
+  void fragmentInsideAFragmentKeepsItsInPlaceCopy() throws Exception {
+    String src = "<html th:fragment=\"layout (template)\"><ul>\n"
+        + "<li th:fragment=\"menuItem (link, text)\"><a th:href=\"@{${link}}\" th:text=\"${text}\">x</a></li>\n"
+        + "<li th:fragment=\"plain\">p</li></ul></html>";
+    String out = convert(src);
+    assertEquals("<html t:fragment=\"layout(Object template)\"><ul>\n"
+        + "<t:block t:replace=\"~{::menuItem(null, null)}\"></t:block>"
+        + "<li t:fragment=\"menuItem(Object link, Object text)\"><a t:href=\"@{${link}}\" t:text=\"text\">x</a></li>\n"
+        + "<li t:fragment=\"plain\">p</li></ul></html>", out);
+    assertEquals(out, convert(out));
+    assertTrue(messages(src).contains("2: Thymeleaf also renders fragment `menuItem` where it is declared, with `null`"
+        + " arguments, and Thwart doesn't: added `~{::menuItem(null, null)}` before it to keep that copy; delete the"
+        + " call if the page shouldn't show it (guide templates.md, Fragments and layouts)"), messages(src).toString());
+  }
+
+  /** A fragment outside any other renders in place only if its file is rendered as a page. */
+  @Test
+  void fragmentOutsideAFragmentGetsNoInPlaceCall() throws Exception {
+    assertEquals("<div><p t:fragment=\"card(Object a)\" t:text=\"a\">x</p></div>",
+        convert("<div><p th:fragment=\"card(a)\" th:text=\"${a}\">x</p></div>"));
+  }
+
   @Test
   void insertsParamsStubForRootVariables() throws Exception {
     String src = "<html xmlns:th=\"http://www.thymeleaf.org\">\n<body th:object=\"${form}\">"

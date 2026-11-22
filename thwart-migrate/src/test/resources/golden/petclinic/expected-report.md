@@ -1,6 +1,6 @@
 # thwart-migrate report
 
-Converted 9 template(s); 51 item(s) need manual attention.
+Converted 9 template(s); 52 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -12,6 +12,7 @@ Converted 9 template(s); 51 item(s) need manual attention.
 ## fragments/layout.html
 
 - `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)
+- `fragments/layout.html:34`: Thymeleaf also renders fragment `menuItem` where it is declared, with `null` arguments, and Thwart doesn't: added `~{::menuItem(null, null, null, null, null)}` before it to keep that copy; delete the call if the page shouldn't show it (guide templates.md, Fragments and layouts)
 - `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`); every call passes every argument, so pass `null` where a Thymeleaf call omitted one; a fragment sees only its parameters, so add one for each caller variable it reads (guide templates.md, Fragments and layouts)
 - `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field; for a whole link `@{__${link}__}`, pass the link itself (`@{/owners}` from the caller) and write `t:href="link"`
 

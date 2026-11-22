@@ -137,7 +137,7 @@ m=See <a href="/docs">the docs</a>.
 == UNBALANCED: a t:each on rows directly in a table (implied <tbody>)
 -- t.html
 <div $NS t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
-=> t.html:1:94: error: this t:each leaves <tbody> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens a <tbody> before the first row only: write the <tbody> around the rows, or put the t:each on a <tbody> [verifier:UNBALANCED]
+=> t.html:1:94: error: this t:each leaves <tbody> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens a <tbody> before the first row only: write the <tbody> around the rows, or put the t:each on a <tbody>; if there can be no rows, put a t:if or t:unless on the written <tbody>, since a browser adds none to an empty table [verifier:UNBALANCED]
 == UNBALANCED: a fragment library wrapped in <html>, with a call before <body>
 -- lib.html
 <html $NS><head><title>lib</title></head><t:block t:replace="~{lib :: icon}"></t:block><body><span t:fragment="icon">i</span></body></html>
