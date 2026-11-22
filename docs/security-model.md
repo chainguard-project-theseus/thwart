@@ -114,6 +114,7 @@ differentials, B composition, C JavaScript position, D client frameworks, E URL 
 | Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (`NeutralValuesTest`); text is plain-escaped and frameworks that compile the server's DOM are unsupported (`ClientTemplateInjectionTest`); a strict CSP is the backstop. A computed non-HTML attribute value that isn't neutral is in scope. See [guide](guide/limitations.md) |
 | What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` and with `connect-src 'self'` limits the damage ([guide](guide/templates.md#rendering)) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
+| What crawlers and link-preview services do with descriptive `<meta>` content (a spoofed preview, an `og:url` that moves where shares count, a crawler fetching an `og:image`) | No | Values are escaped, and the URL keys are scheme-checked like `<a href>`; no browser acts on these keys (context-model.md §6.1). Build `og:url` from the application's configured base URL, not the `Host` header or the query ([guide](guide/templates.md#output-contexts)) |
 | A hand-written `Template`'s own output | No | The Java that writes it owns it, like any other response code |
 | Views Thwart doesn't render (Thymeleaf or JSP still configured during a migration) | No | They get none of these guarantees; the Spring starter logs a warning at startup while that is the case |
 | CSS injection | Yes, by restriction | No values in `<style>`; a `style` attribute takes only literals, numbers and `CssValue`; nothing in SVG is computed |
@@ -172,10 +173,10 @@ not in this table is a build error (context-model.md §9; the [guide's limitatio
 | Accepted context | Escaper or rule | Pinned by |
 |---|---|---|
 | Element text, `t:text`, `[[...]]` | `Escapers.text`; the one text choke point | `EscapersTest`, `TextChokePointTest`, `HostileSweepTest` |
-| Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`) | `Escapers.attr` in a quoted value; any other computed name, and `name` on a `<meta>`, is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest` |
+| Attribute value on the closed list (`Contexts.COMPUTED`, `aria-*`), and the `content` of a descriptive `<meta>` text key (`description`, `og:title`, ...: context-model.md §6.1) | `Escapers.attr` in a quoted value; any other computed name, `name` on a `<meta>`, and any other `<meta>` content, is `FORBIDDEN` | `ContextsTest`, `InertAttributesTest`, `AttributesEndToEndTest`, `DescriptiveMetaTest` |
 | Typed attribute (`target`, some `value` and `for`) | Literals, numbers or a choice of literals, checked at build time | `ContextsTest`, `AttributesEndToEndTest` |
 | `data-*` and non-WAI-ARIA `aria-*` | Neutral values only: a number, a boolean or a literal-path same-origin link | `NeutralValuesTest`, `ClientTemplateInjectionTest` |
-| URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#thwart` | `EscapersTest`, `AttributesEndToEndTest` |
+| URL (`href`, `src`, `action`, `formaction`, `cite`, `poster`; the `content` of a `<meta>` keyed `og:image`, `og:url` or `twitter:image`) | `Escapers.url`: `http`, `https`, `mailto`, `tel` or relative, else `about:invalid#thwart` | `EscapersTest`, `AttributesEndToEndTest`, `DescriptiveMetaTest`, `HostileSweepTest` |
 | Resource URL (`script[src]`, `iframe[src]`, `link[href]`, ...) | A same-origin literal-path `@{...}` with no query (`Escapers.sameOriginLink`, `Escapers.resourceUrl`) | `LinkCompilerTest`, `SameOriginLinkRenderTest` |
 | Form action, `formaction`, `<base href>`, refresh URL | Same-origin link re-checked at render (`Checks.isSameOriginUrl`, `Escapers.refresh`) | `FormActionTest`, `CsrfFormactionTest`, `CsrfBaseTest` |
 | CSRF hidden input | Added only to POST forms that provably post to the page's origin | `CsrfActionOriginTest`, `CsrfOwnInputTest` |

@@ -110,7 +110,7 @@ parameters with their real types, rewrite the markup, and run `mvn clean compile
 For Thymeleaf, `thwart-migrate <old-templates-dir> <new-templates-dir> --report report.md` does the
 mechanical rewrite of a whole directory first: `th:` to `t:`, utility objects, common string-built
 links and `__${a.b}__` path segments, `sec:authorize` calls with an `auth.` twin, `th:attr` of
-`data-*`/`aria-*` pairs, `th:errorclass` beside a `th:field`, layouts built from `th:replace`
+`data-*`/`aria-*` pairs (and a `content` pair on a `<meta>`), `th:errorclass` beside a `th:field`, layouts built from `th:replace`
 fragment calls, script inlines; Layout Dialect pages (`layout:decorate`) are reported and ported by
 hand ([Fragments and layouts](templates.md#fragments-and-layouts), Layouts). It stubs parameter types as `Object`, which fails to compile until you
 write the real types: one error per stub, since the compiler checks neither a template's body nor

@@ -516,9 +516,11 @@ class ContextsTest {
         OutputContext.REFRESH, Contexts.attribute(element("meta", "http-equiv", "refresh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("META", "HTTP-EQUIV", " Refresh "), "Content"));
-    // Any other computed content is off the allow-list, named metadata included (#761).
+    // Any other computed content is off the allow-list unless its key is descriptive (#761).
     assertEquals(
-        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", "description"), "content"));
+        OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "name", "description"), "content"));
+    assertEquals(
+        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", "referrer"), "content"));
     assertEquals(
         OutputContext.FORBIDDEN,
         Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
@@ -527,15 +529,29 @@ class ContextsTest {
   }
 
   /**
-   * #761: a computed {@code <meta>} content is REFRESH under a static {@code http-equiv="refresh"} and
-   * off the allow-list otherwise: named metadata (once inert, #590), a policy, a pragma, Open Graph, an
-   * unknown name and an unnamed meta alike.
+   * #761: a computed {@code <meta>} content is REFRESH under a static {@code http-equiv="refresh"},
+   * ATTRIBUTE or URL under exactly one static descriptive {@code name} or {@code property} (A-Z
+   * folded, not trimmed) with no other key, and off the allow-list otherwise: a policy, a pragma, a
+   * verification token, an unknown name, a computed key and an unnamed meta alike.
    */
   @ParameterizedTest(name = "<meta {0}> content -> {1}")
   @CsvSource(delimiter = '|', value = {
-    "name=description | FORBIDDEN",
-    "NAME=Keywords | FORBIDDEN",
-    "name=author | FORBIDDEN",
+    "name=description | ATTRIBUTE",
+    "NAME=Keywords | ATTRIBUTE",
+    "name=author | ATTRIBUTE",
+    "property=og:title | ATTRIBUTE",
+    "name=og:title | ATTRIBUTE",
+    "property=OG:Description | ATTRIBUTE",
+    "property=og:site_name | ATTRIBUTE",
+    "property=og:image:alt | ATTRIBUTE",
+    "name=twitter:title | ATTRIBUTE",
+    "name=twitter:description | ATTRIBUTE",
+    "name=twitter:image:alt | ATTRIBUTE",
+    "property=description | ATTRIBUTE",
+    "property=og:image | URL",
+    "property=og:url | URL",
+    "name=twitter:image | URL",
+    "property=twitter:image | URL",
     "name=Application-Name | FORBIDDEN",
     "name=generator | FORBIDDEN",
     "name=color-scheme | FORBIDDEN",
@@ -551,10 +567,20 @@ class ContextsTest {
     "name=google-site-verification | FORBIDDEN",
     "name=msapplication-config | FORBIDDEN",
     "name=msapplication-TileImage | FORBIDDEN",
-    "name=og:title | FORBIDDEN",
-    "name=twitter:image | FORBIDDEN",
-    "name=twitter:title | FORBIDDEN",
     "name=refresh | FORBIDDEN",
+    "property=og:video | FORBIDDEN",
+    "property=og:image:secure_url | FORBIDDEN",
+    "property=fb:app_id | FORBIDDEN",
+    "name=twitter:player | FORBIDDEN",
+    "name=twitter:card | FORBIDDEN",
+    "name=csrf-token | FORBIDDEN",
+    "name=_csrf | FORBIDDEN",
+    "name=description http-equiv=refresh | REFRESH",
+    "name=description charset=utf-8 | FORBIDDEN",
+    "name=description t:name=description | FORBIDDEN",
+    "property=og:image t:property=x | FORBIDDEN",
+    "name=description t:http-equiv=x | FORBIDDEN",
+    "name=description t:charset=x | FORBIDDEN",
     "name=robots | FORBIDDEN",
     "name=q | FORBIDDEN",
     "name= | FORBIDDEN",
@@ -571,7 +597,6 @@ class ContextsTest {
     "name=description http-equiv=default-style | FORBIDDEN",
     "http-equiv=content-security-policy | FORBIDDEN",
     "http-equiv=default-style | FORBIDDEN",
-    "property=og:title | FORBIDDEN",
     "itemprop=name | FORBIDDEN",
     "t:name=description | FORBIDDEN",
     "| FORBIDDEN",
@@ -585,9 +610,16 @@ class ContextsTest {
       }
     }
     assertEquals(expected, Contexts.attribute(element("meta", kv.toArray(new String[0])), "content"));
-    // A name with spaces around it, as a browser trims it.
+    // A name with spaces around it: a policy name stays forbidden, and a descriptive one is not trimmed.
     assertEquals(
         OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", " Viewport "), "content"));
+    for (String key : List.of(" description", "description ", "\tdescription", "description ", " og:url ")) {
+      assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", key), "content"), key);
+    }
+    // A valueless name, and a key on another element.
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", null), "content"));
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("link", "name", "description"), "content"));
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div", "property", "og:title"), "content"));
   }
 
   @Test

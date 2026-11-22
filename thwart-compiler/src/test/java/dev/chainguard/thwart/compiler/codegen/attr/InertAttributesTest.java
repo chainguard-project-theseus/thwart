@@ -89,8 +89,9 @@ class InertAttributesTest {
 
   /**
    * #761: a standard name off the closed allow-list takes no computed value, a literal neither:
-   * what was TYPED_ATTRIBUTE (rel, sandbox, allow, crossorigin, itemtype, declare) and every
-   * {@code <meta>} content but a refresh, named metadata (#590) included.
+   * what was TYPED_ATTRIBUTE (rel, sandbox, allow, crossorigin, itemtype, declare), a {@code <meta>}'s
+   * {@code property}, and {@code content} off {@code <meta>}. A {@code <meta>} content is
+   * {@code DescriptiveMetaTest}'s.
    */
   @ParameterizedTest
   @ValueSource(strings = {
@@ -104,20 +105,7 @@ class InertAttributesTest {
     "<object t:declare=\"b\"></object>",
     "<button t:type=\"'submit'\">x</button>",
     "<img t:loading=\"'lazy'\">",
-    "<meta name=\"description\" t:content=\"s\">",
-    "<meta NAME=\" Author \" t:content=\"s\">",
-    "<meta name=\"keywords\" t:content=\"${s}\">",
-    "<meta name=\"viewport\" t:content=\"'width=device-width'\">",
-    "<meta name=\"referrer\" t:content=\"b ? 'no-referrer' : 'origin'\">",
-    "<meta property=\"og:title\" t:content=\"'T'\">",
-    "<meta name=\"apple-itunes-app\" t:content=\"s\">",
-    "<meta name=\"htmx-config\" t:content=\"s\">",
-    "<meta http-equiv=\"content-security-policy\" t:content=\"s\">",
-    "<meta http-equiv=\"default-style\" t:content=\"s\">",
-    "<meta t:name=\"'description'\" t:content=\"s\">",
-    "<meta t:name=\"'description'\" t:content=\"${s}\">",
     "<meta name=\"description\" t:property=\"s\">",
-    "<meta t:content=\"s\">",
     "<p t:content=\"s\">x</p>",
   })
   void namesOffTheListAreRejected(String body) {

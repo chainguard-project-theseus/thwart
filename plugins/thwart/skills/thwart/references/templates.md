@@ -224,19 +224,50 @@ accepts:
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | Any value but a record or `@TemplateView` object ([The model](#the-model)), escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy ([Messages and links](#messages-and-links)). |
-| Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names | Any value but a record or `@TemplateView` object, escaped. |
+| Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names; `content` of a descriptive `<meta>` (`description`, `og:title`, ...: below) | Any value but a record or `@TemplateView` object, escaped. |
 | Typed attribute | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
-| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, on the elements HTML defines them for (`<a href>`, `<img src>`, `<form action>`, `<video poster>`, ...). On any other element, `<portal>`, a custom element or one with a static `is=` included, they are a build error: make a link an `<a t:href>` (add `role="button"` to style it as a button); `t:data-*` takes only a neutral value (a literal-path link, a number, a boolean) | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart`. Forms: see [Forms](#forms). |
+| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, on the elements HTML defines them for (`<a href>`, `<img src>`, `<form action>`, `<video poster>`, ...). On any other element, `<portal>`, a custom element or one with a static `is=` included, they are a build error: make a link an `<a t:href>` (add `role="button"` to style it as a button); `t:data-*` takes only a neutral value (a literal-path link, a number, a boolean). Also `content` of a `<meta>` keyed `og:image`, `og:url` or `twitter:image` (below) | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart`. Forms: see [Forms](#forms). |
 | Resource URL | `script[src]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |
 | Neutral | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
 | Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`, `css.var(name)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
-| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<meta name>` (it decides what `content` means), `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
+| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<meta name>` (it decides what `content` means), `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh or a descriptive `<meta>`, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
 
 A computed `id`, `name` or `form` takes any value, so it can clobber page globals (`<form
 name="cookie">` shadows `document.cookie`) or move a control into another form. Compute them from
 your own keys or a prefixed id, not raw user input.
+
+**Descriptive `<meta>`.** Search results and link previews read a page's `<meta>` tags. A computed
+`content` is allowed on a `<meta>` with exactly one static `name` or `property` from this list,
+and no `http-equiv`, `charset` or `itemprop`:
+
+- text, escaped: `description`, `keywords`, `author`, `og:title`, `og:description`,
+  `og:site_name`, `og:image:alt`, `twitter:title`, `twitter:description`, `twitter:image:alt`;
+- one URL, checked like an `<a href>`: `og:image`, `og:url`, `twitter:image`.
+
+The key is matched as written, folding A-Z only: `name="Description"` is on the list,
+`name=" description"` is not. Any other `<meta>` content (`referrer`, `viewport`, `robots`,
+`htmx-config`, a site-verification token, `twitter:player`, ...) is a build error, because a
+browser, crawler or script may act on it: write it static, or one `<meta>` per case under `t:if`.
+
+<!-- compile: template guide/meta.html -->
+```html
+<html xmlns:t="https://thwart.chainguard.dev" t:params="int year, String pageUrl, String imageUrl">
+  <head>
+    <title t:text="|Talks of ${year}|">Talks</title>
+    <meta name="description" t:content="|Every talk of the ${year} conference|">
+    <meta property="og:url" t:content="pageUrl">
+    <meta property="og:image" t:content="imageUrl">
+  </head>
+  <body></body>
+</html>
+```
+
+Crawlers want absolute URLs in `og:image`, `og:url` and `twitter:image`: pass a full `https://`
+URL from the model, not a relative `@{/...}` link. Build `og:url` from your configured base URL
+and the route, never from the request's `Host` header or query string, or a forged request can
+choose the URL that shares of the page count toward.
 
 **A computed name that is not on the list.** Port it by what it is for:
 
@@ -245,7 +276,7 @@ your own keys or a prefixed id, not raw user input.
 | read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A number, boolean or link in a `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. A string goes in a script declaration or a JSON block (Scripts, below). |
 | one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`, `<input type>`) | A static attribute, or one element per value under `t:if`/`t:switch` (the `fields` example in [Fragments and layouts](#fragments-and-layouts)). |
 | `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Thwart stamps the CSP nonce itself ([Rendering](#rendering)). |
-| `content` of a named `<meta>` (`description`, Open Graph `property`) | A static `content`, or one `<meta>` per case under `t:if`. Other page data for JavaScript goes in a script declaration (Scripts, below). |
+| `content` of a `<meta>` whose key is not descriptive (`referrer`, `viewport`, `htmx-config`, ...) | A static `content`, or one `<meta>` per case under `t:if`. Other page data for JavaScript goes in a script declaration (Scripts, below). A descriptive key (`description`, Open Graph, Twitter cards) takes `t:content` directly (above). |
 | `<meta name="_csrf" th:content="${_csrf.token}">` and `<meta name="_csrf_header" th:content="${_csrf.headerName}">` | `<t:csrf-meta/>` writes both ([Forms](#forms)). |
 | `srcset`, `<font color>` | One `src` (or a static `srcset`); a `<span>` with a `t:class`. |
 
@@ -593,7 +624,7 @@ repository), or nothing when the request has no token (no Spring Security, or CS
 no attributes and no content; to write it on some pages only, put it in a `<t:block t:if="...">`.
 The script reads both tags, `document.querySelector('meta[name="_csrf"]').content` and the same for
 `_csrf_header`, and sends the token in that header (htmx: set `event.detail.headers[header] = token`
-in an `htmx:configRequest` listener). A computed `content` on a `<meta>` is a build error. Use
+in an `htmx:configRequest` listener). A computed `content` on a `<meta name="_csrf">` is a build error. Use
 htmx 2 or set `htmx.config.selfRequestsOnly = true`. A `method="post"` form that only htmx submits
 gets the token input too, and htmx 2 puts it in the URL of an `hx-delete`: add
 `hx-params="not _csrf"` there.

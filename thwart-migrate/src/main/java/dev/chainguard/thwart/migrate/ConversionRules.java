@@ -188,8 +188,14 @@ final class ConversionRules {
   static final String AUTHORIZE_REWRITTEN_MESSAGE =
       "rewritten: `sec:authorize` to `%s`; `auth` ignores a `RoleHierarchy`, a `GrantedAuthorityDefaults` prefix and a `SecurityContextHolderStrategy` bean, so check the gate if the app sets any (guide migrate.md, Spring Security tags)";
 
-  /** {@code th:attr} pairs rewritten to one {@code t:<name>} each: {@code data-*} and {@code aria-*}, never a processor name. */
-  static final Pattern ATTR_PAIR = Pattern.compile("\\s*((?:data|aria)-[a-z0-9_-]+)\\s*=\\s*(\\$\\{[^{}]*\\})\\s*");
+  /**
+   * {@code th:attr} pairs rewritten to one {@code t:<name>} each: {@code data-*} and {@code aria-*},
+   * and {@link #CONTENT} on a {@link #META} only, never a processor name.
+   */
+  static final Pattern ATTR_PAIR =
+      Pattern.compile("\\s*((?:data|aria)-[a-z0-9_-]+|content)\\s*=\\s*(\\$\\{[^{}]*\\})\\s*");
+  static final String CONTENT = "content";
+  static final String META = "meta";
   /** {@code th:errorclass} classes, a token or a literal, and the {@code th:field} path it reads. */
   static final Pattern ERROR_CLASSES = Pattern.compile("\\s*(?:([\\w-]+)|'([\\w-]+(?:\\s+[\\w-]+)*)')\\s*");
   static final String FIELD = "field";

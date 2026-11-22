@@ -173,15 +173,36 @@ name is classified by client framework.
 
 | Class (`OutputContext`) | Where | Accepts | Checked by |
 |---|---|---|---|
-| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"`; `name` on `<meta>`, which decides what its static `content` means (a referrer policy, `htmx-config`, site verification); and every name off the closed allow-list: any name but `data-*`, `aria-*` and the names below, `content` other than a refresh included | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
+| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"`; `name` on `<meta>`, which decides what its static `content` means (a referrer policy, `htmx-config`, site verification); and every name off the closed allow-list: any name but `data-*`, `aria-*` and the names below, `content` other than a refresh or a descriptive `<meta>` (below) included | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest`, `DescriptiveMetaTest` |
 | `EVENT_HANDLER` | `on*` | nothing: build error | `ContextsTest` |
 | `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3`, `SameOriginLinkRenderTest` |
 | `RESOURCE_URL` | `script[src]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a same-origin literal-path `@{...}` link with no query parameters: no scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked when rendered (`Escapers.sameOriginLink`); a `<base href>` must also start with a single `/` | `LinkCompilerTest`, `AttributesEndToEndTest`, `CsrfBaseTest` |
-| `URL` | `a/area/base/link[href]`, `audio/embed/frame/iframe/img/input/script/source/track/video[src]`, `form[action]`, `button/input[formaction]`, `blockquote/del/ins/q[cite]`, `video[poster]`; on any other element (`<portal>`, a custom element, one with a static `is=`) these names are `FORBIDDEN` (`Contexts.URL_ELEMENTS`) | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart` (`Escapers.url`) | `AttributesEndToEndTest` |
+| `URL` | `a/area/base/link[href]`, `audio/embed/frame/iframe/img/input/script/source/track/video[src]`, `form[action]`, `button/input[formaction]`, `blockquote/del/ins/q[cite]`, `video[poster]`; on any other element (`<portal>`, a custom element, one with a static `is=`) these names are `FORBIDDEN` (`Contexts.URL_ELEMENTS`); and `content` of a descriptive `<meta>` with a URL key (below) | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#thwart` (`Escapers.url`) | `AttributesEndToEndTest`, `DescriptiveMetaTest` |
 | `TYPED_ATTRIBUTE` | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `ContextsTest` |
-| `ATTRIBUTE` | the listed inert names (`Contexts.COMPUTED`: text `abbr alt download id label name pattern placeholder title value`, keywords, numbers, booleans, ID references, `accept class hreflang lang`, `role` and the WAI-ARIA 1.2 names) | any value (`Escapers.attr`) | `ContextsTest` |
+| `ATTRIBUTE` | the listed inert names (`Contexts.COMPUTED`: text `abbr alt download id label name pattern placeholder title value`, keywords, numbers, booleans, ID references, `accept class hreflang lang`, `role` and the WAI-ARIA 1.2 names); and `content` of a descriptive `<meta>` with a text key (below) | any value (`Escapers.attr`) | `ContextsTest`, `DescriptiveMetaTest` |
 | `NEUTRAL` | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | a framework-neutral value by static type and shape: an exact-class number in plain decimal (`Escapers.neutralNumber`), a boolean, a link `@{/path}` with a literal path in `A-Z a-z 0-9 . _ ~ / -` and `%XX` and no query (`Escapers.neutralPath`), or a choice between those and literals | `NeutralValuesTest`, `HostileSweepTest` |
+
+**Descriptive `<meta>`.** A computed `content` on a `<meta>` is `ATTRIBUTE` or `URL` only when
+its key is descriptive: display text or one URL for search results and link previews, which no
+supported browser acts on (`Contexts.descriptiveMeta`). Everything else about a `<meta>` content
+stays `FORBIDDEN`, with the fix-it for its case.
+
+| Key (`name` or `property`) | Class |
+|---|---|
+| `description`, `keywords`, `author`, `og:title`, `og:description`, `og:site_name`, `og:image:alt`, `twitter:title`, `twitter:description`, `twitter:image:alt` | `ATTRIBUTE` |
+| `og:image`, `og:url`, `twitter:image` | `URL` |
+
+The `<meta>` must have exactly one static `name` or `property` (either takes any key), compared
+after folding A-Z only and without trimming (`" description"` is not a key); no static
+`http-equiv` (a refresh is `REFRESH`), `charset` or `itemprop`; and no computed `name`,
+`property`, `itemprop`, `http-equiv` or `charset`, which fails closed even while that attribute
+reports its own error. A policy or configuration name (`referrer`, `viewport`, `color-scheme`,
+`theme-color`, `robots`, `htmx-config`, `turbo-*`), a site-verification or app-id token, an
+embedded player or app link (`twitter:player`, `og:video`, `al:*`), a CSRF name (`_csrf`,
+`_csrf_header`, `csrf-token`, `csrf-param`: the fix-it is `<t:csrf-meta/>`), and an unknown name
+are off the list. Checked by `DescriptiveMetaTest`, `ContextsTest` and `HostileSweepTest` (the
+`meta-description`, `meta-og-url` and `meta-referrer` variants).
 
 ### 6.2 Which computed names are accepted
 
@@ -202,7 +223,7 @@ such as `v-on:` or `hx-on:`, are the author's markup and are copied as written
 | Computed `action` on a `<form>` | a same-origin link, or a choice whose every branch is one | `FormActionTest`, `CsrfActionOriginTest` |
 | Computed `formaction` | a same-origin link, or a choice whose every branch is one | `CsrfFormactionTest` |
 | Computed `href` on `<base>` | a same-origin link, or a choice whose every branch is one; a static one must be same-origin by shape | `CsrfBaseTest` |
-| `<t:csrf-meta/>` (not an attribute: the one element besides `<t:block>`) | no attributes and no content; writes `<meta name="_csrf">` and `<meta name="_csrf_header">` with the request's token and header name, or nothing without a token. A computed `content` on a `<meta>` named `_csrf` or `_csrf_header` stays `FORBIDDEN`, with this element as the fix-it | `CsrfMetaTest`, `HostileSweepTest` |
+| `<t:csrf-meta/>` (not an attribute: the one element besides `<t:block>`) | no attributes and no content; writes `<meta name="_csrf">` and `<meta name="_csrf_header">` with the request's token and header name, or nothing without a token. A computed `content` on a `<meta>` named `_csrf`, `_csrf_header`, `csrf-token` or `csrf-param` stays `FORBIDDEN`, with this element as the fix-it | `CsrfMetaTest`, `HostileSweepTest` |
 
 ### 6.3 Client code
 

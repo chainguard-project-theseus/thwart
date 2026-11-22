@@ -430,7 +430,9 @@ final class Migrator {
      * Queues the exact rewrites (#822): {@code sec:authorize="hasRole('A')"} to
      * {@code t:if="auth.hasRole('A')"}, {@code th:errorclass="err"} with a {@code th:field="*{p}"} to
      * {@code t:classappend="fields.hasErrors('p') ? 'err'"}, and {@code th:attr} of {@code data-*}
-     * and {@code aria-*} pairs to one {@code t:<name>} each. False if {@code value} has none. Each
+     * and {@code aria-*} pairs, and a {@code content} pair on a {@code <meta>}, to one {@code t:<name>}
+     * each; the compiler then decides whether that {@code <meta>}'s content may be computed. False if
+     * {@code value} has none. Each
      * applies at the end of the start tag, unless the tag has one of the attributes it adds (or, for
      * {@code th:errorclass}, no field path): then the attribute is reported as before.
      */
@@ -449,7 +451,8 @@ final class Migrator {
       } else if (lower.equals("th:attr") && value.indexOf('"') < 0) {
         List<String> exprs = new ArrayList<>();
         for (String pair : Expressions.splitTopLevel(value, false)) {
-          if (!(m = ConversionRules.ATTR_PAIR.matcher(pair)).matches() || !Expressions.unsupported(m.group(2)).isEmpty()) {
+          if (!(m = ConversionRules.ATTR_PAIR.matcher(pair)).matches() || !Expressions.unsupported(m.group(2)).isEmpty()
+              || (m.group(1).equals(ConversionRules.CONTENT) && !ConversionRules.META.equals(openName))) {
             return false;
           }
           adds.add(m.group(1));
