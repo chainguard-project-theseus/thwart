@@ -124,6 +124,17 @@ and commit from `app.json`).
    development apps, held-out apps and below-floor apps, each with its pass count out of all its
    runs.
 
+## Updating the published results
+
+[docs/ai-compatible.md](../../docs/ai-compatible.md) publishes the results. After a round, update
+it from each run's `score.json`: `pass`, `pass_forced`, `build_ok`, `tests_ok`,
+`pages_identical + pages_reordered` over `pages_total` (pages matched), `browser.new` and
+`browser.pages`, `wall_minutes` and `cost_usd`. The engine and the set (development or held out)
+come from `apps/<name>/app.json` (`engine`, `heldout`). Mean pages matched is shown two ways: the
+mean over runs, and the mean of each app's own mean (app-weighted), since apps have different
+numbers of runs. Update the round, its Thwart commit and date, the tables, the latest round's
+triage table and the summary at the top of the page.
+
 ## Adding an app
 
 Add `apps/<name>/app.json` (repo, commit, engine, build/test/start commands, readiness path,

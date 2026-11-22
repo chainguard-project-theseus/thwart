@@ -13,19 +13,24 @@ works. This page explains the four parts that make that work, and then tests the
 agent with nothing but Thwart's plugin migrates real Spring applications, and a checker scores
 each result.
 
-**Summary of the results so far** (details in [Results](#results)):
+**Summary of the results so far.** The latest round (run 15, details in [Results](#results)):
 
 - **PetClinic family** (7 apps, Spring Boot 1.5 to 4.1 and Spring MVC 4.3 to 7, Thymeleaf and
-  JSP): a strict pass in **41 of 42 runs**. In the latest round each migration took 6 to 16
-  minutes and cost $2 to $4.
-- **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf with htmx,
-  FreeMarker, JSP with Apache Tiles, Velocity, Pebble): every run builds and passes all of the
-  app's tests, and in the latest round each migration took 10 to 51 minutes and cost $3.50 to
-  $32.
-  **But strict page-by-page parity is rare**: 6 of 73 runs, and 5 of 42 on the held-out apps.
-  Some of the remaining differences are what Thwart requires (inline event handlers moved out
-  for the CSP, output the old engine printed raw now escaped). Some are mistakes. The gap is
-  described in [Why most larger apps miss strict parity](#why-most-larger-apps-miss-strict-parity).
+  JSP): all 7 passed strictly. Each migration took 6 to 16 minutes and cost about $2 to $4.50.
+  Over every archived run, the family passed strictly in **41 of 42 runs**.
+- **Larger real-world apps** (10 apps, 38 to 169 checked pages each; Thymeleaf, Thymeleaf with
+  htmx, FreeMarker, JSP, JSP with Apache Tiles, Velocity and Pebble): every migrated app builds
+  and passes all of its tests, and each migration took 10 to 51 minutes and cost about $3.50 to
+  $32. **But none of the 10 passed strictly, and only 1 passed under the looser `pass_forced`
+  rule.** On average 46% of their pages matched. None of the 20 larger-app runs numbered 12 to 15
+  passed strictly. Over every archived run, the larger apps passed strictly in 6 of 73 runs (5 of
+  42 on the held-out apps), and all six are older runs; 70.6% of their pages matched, on average
+  over runs.
+- Some of the remaining differences are what Thwart requires (inline event handlers moved out
+  for the CSP, output the old engine printed raw now escaped, stored HTML rewritten by the
+  sanitizer). Some are agent mistakes, and some are scripts that Thwart's CSP blocks. Strict
+  parity on larger apps is the gap Thwart has to close. It is described in
+  [Why most larger apps miss strict parity](#why-most-larger-apps-miss-strict-parity).
 
 ## The four parts
 
@@ -47,10 +52,11 @@ each result.
    compile, read the error) is also how it learns Thwart.
 3. **A checker.** `thwart-migrate record` saves every page of the old app (body, status and final
    URL) from a list of requests. `thwart-migrate compare` replays the list against the migrated
-   app and reports each page as `same`, `reordered` or `differs`, comparing pages as a browser
-   builds them ([migration guide](guide/migrate.md)). Markup comparison can't see a script that
-   throws or a CSP violation, so the skill also tells the agent to load the pages in a headless
-   browser on both apps and compare the console.
+   app and compares the pages as a browser builds them ([migration guide](guide/migrate.md)). It
+   reports each page as `same`, `reordered` (the same elements, with some siblings in another
+   order, such as validation messages from a `HashSet`) or `differs`. Markup comparison can't
+   see a script that throws or a CSP violation, so the skill also tells the agent to load the
+   pages in a headless browser on both apps and compare the console.
 4. **The migration test.** [bench/migration](../bench/migration/README.md) runs the whole loop
    with a fresh agent on real applications and scores every result the same way. It is how we
    find out whether the first three parts work, and it is the rest of this page.
@@ -66,15 +72,17 @@ For each run, a fresh clone of the app goes into a new container, and Claude Cod
   repository, the plugin, JDK 8 and 21, Maven and Chromium. It has none of Thwart's source,
   docs or history. The agent's home directory is empty: no CLAUDE.md, memory, settings or
   other plugins.
-- **No web and no human.** Web tools are off, and nobody answers questions.
+- **No web tools and no human.** Claude's web tools (web fetch and web search) are off; the
+  network is up so that Maven and npm can download dependencies. Nobody answers questions.
 - **A budget.** 90 minutes of wall time and $40 of API spend per run.
 - **One prompt**, [prompt.md](../bench/migration/prompt.md). It asks for the migration and says
   what the result is checked against. It doesn't name the skill: the skill's description has to
   make the agent pick it up. In all 96 runs that recorded it, the agent invoked the skill.
 
-The check list of requests for each app (`pages.txt`) is never shown to the agent. It covers every
-template, both states of each form (empty and with validation errors), and the error pages. The
-agent writes its own list, as the skill tells it to.
+The check's list of requests for each app (`pages.txt`) is never shown to the agent. It is written
+to cover every template, both states of each form (empty and with validation errors), and the
+error pages, though some pages can't be reached (see [Limitations](#limitations)). The agent
+writes its own list, as the skill tells it to.
 
 ### What a pass means
 
@@ -85,11 +93,12 @@ hold:
   before.
 - `thwart-migrate compare` against a recording of the original app reports every page `same` or
   `reordered`, with the recorded status and final URL.
-- The diff adds no `permitAll`, no CSRF disabling and no `@Disabled` or `@Ignore`.
+- The diff adds no `permitAll`, no CSRF disabling, no `@Disabled` or `@Ignore`, and no
+  `SafeHtml.unchecked` or `TrustedUrl.unchecked`.
 - No template, dependency or configuration of the old view engine is left (Apache Tiles counts
   as one).
 - The browser smoke check finds no new CSP violation, uncaught exception or console error at page
-  load. This check was added late (see [Limitations](#limitations)).
+  load. This condition is newer than the latest round (see [Results](#results)).
 
 Strict parity is a hard bar on purpose. It treats every difference as a failure, including the
 ones Thwart requires. So the test also reports a second, looser verdict, **`pass_forced`**: a run
@@ -117,48 +126,19 @@ generation rather than the app.
 ## Results
 
 **Where the numbers come from.** The test has been run in rounds since it was written, and the
-tables below include every archived run: 123 runs, between 2 and 13 per app. Thwart, the plugin
-and the scoring changed between rounds, so the cumulative numbers mix setups (see
+cumulative tables include every archived run: 123 runs, between 2 and 13 per app. Thwart, the
+plugin and the scoring changed between rounds, so the cumulative numbers mix setups (see
 [Limitations](#limitations)). The latest round, **run 15, ran on 2026-11-15 from Thwart commit
-`cfebef4`**, one run of each of the 18 apps. It cost $179 in total. The plugin and guide have
-changed since then, for example to cover third-party scripts that need `eval`. A fresh round
-will be run before the release, and these tables will be updated from it. To update them, follow
-[Updating these numbers](#updating-these-numbers).
+`4e83f9ff`**, one run of each of the 18 apps. It cost $179 in total.
 
-### By group
+Run 15 was scored before `pass_forced` existed and before new browser errors failed a run: its
+browser check was report only. The `pass_forced` and "forced rule" figures for run 15 were
+computed afterwards, from its archived `compare` output, with the current scorer. Making browser
+errors fail a run changes no run-15 verdict, since none of the 7 strict passes had any.
 
-| Group | Apps | Runs | Strict passes | Build and tests pass | Mean pages matched | Median minutes | Median cost |
-|---|---|---|---|---|---|---|---|
-| PetClinic family (Thymeleaf, JSP) | 7 | 42 | 41 | 42 | 99.5% | 9.4 | $2.60 |
-| Mustache PetClinic | 1 | 8 | 4 | 8 | 92.9% | 9.2 | $2.75 |
-| Larger apps, development | 4 | 31 | 1 | 31 | 81.7% | 28.8 | $16.06 |
-| Larger apps, held out | 6 | 42 | 5 | 42 | 62.4% | 33.4 | $14.62 |
-| **All** | **18** | **123** | **51** | **123** | 81.9% | 15.6 | $4.49 |
-
-"Mean pages matched" is the mean, over runs, of the share of checked pages that compare reports as
-`same` or `reordered`. The one PetClinic-family run that failed (Spring Framework PetClinic, first
-round) failed on 6 pages under an older scorer.
-
-Across all 123 runs, every migrated app builds and passes all of its tests, and no diff adds
-`permitAll`, CSRF disabling, `@Disabled` or `@Ignore`. Two runs left old templates behind: one
-stopped early, and one ran out of session before its last step. One run (fredbet) was stopped
-at the time limit.
-
-### By engine
-
-| Engine | Apps | Runs | Strict passes | Mean pages matched | Median minutes | Median cost |
-|---|---|---|---|---|---|---|
-| Thymeleaf | 8 (4 PetClinic) | 53 | 28 | 90.7% | 11.8 | $3.78 |
-| JSP | 5 (3 PetClinic; 1 with Apache Tiles) | 32 | 17 | 81.9% | 15.2 | $3.91 |
-| FreeMarker | 2 | 18 | 1 | 54.2% | 35.2 | $26.56 |
-| Mustache | 1 | 8 | 4 | 92.9% | 9.2 | $2.75 |
-| Velocity | 1 | 6 | 1 | 73.7% | 13.1 | $4.13 |
-| Pebble | 1 | 6 | 0 | 81.1% | 40.5 | $9.18 |
-
-Every Thymeleaf and JSP strict pass outside the PetClinic family is purl-server (4 runs).
-Coverage is thin for Mustache, Velocity and Pebble, with one app each, and the only Velocity app
-(luckyblog) is old, since Spring 5 dropped Velocity. Both FreeMarker apps are large, so that row
-says more about app size than about the engine.
+The plugin and guide have changed since run 15, for example to cover third-party scripts that need
+`eval`. A fresh round will be run before the release, and this page will be updated from it
+([how](../bench/migration/README.md#updating-the-published-results)).
 
 ### Latest round (run 15), by app
 
@@ -183,44 +163,95 @@ says more about app size than about the engine.
 | luckyblog | Velocity | held out | 64 | 21 | 45 | no | no | 0 | 13.4 | $4.43 |
 | ewp-registry | Pebble | held out | 38 | 27 | 34 | no | no | 0 | 30.6 | $8.47 |
 
-Run 15 totals: 7 of 18 strict passes, 8 of 18 with `pass_forced`. "Matched, forced rule" counts
-the pages that are `same` or `reordered`, plus the differing pages that the `pass_forced` rule
-accepts.
+Run 15 totals: 7 of 18 strict passes, 8 of 18 with `pass_forced`. "Matched" counts the pages that
+are `same` or `reordered`. "Matched, forced rule" adds the differing pages that the `pass_forced`
+rule accepts.
 
 ### Why most larger apps miss strict parity
 
-The differences fall into a few kinds. The earlier rounds were triaged page by page, and the
-examples below are from run 15.
+The differences that remain fall into these kinds:
 
 - **Changes Thwart forces (intended).** Thwart rejects inline `on*` handlers and `javascript:`
   URLs, so a correct migration moves them into a listener script with a `data-*` hook, and every
-  page that had one differs. Computed attributes outside Thwart's allow-list move too:
-  posters-demo-store's computed `hx-get` became `data-hx-get`. Script values become JSON
-  declarations at the top of the script. The `pass_forced` rule accepts the simplest of these
-  shapes: it raises espd from 0 to 49 of 60 pages and jobsearch to all 92. It misses others,
-  such as an `id` added to a form so that a listener can find it (budgetmaster's login form).
+  page that had one differs. Computed attributes outside Thwart's allow-list move too (a computed
+  `hx-get` becomes `data-hx-get`), script values become JSON declarations at the top of the
+  script, and so on. The `pass_forced` rule accepts only the simplest of these shapes.
 - **Output now escaped (intended).** Where the original printed a value raw, Thwart escapes it.
-  jpetstore's only differing page shows a seeded first name with `<i>` in it, which the original
-  rendered as markup (a stored XSS in the original) and Thwart prints as text. The Mustache
-  PetClinic's differences are stray `th:*` attributes that its templates sent to the browser and
-  that Thwart rejects. Both apps now mask these with the test's `ignore` setting, so they are
-  expected to pass at the next round, but they haven't been re-run.
-- **Agent mistakes (not intended).** espd's language-switch pages lost `?lang=` from the form
-  action; purl-server added an empty `<tbody>` to three pages; jprime dropped text from its
-  `<meta name="description">`.
-- **Scripts the CSP blocks (not intended).** Only the browser check catches these. jprime's
-  carousel plugin calls `eval`, which Thwart's default CSP blocks, so the carousel fails on 62
-  pages; fredbet's vendored jQuery Rotate does the same on 3 pages. budgetmaster's 93 reports are
-  Materialize appending a `<base>` to an inert document, which `base-uri 'none'` blocks: nothing
-  visible breaks, but every page logs it. The guide and skill now say how to handle a script that
-  needs `eval`; run 15 predates that.
-- **Not yet classified.** The test's diff output is cut short on long pages (37 budgetmaster
-  pages and 11 jprime pages in run 15), so those can't be classified from the archive.
+- **Stored HTML rewritten by the sanitizer (intended).** Thwart's HTML sanitizer adds
+  `rel="nofollow noopener"` to links and a `user-content-` prefix to ids, and `css.url()` quotes
+  a CSS URL.
+- **Forced changes not adapted to keep parity.** The agent followed a rule but in a way that
+  changed the page where another way wouldn't have.
+- **Test noise.** Text that differs between any two starts, such as stack traces on error pages
+  or a content-hashed script name.
+- **Agent mistakes (not intended).**
+- **Scripts the CSP blocks (not intended).** Only the browser check catches these.
+- **Not yet classified.** The `compare` diff is cut short on long pages, so those can't be
+  classified from its output.
 
-Run 15 has not been triaged page by page. What can be said from it: one larger app passes with
-the forced rule, the only differences in jpetstore and the Mustache PetClinic are intended, and
-every other larger app has at least one difference that is a real mistake, a blocked script, or
-not yet classified. Strict parity on the larger apps is the gap Thwart has to close.
+Run 15 hasn't been triaged in full, page by page. This table classifies the pages of each app that
+the `pass_forced` rule doesn't accept, from their diffs and the browser check:
+
+| App | Pages left | What they are | Kinds |
+|---|---|---|---|
+| jobsearch | 0 | Only handler moves (and `HashSet`-ordered messages) | Passes with `pass_forced` |
+| jpetstore | 1 | A seeded first name with `<i>` in it, which the original rendered as markup (a stored XSS) and Thwart prints as text | Output escaped (intended) |
+| spring-petclinic-mustache | 7 | Stray `th:*` attributes that the original's templates sent to the browser, which Thwart rejects, are gone | Forced (intended) |
+| luckyblog | 19 | The avatar's CSS `url(...)` is quoted (13 pages); sanitized posts gain `rel="nofollow noopener"` and `user-content-` ids | Sanitizer and forced (intended) |
+| purl-server | 5 | An empty `<tbody>` on 3 pages: the guide says to write `<tbody>` around rows, and the agent wrapped a conditional row, where putting the `t:if` on the `<tbody>` would have kept parity. Stack traces on 2 error pages | Forced change not adapted; test noise |
+| ewp-registry | 4 | Vue component content and attributes moved into JSON `<script>` blocks (Thwart rejects computed `:name` attributes); sanitizer `rel`; a content-hashed `ui-*.js` name | Forced, sanitizer and test noise |
+| posters-demo-store | 64 | Computed `hx-*` attributes became `data-hx-*`, `hx-confirm` text moved into hidden elements, the CSRF token moved into a script; 1 page cut short | Mostly forced; not fully classified |
+| espd | 11 | Form actions lost `?lang=` on the language-switch pages. A hidden input holds a copy of the page for its PDF export, so it carries the forced script changes. One tooltip has a character that the message file mis-encodes, and it prints differently | Agent mistake; forced; encoding |
+| fredbet | 3 | A ranking link lost the `=` in `?mode=`; a settings error page lists options the original left empty; 1 page cut short. The browser check finds vendored jQuery Rotate calling `eval`, which the CSP blocks (3 pages) | Agent mistakes; blocked script |
+| jprime | 30 | `<meta name="description">` lost text (17 pages); 11 pages cut short. The carousel plugin calls `eval`, which the CSP blocks, so it fails on 62 pages | Agent mistake; blocked script; not classified |
+| budgetmaster | 77 | Script globals declared with `var`, `data-tooltip` moved to `title`, a seeded `<shop>` name escaped, dropped `<b>` emphasis; 37 pages cut short. The browser check finds Materialize's `<base>` blocked by `base-uri 'none'` on 93 pages, with no exception logged | Mostly forced or escaped where visible; mostly not classified |
+
+So in run 15, one larger app passes with `pass_forced`, and in jpetstore, the Mustache PetClinic
+and luckyblog every remaining difference is intended. In purl-server and ewp-registry the rest is
+forced changes and test noise. espd, fredbet and jprime have real agent mistakes, fredbet and
+jprime have scripts the CSP blocks, and budgetmaster and posters-demo-store can't be fully
+classified from the archived output. The guide and skill now say how to handle a script that
+needs `eval`; run 15 predates that.
+
+### Cumulative, by group
+
+| Group | Apps | Runs | Strict passes | Build and tests pass | Mean pages matched, over runs | Mean pages matched, app-weighted | Median minutes | Median cost |
+|---|---|---|---|---|---|---|---|---|
+| PetClinic family (Thymeleaf, JSP) | 7 | 42 | 41 | 42 | 99.5% | 99.6% | 9.4 | $2.60 |
+| Mustache PetClinic | 1 | 8 | 4 | 8 | 92.9% | 92.9% | 9.2 | $2.75 |
+| Larger apps, development | 4 | 31 | 1 | 31 | 81.7% | 68.0% | 28.8 | $16.06 |
+| Larger apps, held out | 6 | 42 | 5 | 42 | 62.4% | 64.8% | 33.4 | $14.62 |
+| **All** | **18** | **123** | **51** | **123** | 81.9% | 80.6% | 15.6 | $4.49 |
+
+"Mean pages matched, over runs" is the mean, over every run, of the share of checked pages that
+compare reports as `same` or `reordered`, so apps with many runs weigh more (fredbet has 13).
+"App-weighted" averages each app's own mean instead.
+
+The larger apps' six strict passes are purl-server runs 4, 9, 10 and 11, luckyblog run 2, and
+jobsearch run 2. The last was scored by the first round's crawler, which was more lenient than
+`compare`. All six came before Thwart started rejecting inline handlers. The one PetClinic-family
+run that failed (Spring Framework PetClinic, first round) also used that crawler.
+
+Across all 123 runs, every migrated app builds and passes all of its tests, and no diff adds any of
+the security tripwires above. Two runs left old templates behind: budgetmaster run 4, which
+stopped early, and espd run 2, whose session ended before its last step. One run (fredbet run 12)
+was stopped at the time limit.
+
+### Cumulative, by engine
+
+| Engine | Apps | Runs | Strict passes | Mean pages matched, over runs | Mean pages matched, app-weighted | Median minutes | Median cost |
+|---|---|---|---|---|---|---|---|
+| Thymeleaf | 8 (4 PetClinic) | 53 | 28 | 90.7% | 84.7% | 11.8 | $3.78 |
+| JSP | 5 (3 PetClinic; 1 with Apache Tiles) | 32 | 17 | 81.9% | 83.5% | 15.2 | $3.91 |
+| FreeMarker | 2 | 18 | 1 | 54.2% | 54.2% | 35.2 | $26.56 |
+| Mustache | 1 | 8 | 4 | 92.9% | 92.9% | 9.2 | $2.75 |
+| Velocity | 1 | 6 | 1 | 73.7% | 73.7% | 13.1 | $4.13 |
+| Pebble | 1 | 6 | 0 | 81.1% | 81.1% | 40.5 | $9.18 |
+
+Every Thymeleaf and JSP strict pass outside the PetClinic family is purl-server (4 runs).
+Coverage is thin for Mustache, Velocity and Pebble, with one app each, and the only Velocity app
+(luckyblog) is old, since Spring 5 dropped Velocity. Both FreeMarker apps are large, so that row
+says more about app size than about the engine.
 
 ### Limitations
 
@@ -239,20 +270,11 @@ not yet classified. Strict parity on the larger apps is the gap Thwart has to cl
   built from Spring PetClinic. The agents never saw that port, but Thwart's design was shaped by
   it, so the PetClinic results are the best case.
 - **Load-time behaviour only.** The browser check clicks nothing, so a handler that breaks only
-  when it fires isn't seen.
+  when it fires isn't seen. It records errors, not what the page looks like.
 
 ## Running it yourself
 
 [bench/migration/README.md](../bench/migration/README.md) is the operator's manual: what you need
 (Docker, Python 3, an Anthropic API key), how to run a full round or a quick one, how each step
-works, and how to add an app. Per-run output goes to `bench/migration/results/`, which isn't
-committed.
-
-### Updating these numbers
-
-After a round, `bench.py report` writes `results/summary.md` with a row per run and the pass
-counts per app. The tables above are computed from each run's `score.json`: `pass`,
-`pass_forced`, `build_ok`, `tests_ok`, `pages_identical + pages_reordered` over `pages_total`,
-`browser.new` and `browser.pages`, `wall_minutes` and `cost_usd`. Engines and sets come from each
-app's `app.json` (`engine`, `heldout`). Update the round, commit and date in
-[Where the numbers come from](#results), then the three tables and the summary at the top.
+works, how to add an app, and how to update this page after a round. Per-run output goes to
+`bench/migration/results/`, which isn't committed.
