@@ -102,7 +102,7 @@ because of what a held-out app does.
 
 Coverage is thin outside Thymeleaf and JSP: one app each for Mustache, Velocity and Pebble, two
 for FreeMarker, and one for Apache Tiles. A result for those engines says more about that app than
-about the engine. Results by engine are in [AI compatible](ai-compatible.md#by-engine).
+about the engine. Results by engine are in [AI compatible](ai-compatible.md#cumulative-by-engine).
 
 ## Part 2: compiled alternatives
 
