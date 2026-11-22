@@ -474,7 +474,8 @@ class ContextVerifierRulesTest {
     List<Finding> f = check(seq(st("<table>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</table>")));
     String m = f.stream().filter(x -> x.problem == Problem.UNBALANCED).map(VerifierMessages::message)
         .findFirst().orElse(f.toString());
-    assertTrue(m.contains("this t:each leaves <tbody> open") && m.contains("write the <tbody> around the rows"), m);
+    assertTrue(m.contains("this t:each leaves <tbody> open") && m.contains("write the <tbody> around the rows")
+        && m.contains("put a t:if or t:unless on the written <tbody>"), m);
     accept(st("<table><tbody>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</tbody></table>"));
     // An open li closes the last one: the first pass differs from the next.
     reject(Problem.UNBALANCED, st("<ul>"), rep(seq(st("<li>"), text())), st("</ul>"));

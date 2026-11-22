@@ -99,8 +99,7 @@ Gradle plugin. [Maven](#maven) and [Gradle](#gradle) below give the complete set
 ## Gradle
 
 Keep the build's plugins (`org.springframework.boot`, `io.spring.dependency-management` or a
-platform, `java` or `war`) and add the following (Groovy DSL; `examples/gradle` in the Thwart
-repository is a complete Boot app, built in CI):
+platform, `java` or `war`) and add the following (Groovy DSL):
 
 ```groovy
 dependencies {

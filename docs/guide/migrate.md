@@ -183,7 +183,7 @@ inside the application, and Boot leaves DevTools out of the jar it packages. Add
 - **Errors:** a template that fails to compile prints its `file:line:col` error in the watch
   terminal. By then the old classes are gone, so the restarted application fails to start until
   you save a fix. It then comes back by itself.
-- **Timing:** in `examples/petclinic`, about 4 s from save to page under Gradle and 5 s under Maven,
+- **Timing:** in a small Boot app, about 4 s from save to page under Gradle and 5 s under Maven,
   most of it the build. The restart itself takes half a second.
 - The Maven watch goal reacts only to templates and messages. Java edits are compiled by your IDE
   or by `mvn compile`, and DevTools restarts as usual. Spring MVC without Boot has no DevTools, so
@@ -257,6 +257,11 @@ become fragment calls ([Fragments and layouts](templates.md#fragments-and-layout
   `<c:set var>` of a value is `t:with`; one that captures markup to repeat is a fragment.
 - EL implicit objects (`param`, `sessionScope`, `header`, `pageContext.request.contextPath`) are
   model values; a context-path prefix is `@{...}`.
+- With the JSP resolver gone, a view name no template provides is a 500 (`Could not resolve
+  view`), where `InternalResourceViewResolver` let the container answer 404; if that matters, add
+  a last view resolver that answers 404. Removing Jasper's `tomcat-jasper-el` can also remove the
+  EL implementation Bean Validation needs: declare one (`org.glassfish:javax.el` for `javax`,
+  `org.glassfish.expressly:expressly` for Jakarta).
 
 **FreeMarker.**
 

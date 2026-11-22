@@ -422,7 +422,8 @@ final class VerifierMessages {
         + ", so what follows would parse differently depending on whether, or how often, it is written; ";
     if (!before.stack().isEmpty() && before.currentNode().localName().equals("table") && opens(before, after, "tbody")) {
       return head + "a browser opens a <tbody> before the first row only: write the <tbody> around the rows, or put"
-          + " the t:each on a <tbody>";
+          + " the t:each on a <tbody>; if there can be no rows, put a t:if or t:unless on the written <tbody>, since"
+          + " a browser adds none to an empty table";
     }
     InsertionMode m = before.mode();
     if (m == InsertionMode.BEFORE_HTML || m == InsertionMode.BEFORE_HEAD || m == InsertionMode.IN_HEAD

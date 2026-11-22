@@ -45,6 +45,8 @@ final class Migrator {
     }
   }
 
+  private static final Set<String> DOCUMENT_ELEMENTS = Compat.setOf("html", "head", "body");
+
   private static final Pattern FRAGMENT_SIGNATURE =
       Pattern.compile("(\\s*)([\\w-]+)\\s*(?:\\((.*)\\))?(\\s*)", Pattern.DOTALL);
 
@@ -81,16 +83,19 @@ final class Migrator {
   }
 
   /**
-   * An open element: its lower-case name and the {@code th:inline} mode (stripped, lower case) that
-   * governs its body, its own or the nearest ancestor's, or {@code null}.
+   * An open element: its lower-case name, the {@code th:inline} mode (stripped, lower case) that
+   * governs its body, its own or the nearest ancestor's, or {@code null}, and whether it declares a
+   * fragment.
    */
   private static final class Open {
     private final String name;
     private final String inline;
+    private final boolean fragment;
 
-    Open(String name, String inline) {
+    Open(String name, String inline, boolean fragment) {
       this.name = name;
       this.inline = inline;
+      this.fragment = fragment;
     }
   }
 
@@ -116,6 +121,9 @@ final class Migrator {
     private int rootInsertAt;
     /** Lower-case name of the element whose start tag is being read. */
     private String openName;
+    /** The offset of that start tag's {@code <}, and whether it declares a fragment. */
+    private int tagStart;
+    private boolean tagFragment;
     /**
      * The {@code type} of that {@code <script>}. A computed {@code t:type} on a script is a build
      * error, so it is not tracked.
@@ -173,7 +181,7 @@ final class Migrator {
       // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
       String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
       boolean none = ConversionRules.INLINE_NONE.equals(mode);
-      open.push(new Open(openName, mode));
+      open.push(new Open(openName, mode, tagFragment));
       inScript = !none && ConversionRules.SCRIPT.equals(openName)
           && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
       javaScriptInline = ConversionRules.INLINE_JAVASCRIPT.equals(mode);
@@ -217,6 +225,8 @@ final class Migrator {
       checkBuffer(buffer);
       flushFormObjects();
       openName = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
+      tagStart = nameOffset - 1;
+      tagFragment = false;
       scriptType = "";
       inlineMode = null;
       inScript = false;
@@ -315,6 +325,12 @@ final class Migrator {
           declared.add(tokens[tokens.length - 1]);
         }
       }
+      if (local.equals(ConversionRules.FRAGMENT)) {
+        tagFragment = true;
+        if (thymeleaf && value != null) {
+          inPlaceCall(value, nameLine);
+        }
+      }
       if (value == null || ConversionRules.LITERAL_VALUES.contains(local)) {
         return;
       }
@@ -387,6 +403,32 @@ final class Migrator {
         }
       });
       return true;
+    }
+
+    /**
+     * Thymeleaf renders a fragment where it is declared too, reading its parameters from the scope
+     * around it, where they are usually unset ({@code null}); Thwart
+     * renders one with parameters nowhere but its calls. For a fragment with parameters inside
+     * another fragment, which renders wherever the outer one is called, adds a call with
+     * {@code null} arguments just before it. One elsewhere renders in place only if its file is
+     * rendered as a page, which the converter can't tell. A call before an {@code <html>},
+     * {@code <head>} or {@code <body>} would land where a browser opens or closes that element, so
+     * none is added for one.
+     */
+    private void inPlaceCall(String value, int line) {
+      Matcher m = FRAGMENT_SIGNATURE.matcher(value);
+      if (!m.matches() || m.group(3) == null || open.stream().noneMatch(o -> o.fragment)
+          || DOCUMENT_ELEMENTS.contains(openName)) {
+        return;
+      }
+      long params = Expressions.splitTopLevel(m.group(3), true).stream()
+          .filter(p -> !Compat.strip(p).isEmpty()).count();
+      if (params == 0) {
+        return;
+      }
+      String call = "~{::" + m.group(2) + "(" + String.join(", ", Collections.nCopies((int) params, "null")) + ")}";
+      edits.add(tagStart, tagStart, "<t:block t:replace=\"" + call + "\"></t:block>");
+      report(line, String.format(ConversionRules.FRAGMENT_IN_PLACE_MESSAGE, m.group(2), call));
     }
 
     /** {@code f(a, b)} becomes {@code f(Object a, Object b)} plus a report item to type it. */

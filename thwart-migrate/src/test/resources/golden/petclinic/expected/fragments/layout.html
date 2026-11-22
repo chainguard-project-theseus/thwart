@@ -31,7 +31,7 @@
 
         <ul class="nav navbar-nav me-auto">
 
-          <li t:fragment="menuItem(Object link, Object active, Object title, Object glyph, Object text)" class="nav-item">
+          <t:block t:replace="~{::menuItem(null, null, null, null, null)}"></t:block><li t:fragment="menuItem(Object link, Object active, Object title, Object glyph, Object text)" class="nav-item">
             <a t:class="active==menu ? 'nav-link active' : 'nav-link'" t:href="@{__${link}__}"
               t:title="title">
               <span t:class="'fa fa-'+glyph" class="fa fa-home"></span>

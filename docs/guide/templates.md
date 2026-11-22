@@ -17,7 +17,9 @@ template error is a build error. At runtime nothing parses or reads templates.
 
 **A template sees only its typed parameters.** The first element declares them
 (`t:params="Owner owner, List<Pet> pets"`). With Spring each is read from the model attribute of
-the same name, or else from the handler's `@PathVariable` of that name. There is no request,
+the same name, or else from the handler's `@PathVariable` of that name. A path variable has the
+handler's converted type (`int ownerId` arrives as an `Integer`), and only those the handler method
+declares are there: one that is only in the URL pattern is `null`. There is no request,
 session, application or bean scope, no request parameters, cookies or headers. Engines you are
 leaving often fall back to those scopes when a name is not in the model; Thwart doesn't, so **a
 missing model attribute is `null`**, which prints nothing, and reading a property of it fails the
@@ -62,7 +64,7 @@ inside `|...|` and `+` a `null` prints `null`.
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"`. Markup built in Java: a `SafeHtml`. A bundle message with markup: `t:utext="#{key}"` ([Messages and links](#messages-and-links)). |
 | puts expressions in `style`, a `data-*` or a framework attribute (`th:hx-get`) | [Output contexts](#output-contexts): computed attributes are a closed list, each with a fixed context. |
-| has an event handler (`onclick="..."`, any `on*`, static or computed) or a `javascript:` URL | Build errors: a strict CSP blocks inline script. Mark the element (`data-action="save"`) and attach one listener from a `<script>`: `document.addEventListener('click', e => { const el = e.target.closest('[data-action=save]'); if (el) save(el); });`. A `href="javascript:void(0)"` link becomes a `<button type="button">`, or `href="#"` with `e.preventDefault()` in the listener. |
+| has an event handler (`onclick="..."`, any `on*`, static or computed) or a `javascript:` URL | Build errors: a strict CSP blocks inline script. Mark the element (`data-action="save"`) and attach one listener from a `<script>`: `document.addEventListener('click', e => { const el = e.target.closest('[data-action=save]'); if (el) save(el); });`. A `href="javascript:void(0)"` link becomes a `<button type="button">`, or `href="#"` with `e.preventDefault()` in the listener. htmx's `hx-on` needs `eval`, which the CSP blocks too: listen for the `htmx:` event (`htmx:afterRequest`) from a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments ([Fragments and layouts](#fragments-and-layouts)). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` ([Forms](#forms)). |
 | reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`, an `Instant`) in the model. |
@@ -110,7 +112,8 @@ public record Order(String number, BigDecimal total) {}
 
 - `t:params` is `Type name, ...` with Java types (generics, arrays, `Outer.Inner`), without
   wildcards: write `List<Owner>`, not `List<? extends Owner>`. A primitive parameter must be
-  present in the model. `t:import` lists classes or packages; `java.lang`, `java.util`,
+  present in the model. `t:import` lists classes or packages, comma-separated in the one
+  attribute (`t:import="com.example.Owner, com.example.pets.*"`); `java.lang`, `java.util`,
   `java.time`, `java.math` and `dev.chainguard.thwart.runtime` are always imported.
 - The template compiles to `<thwart.package>.guide.HelloTemplate` with
   `of(Customer, List<Order>, boolean)`.
@@ -134,6 +137,8 @@ getters (`owner.name`, `owner.getName()`, `isX()` for booleans; `new` is a keywo
 `pet.isNew()`), `size()`/`isEmpty()`/`first`/`last` on collections, `length` on arrays, and index
 access (`list[0]`, `map['key']`). Nothing else. So `map.key` is a build error (write
 `map['key']`), and an `Optional` offers only `present`: unwrap it in the view type (`orElse(null)`).
+An enum's `name()` can't be called either: print the enum itself (its `toString()`), or add a
+getter where `toString()` is overridden.
 
 **Recommended: a view record per page**, built by the controller from its entities. Lazy loading
 then happens in the controller, the template sees only what the record lists, and shaping is plain
@@ -231,7 +236,7 @@ accepts:
 
 A computed `id`, `name` or `form` takes any value, so it can clobber page globals (`<form
 name="cookie">` shadows `document.cookie`) or move a control into another form. Compute them from
-your own keys or a prefixed id, not raw user input (security-model.md §9).
+your own keys or a prefixed id, not raw user input.
 
 **A computed name that is not on the list.** Port it by what it is for:
 
@@ -278,8 +283,9 @@ attributes are copied as written. Port a computed string by what it is for:
 
 | The string is | Recipe |
 |---|---|
-| a request value: `hx-vals`, `hx-headers`, a query in `hx-get` | Hidden inputs and `hx-include` (below). |
+| a request value: `hx-vals`, `hx-headers`, a query in `hx-get` | Hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. |
 | text for people: a tooltip, a label, a status | `title` or element text. Bootstrap's tooltip reads `title`. |
+| `hx-confirm` text | A static `hx-confirm`, and the text in a hidden element your confirm script reads. |
 | data your own script reads (`el.dataset.x`) | A JSON block or a hidden input the script reads instead. |
 | Alpine `x-data`, Vue props, other component state | A named component (`Alpine.data`, `createApp(App, props)`) that reads a JSON block. |
 | options a third-party plugin reads from `data-*` | A number on each element, the strings in a JSON block, and an init script that passes them through the plugin's API (below). If the plugin's only text option is HTML, escape the text first. |
@@ -581,7 +587,8 @@ direct, unconditional child keeps it and gets no second one. For htmx or `fetch`
 the model (a `@ControllerAdvice` `@ModelAttribute("csrfToken")` reading the request's `CsrfToken`),
 declare it at the top of a script, `const csrfToken = [[${csrfToken}]];`, and send it as the
 `X-CSRF-TOKEN` header (htmx: in an `htmx:configRequest` listener). Use htmx 2 or set
-`htmx.config.selfRequestsOnly = true`.
+`htmx.config.selfRequestsOnly = true`. A `method="post"` form that only htmx submits gets the token
+input too, and htmx 2 puts it in the URL of an `hx-delete`: add `hx-params="not _csrf"` there.
 
 ## Fragments and layouts
 
@@ -625,13 +632,18 @@ parameters.
   Put it inside the host so it doesn't also render in place. Only the first match; no `#id` or
   `.class` selectors.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
+- A fragment with parameters renders nothing where it is declared; Thymeleaf rendered it there too,
+  reading its parameters from the variables around it (usually unset, so `null`). In one fragment
+  inside another, `thwart-migrate` adds that call; pass any value those variables had.
 - The compiler checks each fragment where it is inserted, so a `~{::tr}` goes into a `<tbody>`
   but not a `<div>`. Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
 - Every `t:if`, `t:unless`, `t:case` and `t:each` body, and every fragment, must close what it
   opens and leave open what it finds open, so what follows parses the same however often it is
   written (`[verifier:UNBALANCED]`). Two shapes need a change when porting:
   - Rows directly in a `<table>`: a browser opens a `<tbody>` before the first row only. Write the
-    `<tbody>` (`<table><tbody><tr t:each="...">`), or put the `t:each` on the `<tbody>`.
+    `<tbody>` (`<table><tbody><tr t:each="...">`), or put the `t:each` on the `<tbody>`. A browser
+    adds no `<tbody>` to an empty table, so if there can be no rows, put the `t:if` or `t:unless`
+    on the written `<tbody>`.
   - A fragment library wrapped in `<html>`, with a fragment call or `t:if` before its `<body>`:
     that content makes a browser open the `<body>` (or `<head>`). Make the library's root a
     `<t:block>` instead of `<html>`, or move the fragments into the `<body>`.
@@ -793,7 +805,7 @@ that calls `eval` or `new Function` (an old `owl.carousel.min.js`, `jquery-rotat
 `EvalError`, and whatever it set up is missing (`owl.owlCarousel is not a function`). Neither the
 build, the tests nor `compare` see it; the browser console does. Prefer replacing or upgrading the
 library. Otherwise allow `eval` in a policy of your own, a visible choice that the starter's
-default then stands aside for (above). It gives up part of the CSP backstop (security-model.md):
+default then stands aside for (above). It gives up part of the CSP backstop:
 any script on those pages, not just that library, may then run a string as code, including DOM
 text or attributes it reads, so limit it to the pages that need it (for example with a
 `FilterRegistrationBean` and URL patterns). It must keep the nonce
