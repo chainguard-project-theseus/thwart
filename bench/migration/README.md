@@ -1,7 +1,7 @@
 # Migration benchmark
 
 Can one coding agent, given only the Claude Code plugin we ship
-([plugins/thwart](../../plugins/thwart): the `migrate` skill and its guide) and a legacy Spring
+([plugins/thwart](../../plugins/thwart): the `thwart` skill and its guide) and a legacy Spring
 app, migrate the app's views to Thwart on its own without breaking anything? This directory
 measures that. Its output goes to `results/`, which is local and not committed.
 
@@ -65,7 +65,7 @@ and commit from `app.json`).
    plugin, as a user who installed it would have. The prompt asks for the migration and says what
    "done" is checked against, but doesn't name the skill or its guide: the skill's description
    has to trigger it. `agent.json` records `skill_listed` (the session's init event lists
-   `thwart:migrate`) and `skill_invoked` (the transcript has a `Skill` tool call for it, or a tool call that opens its
+   `thwart:thwart`) and `skill_invoked` (the transcript has a `Skill` tool call for it, or a tool call that opens its
    `SKILL.md` directly). The
    skill's `mvn dependency:copy` of `thwart-migrate` resolves from the seeded Maven volume.
 4. **Scoring.** The migrated checkout goes through the same check, with `thwart-migrate

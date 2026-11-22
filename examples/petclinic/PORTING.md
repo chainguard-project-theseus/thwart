@@ -2,7 +2,7 @@
 
 This records every manual step and deviation from porting the twelve Thymeleaf templates in
 `thymeleaf-reference/templates` to `src/main/resources/templates`. The general porting guide is
-[docs/guide.md](../../docs/guide.md).
+[docs/guide/migrate.md](../../docs/guide/migrate.md).
 
 What went smoothly: once the model was annotated and the stubs were typed, the templates compiled
 after one parser error (step 9). That covers layout with `~{::body}`, `t:object`/`t:field`/`t:errors`,
@@ -25,9 +25,9 @@ rendered the same content as upstream for the sample data, including the validat
    `Pet`, `PetType`, `Visit`, `Vet`, `Specialty`. Getters inherited from `BaseEntity`, `NamedEntity` and
    `Person` resolve through the annotated subclass, so the mapped superclasses needed nothing.
    `Owner.getPet(String)` and other methods with arguments stay unreachable. This is the
-   shortcut from guide section 4.2, kept so the port stays close to upstream; a new application would
-   pass view records built in the controller instead, for the lazy-loading and exposure reasons given
-   there.
+   shortcut from the guide's [View types](../../docs/guide/templates.md#view-types), kept so the
+   port stays close to upstream; a new application would pass view records built in the
+   controller instead, for the lazy-loading and exposure reasons given there.
 3. **Type the `t:params` stubs.** Each page imports `org.springframework.samples.petclinic.owner.*` (or
    `vet.Vet`) and declares what its controller puts in the model:
 

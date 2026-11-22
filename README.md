@@ -48,10 +48,10 @@ You get:
 - Speed: about 20× Thymeleaf's `TemplateEngine` at rendering the [benchmark pages](thwart-benchmarks/RESULTS.md) (render only, not the whole request). Other compiled engines such as JTE skip runtime interpretation too, so expect them in the same range.
 
 It costs:
-- It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide.md).
+- It is stricter: some constructs are rejected, each with a recipe in the [guide](docs/guide/README.md).
 - Logic and formatting move to Java: getters, records the controller builds, registered functions.
 - Client frameworks that compile the server's DOM as a template are unsupported.
-- Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide.md#31-hot-reload)).
+- Hot reload is a recompile and a Spring Boot DevTools restart, a few seconds per save ([guide](docs/guide/migrate.md#hot-reload)).
 - It is not published to any repository yet.
 
 ## Status and contributing
@@ -75,8 +75,8 @@ trademark policy.
 
 | Goal | Read |
 |---|---|
-| Add Thwart to an app | [Quick start](#quick-start), then [guide §2](docs/guide.md#2-build-setup) |
-| Migrate an existing app | [The Claude Code skill](#migrating) or the [porting guide](docs/guide.md) |
+| Add Thwart to an app | [Quick start](#quick-start), then [docs/guide/setup.md](docs/guide/setup.md) |
+| Migrate an existing app | [The Claude Code skill](#migrating) or the [porting guide](docs/guide/migrate.md) |
 | Check the security claims | [docs/security-model.md](docs/security-model.md), then [docs/security-architecture.md](docs/security-architecture.md) and [docs/context-model.md](docs/context-model.md) |
 | Compare with other engines | [docs/comparison.md](docs/comparison.md) |
 | Understand the internals | [docs/architecture.md](docs/architecture.md) |
@@ -128,7 +128,7 @@ tasks.named('compileJava') {
 }
 ```
 
-[Guide §2](docs/guide.md#2-build-setup) has the full setup for both: other annotation processors,
+[docs/guide/setup.md](docs/guide/setup.md) has the full setup for both: other annotation processors,
 message-key checks, and the `check` goal's options (it needs Maven 3.6.3+).
 [examples/gradle](examples/gradle/build.gradle) is a Spring Boot app built with Gradle in CI. Plain
 Spring MVC without Boot adds `@Import(dev.chainguard.thwart.spring.ThwartConfiguration.class)`. Thwart's view
@@ -139,7 +139,7 @@ The starter sends `Content-Security-Policy: script-src 'nonce-N' 'strict-dynamic
 'none'; base-uri 'none'` with Thwart pages unless a CSP header is already set (yours or Spring
 Security's wins). Scripts the template writes get the nonce; inline scripts without it, and
 libraries that use `eval` or `new Function`, break. Turn it off with `thwart.csp.enabled=false`
-([guide §4.9](docs/guide.md#49-rendering)).
+([guide](docs/guide/templates.md#rendering)).
 
 ## Migrating
 
@@ -149,9 +149,10 @@ claude plugin install thwart@thwart
 ```
 
 Or run `claude --plugin-dir plugins/thwart` from a checkout. Then ask Claude Code to move an app's
-views to Thwart, or run `/thwart:migrate`. The skill uses `thwart-migrate` to record the old
-app's pages and compare the new app against them, and its Thymeleaf converter for the mechanical
-`th:` to `t:` rewrite. Everything else is in the [porting guide](docs/guide.md).
+views to Thwart, or run `/thwart:thwart`. The same skill also covers adding Thwart to an app and
+writing its templates. For a migration it uses `thwart-migrate` to record the old app's pages and
+compare the new app against them, and its Thymeleaf converter for the mechanical `th:` to `t:`
+rewrite. Everything else is in the [porting guide](docs/guide/migrate.md).
 
 ## For contributors
 
@@ -165,8 +166,8 @@ app's pages and compare the new app against them, and its Thymeleaf converter fo
 | `examples/`, `plugins/thwart` | PetClinic and Gradle examples; the Claude Code plugin |
 
 Build and test with `mvn -B -ntp verify` (JDK 21+, Maven 3.9+; set `JDK8_HOME` to a JDK 8 to run
-`Jdk8ProcessorTest`). `plugins/thwart/skills/migrate/references/guide.md` must stay a copy of
-`docs/guide.md` (`MigrationSkillTest`). The [migration benchmark](bench/migration/README.md)
+`Jdk8ProcessorTest`). The files in `plugins/thwart/skills/thwart/references/` must stay copies of
+the guide in `docs/guide/` (`ThwartSkillTest`). The [migration benchmark](bench/migration/README.md)
 measures whether a coding agent can migrate a real app from the guide alone. Maintainer rules,
 for humans and agents, are in [AGENTS.md](AGENTS.md).
 

@@ -110,7 +110,7 @@ class NeutralValuesTest {
 
   /**
    * A message is not a literal in a neutral attribute, even a {@code #{key}} with no arguments, alone
-   * or in a choice (#629, guide section 4.4): bundles are edited outside template review, and a
+   * or in a choice (#629, guide templates.md, Output contexts): bundles are edited outside template review, and a
    * framework may run what it reads there. In a standard inert attribute it is text as usual.
    */
   @ParameterizedTest

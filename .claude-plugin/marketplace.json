@@ -8,7 +8,7 @@
     {
       "name": "thwart",
       "source": "./plugins/thwart",
-      "description": "Migrate server-rendered Java views to Thwart, checked page by page against the old app"
+      "description": "Add Thwart to a Spring app, write its templates, and migrate server-rendered Java views to it, checked page by page against the old app"
     }
   ]
 }

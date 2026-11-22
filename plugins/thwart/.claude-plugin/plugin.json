@@ -1,6 +1,6 @@
 {
   "name": "thwart",
-  "description": "Migrate server-rendered Java views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, ...) to Thwart, checked page by page against the old app",
+  "description": "Thwart, the compiled, safe-by-design template engine for Spring MVC: add it to an app, write and fix its templates, and migrate server-rendered Java views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, ...) to it, checked page by page against the old app",
   "author": {
     "name": "Chainguard"
   },

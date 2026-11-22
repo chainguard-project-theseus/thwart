@@ -437,7 +437,7 @@ class ContextsTest {
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("button"), "type"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "a=b"));
     // A String is not neutral, so data-* alone dead-ends for one: the message names the script prelude too (#782).
-    assertEquals("'hx-get' is not on Thwart's list of computed attributes (docs/guide.md section 4.4); write it as a"
+    assertEquals("'hx-get' is not on Thwart's list of computed attributes (docs/guide/templates.md, Output contexts); write it as a"
         + " static value, or one element per value under t:if; for data your script reads, put a number, boolean or"
         + " link in t:data-hx-get, and any other value in a script declaration such as var x = [[${x}]]",
         Contexts.forbidden(element("div"), "hx-get"));

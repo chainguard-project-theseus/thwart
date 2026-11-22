@@ -173,7 +173,7 @@ public final class Contexts {
     if (attr.equals("nonce")) {
       return "Thwart stamps the CSP nonce itself; delete this attribute";
     }
-    return "'" + name + "' is not on Thwart's list of computed attributes (docs/guide.md section 4.4); write it as"
+    return "'" + name + "' is not on Thwart's list of computed attributes (docs/guide/templates.md, Output contexts); write it as"
         + " a static value, or one element per value under t:if; for data your script reads, put a number, boolean or"
         + " link in t:data-" + attr + ", and any other value in a script declaration such as var x = [[${x}]]";
   }
@@ -211,7 +211,7 @@ public final class Contexts {
         .anyMatch(a -> !a.isThwart() && HtmlParser.asciiLower(a.name()).equals("is"));
     return !URL_ATTRIBUTES.contains(attr) || (!custom && URL_ELEMENTS.contains(el + " " + attr)) ? null
         : "a computed '" + attributeName + "' is checked as a URL only on the elements HTML defines it for (<a href>,"
-            + " <img src>, <form action>, ...: docs/guide.md section 4.4); Thwart can't know what <" + el + "> does"
+            + " <img src>, <form action>, ...: docs/guide/templates.md, Output contexts); Thwart can't know what <" + el + "> does"
             + " with it, so make a link an <a t:href> (add role=\"button\" to style it as a button) or write a static"
             + " value; t:data-" + attr + " takes only a neutral value (a literal-path @{...} link, a number, a boolean)";
   }

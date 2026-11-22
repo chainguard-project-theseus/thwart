@@ -175,15 +175,15 @@ def summary_line(c):
             f"/{t.get('tests', 0)} pages={ok}/{len(c['pages'])}")
 
 
-SKILL = "thwart:migrate"  # plugins/thwart's skill, as Claude Code names a plugin skill
+SKILL = "thwart:thwart"  # plugins/thwart's skill, as Claude Code names a plugin skill
 
 
 def invokes_skill(tool, args):
     """A Skill tool call for the Thwart skill, or a tool call that opens the skill's SKILL.md
     directly (an agent that finds /opt/thwart-plugin and reads the file uses the skill too)."""
     if tool == "Skill":
-        return str(args.get("skill") or args.get("command") or "").lstrip("/") in (SKILL, "migrate")
-    return "thwart-plugin/skills/migrate/SKILL.md" in json.dumps(args)
+        return str(args.get("skill") or args.get("command") or "").lstrip("/") in (SKILL, "thwart")
+    return "thwart-plugin/skills/thwart/SKILL.md" in json.dumps(args)
 
 
 def skill_use(transcript):

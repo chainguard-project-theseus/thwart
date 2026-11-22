@@ -56,7 +56,7 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
       LogFactory.getLog(CspFilter.class)
           .warn("Thwart: " + CspFilter.class.getName() + " is not in the filter chain, so pages"
               + " get no default Content-Security-Policy. Register it first for REQUEST, ASYNC and"
-              + " ERROR dispatches (guide 4.9), or set thwart.csp.enabled=false.");
+              + " ERROR dispatches (guide templates.md, Rendering), or set thwart.csp.enabled=false.");
     }
     request.setAttribute(STAMP, nonce);
   }

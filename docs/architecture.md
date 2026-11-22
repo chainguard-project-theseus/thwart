@@ -1,6 +1,6 @@
 # How the compiler, runtime and starter work
 
-For contributors. The template language and every rejection are in [guide.md](guide.md), the
+For contributors. The template language and every rejection are in the [guide](guide/README.md), the
 accepted HTML profile and escaping contexts in [context-model.md](context-model.md), and the
 security design in [security-architecture.md](security-architecture.md). If this doc and the code
 disagree, fix one of them in your PR.
@@ -35,7 +35,7 @@ Its `runtime.internal` lines are not app API: they are the contract between gene
 | `thwart-spring-boot-starter` | `dev.chainguard.thwart.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `thwart-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `thwart-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
-| `thwart-migrate` | `dev.chainguard.thwart.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Thwart converter (`Migrator`); usage in [guide.md](guide.md) | attoparser, jsoup (bundled into the jar) |
+| `thwart-migrate` | `dev.chainguard.thwart.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Thwart converter (`Migrator`); usage in [guide/migrate.md](guide/migrate.md) | attoparser, jsoup (bundled into the jar) |
 | `thwart-maven-plugin` | `dev.chainguard.thwart.maven` | `CheckMojo` (`thwart:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles. `WatchMojo` (`thwart:watch`, no phase): reruns `mvn compile` when the templates or messages change, for hot reload with DevTools. Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `thwart-benchmarks` | | JMH, Thwart vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Thwart | starter |
@@ -264,7 +264,7 @@ The registry also has `fragments()`: an entry named `page :: name` per fragment 
 - `auth` namespace (`dev.chainguard.thwart.spring.fn.Auth`): `isAuthenticated()`, `hasRole(String)`,
   `hasAnyRole(String...)`, `hasAuthority(String)`, `hasAnyAuthority(String...)`, `name()`, via
   `SecurityContextHolder` (optional dependency). It honours no `RoleHierarchy`, `GrantedAuthorityDefaults`
-  or `SecurityContextHolderStrategy` bean (guide, Spring Security tags).
+  or `SecurityContextHolderStrategy` bean ([guide](guide/migrate.md#notes-for-specific-engines), Spring Security tags).
 
 ## Test strategy
 

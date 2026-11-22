@@ -11,20 +11,20 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Every verifier rule id ({@code [verifier:RULE]}, {@link Problem}) has a row in the guide's rule
- * table (section 5) and in the context model's rule table (section 9), so a build error always has a
- * documented fix (#687). Only the first column of each table counts: an id named in prose elsewhere
- * in either file is not an entry.
+ * table ({@code docs/guide/limitations.md}) and in the context model's rule table (section 9), so a
+ * build error always has a documented fix (#687). Only the first column of each table counts: an id
+ * named in prose elsewhere in either file is not an entry.
  */
 class VerifierRulesDocumentedTest {
   private static final Path ROOT = Path.of("..");
 
   @Test
   void everyRuleIsInTheGuideAndTheContextModel() throws IOException {
-    String guide = ruleColumn("docs/guide.md", "| Rule | What it means | Fix |");
+    String guide = ruleColumn("docs/guide/limitations.md", "| Rule | What it means | Fix |");
     String model = ruleColumn("docs/context-model.md", "| Id | Rejects | Accepted instead |");
     for (Problem p : Problem.values()) {
       String id = "`" + p.name() + "`";
-      assertTrue(guide.contains(id), "docs/guide.md section 5 rule table has no row for " + id);
+      assertTrue(guide.contains(id), "docs/guide/limitations.md rule table has no row for " + id);
       assertTrue(model.contains(id), "docs/context-model.md section 9 rule table has no row for " + id);
     }
   }

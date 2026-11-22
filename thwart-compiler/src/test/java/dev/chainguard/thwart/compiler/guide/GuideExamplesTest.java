@@ -11,8 +11,6 @@ import dev.chainguard.thwart.runtime.SafeHtml;
 import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,13 +21,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Compiles every example in {@code docs/guide.md} marked {@code <!-- compile: ... -->} with the
- * real processor, then renders the main ones. Markers: {@code compile: java} (a Java source),
- * {@code compile: template <path>} (a template under the templates root) and
- * {@code compile: messages} (the message bundle).
+ * Compiles every example in the guide's files ({@code docs/guide/}, {@link GuideFiles}) marked
+ * {@code <!-- compile: ... -->} with the real processor, then renders the main ones. Markers:
+ * {@code compile: java} (a Java source), {@code compile: template <path>} (a template under the
+ * templates root) and {@code compile: messages} (the message bundle).
  */
 class GuideExamplesTest {
-  private static final Path GUIDE = Path.of("../docs/guide.md");
   private static final Pattern EXAMPLE =
       Pattern.compile("<!-- compile: (java|messages|template (\\S+)) -->\\n```\\w*\\n(.*?)\\n```", Pattern.DOTALL);
   private static final Pattern JAVA_NAME =
@@ -41,7 +38,7 @@ class GuideExamplesTest {
 
   @BeforeAll
   static void compileGuide() throws IOException {
-    String guide = Files.readString(GUIDE);
+    String guide = GuideFiles.readAll();
     Compilation.Builder b = Compilation.builder().option("thwart.package", "com.example.templates");
     Matcher m = EXAMPLE.matcher(guide);
     messages = new Properties();

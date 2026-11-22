@@ -33,7 +33,7 @@ RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl 
 # Thwart 0.1.0-SNAPSHOT plus its build's dependencies; bench.py copies this into the shared
 # Maven repository volume before each batch.
 COPY --from=thwart /m2 /opt/m2-seed
-# The Claude Code plugin we ship (the migration skill and its guide), from the same commit as the
+# The Claude Code plugin we ship (the Thwart skill and its guide), from the same commit as the
 # jars; lib/run-agent.sh loads it with --plugin-dir.
 COPY plugins/thwart /opt/thwart-plugin
 # The same thwart-migrate jar at a fixed path, for check.sh's record and compare.

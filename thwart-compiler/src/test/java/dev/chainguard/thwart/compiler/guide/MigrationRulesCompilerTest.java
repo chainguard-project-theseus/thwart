@@ -51,7 +51,7 @@ class MigrationRulesCompilerTest {
   void rawStringOutputNamesTheSanitizer() {
     compile("<p t:utext=\"s\">x</p>")
         .assertError("t.html:1:", "t:utext needs a value of type dev.chainguard.thwart.runtime.SafeHtml", "html.sanitize(...)",
-            "guide section 4.10");
+            "guide templates.md, Rich text");
     compile("<p>[(${s})]</p>").assertError("t.html:1:", "[(...)] needs a value of type", "html.sanitize(...)");
   }
 
@@ -144,6 +144,6 @@ class MigrationRulesCompilerTest {
             + " t:params=\"List<String> text\">\n<body>\n"
             + "<div><t:block t:replace=\"~{fragments/rich :: nodes(text)}\"></t:block></div>\n</body>\n</html>\n")
         .compile()
-        .assertError("page.html:4:", "the fragment calls itself", "t:utext=\"html.sanitize(...)\"", "guide section 4.10");
+        .assertError("page.html:4:", "the fragment calls itself", "t:utext=\"html.sanitize(...)\"", "guide templates.md, Rich text");
   }
 }

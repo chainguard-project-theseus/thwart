@@ -4,7 +4,7 @@
 #   -- file.html      (a template; without $NS it is wrapped in <div xmlns:t=... t:params="String s">)
 #   => file.html:line:col: error: message   (each error the verifier alone reports, in order)
 #
-# The guide summarizes these (section 5). Regenerate the => lines with
+# The guide summarizes these (docs/guide/limitations.md). Regenerate the => lines with
 # -Dthwart.golden.update=true and review the diff.
 == TEXT_NOT_IN_TEXT: after a literal '<'
 -- t.html
@@ -102,7 +102,7 @@
 == RAW_CLOSES_ELEMENT: sanitized HTML in a paragraph, which a <p> or <div> in it would close
 -- t.html
 <p>Note: <span t:utext="html.sanitize(s)">x</span></p>
-=> t.html:1:90: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, list, table or heading in the value ends it), so the rest of the page would parse differently; if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide section 4.4, Inline HTML); otherwise insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
+=> t.html:1:90: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, list, table or heading in the value ends it), so the rest of the page would parse differently; if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide templates.md, Inline HTML); otherwise insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == RAW_CLOSES_ELEMENT: a Fragment value in a link
 -- t.html
 <div $NS><a t:fragment="link(Fragment f)" href="/x"><span t:insert="f">x</span></a></div>
@@ -121,11 +121,11 @@ m=See <a href="/docs">the docs</a>.
 == STRUCTURE_DEPENDS_ON_DATA: a fragment that inserts itself, deeper each time
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
-=> rich.html:1:278: error: fragment rich :: nodes calls itself (at rich.html:1:207), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
+=> rich.html:1:278: error: fragment rich :: nodes calls itself (at rich.html:1:207), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide templates.md, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
 == STRUCTURE_DEPENDS_ON_DATA: two fragments that insert each other, deeper each time
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: item(ns)}"></li></ul></t:block></t:block><t:block t:fragment="item(List<String> ns)"><div t:insert="~{rich :: nodes(ns)}"></div></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
-=> rich.html:1:374: error: fragments call each other in a cycle: rich :: nodes calls rich :: item (at rich.html:1:207), which calls rich :: nodes (at rich.html:1:317), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
+=> rich.html:1:374: error: fragments call each other in a cycle: rich :: nodes calls rich :: item (at rich.html:1:207), which calls rich :: nodes (at rich.html:1:317), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide templates.md, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
 == UNBALANCED: a t:if that leaves an element open
 -- t.html
 <p>a</p><t:block t:if="s != null"><section>[[${s}]]</t:block><p>b</p>
@@ -141,14 +141,14 @@ m=See <a href="/docs">the docs</a>.
 == UNBALANCED: a fragment library wrapped in <html>, with a call before <body>
 -- lib.html
 <html $NS><head><title>lib</title></head><t:block t:replace="~{lib :: icon}"></t:block><body><span t:fragment="icon">i</span></body></html>
-=> lib.html:1:98: error: fragment lib :: icon, inserted here, leaves <body> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens or closes the <head> or <body> there: in a fragment library, make the root a <t:block> instead of <html>, or move the fragments into the <body>; a page passes its parts to a layout on <html> (guide section 4.8, Layouts) [verifier:UNBALANCED]
-=> lib.html:1:124: error: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
+=> lib.html:1:98: error: fragment lib :: icon, inserted here, leaves <body> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens or closes the <head> or <body> there: in a fragment library, make the root a <t:block> instead of <html>, or move the fragments into the <body>; a page passes its parts to a layout on <html> (guide templates.md, Layouts) [verifier:UNBALANCED]
+=> lib.html:1:124: error: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide templates.md, Layouts) [verifier:PARSE_ERROR]
 == PARSE_ERROR: a layout call that passes the page's <body>, so the layout writes a second <body>
 -- layout.html
 <html $NS t:import="dev.chainguard.thwart.runtime.Fragment" t:fragment="layout(Fragment content)"><head><title>t</title></head><body><main t:replace="${content}">c</main></body></html>
 -- t.html
 <html $NS t:params="String s" t:replace="~{layout :: layout(~{::body})}"><body><p t:text="s">x</p></body></html>
-=> t.html:1:78: error: in fragment layout :: layout, inserted here, at t.html:1:110: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
+=> t.html:1:78: error: in fragment layout :: layout, inserted here, at t.html:1:110: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide templates.md, Layouts) [verifier:PARSE_ERROR]
 => t.html:1:78: error: in fragment layout :: layout, inserted here, at layout.html:1:189: the Fragment argument inserted here changes how what follows is parsed, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
 == PARSE_ERROR: a block element in a <p>
 -- t.html

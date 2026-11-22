@@ -63,7 +63,7 @@ public final class Escapers {
    * HTML element text, the RCDATA of {@code <title>} and {@code <textarea>} included
    * (OutputContext.TEXT). Encodes {@code & < > " '}, as {@link #attr} does. A {@link SafeHtml}
    * argument is escaped like any other value: {@code t:text} always escapes. Client-side
-   * frameworks that compile the page's DOM as a template are not supported (guide section 5).
+   * frameworks that compile the page's DOM as a template are not supported (guide limitations.md).
    */
   public static void text(Output out, Object value) {
     escapeHtml(out, toText(value));

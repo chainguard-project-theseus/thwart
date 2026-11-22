@@ -7,7 +7,7 @@ WHATWG parser (validator.nu htmlparser) and the documented exclusions
 inertness is argued against that parser, and agreement with real browsers is tested after merge
 (the Node oracle), not proved. The threat model is [security-model.md](security-model.md), the markup
 rules as tables are [context-model.md](context-model.md), and the porting recipe for every
-rejection is [guide.md](guide.md). How the design got here is in the appendix and in git history.
+rejection is the [guide](guide/README.md). How the design got here is in the appendix and in git history.
 
 The north star: Thwart compiles the templates our target Spring apps actually use into
 fast, plain Java, and makes template injection and XSS impossible by construction. When a feature
@@ -165,7 +165,7 @@ names the compiler constrains its own output to framework-neutral values, and co
 The backstop is a strict CSP: the Spring starter puts the request's nonce on every `<script>`
 and `<style>` the compiler writes (context-model.md §6.4), and sends a strict nonce-based
 policy for a Thwart page that commits without one, so a policy from Spring Security or the
-application wins (guide §4.9).
+application wins ([guide](guide/templates.md#rendering)).
 
 ### 5.7 Expressions
 
@@ -258,7 +258,7 @@ A spec HTML parser decides contexts at build time, for every template:
 3. **Accept only error-free parses**, outside the exclusions (§11.4).
 4. **Accept only inert holes**: a hole is accepted only if its escaper's output can't change the
    parse in that state (§11.2).
-5. **Otherwise, a build error** ending in `[verifier:RULE]` (`verify/Problem`; guide §5 lists
+5. **Otherwise, a build error** ending in `[verifier:RULE]` (`verify/Problem`; [guide](guide/limitations.md) lists
    each rule and its fix). Fail closed.
 
 The hand-written model (`HtmlParser`, `MarkupTokenizer`, `Contexts`) stays only to build

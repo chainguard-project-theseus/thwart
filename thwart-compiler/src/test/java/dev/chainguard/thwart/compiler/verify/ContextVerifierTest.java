@@ -119,7 +119,7 @@ class ContextVerifierTest {
                     + "</t:block></t:block>"
                     + "<section t:insert=\"~{rich :: nodes(nodes)}\"></section></div>")
             .compile();
-    c.assertError("rich.html:1:", "markup structure depends on data", "html.sanitize", "guide section 4.10, Rich text");
+    c.assertError("rich.html:1:", "markup structure depends on data", "html.sanitize", "guide templates.md, Rich text");
     // One error for the recursion; the other is the parse error a <ul> in a <p> makes (#406).
     assertEquals(1, c.errors().stream().filter(e -> !e.endsWith("[verifier:PARSE_ERROR]")).count(), c.errors().toString());
   }

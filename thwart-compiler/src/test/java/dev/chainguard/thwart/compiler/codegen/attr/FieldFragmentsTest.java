@@ -135,7 +135,7 @@ class FieldFragmentsTest {
         .template("form.html", head + "<div t:replace=\"~{sel :: sel('pet')}\"></div></form>")
         .compile()
         .assertError("sel.html:2:", "t:replace" + rule);
-    // The guide's recipe (section 4.9): an htmx partial of a <select t:field> is the whole select
+    // The guide's recipe (templates.md, Rendering): an htmx partial of a <select t:field> is the whole select
     // under its t:object, rendered as the view "sel :: sel".
     Compilation ok =
         model()
