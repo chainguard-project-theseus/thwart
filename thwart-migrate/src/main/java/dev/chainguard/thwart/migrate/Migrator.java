@@ -406,7 +406,8 @@ final class Migrator {
     }
 
     /**
-     * Thymeleaf renders a fragment where it is declared too, with its parameters {@code null}; Thwart
+     * Thymeleaf renders a fragment where it is declared too, reading its parameters from the scope
+     * around it, where they are usually unset ({@code null}); Thwart
      * renders one with parameters nowhere but its calls. For a fragment with parameters inside
      * another fragment, which renders wherever the outer one is called, adds a call with
      * {@code null} arguments just before it. One elsewhere renders in place only if its file is

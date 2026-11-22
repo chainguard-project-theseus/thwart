@@ -633,7 +633,8 @@ parameters.
   `.class` selectors.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
 - A fragment with parameters renders nothing where it is declared; Thymeleaf rendered it there too,
-  with `null` arguments. In one fragment inside another, `thwart-migrate` adds that call.
+  reading its parameters from the variables around it (usually unset, so `null`). In one fragment
+  inside another, `thwart-migrate` adds that call; pass any value those variables had.
 - The compiler checks each fragment where it is inserted, so a `~{::tr}` goes into a `<tbody>`
   but not a `<div>`. Nothing goes inside `<title>`, `<textarea>` or `<noscript>`: use `t:text`.
 - Every `t:if`, `t:unless`, `t:case` and `t:each` body, and every fragment, must close what it
