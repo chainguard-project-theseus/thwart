@@ -83,7 +83,7 @@ class FormActionTest {
         compile("<form t:action=\"@{/owners/{id}(id=${s})}\"></form><form t:action=\"@{/find(q=${s})}\"></form>")
             .assertSuccess();
     assertEquals("<div><form action=\"/owners/%2F%2Fevil.example%3F\"></form>"
-        + "<form action=\"/find?q=//evil.example%3F\"></form></div>", render(c, "//evil.example?"));
+        + "<form action=\"/find?q=//evil.example?\"></form></div>", render(c, "//evil.example?"));
     // A choice between same-origin links (#635).
     Compilation choice = compile("<form t:action=\"b ? @{/y/{id}(id=${s})} : @{/x}\"></form>").assertSuccess();
     assertEquals("<div><form action=\"/y/a\"></form></div>", render(choice, "a"));

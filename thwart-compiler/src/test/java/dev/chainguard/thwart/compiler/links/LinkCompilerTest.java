@@ -42,6 +42,19 @@ class LinkCompilerTest {
     assertEquals("/owners/a%2Fb%3Fc%23d?q=x%20%26%20y%3Dz", r.eval("@{/owners/{id}(id=o.id, q=term)}", CTX));
   }
 
+  /**
+   * A '?' in a query value stays, as in Thymeleaf; '&', '=' and '#' are still encoded, so the value
+   * can't add a parameter or a fragment, and the path ends at the compiler's own '?'.
+   */
+  @Test
+  void questionMarkInAQueryValueStays() {
+    assertEquals("/login?returnUrl=/a?b%3D1", owners("\"1\"", "\"/a?b=1\"").eval("@{/login(returnUrl=term)}", CTX));
+    assertEquals("/login?returnUrl=?x%3D1%26admin%3Dtrue%23top",
+        owners("\"1\"", "\"?x=1&admin=true#top\"").eval("@{/login(returnUrl=term)}", CTX));
+    // A path variable still encodes '?', which would start the query there.
+    assertEquals("/owners/a%3Fb", owners("\"a?b\"", "null").eval("@{/owners/{id}(id=o.id)}", CTX));
+  }
+
   @Test
   void contextPathIsPrepended() {
     assertEquals("/app/owners/42/edit", owners("\"42\"", "null").eval("@{/owners/{id}/edit(id=o.id)}", CTX_PATH));
