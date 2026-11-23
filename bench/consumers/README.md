@@ -121,7 +121,10 @@ times, it resamples each version's per-repetition values with replacement and ta
 the two medians; the interval runs from the 2.5th to the 97.5th percentile of those ratios. The
 draws come from a Park-Miller generator with a fixed seed, so the same samples always give the
 same interval. Ratios are truncated to two places and intervals rounded outward. With fewer than
-three repetitions there is no interval: two values give only three distinct medians. Release readiness is judged elsewhere, from these numbers.
+five repetitions a side (the default) there is no interval: with three, the resampled median is
+always one of the three values, so the percentiles are the whole range from the smallest to the
+largest ratio (with four, nearly so), and a run of the same app on both sides would leave out 1
+far more often than 5% of the time. Release readiness is judged elsewhere, from these numbers.
 
 ## Limits
 
