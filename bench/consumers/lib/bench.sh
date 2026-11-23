@@ -55,7 +55,7 @@ artifact() {
 spring() {
   local a=$1 names
   names=$({ "$JDK/bin/jar" tf "/work/$a" 2>/dev/null; find "$(dirname "/work/$a")" -name '*.jar' 2>/dev/null; } |
-    sed -n 's|.*/\(spring-\(webmvc\|boot\)-[0-9][^/]*\)\.jar$|\1|p' | sort -u | tr '\n' ' ')
+    sed -n 's#.*/\(spring-\(webmvc\|boot\)-[0-9][^/]*\)\.jar$#\1#p' | sort -u | tr '\n' ' ')
   echo "${names:-unknown}"
 }
 
