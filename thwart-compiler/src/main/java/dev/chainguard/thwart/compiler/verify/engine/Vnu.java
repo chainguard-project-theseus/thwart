@@ -14,6 +14,11 @@ public final class Vnu {
   /** The parser and its version, for messages. */
   public static final String NAME = "htmlparser@validator-26.10.12";
 
+  /** The spec's named character references that end with {@code ;}: {@code "copy;"} to {@code "\u00a9"}. */
+  public static java.util.Map<String, String> namedCharacterReferences() {
+    return ThwartAccess.namedCharacterReferences();
+  }
+
   /** Document parsing from the initial insertion mode. */
   public static Parser document(boolean scripting) throws EngineException {
     try {

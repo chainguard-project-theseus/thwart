@@ -49,6 +49,7 @@ This is a per-value claim. Implied end tags may move static nodes, the same way 
 | Attribute names | no `=`, `<` or quotes | the rest | parser | `HtmlParserTest` |
 | Duplicate attributes | one per name | two with the same ASCII-lowercased name | parser | `HtmlParserTest` |
 | `&` in text and attribute values | a complete character reference | a named reference without its `;` | verifier: `PARSE_ERROR` | `ErrorFreeTest` |
+| Decoding attribute values | numeric references and every named reference the standard defines, with its `;` (the spec parser's table), decoded before static checks read the value and before a `t:` value is parsed | none: an unknown name stays as written, and static URL checks treat any reference left as any character | parser | `HtmlParserTest`, `CharacterReferenceTest` |
 | Value after `&` | after a complete reference, or `&` and a character that starts none | after static `&`, `&#`, `&#x` or `&` + letters, which a value could finish into a reference | verifier: `TEXT_NOT_IN_TEXT` | `ValueAfterAmpersandTest` |
 | `/>` | on void HTML elements | on non-void HTML elements, except where Thwart writes the end tag (`<textarea t:field/>`) | verifier: `PARSE_ERROR` with a fix-it | `ParseErrorFixItTest`, `BrowserRawTextTest` |
 | End tag | `</name>` matching the open element | stray or mismatched end tags | parser (Thwart's tree is built from matched tags) | `HtmlParserTest` |
