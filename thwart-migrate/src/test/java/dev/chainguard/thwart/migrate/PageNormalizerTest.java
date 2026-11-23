@@ -151,11 +151,24 @@ class PageNormalizerTest {
       math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
       style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
+      xhtml 1.0 transitional doctype | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      xhtml 1.0 strict doctype       | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      xhtml 1.1 doctype              | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      html 4.01 doctype              | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      html 4.01 frameset doctype     | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
+      hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
+      hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
+      alpine x-on removed            | <button x-on:click="open = true">O</button> | <button data-action="open">O</button>
+      hx-on kept and another removed | <a hx-on:click="a()">a</a><form hx-on::after-request="r()"></form> | <a hx-on:click="a()">a</a><form></form>
       sanitizer rel on a stored link | <div><a href="https://x.org">x</a></div>  | <div><a href="https://x.org" rel="nofollow noopener">x</a></div>
       message rel added to a rel     | <a href="/p" rel="help" target="_blank">p</a> | <a href="/p" rel="help noopener noreferrer" target="_blank">p</a>
+      ugc rel on a stored link       | <a href="https://x.org">x</a>             | <a href="https://x.org" rel="nofollow ugc">x</a>
       sanitizer id prefix and link   | <h2 id="intro">I</h2><a href="#intro">i</a> | <h2 id="user-content-intro">I</h2><a href="#user-content-intro">i</a>
       css url quoted                 | <div style="background-image: url(/a/1.png)"></div> | <div style="background-image: url(&quot;/a/1.png&quot;)"></div>
       css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
+      dialect xmlns on html          | <html lang="en" xmlns:salat="http://x.de/s"><body>a</body></html> | <html lang="en"><body>a</body></html>
+      xhtml xmlns on html            | <html xmlns="http://www.w3.org/1999/xhtml"><body>a</body></html> | <html><body>a</body></html>
+      csrf input added to a form     | <form method="post" hx-post="/s"><input name="q"></form> | <form method="post" hx-post="/s"><input type="hidden" name="_csrf" value="t"><input name="q"></form>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -171,7 +184,12 @@ class PageNormalizerTest {
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
       text moved out of a script's parent | <div><p>a</p><script>x()</script></div><p>b</p> | <div><p>a</p><p>b</p></div>
-      other inline handler syntax    | <form hx-on::after-request="h()"></form> | <form></form>
+      hx-on added                    | <form hx-post="/s"></form>                | <form hx-post="/s" hx-on::after-request="h()"></form>
+      hx-on changed                  | <form hx-on::after-request="h()"></form>  | <form hx-on::after-request="g()"></form>
+      hx-on removed with another attribute | <form hx-on::after-request="h()" hx-post="/s"></form> | <form></form>
+      other attribute removed        | <form hx-on:submit="h()" hx-post="/s"></form> | <form hx-on:submit="h()"></form>
+      hx-on kept and one changed     | <a hx-on:click="a()">a</a><a hx-on:click="b()">b</a> | <a hx-on:click="a()">a</a><a hx-on:click="c()">b</a>
+      attribute without a colon removed | <form hx-on="click: h()"></form>     | <form></form>
       query in an href               | <a href="/p?page=2">n</a>                 | <a href="/p">n</a>
       query in a custom attribute's other value | <a hx-get="/p?page=2">n</a> | <a hx-get="/r?page=2">n</a>
       query in an aria attribute     | <a aria-describedby="/p?x">n</a>          | <a aria-describedby="/p">n</a>
@@ -191,6 +209,11 @@ class PageNormalizerTest {
       svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
       span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
       width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
+      doctype removed                | <!DOCTYPE html><p>x</p>                   | <p>x</p>
+      legacy doctype removed         | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <p>x</p>
+      html 3.2 doctype replaced      | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
+      other public id replaced       | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN" "http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      legacy doctype and text changed | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <!DOCTYPE html><p>y</p>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
       other id prefix                | <h2 id="intro">I</h2>                     | <h2 id="post-intro">I</h2>
@@ -199,6 +222,15 @@ class PageNormalizerTest {
       css url changed                | <div style="background: url(/a/1.png)"></div> | <div style="background: url(&quot;/a/2.png&quot;)"></div>
       css url encoded differently    | <div style="background: url(/a/b c.png)"></div> | <div style="background: url(&quot;/a/b%20c.png&quot;)"></div>
       css other property changed     | <div style="color: red; background: url(/a.png)"></div> | <div style="color: blue; background: url(&quot;/a.png&quot;)"></div>
+      other html attribute with xmlns | <html lang="en" xmlns:s="http://x.de/s"><body>a</body></html> | <html lang="de"><body>a</body></html>
+      xml:lang is still compared     | <p xml:lang="en">a</p>                    | <p>a</p>
+      other hidden input added       | <form method="post"><input name="q"></form> | <form method="post"><input type="hidden" name="id" value="1"><input name="q"></form>
+      visible csrf field added       | <form method="post"></form>               | <form method="post"><input type="text" name="_csrf"></form>
+      csrf input added to a get form | <form><input name="q"></form>             | <form><input type="hidden" name="_csrf" value="t"><input name="q"></form>
+      csrf input nested deeper       | <form method="post"><div></div></form>    | <form method="post"><div><input type="hidden" name="_csrf" value="t"></div></form>
+      csrf input removed from a post form | <form method="post"><input type="hidden" name="_csrf" value="a"><input name="q"></form> | <form method="post"><input name="q"></form>
+      csrf input in a non-ascii post form | <form method="poſt"></form>          | <form method="poſt"><input type="hidden" name="_csrf" value="t"></form>
+      csrf field non-ascii hidden    | <form method="post"></form>               | <form method="post"><input type="hıdden" name="_csrf" value="t"></form>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"

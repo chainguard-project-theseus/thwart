@@ -390,6 +390,20 @@ class ExpressionCompilerTest {
     r.assertError("t.html:2:14", "'DELETED' is not a constant of enum com.example.Status", "ACTIVE, SUSPENDED");
   }
 
+  /** 'not u != null' is '(not u) != null', a boolean compared with null: always true, so an error. */
+  @Test
+  void notComparedWithNullIsAnError() {
+    TypesHarness h = users();
+    Result r = h.compile(f -> f.compiler().compileCondition(new Expr.Binary(NE, not(v("u")), lit(null), at(2, 5)), f.scope));
+    r.assertError("t.html:2:5", "'not' binds tighter than !=", "always true", "write x == null, or not (x != null)");
+    condition(h, bin(EQ, not(v("u")), lit(null))).assertError("always false", "write x != null, or not (x == null)");
+    condition(h, bin(NE, lit(null), not(prop(v("u"), "name")))).assertError("'not' binds tighter than !=");
+    // What was meant still compiles.
+    assertEquals(false, h.eval(not(bin(NE, v("u"), lit(null)))));
+    assertEquals(false, h.eval(bin(EQ, v("u"), lit(null))));
+    assertEquals(true, h.eval(bin(EQ, not(prop(v("u"), "adult")), lit(false))));
+  }
+
   @Test
   void equalityOfTypesThatNeverShareAValueIsAnError() {
     // Objects.equals("ACTIVE", Status.ACTIVE) is false: a String variable never equals an enum.

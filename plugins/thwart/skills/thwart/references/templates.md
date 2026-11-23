@@ -174,13 +174,17 @@ Expressions and attributes are Thymeleaf's Standard dialect with `t:` for `th:`,
 that runs code. What differs:
 
 - `${...}` is optional (`t:text="owner.name"`). `*{...}` works only inside `t:object`, for one
-  property path: `*{firstName} + ' ' + *{lastName}`. Utility objects are function namespaces
-  ([Functions](#functions)); `#ctx`, `#request`, `#dates` and the rest don't exist.
+  property path: `*{firstName} + ' ' + *{lastName}`. A fragment doesn't see its caller's
+  `t:object`: take a `Field` parameter ([Fragments and layouts](#fragments-and-layouts)). Utility
+  objects are function namespaces ([Functions](#functions)); `#ctx`, `#request`, `#dates` and the
+  rest don't exist.
 - Not supported: `T(...)`, `new`, `@bean`, `__...__` preprocessing, assignment, lambdas,
   selection and projection (`.?[...]`, `.![...]`), `div`/`mod` (use `/`, `%`).
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant's name.
   Comparing types that never share a value (a `String` variable with an enum or a number) is a
   build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
+  `not` and `!` bind tighter than `==` and `!=`, as in Thymeleaf, so `not a != null` would compare a
+  boolean with `null` and is a build error: write `a == null` or `not (a != null)`.
   `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types
   (an `Integer` and a `Long` don't mix: give the view type one number type).
   `x ?: d` evaluates `d` only when the variable `x` is null; `a.b ?: d` evaluates `d` either way,
@@ -315,7 +319,8 @@ attributes are copied as written. Port a computed string by what it is for:
 
 | The string is | Recipe |
 |---|---|
-| a request value: `hx-vals`, `hx-headers`, a query in `hx-get` | Hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. |
+| a query in an `hx-get`, `hx-post`, `hx-delete`, ... path | The path without its query, written as is; each value as a number in `t:data-*` (a string in a JSON block); and an `htmx:configRequest` listener that adds them (below). For a GET or DELETE, htmx 2 puts them in the query, so the URL is the same; for a POST or PUT they go in the body, which `@RequestParam` reads too. `compare` counts the page `forced`. |
+| a request value: `hx-vals`, `hx-headers` | Hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. Both change the page, so `compare` counts it `differs`; keep hidden inputs out of a form that other buttons submit, or those send them too. |
 | text for people: a tooltip, a label, a status | `title` or element text. Bootstrap's tooltip reads `title`. |
 | `hx-confirm` text | A static `hx-confirm`, and the text in a hidden element your confirm script reads. |
 | data your own script reads (`el.dataset.x`) | A JSON block or a hidden input the script reads instead. |
@@ -339,6 +344,23 @@ page: write down which recipe caused each `compare` difference, and mask a chang
 </ul>
 ```
 
+<!-- compile: template guide/recipes/query-data.html -->
+```html
+<ul xmlns:t="https://thwart.chainguard.dev" t:params="List<Long> postIds">
+  <li t:each="id : postIds">
+    <button hx-delete="/admin/posts" t:data-post-id="id">Delete</button>
+  </li>
+</ul>
+```
+
+```js
+// was hx-delete="/admin/posts?postIds=5"
+document.addEventListener('htmx:configRequest', (e) => {
+  const id = e.detail.elt.dataset.postId;
+  if (id !== undefined) e.detail.parameters.postIds = id;
+});
+```
+
 <!-- compile: template guide/recipes/plugin.html -->
 ```html
 <div xmlns:t="https://thwart.chainguard.dev" t:params="List<String> tips">
@@ -359,11 +381,19 @@ document.querySelectorAll('.hint').forEach((el) => {
 If the page re-initializes the plugin after swapping in new HTML, call the same init function on
 the swapped element.
 
+A classic `<script>` (no `defer`, `async` or `type="module"`) runs when the parser reaches it, so an
+inline script in the page content runs before a classic script at the end of the `<body>` that
+reads the JSON block. Put code that needs the JSON values in that script, or in a function it calls,
+or put the JSON block and its script before that code. A `defer` or module script runs only after
+the whole page is parsed, so after every inline script. An `async` one runs whenever it has loaded,
+which can change from one load to the next, so don't make it depend on page order. A plugin that sets itself up from `data-*` as soon as it loads (a sparkline) never sees
+values added later: pass them through its API, as in the recipe above.
+
 **Rich text and `SafeHtml`.** For stored HTML (articles, bios) that the old page printed raw, write
 `t:utext="html.sanitize(article.text)"`: it keeps basic formatting and checked links and drops
 everything else. `html.sanitizeRich` also keeps same-origin images, `language-*` classes, ids and
-`target="_blank"` links, for editor or Markdown output. Neither keeps tables, `style`, `iframe` or
-`svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
+`target="_blank"` links, for editor or Markdown output (an `<image>` tag counts as the `<img>` a
+browser makes of it). Neither keeps tables, `style`, `iframe` or `svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
 `allowAttributes`, `allowClasses`, `linkRel`, `allowLinkTarget`) and expose it as a function:
 
 <!-- compile: java -->
@@ -487,7 +517,10 @@ welcome.html=Hello <b>{0}</b>!
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
 links must be `http`/`https`. A path in quotes is the same constant (`@{'/owners?page=1'}`), but
 one built with `+` or `${...}` is a build error: write `@{/owners(page=${i})}`. Links get the
-context path and `response.encodeURL`. A `null`, empty, `.` or `..` path variable fails the
+context path and `response.encodeURL`. Unlike Thymeleaf, a `?` in a query value is percent-encoded:
+`@{/login(returnUrl=${r})}` with `r` = `/a?b=1` writes `/login?returnUrl=/a%3Fb%3D1`, where
+Thymeleaf writes `returnUrl=/a?b%3D1`. The server decodes both to the same value, but `compare`
+shows the page as different. A `null`, empty, `.` or `..` path variable fails the
 render: guard the link with `t:if`. A URL computed in Java goes in `t:href` as a `String`
 (scheme-checked); a URL with another scheme (`sms:`, `data:`, ...) must be a static attribute.
 
@@ -794,8 +827,10 @@ itself with the outer one and passes its own markup:
 </html>
 ```
 
-**Reusable form fields.** A `Field` parameter takes a field path that the compiler checks against
-the caller's `t:object`. `Field<T>` also binds the type's properties (`t:field="c.answer"`), which
+**Reusable form fields.** A fragment sees only its parameters, so not the caller's `t:object`:
+`*{...}`, `t:field`, `t:errors` and `fields.*` inside it need a `t:object` on one of its
+parameters, or a `Field` parameter. A `Field` parameter takes a field path that the compiler checks
+against the caller's `t:object`. `Field<T>` also binds the type's properties (`t:field="c.answer"`), which
 replaces JSP's `path="${field}.answer"` and Thymeleaf's `*{__${field}__.answer}`:
 
 <!-- compile: template guide/fragments/fields.html -->

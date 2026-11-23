@@ -153,6 +153,23 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * A browser renders a start tag image as img (HTML's tree builder renames it), so it gets the
+   * img policy: kept where img is allowed, with a checked src, and dropped elsewhere. An svg image
+   * goes with its svg.
+   */
+  @Test
+  void imageIsReadAsImg() {
+    HtmlPolicy inline = HtmlPolicy.inlineBuilder().allowElements("img").build();
+    assertEquals("<img src=\"/images/fish1.gif\">Koi", SafeInlineHtml.sanitize("<image src=\"/images/fish1.gif\">Koi", inline).html());
+    assertEquals("<p><img src=\"/a.png\" alt=\"A\">x</p>",
+        SafeHtml.sanitize("<p><IMAGE src=/a.png alt=A onerror=alert(1)>x</image></p>", HtmlPolicy.RICH).html());
+    // negative: not allowed, an unchecked src, or inside svg
+    assertEquals("Koi", clean("<image src=\"/images/fish1.gif\">Koi"));
+    assertEquals("x", SafeHtml.sanitize("<image src=\"javascript:alert(1)\">x", HtmlPolicy.RICH).html());
+    assertEquals("x", SafeHtml.sanitize("<svg><image href=\"/a.png\"></image></svg>x", HtmlPolicy.RICH).html());
+  }
+
+  /**
    * #592: a numeric reference to U+0080..U+009F is read through the spec's windows-1252 table, as a
    * browser does, so Word pastes keep their punctuation; the five unmapped ones become U+FFFD.
    */
@@ -270,6 +287,9 @@ class HtmlSanitizerTest {
         "<scr<script>ipt>alert(1)</scr</script>ipt>",
         "<scr\0ipt>alert(1)</scr\0ipt>",
         "<img src=x onerror=alert(1)>",
+        "<image src=x onerror=alert(1)>",
+        "<IMAGE SRC=\"javascript:alert('XSS');\">",
+        "<svg><image href=x onerror=alert(1)></image></svg>",
         "<IMG SRC=\"javascript:alert('XSS');\">",
         "<IMG SRC=JaVaScRiPt:alert('XSS')>",
         "<IMG \"\"\"><SCRIPT>alert(\"XSS\")</SCRIPT>\">",

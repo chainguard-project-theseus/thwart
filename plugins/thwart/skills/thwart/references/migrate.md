@@ -137,24 +137,27 @@ check that what moved is harmless (validation messages from a `HashSet`, yes; ta
 their sort order, no). `forced` means the page differs only in what Thwart makes you change:
 `on*` handlers, `href="javascript:…"` and `href="#"`, `data-*` attributes (added, removed or
 changed, as the recipes in [Output contexts](templates.md#output-contexts) do), `<script>` and
-`<style>` elements, `hx-X` written as `data-hx-X` with the same value, the query of a path in an
+`<style>` elements, `xmlns` and `xmlns:*` attributes (an HTML parser gives them no meaning;
+Thwart can't compute one, and rejects a dialect's `xmlns:x` on `<html>`, which the Layout Dialect
+copied there), `hx-X` written as `data-hx-X` with the same value, the query of a path in an
 attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
-`hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
+`hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), inside a
 table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
-or an element with no content and `aria-hidden="true"`), and what the HTML sanitizer and
-`css.url` write where the old page printed stored HTML or a CSS URL as it was: the `rel` tokens
+or an element with no content and `aria-hidden="true"`), what the HTML sanitizer and
+`css.url` write where the old page printed stored HTML or a CSS URL as it was (the `rel` tokens
 `nofollow`, `noopener`, `noreferrer` and `ugc` on a link, the `user-content-` prefix on an `id`
-and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute.
-Scripts, styles, `data-*` values, the
+and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute),
+an HTML 4 or XHTML 1.x doctype replaced by `<!DOCTYPE html>` (the only one Thwart accepts; it
+can change the browser's rendering mode, so look at the page), the hidden `_csrf` input Thwart
+adds to a `method="post"` form, and a removed attribute whose
+name contains `-on:` (`hx-on::after-request`, `x-on:click`: inline code the CSP blocks; one added
+or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
 so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
 computed `hx-target` or an `hx-vals` moved to hidden inputs, a URL encoded differently (a space
-written `%20`), `hx-confirm` text moved into a hidden element, a removed `hx-on::…` attribute
-(Thwart copies it as written, so the CSP forced the change, and compare knows no framework's
-attribute names: only `on*` attributes count as handlers), a computed `<style>` width moved to a
-class (a `data-*` attribute that a script applies compares `forced`), and the `_csrf` hidden input
-Thwart adds to a `method="post"` form. Check those pages by hand, and
+written `%20`), `hx-confirm` text moved into a hidden element, and a computed `<style>` width moved to a
+class (a `data-*` attribute that a script applies compares `forced`). Check those pages by hand, and
 write down the recipe behind each. Fix the other `differs` pages first, then for each `forced` page
 check the values in its diff and load it in a browser to check that its scripts work. It exits 0
 only if every page is `same` or `reordered` with its recorded status and final URL.

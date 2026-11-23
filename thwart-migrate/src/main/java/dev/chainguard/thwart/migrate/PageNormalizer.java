@@ -58,9 +58,10 @@ import org.jsoup.nodes.TextNode;
  * <p>Pages that still differ are compared once more without what Thwart makes a migration change
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
- * {@code <svg>} in a table replaced, {@code <style>} rewritten, and what the sanitizer and
- * {@code css.url} write: link {@code rel} tokens, the {@code user-content-} id prefix, a quoted
- * {@code url(...)}): equal in that form, in any order,
+ * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
+ * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
+ * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
  * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
  * custom attributes and which decorative icon sits in a table are not compared in that form, so a
@@ -77,6 +78,9 @@ final class PageNormalizer {
   private static final String FOREIGN = "<svg or its replacement>";
   /** The query of a path, up to a fragment. */
   private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
+  /** The public ids of HTML 4.0, 4.01 and XHTML 1.0, 1.1 (Strict, Transitional, Frameset). */
+  private static final Pattern LEGACY_DOCTYPE = Pattern.compile(
+      "-//W3C//DTD (?:HTML 4\\.01?|XHTML 1\\.[01])(?: (?:Strict|Transitional|Frameset))?//EN");
   /** The id prefix Thwart's HTML sanitizer writes, so stored ids can't clobber the page's. */
   private static final String USER_CONTENT = "user-content-";
   /** The link {@code rel} tokens Thwart's sanitizer and message policy add. */
@@ -191,8 +195,55 @@ final class PageNormalizer {
     if (sortedForm(children(da, true, false)).equals(sortedForm(children(db, true, false)))) {
       return Verdict.REORDERED;
     }
+    // Thwart adds CSRF inputs and never removes one, so a page that lost one still differs.
+    if (csrfInputs(db) < csrfInputs(da)) {
+      return Verdict.DIFFERS;
+    }
+    dropRemovedInlineCode(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
+  }
+
+  /**
+   * Removes from the old page each attribute whose name contains {@code -on:} (inline code a
+   * client framework runs with {@code eval}, which Thwart's default CSP blocks) unless the new
+   * page has the same name and value somewhere. So a removed one is set aside, but one added or
+   * changed still differs. An exception to principle 7 for scoring only, approved by the owner.
+   */
+  private static void dropRemovedInlineCode(Document old, Document now) {
+    Set<String> kept = new HashSet<>();
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        if (isInlineCode(a)) {
+          kept.add(a.getKey() + "=" + a.getValue());
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      List<String> removed = new ArrayList<>();
+      for (Attribute a : e.attributes()) {
+        if (isInlineCode(a) && !kept.contains(a.getKey() + "=" + a.getValue())) {
+          removed.add(a.getKey());
+        }
+      }
+      for (String name : removed) {
+        e.removeAttr(name);
+      }
+    }
+  }
+
+  private static boolean isInlineCode(Attribute a) {
+    return a.getKey().toLowerCase(Locale.ROOT).contains("-on:");
+  }
+
+  private static int csrfInputs(Document d) {
+    int n = 0;
+    for (Element e : d.getElementsByTag("input")) {
+      if (isCsrfInput(e)) {
+        n++;
+      }
+    }
+    return n;
   }
 
   /** Strips session ids from a URL (redirect targets carry them before the cookie is set). */
@@ -206,13 +257,14 @@ final class PageNormalizer {
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
    * with their preludes expanded. With {@code forced}, {@code <script>} and {@code <style>}
-   * elements are dropped, what {@link #replacesForeign(Element)} names prints as one
+   * elements and hidden CSRF token inputs are dropped, what {@link #replacesForeign(Element)} names prints as one
    * {@link #FOREIGN} line, and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element && isScriptOrStyle((Element) node)) {
+      if (forced && node instanceof Element
+          && (isScriptOrStyle((Element) node) || isCsrfInput((Element) node))) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -241,7 +293,8 @@ final class PageNormalizer {
             children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
-        out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
+        out.add(new Line(forced && isLegacyDoctype(dt) ? "<!doctype html>"
+            : "<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
             Collections.<Line>emptyList()));
       }
       // Comments and other nodes are dropped; text either side of them joins.
@@ -256,6 +309,29 @@ final class PageNormalizer {
    */
   private static boolean isScriptOrStyle(Element e) {
     return e.normalName().equals("script") || e.normalName().equals("style");
+  }
+
+  /**
+   * A hidden CSRF token input directly in a {@code method="post"} form. Thwart adds one to every
+   * such form that posts to the page's own origin, where the old engine often didn't (a plain
+   * {@code action}, a form only htmx submits). A token in any other place is still compared, and
+   * {@link #compare} counts these so that a lost one differs. Case folds ASCII only, as a browser.
+   */
+  private static boolean isCsrfInput(Element e) {
+    Element form = e.parent();
+    return e.normalName().equals("input") && asciiLower(e.attr("type")).equals("hidden")
+        && asciiLower(e.attr("name")).contains("csrf")
+        && form != null && form.normalName().equals("form")
+        && asciiLower(form.attr("method")).equals("post");
+  }
+
+  private static String asciiLower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + 32) : c);
+    }
+    return sb.toString();
   }
 
   /**
@@ -627,6 +703,14 @@ final class PageNormalizer {
     return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
   }
 
+  /**
+   * An HTML 4 or XHTML 1.x doctype. Thwart's verifier accepts only {@code <!DOCTYPE html>}, so a
+   * port has to replace one of these; the forced form prints them as that.
+   */
+  private static boolean isLegacyDoctype(DocumentType dt) {
+    return dt.name().equalsIgnoreCase("html") && LEGACY_DOCTYPE.matcher(dt.publicId()).matches();
+  }
+
   private static String publicId(DocumentType dt) {
     String pub = dt.publicId();
     return pub.isEmpty() ? "" : " public \"" + pub + "\"";
@@ -652,6 +736,9 @@ final class PageNormalizer {
    * Thwart's HTML sanitizer adds {@code rel} tokens to links and the {@code user-content-} prefix
    * to ids (and to {@code href="#..."} links to them), and {@code css.url} quotes a URL, so those
    * tokens, that prefix and the quotes around a {@code url(...)} in a {@code style} are dropped.
+   * {@code xmlns} and {@code xmlns:*} are dropped: an HTML parser gives them no meaning, Thwart
+   * can't compute one, and its verifier rejects a dialect's {@code xmlns:x} on {@code <html>} as a
+   * parse error (the Layout Dialect copies one there from each decorated page).
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
@@ -669,7 +756,8 @@ final class PageNormalizer {
         if (HANDLER.matcher(name).matches()
             || name.equals("href") && (value.equals("#")
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
-            || name.startsWith("data-")) {
+            || name.startsWith("data-")
+            || name.equals("xmlns") || name.startsWith("xmlns:")) {
           continue;
         }
         if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {

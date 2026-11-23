@@ -122,7 +122,7 @@ in a custom attribute, an `<svg>` in a table replaced, and the `rel` tokens, `us
 and quoted CSS URLs that Thwart's sanitizer and `css.url` write (the full rule is in the
 [migration guide](guide/migrate.md#the-tools-and-the-loop)). The rule is mechanical: it can't tell
 a correct listener from a broken one (the browser check covers that), and it misses other forced
-changes, such as an `id` added for a listener or a removed `hx-on` attribute. `pass_forced` is
+changes, such as an `id` added for a listener. `pass_forced` is
 report only. The strict Pass is the headline number.
 
 ### Development and held-out apps
