@@ -295,7 +295,9 @@ class FormTokenAdvice {
 **Thymeleaf.** Run `thwart-migrate` first ([The tools and the loop](#the-tools-and-the-loop)). Natural-template script comments
 (`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]`; move each value that
 isn't then a declaration at the top of the script into one ([Output contexts](templates.md#output-contexts)). Layout dialect pages
-become fragment calls ([Fragments and layouts](templates.md#fragments-and-layouts)).
+become fragment calls ([Fragments and layouts](templates.md#fragments-and-layouts)). An empty link (`@{''}`, `@{}`) is a build error: Thymeleaf
+resolved it against the request, so it was the current page on most pages but the error controller's
+path on Spring Boot's error dispatch. Write the path the page means, such as `@{/owners}`.
 
 **JSP, JSTL and Spring form tags, with Tiles or SiteMesh.**
 
