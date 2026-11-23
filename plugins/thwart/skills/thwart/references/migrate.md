@@ -147,14 +147,14 @@ or an element with no content and `aria-hidden="true"`), what the HTML sanitizer
 `css.url` write where the old page printed stored HTML or a CSS URL as it was (the `rel` tokens
 `nofollow`, `noopener`, `noreferrer` and `ugc` on a link, the `user-content-` prefix on an `id`
 and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute),
-and the hidden `_csrf` input Thwart adds to a `method="post"` form. Scripts, styles, `data-*` values, the
+the hidden `_csrf` input Thwart adds to a `method="post"` form, and a removed attribute whose
+name contains `-on:` (`hx-on::after-request`, `x-on:click`: inline code the CSP blocks; one added
+or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
 so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
 computed `hx-target` or an `hx-vals` moved to hidden inputs, a URL encoded differently (a space
-written `%20`), `hx-confirm` text moved into a hidden element, a removed `hx-on::…` attribute
-(Thwart copies it as written, so the CSP forced the change, and compare knows no framework's
-attribute names: only `on*` attributes count as handlers), and a computed `<style>` width moved to a
+written `%20`), `hx-confirm` text moved into a hidden element, and a computed `<style>` width moved to a
 class (a `data-*` attribute that a script applies compares `forced`). Check those pages by hand, and
 write down the recipe behind each. Fix the other `differs` pages first, then for each `forced` page
 check the values in its diff and load it in a browser to check that its scripts work. It exits 0

@@ -59,7 +59,7 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * a CSRF token input added, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * a CSRF token input added, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write: link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
  * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
@@ -196,8 +196,41 @@ final class PageNormalizer {
     if (csrfInputs(db) < csrfInputs(da)) {
       return Verdict.DIFFERS;
     }
+    dropRemovedInlineCode(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
+  }
+
+  /**
+   * Removes from the old page each attribute whose name contains {@code -on:} (inline code a
+   * client framework runs with {@code eval}, which Thwart's default CSP blocks) unless the new
+   * page has the same name and value somewhere. So a removed one is set aside, but one added or
+   * changed still differs. An exception to principle 7 for scoring only, approved by the owner.
+   */
+  private static void dropRemovedInlineCode(Document old, Document now) {
+    Set<String> kept = new HashSet<>();
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        if (isInlineCode(a)) {
+          kept.add(a.getKey() + "=" + a.getValue());
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      List<String> removed = new ArrayList<>();
+      for (Attribute a : e.attributes()) {
+        if (isInlineCode(a) && !kept.contains(a.getKey() + "=" + a.getValue())) {
+          removed.add(a.getKey());
+        }
+      }
+      for (String name : removed) {
+        e.removeAttr(name);
+      }
+    }
+  }
+
+  private static boolean isInlineCode(Attribute a) {
+    return a.getKey().toLowerCase(Locale.ROOT).contains("-on:");
   }
 
   private static int csrfInputs(Document d) {
