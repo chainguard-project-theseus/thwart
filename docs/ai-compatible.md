@@ -118,7 +118,8 @@ that meets every other condition, and whose pages compare reports as `same`, `re
 `forced`. A page is `forced` when it differs only in what Thwart forces a migration to change:
 inline `on*` handlers, `href="javascript:…"` and `href="#"`, `data-*` attributes, `<script>` and
 `<style>` elements, `hx-X` written as `data-hx-X` with the same value, a query moved out of a path
-in a custom attribute, and an `<svg>` in a table replaced (the full rule is in the
+in a custom attribute, an `<svg>` in a table replaced, and the `rel` tokens, `user-content-` ids
+and quoted CSS URLs that Thwart's sanitizer and `css.url` write (the full rule is in the
 [migration guide](guide/migrate.md#the-tools-and-the-loop)). The rule is mechanical: it can't tell
 a correct listener from a broken one (the browser check covers that), and it misses other forced
 changes, such as an `id` added for a listener or a removed `hx-on` attribute. `pass_forced` is

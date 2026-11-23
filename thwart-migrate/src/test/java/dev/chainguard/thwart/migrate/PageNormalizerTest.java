@@ -151,6 +151,11 @@ class PageNormalizerTest {
       math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
       style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
+      sanitizer rel on a stored link | <div><a href="https://x.org">x</a></div>  | <div><a href="https://x.org" rel="nofollow noopener">x</a></div>
+      message rel added to a rel     | <a href="/p" rel="help" target="_blank">p</a> | <a href="/p" rel="help noopener noreferrer" target="_blank">p</a>
+      sanitizer id prefix and link   | <h2 id="intro">I</h2><a href="#intro">i</a> | <h2 id="user-content-intro">I</h2><a href="#user-content-intro">i</a>
+      css url quoted                 | <div style="background-image: url(/a/1.png)"></div> | <div style="background-image: url(&quot;/a/1.png&quot;)"></div>
+      css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -186,6 +191,14 @@ class PageNormalizerTest {
       svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
       span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
       width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
+      other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
+      rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
+      other id prefix                | <h2 id="intro">I</h2>                     | <h2 id="post-intro">I</h2>
+      id prefix on another id        | <h2 id="intro">I</h2>                     | <h2 id="user-content-outro">I</h2>
+      href prefix to another id      | <a href="#intro">i</a>                    | <a href="#user-content-outro">i</a>
+      css url changed                | <div style="background: url(/a/1.png)"></div> | <div style="background: url(&quot;/a/2.png&quot;)"></div>
+      css url encoded differently    | <div style="background: url(/a/b c.png)"></div> | <div style="background: url(&quot;/a/b%20c.png&quot;)"></div>
+      css other property changed     | <div style="color: red; background: url(/a.png)"></div> | <div style="color: blue; background: url(&quot;/a.png&quot;)"></div>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
