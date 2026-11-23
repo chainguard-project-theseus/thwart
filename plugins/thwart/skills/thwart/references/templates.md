@@ -843,7 +843,10 @@ Don't return a `Template` from a controller: return the view name.
 Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
 `ResourceBundleMessages`, `DefaultLinks(contextPath)`), or in a controller with
-`SpringRenderContexts.create(request, response, model)`. `Fragment` exists only between
+`SpringRenderContexts.create(request, response, model)`. Code that may not depend on the generated
+classes (a mail service in a shared module) renders by view name from a model map, as a controller
+does: `templateRegistry.renderToString("mail/welcome", model, ctx)`, with the starter's
+`TemplateRegistry` bean or `TemplateRegistry.load(classLoader)`. `Fragment` exists only between
 templates: Java can't build one, and a page (`t:params`) or a function can't take one. A page that
 took one becomes a fragment its callers pass `~{...}`.
 

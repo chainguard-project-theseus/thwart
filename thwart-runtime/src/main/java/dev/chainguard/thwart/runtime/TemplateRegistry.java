@@ -1,5 +1,6 @@
 package dev.chainguard.thwart.runtime;
 
+import dev.chainguard.thwart.runtime.internal.StringOutput;
 import dev.chainguard.thwart.runtime.internal.TemplateEntry;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +34,20 @@ public interface TemplateRegistry {
    */
   default Collection<TemplateEntry> fragments() {
     return Collections.emptyList();
+  }
+
+  /**
+   * Renders the template or fragment entry {@code viewName} from a name-to-value model, as the view
+   * resolver does, for code outside a request such as a mail job. Each value is checked against its
+   * parameter's type ({@link TemplateModelException} on a mismatch); a missing one is {@code null}.
+   *
+   * @throws IllegalArgumentException if there is no entry {@code viewName}
+   */
+  default String renderToString(String viewName, Map<String, ?> model, RenderContext ctx) {
+    TemplateEntry entry = find(viewName).orElseThrow(() -> new IllegalArgumentException("no Thwart template " + viewName));
+    StringOutput out = new StringOutput();
+    entry.renderer().render(model, ctx, out);
+    return out.toString();
   }
 
   /**

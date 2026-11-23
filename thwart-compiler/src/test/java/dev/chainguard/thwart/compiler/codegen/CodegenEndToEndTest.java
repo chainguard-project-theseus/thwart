@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.chainguard.thwart.compiler.testing.Compilation;
+import dev.chainguard.thwart.runtime.RenderContext;
 import dev.chainguard.thwart.runtime.TemplateModelException;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,29 @@ class CodegenEndToEndTest {
         assertThrows(TemplateModelException.class, () -> c.render("page", Map.of("user", "Ann", "n", 1)));
     assertTrue(e.getMessage().contains("'user'") && e.getMessage().contains("com.example.User"), e.getMessage());
     assertTrue(e.getMessage().contains("java.lang.String"), e.getMessage());
+  }
+
+  /** Outside a request (a mail job), an app renders by view name from a model through the registry. */
+  @Test
+  void registryRendersByViewName() {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "mail/welcome.html",
+                "<div xmlns:t=\"https://thwart.chainguard.dev\" t:params=\"String name, int n\">"
+                    + "<p t:text=\"name\">x</p><b t:fragment=\"count(int n)\" t:text=\"n\">0</b></div>")
+            .compile()
+            .assertSuccess();
+    RenderContext ctx = RenderContext.defaults();
+    assertEquals("<div><p>&lt;Ann&gt;</p><b>2</b></div>",
+        c.registry().renderToString("mail/welcome", Map.of("name", "<Ann>", "n", 2), ctx));
+    assertEquals("<b>3</b>", c.registry().renderToString("mail/welcome :: count", Map.of("n", 3), ctx));
+    assertThrows(TemplateModelException.class,
+        () -> c.registry().renderToString("mail/welcome", Map.of("name", 1, "n", 2), ctx));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> c.registry().renderToString("mail/missing", Map.of(), ctx));
+    assertEquals("no Thwart template mail/missing", e.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> c.registry().renderToString("../mail/welcome", Map.of(), ctx));
   }
 
   @Test
