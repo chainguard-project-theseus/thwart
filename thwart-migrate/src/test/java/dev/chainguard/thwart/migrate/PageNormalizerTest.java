@@ -156,6 +156,8 @@ class PageNormalizerTest {
       sanitizer id prefix and link   | <h2 id="intro">I</h2><a href="#intro">i</a> | <h2 id="user-content-intro">I</h2><a href="#user-content-intro">i</a>
       css url quoted                 | <div style="background-image: url(/a/1.png)"></div> | <div style="background-image: url(&quot;/a/1.png&quot;)"></div>
       css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
+      dialect xmlns on html          | <html lang="en" xmlns:salat="http://x.de/s"><body>a</body></html> | <html lang="en"><body>a</body></html>
+      xhtml xmlns on html            | <html xmlns="http://www.w3.org/1999/xhtml"><body>a</body></html> | <html><body>a</body></html>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -199,6 +201,8 @@ class PageNormalizerTest {
       css url changed                | <div style="background: url(/a/1.png)"></div> | <div style="background: url(&quot;/a/2.png&quot;)"></div>
       css url encoded differently    | <div style="background: url(/a/b c.png)"></div> | <div style="background: url(&quot;/a/b%20c.png&quot;)"></div>
       css other property changed     | <div style="color: red; background: url(/a.png)"></div> | <div style="color: blue; background: url(&quot;/a.png&quot;)"></div>
+      other html attribute with xmlns | <html lang="en" xmlns:s="http://x.de/s"><body>a</body></html> | <html lang="de"><body>a</body></html>
+      xml:lang is still compared     | <p xml:lang="en">a</p>                    | <p>a</p>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"

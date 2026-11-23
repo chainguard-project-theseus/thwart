@@ -137,7 +137,9 @@ check that what moved is harmless (validation messages from a `HashSet`, yes; ta
 their sort order, no). `forced` means the page differs only in what Thwart makes you change:
 `on*` handlers, `href="javascript:…"` and `href="#"`, `data-*` attributes (added, removed or
 changed, as the recipes in [Output contexts](templates.md#output-contexts) do), `<script>` and
-`<style>` elements, `hx-X` written as `data-hx-X` with the same value, the query of a path in an
+`<style>` elements, `xmlns` and `xmlns:*` attributes (an HTML parser gives them no meaning;
+Thwart can't compute one, and rejects a dialect's `xmlns:x` on `<html>`, which the Layout Dialect
+copied there), `hx-X` written as `data-hx-X` with the same value, the query of a path in an
 attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
 `hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
 table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
