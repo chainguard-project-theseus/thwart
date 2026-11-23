@@ -235,8 +235,9 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
   writes the `_csrf` input on a `method="post"` form itself. For any other, issue the value from a
   `@ControllerAdvice` and write the input in each form, with the parameter name, session keys and
   keying (per action path, say) that the check reads. A `@ModelAttribute` method runs only before
-  a controller's handler method, so a form on a view that an `@ExceptionHandler` or Spring Boot's
-  error page renders needs the value added there too.
+  a handler method, so a form on a view that an `@ExceptionHandler` renders needs the value added
+  there too (Spring Boot's error page is a handler method, so it gets the value unless the advice
+  is scoped to some controllers).
 
 ```java
 @ControllerAdvice
