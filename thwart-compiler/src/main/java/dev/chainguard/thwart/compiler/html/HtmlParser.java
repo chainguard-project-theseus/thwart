@@ -13,10 +13,10 @@ import dev.chainguard.thwart.compiler.model.Element;
 import dev.chainguard.thwart.compiler.model.Node;
 import dev.chainguard.thwart.compiler.model.OutputContext;
 import dev.chainguard.thwart.compiler.model.Text;
+import dev.chainguard.thwart.compiler.verify.engine.Vnu;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -57,14 +57,8 @@ public final class HtmlParser {
       + " are not supported: remove the '<!--/*/' and '/*/-->' markers to make the content part of the"
       + " template";
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
-  private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
-
-  static {
-    String[] refs = {"amp", "&", "lt", "<", "gt", ">", "quot", "\"", "apos", "'", "nbsp", " "};
-    for (int i = 0; i < refs.length; i += 2) {
-      NAMED_REFERENCES.put(refs[i], refs[i + 1]);
-    }
-  }
+  /** Every named reference the spec defines with its {@code ;}, as the spec parser's tables hold them (#916). */
+  private static final Map<String, String> NAMED_REFERENCES = Vnu.namedCharacterReferences();
 
   /**
    * True if the content of an element named {@code name} (any case) is parsed as one raw text
@@ -256,8 +250,9 @@ public final class HtmlParser {
 
   /**
    * Decodes HTML character references: numeric ({@code &#106;}, {@code &#x6A;}, semicolon
-   * optional) and the named references {@code amp lt gt quot apos nbsp} (semicolon required).
-   * Unknown named references are left as written; invalid code points become U+FFFD.
+   * optional) and every named reference the HTML standard defines ({@code &copy;}), semicolon
+   * required. Unknown named references, and named references without their semicolon, are left as
+   * written; invalid code points become U+FFFD.
    */
   public static String decode(String raw) {
     if (raw.indexOf('&') < 0) {
@@ -326,7 +321,7 @@ public final class HtmlParser {
     if (semi < 0) {
       return -1;
     }
-    String replacement = NAMED_REFERENCES.get(s.substring(i, semi));
+    String replacement = NAMED_REFERENCES.get(s.substring(i, semi + 1));
     if (replacement == null) {
       return -1;
     }

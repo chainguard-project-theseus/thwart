@@ -267,8 +267,8 @@ public final class CsrfInjector {
 
   /**
    * {@link Checks#isSameOriginUrl} for a static attribute value, which is written as in the source.
-   * The parser decodes numeric and a few named character references; a browser decodes every named
-   * one ({@code &sol;}, {@code &colon;}, {@code &Tab;}, ...). So each {@code &name;} left in
+   * The parser decodes numeric character references and every named one written with its {@code ;}
+   * ({@code &sol;}, {@code &colon;}); a browser also decodes some written without it. So each {@code &name} left in
    * {@code value} may be any character: the value must pass with it removed, as {@code /} and as
    * {@code :}, which covers every way it could make the URL protocol-relative or give it a scheme
    * ({@code isSameOriginUrl} reads {@code \} as {@code /}, so {@code /} also stands for

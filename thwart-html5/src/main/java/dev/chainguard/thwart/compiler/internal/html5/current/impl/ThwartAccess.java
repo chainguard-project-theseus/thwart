@@ -99,6 +99,33 @@ public final class ThwartAccess {
     tokenizer.tokenizeBuffer(new UTF16Buffer(new char[0], 0, 0));
   }
 
+  /**
+   * The spec's named character references that end with {@code ;}, without the {@code &}
+   * ({@code "copy;"} to {@code "©"}), read from the tokenizer's own tables. A name is its
+   * first two letters (the {@code HILO_ACCEL} indexes: the second letter, then A-Z as 0-25 and a-z
+   * as 26-51) followed by its {@code NAMES} entry.
+   */
+  public static java.util.Map<String, String> namedCharacterReferences() {
+    java.util.Map<String, String> refs = new java.util.HashMap<>();
+    int[][] accel = NamedCharactersAccel.HILO_ACCEL;
+    for (int second = 0; second < accel.length; second++) {
+      for (int first = 0; accel[second] != null && first < accel[second].length; first++) {
+        int hilo = accel[second][first];
+        if (hilo == 0) {
+          continue;
+        }
+        String prefix = "" + (char) (first < 26 ? 'A' + first : 'a' + first - 26) + (char) second;
+        for (int i = hilo & 0xFFFF; i <= hilo >>> 16; i++) {
+          String name = prefix + NamedCharacters.NAMES[i];
+          if (name.endsWith(";")) {
+            refs.put(name, new String(NamedCharacters.VALUES[i]));
+          }
+        }
+      }
+    }
+    return refs;
+  }
+
   /** Document parsing from the initial state. */
   public static ThwartAccess document(boolean scripting) throws SAXException {
     return new ThwartAccess(scripting, null, null);

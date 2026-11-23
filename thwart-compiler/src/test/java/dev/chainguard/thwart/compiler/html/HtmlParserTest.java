@@ -242,7 +242,10 @@ class HtmlParserTest {
     assertEquals("AAA", HtmlParser.decode("&#65;&#x41;&#X41;"));
     assertEquals("j", HtmlParser.decode("&#106"));
     assertEquals("😀", HtmlParser.decode("&#x1F600;"));
-    assertEquals("&unknown; &copy; &amp &", HtmlParser.decode("&unknown; &copy; &amp &"));
+    // #916: every named reference the standard defines, with its ';'.
+    assertEquals("&unknown; \u00a9 &amp & &copy", HtmlParser.decode("&unknown; &copy; &amp & &copy"));
+    assertEquals("\u00a9\u00a9:\t/", HtmlParser.decode("&COPY;&copy;&colon;&Tab;&sol;"));
+    assertEquals("\u2242\u0338\ud835\udd57", HtmlParser.decode("&NotEqualTilde;&fopf;"));
     assertEquals("&#; &#x; &#xZ;", HtmlParser.decode("&#; &#x; &#xZ;"));
     assertEquals("���", HtmlParser.decode("&#0;&#xD800;&#x110000;"));
     assertEquals("�", HtmlParser.decode("&#99999999999999999999;"));
@@ -253,7 +256,7 @@ class HtmlParserTest {
   @Test
   void attributeValueDecodedRawKept() {
     Element a = el(parseOk("<a title=\"&#106;avascript&colon;\" t:text=\"${a &gt; b}\"></a>").rootElement());
-    assertEquals("javascript&colon;", a.attributes().get(0).value());
+    assertEquals("javascript:", a.attributes().get(0).value());
     assertEquals("&#106;avascript&colon;", a.attributes().get(0).rawValue());
     assertEquals("${a > b}", a.attributes().get(1).value());
   }

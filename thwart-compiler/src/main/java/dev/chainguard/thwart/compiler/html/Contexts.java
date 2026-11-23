@@ -360,9 +360,9 @@ public final class Contexts {
    * (one {@link #URL_ATTRIBUTES} or {@link #isResourceUrl resource URL} names, on any element). Both
    * are inline script, which the strict nonce CSP blocks, so a template never depends on one. The
    * scheme is found as {@code Escapers.isAllowedUrl} finds it: leading C0 controls and spaces are
-   * skipped and tab/CR/LF ignored. The parser decodes numeric and a few named references; a browser
-   * decodes every named one ({@code &colon;}, {@code &Tab;}, {@code &NewLine;}), and none of them is
-   * an ASCII letter. So the {@link #UNDECODED_REFERENCE references left} in {@code value} are
+   * skipped and tab/CR/LF ignored. The parser decodes numeric references and every named one written
+   * with its {@code ;} ({@code &colon;}, {@code &Tab;}); a browser also decodes some written without
+   * it, and none of them is an ASCII letter. So the {@link #UNDECODED_REFERENCE references left} in {@code value} are
    * removed, and if one was, a value whose letters then start with {@code javascript} is rejected
    * (fail-closed: {@code java&Tab;script&colon;x} is {@code javascript:x} to a browser).
    */
@@ -392,7 +392,8 @@ public final class Contexts {
   }
 
   /**
-   * A named character reference the parser did not decode: a browser decodes it, to any character.
+   * A named character reference the parser did not decode (one without its {@code ;}, or unknown): a
+   * browser may decode it, to any character.
    * Static URL checks treat it so ({@link #staticScript}, {@code CsrfInjector.isSameOriginStatic}).
    */
   public static final Pattern UNDECODED_REFERENCE = Pattern.compile("&[A-Za-z][A-Za-z0-9]*;?");
