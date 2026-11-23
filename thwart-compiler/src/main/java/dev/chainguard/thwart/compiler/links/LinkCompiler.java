@@ -51,7 +51,8 @@ public final class LinkCompiler {
     boolean ok = checkSchemeAndHost(link, diagnostics);
     List<String> vars = placeholders(path);
 
-    // Each parameter's compiled value, null for one written without a value.
+    // Each parameter's compiled value: null for one written without a value, or for one whose value
+    // failed to compile (then ok is false, and the !ok return below keeps it out of the output).
     Map<String, CompiledExpr> params = new LinkedHashMap<>();
     for (Assignment p : link.params()) {
       if (params.containsKey(p.name())) {
@@ -71,7 +72,7 @@ public final class LinkCompiler {
       }
       CompiledExpr c = expressions.compileOutput(p.value(), scope);
       if (c == null) {
-        ok = false; // keep the name: the parameter is written, its value is what failed
+        ok = false; // keep the name: the parameter is written, its value is what failed (#914)
       }
       params.put(p.name(), c);
     }
