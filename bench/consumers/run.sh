@@ -86,8 +86,7 @@ for app in "${apps[@]}"; do
   [ -f "$cfg" ] || { echo "run.sh: no app $app" >&2; exit 2; }
   o=$out/$app
   mkdir -p "$o"
-  jdk=21
-  [ "$(json "$cfg" java 21)" = 8 ] && jdk=8
+  jdk=$(json "$cfg" java 21)
   {
     echo "engine: $(json "$cfg" engine -)"
     echo "jdk: $jdk"
@@ -112,7 +111,8 @@ for app in "${apps[@]}"; do
   fi
   # The container's user is not this one: let it write both trees and the output.
   chmod -R a+rwX "$work/$app" "$o"
-  jdk_home=/usr/lib/jvm/java-21-openjdk
+  # The image's JDKs, as bench.py names them: java-1.8-openjdk, java-<N>-openjdk.
+  jdk_home=/usr/lib/jvm/java-$jdk-openjdk
   [ "$jdk" = 8 ] && jdk_home=/usr/lib/jvm/java-1.8-openjdk
   docker run --rm --init --memory=8g -w /work \
     -v thwart-migration-bench-m2:/home/bench/.m2 \
