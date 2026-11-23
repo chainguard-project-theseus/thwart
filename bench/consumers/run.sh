@@ -12,6 +12,8 @@
 #      WARMUP       seconds of mixed traffic before timing, per JVM (default 30)
 #      DURATION     seconds per timed load run (default 5)
 #      CONCURRENCY  concurrency levels (default "1 8 32")
+#      ALLOW_UNPASSED  apps (comma-separated) with no passing run whose latest run that meets
+#                   every gate of score.json but page parity is benchmarked; the report marks them
 #      BENCH_REPORTABLE=yes   set by vm.sh on a dedicated VM; anything else labels the report
 #                   as a local validation run
 #
@@ -60,18 +62,6 @@ if [ $# -gt 0 ]; then apps=("$@"); else mapfile -t apps < <(ls "$bench/apps"); f
   echo "reportable: ${BENCH_REPORTABLE:-no}"
 } > "$out/machine.txt"
 
-# The latest run that passed strictly, else the latest that passed with forced diffs.
-passing_run() {
-  local key d k
-  for key in pass pass_forced; do
-    for k in $(find "$RESULTS/$1" -maxdepth 1 -name 'run-*' -printf '%f\n' 2>/dev/null | sed 's/^run-//' | sort -nr); do
-      d=$RESULTS/$1/run-$k
-      [ -f "$d/score.json" ] && [ -f "$d/diff.patch" ] && [ "$(json "$d/score.json" "$key" false)" = true ] &&
-        { echo "$k $key"; return; }
-    done
-  done
-}
-
 checkout() {
   local repo=$1 commit=$2 dest=$3 cache=$work/src/$4
   [ -d "$cache" ] || git clone -q "$repo" "$cache"
@@ -91,12 +81,14 @@ for app in "${apps[@]}"; do
     echo "engine: $(json "$cfg" engine -)"
     echo "jdk: $jdk"
   } > "$o/meta.txt"
-  read -r k how <<< "$(passing_run "$app")"
-  if [ -z "${k:-}" ]; then
-    echo "not benchmarked: no passing migration run with a diff.patch" > "$o/status.txt"
+  read -r k how differs <<< "$(python3 "$here/lib/consumers.py" pick "$RESULTS/$app" "${ALLOW_UNPASSED:-}")"
+  if [ -z "${k:-}" ] || [ "$k" = - ]; then
+    echo "not benchmarked: ${how:-could not read the runs} ${differs:-}" > "$o/status.txt"
     continue
   fi
   echo "run: run-$k ($how)" >> "$o/meta.txt"
+  [ "$how" = unpassed ] &&
+    echo "parity: port does not pass parity: $differs differs, reasons in its notes" >> "$o/meta.txt"
   echo "== $app: original against run-$k ($how)"
   repo=$(json "$cfg" repo -) pin=$(json "$cfg" commit -)
   if ! { checkout "$repo" "$pin" "$work/$app/orig" "$app" && checkout "$repo" "$pin" "$work/$app/thwart" "$app"; } > "$o/setup.log" 2>&1; then
