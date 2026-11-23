@@ -164,6 +164,7 @@ class PageNormalizerTest {
       meta itemprop url to json-ld   | <meta itemprop="url" content="/p/1"><p>x</p> | <script type="application/ld+json">{"url":"\\/p\\/1"}</script><p>x</p>
       meta itemprop escaped in json-ld | <meta itemprop="name" content="Men's shoes &amp; bags"><p>x</p> | <script type="application/ld+json">{"name":"Men\\u0027s shoes \\u0026 bags"}</script><p>x</p>
       meta itemprop kept beside json-ld | <meta itemprop="seller" content="Shop"><p>x</p> | <meta itemprop="seller" content="Shop"><script type="application/ld+json">{"seller":"Shop"}</script><p>x</p>
+      two meta itemprop for two json-ld values | <meta itemprop="priceCurrency" content="CAD"><p>a</p><meta itemprop="priceCurrency" content="CAD"><p>b</p> | <script type="application/ld+json">[{"priceCurrency":"CAD"},{"priceCurrency":"CAD"}]</script><p>a</p><p>b</p>
       meta itemprop in a json-ld array | <meta itemprop="sameAs" content="https://x.org/a"><p>x</p> | <script type="application/ld+json">{"sameAs":["https://x.org/b","https://x.org/a"]}</script><p>x</p>
       hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
       hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
@@ -249,6 +250,8 @@ class PageNormalizerTest {
       meta itemprop number with a dot first | <meta itemprop="price" content="5"><p>x</p> | <script type="application/ld+json">{"price": .5}</script><p>x</p>
       meta itemprop key case differs | <meta itemprop="seller" content="Shop"><p>x</p> | <script type="application/ld+json">{"Seller": "Shop"}</script><p>x</p>
       meta itemprop key ends in it lower case | <meta itemprop="currency" content="CAD"><p>x</p> | <script type="application/ld+json">{"pricecurrency": "CAD"}</script><p>x</p>
+      two meta itemprop for one json-ld value | <meta itemprop="priceCurrency" content="CAD"><p>a</p><meta itemprop="priceCurrency" content="CAD"><p>b</p> | <script type="application/ld+json">{"priceCurrency":"CAD"}</script><p>a</p><p>b</p>
+      meta itemprop beside an old json-ld value | <script type="application/ld+json">{"seller":"Shop"}</script><meta itemprop="seller" content="Shop"><p>x</p> | <script type="application/ld+json">{"seller":"Shop"}</script><p>x</p>
       other meta moved to json-ld    | <meta name="description" content="Bag"><p>x</p> | <script type="application/ld+json">{"description":"Bag"}</script><p>x</p>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">

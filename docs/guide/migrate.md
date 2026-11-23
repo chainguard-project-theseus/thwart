@@ -155,7 +155,7 @@ adds to a `method="post"` form, a custom attribute (a name HTML doesn't define) 
 in for one such attribute), a `<meta itemprop content>` whose `content` a
 `<script type="application/ld+json">` block on the new page holds under the `itemprop` or a
 camelCase key ending in it (`currency` in `priceCurrency`, case-sensitive; the compiler's fix-it
-for computed microdata), and a removed attribute whose
+for computed microdata; each value the new page added stands in for one `<meta>`), and a removed attribute whose
 name contains `-on:` (`hx-on::after-request`, `x-on:click`: inline code the CSP blocks; one added
 or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,

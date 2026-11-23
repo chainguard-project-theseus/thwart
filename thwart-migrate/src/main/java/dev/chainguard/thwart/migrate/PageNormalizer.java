@@ -327,12 +327,14 @@ final class PageNormalizer {
    * that went missing, or sits under another key, still differs.
    */
   private static void dropMicrodataMovedToJsonLd(Document old, Document now) {
-    List<String[]> pairs = new ArrayList<>();
-    for (Element s : now.getElementsByTag("script")) {
-      if (scriptType(s).equals("application/ld+json")) {
-        List<String[]> block = new ArrayList<>();
-        jsonPairs(s.data(), block);
-        pairs.addAll(block);
+    List<String[]> pairs = jsonLdPairs(now);
+    // Only a value the new page added stands in, and each for one <meta>.
+    for (String[] had : jsonLdPairs(old)) {
+      for (int i = 0; i < pairs.size(); i++) {
+        if (Arrays.equals(pairs.get(i), had)) {
+          pairs.remove(i);
+          break;
+        }
       }
     }
     if (pairs.isEmpty()) {
@@ -354,17 +356,32 @@ final class PageNormalizer {
 
   /**
    * Whether a pair holds the value under {@code prop}, or under a camelCase key ending in it
-   * ({@code currency} in {@code priceCurrency}). Keys are case-sensitive, as in JSON-LD.
+   * ({@code currency} in {@code priceCurrency}), and if so uses that pair up. Keys are
+   * case-sensitive, as in JSON-LD.
    */
   private static boolean heldUnder(List<String[]> pairs, String prop, String value) {
     String suffix = Character.toUpperCase(prop.charAt(0)) + prop.substring(1);
-    for (String[] kv : pairs) {
+    for (int i = 0; i < pairs.size(); i++) {
+      String[] kv = pairs.get(i);
       if ((kv[0].equals(prop) || kv[0].length() > suffix.length() && kv[0].endsWith(suffix))
           && sameJsonValue(kv[1], kv[2] != null, value)) {
+        pairs.remove(i); // used up
         return true;
       }
     }
     return false;
+  }
+
+  private static List<String[]> jsonLdPairs(Document d) {
+    List<String[]> pairs = new ArrayList<>();
+    for (Element s : d.getElementsByTag("script")) {
+      if (scriptType(s).equals("application/ld+json")) {
+        List<String[]> block = new ArrayList<>();
+        jsonPairs(s.data(), block);
+        pairs.addAll(block);
+      }
+    }
+    return pairs;
   }
 
   /** Equal text, or for an unquoted JSON number, an equal number. */
