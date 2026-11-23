@@ -133,9 +133,27 @@ class NameOnlyFieldsTest {
 
   @Test
   void aFieldArgumentCarriesTheValueSoIsStillRejected() {
-    compile(
+    // #918: the error says why (a Field carries the value) and how (bind it in the page).
+    Compilation c =
+        compile(
             "<t:block t:fragment=\"f(Field name)\"><input type=\"file\" t:field=\"name\"></t:block>"
-                + "<div t:replace=\"~{:: f('file')}\"></div>")
-        .assertError("MultipartFile is never view-safe");
+                + "<div t:replace=\"~{:: f('file')}\"></div>");
+    c.assertError(
+        "form.html:1:",
+        "is a Field, which carries the field's value into the fragment, but 'file' can't be read",
+        "MultipartFile is never view-safe",
+        "Bind this field in the page instead: t:field on <input type=\"file\">");
+    assertEquals(1, c.errors().size(), c.errors().toString());
+    compile(
+            "<t:block t:fragment=\"f(Field name)\"></t:block><div t:replace=\"~{:: f('attachments[0]')}\"></div>")
+        .assertError("'attachments[0]' can't be read", "never view-safe");
+    // A sub-path of a Field<Upload> parameter, passed on to another fragment.
+    compile(
+            "<t:block t:fragment=\"f(Field name)\"></t:block>"
+                + "<t:block t:fragment=\"g(Field<Upload> u)\"><div t:replace=\"~{:: f(u.file)}\"></div></t:block>")
+        .assertError("the field can't be read", "never view-safe");
+    // A readable field still passes.
+    compile("<t:block t:fragment=\"f(Field name)\"><input t:field=\"name\"></t:block><div t:replace=\"~{:: f('title')}\"></div>")
+        .assertSuccess();
   }
 }

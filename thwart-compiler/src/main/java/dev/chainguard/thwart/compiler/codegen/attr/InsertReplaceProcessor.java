@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.lang.model.type.TypeMirror;
 
@@ -366,6 +367,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
             .error(arg.pos(), what + " is a form field, so the call must be inside t:object (on this element or an ancestor)");
         return null;
       }
+      FormPaths.FormField byName = FormPaths.literalField(path, lit.pos(), scope, ctx.expressions(), FormPaths.Check.PATH);
+      if (byName == null || unreadableField(ctx, arg, what, "'" + path + "'", byName.type())) {
+        return null;
+      }
       CompiledExpr current = FormPaths.compile(path, lit.pos(), scope, ctx.expressions());
       if (current == null) {
         return null;
@@ -380,7 +385,12 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       return forwarded.javaName();
     } else if (FormPaths.fieldRoot(arg.value(), scope).isPresent()) {
-      f = FormPaths.resolveSubPath(arg.value(), FormPaths.fieldRoot(arg.value(), scope).get(), scope, ctx.expressions(), FormPaths.Check.VALUE);
+      Variable root = FormPaths.fieldRoot(arg.value(), scope).get();
+      FormPaths.FormField byName = FormPaths.resolveSubPath(arg.value(), root, scope, ctx.expressions(), FormPaths.Check.PATH);
+      if (byName == null || unreadableField(ctx, arg, what, "the field", byName.type())) {
+        return null;
+      }
+      f = FormPaths.resolveSubPath(arg.value(), root, scope, ctx.expressions(), FormPaths.Check.VALUE);
       if (f == null) {
         return null;
       }
@@ -399,6 +409,25 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     String typeArg = wanted == null ? "java.lang.Object" : JavaStrings.typeName(wanted);
     return "new " + FormPaths.FIELD + "<" + typeArg + ">(" + f.objectName() + ", " + f.path() + ", " + f.value().code() + ")";
+  }
+
+  /**
+   * Reports, and returns true, if the field's {@code type} is never view-safe (a {@code MultipartFile}):
+   * a {@code Field} argument carries the field's value, which only a name-only binding in the page
+   * may leave unread (#918).
+   */
+  private static boolean unreadableField(
+      CodegenContext ctx, FragmentRef.Arg arg, String what, String field, TypeMirror type) {
+    Optional<String> never = type == null ? Optional.<String>empty() : ctx.expressions().neverViewSafeReason(type);
+    if (never.isPresent()) {
+      ctx.diagnostics()
+          .error(arg.pos(), what + " is a Field, which carries the field's value into the fragment, but " + field
+              + " can't be read: " + never.get() + ". Bind this field in the page instead: t:field on <input"
+              + " type=\"file\"> or type=\"password\", t:errors and fields.hasErrors bind it by name without reading"
+              + " its value");
+      return true;
+    }
+    return false;
   }
 
   /**
