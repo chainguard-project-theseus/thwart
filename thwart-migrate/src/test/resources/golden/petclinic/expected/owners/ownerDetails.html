@@ -40,7 +40,7 @@
       </td>
       <td valign="top">
         <table class="table-condensed">
-          <tr t:if="pet.visits.isEmpty()"><td t:text="#{noVisits(pet.name)}">No visits</td></tr>
+          <tr t:if="lists.isEmpty(pet.visits)"><td t:text="#{noVisits(pet.name)}">No visits</td></tr>
           <tr t:each="visit, iter : pet.visits" t:classappend="iter.odd ? 'odd'">
             <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
             <td t:text="visit?.description"></td>

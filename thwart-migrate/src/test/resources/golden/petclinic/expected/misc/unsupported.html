@@ -6,7 +6,7 @@
   <p t:text="${@environment.getProperty('secret')}">bean</p>
   <p t:text="${#ctx.request.remoteAddr}">ctx</p>
   <p t:text='user.name' t:title=user.title>single and unquoted</p>
-  <p t:if="not user.roles.isEmpty()" t:text="|Hello ${user.name}, you have ${user.roles.size()} roles|">interp</p>
+  <p t:if="not lists.isEmpty(user.roles)" t:text="|Hello ${user.name}, you have ${user.roles.size()} roles|">interp</p>
   <ul><li t:each="r : ${user.roles.?[active]}" t:text="r">selection</li></ul>
   <button t:onclick="'go(' + user.id + ')'" t:style="'color:' + color">events and style</button>
   <div t:if="auth.isAuthenticated()">secured</div>

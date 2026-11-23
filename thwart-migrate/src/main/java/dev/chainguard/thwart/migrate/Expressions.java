@@ -60,7 +60,7 @@ final class Expressions {
 
   /**
    * Applies the expression rewrites: drop redundant {@code ${...}}, receiver calls such as
-   * {@code #lists.isEmpty(x)} to {@code x.isEmpty()}, {@code *{{path}}} to
+   * {@code #lists.size(x)} to {@code x.size()}, {@code *{{path}}} to
    * {@code fields.value('path')}, and utility objects to namespaces. Callers
    * must check {@link #unsupported} first; values with unsupported constructs stay untouched.
    */

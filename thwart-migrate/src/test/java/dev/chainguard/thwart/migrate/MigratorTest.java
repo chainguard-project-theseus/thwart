@@ -223,7 +223,7 @@ class MigratorTest {
   @Test
   void rewritesUtilityObjects() throws Exception {
     assertEquals("<p t:params=\"Object xs, Object a, Object b, Object s, Object d\">"
-            + "<i t:if=\"xs.isEmpty()\"></i><i t:if=\"not (a + b).isEmpty()\"></i>"
+            + "<i t:if=\"lists.isEmpty(xs)\"></i><i t:if=\"not lists.isEmpty(a + b)\"></i>"
             + "<i t:text=\"xs.size()\"></i><i t:text=\"strings.trim(s) + temporals.format(d, 'y')\"></i></p>",
         convert("<p><i th:if=\"${#lists.isEmpty(xs)}\"></i><i th:if=\"${not #lists.isEmpty(a + b)}\"></i>"
             + "<i th:text=\"${#lists.size(xs)}\"></i>"
