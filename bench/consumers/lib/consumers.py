@@ -3,6 +3,7 @@
 
 usage: consumers.py replay BASE PAGES OUT_DIR       replay pages.txt; first-request times, cookie
        consumers.py probe BASE PAGES COOKIE OUT     status of each GET path, no redirects followed
+       consumers.py pick APP_RESULTS ALLOW          the run to take: "K pass|pass_forced|unpassed DIFFERS" or "- why"
        consumers.py select PAGES ORIG THWART DIR    the pages to time and the mix (pages.tsv, mixed.txt)
        consumers.py oha JSON PREFIX STATUS          oha's JSON as samples.tsv rows
        consumers.py gc LOG FROM                     live heap and bytes allocated in a GC log window
@@ -178,6 +179,37 @@ def select(pages_file, orig_file, thwart_file, out_dir):
         f.writelines(p + "\n" for m, p, _ in read_pages(pages_file) if m == "GET" and p in same)
 
 
+# ------------------------------------------------------------------ the Thwart version
+
+DIFFERS = re.compile(r"^\d+ differs\s", re.M)
+
+
+def pick(app_dir, allow_unpassed):
+    """The run to take the Thwart version from, as (run number, how, differs) or (None, why).
+    The latest run that passed strictly, else the latest that passed with forced diffs. With
+    allow_unpassed, else the latest run whose score.json says it built and lists no status or
+    final-URL mismatch; differs is the number of pages its compare.txt calls differs."""
+    runs = []
+    for d in os.listdir(app_dir) if os.path.isdir(app_dir) else []:
+        m = re.fullmatch(r"run-(\d+)", d)
+        r = os.path.join(app_dir, d)
+        if m and os.path.isfile(os.path.join(r, "score.json")) and os.path.isfile(os.path.join(r, "diff.patch")):
+            runs.append((int(m.group(1)), r, json.load(open(os.path.join(r, "score.json")))))
+    runs.sort(reverse=True)
+    for key in ("pass", "pass_forced"):
+        for k, _, score in runs:
+            if score.get(key) is True:
+                return k, key, None
+    if not allow_unpassed:
+        return None, "no passing migration run with a diff.patch"
+    for k, r, score in runs:
+        if score.get("build_ok") is True and score.get("status_mismatch") == []:
+            compare = os.path.join(r, "compare.txt")
+            n = len(DIFFERS.findall(open(compare, errors="replace").read())) if os.path.isfile(compare) else None
+            return k, "unpassed", n
+    return None, "no run that builds with every page's status and final URL matching (score.json)"
+
+
 # ------------------------------------------------------------------ load generator and GC log
 
 def oha_rows(json_file, prefix, status, case):
@@ -333,6 +365,8 @@ def app_section(app, d):
     meta = read_kv(os.path.join(d, "meta.txt"))
     s = read_samples(os.path.join(d, "samples.tsv"))
     out = [f"## {app}", ""]
+    if "parity" in meta:
+        out += [f"**{meta['parity']}** It was benchmarked only because it was opted in (`ALLOW_UNPASSED`).", ""]
     for k in ("engine", "run", "jdk", "spring orig", "spring thwart", "artifact orig", "artifact thwart"):
         if k in meta:
             out.append(f"- {k}: {meta[k]}")
@@ -389,29 +423,42 @@ def report(root):
     out += [f"- {k}: {v}" for k, v in m.items() if k != "reportable"] + [""]
     apps = sorted(a for a in os.listdir(root) if os.path.isfile(os.path.join(root, a, "status.txt")))
     out += ["## Apps", "", "| app | engine | Thwart version | status |", "|---|---|---|---|"]
-    status = {}
+    status, parity = {}, {}
     for a in apps:
         meta = read_kv(os.path.join(root, a, "meta.txt"))
         status[a] = open(os.path.join(root, a, "status.txt")).read().strip()
-        out.append(f"| {a} | {meta.get('engine', '-')} | {meta.get('run', '-')} | {status[a]} |")
+        parity[a] = meta.get("parity")
+        st = status[a] + (f"; {parity[a]}" if parity[a] else "")
+        out.append(f"| {a} | {meta.get('engine', '-')} | {meta.get('run', '-')} | {st} |")
     out.append("")
-    # Only apps that ran to the end: a failed one's samples are partial.
+    # Only apps that ran to the end: a failed one's samples are partial. Ports that don't pass
+    # parity get a table of their own.
     done = [a for a in apps if status[a] == "benchmarked"]
-    if done:
-        out += ["## Summary", "", "Thwart / original (95% interval) per app; mixed traffic at the highest concurrency.", "",
+    passed = [a for a in done if not parity[a]]
+    unpassed = [a for a in done if parity[a]]
+    for title, group in (("## Summary", passed), ("## Summary: ports that do not pass parity", unpassed)):
+        if not group:
+            continue
+        out += [title, ""]
+        if group is unpassed:
+            out += ["Opted in with `ALLOW_UNPASSED`: these Thwart versions build and answer every page with the "
+                    "recorded status and final URL, but compare finds pages that differ. Not comparable with "
+                    "the table above.", ""]
+        out += ["Thwart / original (95% interval) per app; mixed traffic at the highest concurrency.", "",
                 "| app | mixed req/s | mixed p99 | cold start | live heap | allocated per request | clean build | artifact |",
                 "|---|---|---|---|---|---|---|---|"]
-        for a in done:
+        for a in group:
             s = read_samples(os.path.join(root, a, "samples.tsv"))
             top = max((int(c.rsplit("@c", 1)[1]) for m, c in s if m == "rps" and c.startswith("mixed @c")), default=0)
 
             def r(metric, case):
                 v = s.get((metric, case))
                 return ratio_text(v["orig"], v["thwart"]) if v else "-"
-            out.append(f"| {a} | {r('rps', f'mixed @c{top}')} | {r('p99_ms', f'mixed @c{top}')} | {r('cold_start_ms', '-')} "
+            name = f"{a} ({parity[a]})" if parity[a] else a
+            out.append(f"| {name} | {r('rps', f'mixed @c{top}')} | {r('p99_ms', f'mixed @c{top}')} | {r('cold_start_ms', '-')} "
                        f"| {r('heap_live_mb', '-')} | {r('alloc_kb', 'mixed')} | {r('build_s', '-')} | {r('artifact_mb', '-')} |")
         out.append("")
-    for a in done:
+    for a in passed + unpassed:
         out += app_section(a, os.path.join(root, a))
     text = "\n".join(out) + "\n"
     with open(os.path.join(root, "report.md"), "w") as f:
@@ -494,18 +541,44 @@ def selftest():
     check(rows[0] == "thwart\t1\trps\t/x @c8\t1234.5" and rows[2] == "thwart\t1\tp90_ms\t/x @c8\t4"
           and rows[4] == "thwart\t1\tbad_responses\t/x @c8\t5", "oha JSON to samples rows")
 
+    # The run to take.
+    res = os.path.join(tmp, "results")
+
+    def run(app, k, score, compare=None):
+        d = os.path.join(res, app, f"run-{k}")
+        os.makedirs(d)
+        json.dump(score, open(os.path.join(d, "score.json"), "w"))
+        open(os.path.join(d, "diff.patch"), "w").close()
+        if compare is not None:
+            open(os.path.join(d, "compare.txt"), "w").write(compare)
+    ok = {"build_ok": True, "status_mismatch": []}
+    run("a", 1, dict(ok, pass_forced=True))
+    run("a", 2, dict(ok, **{"pass": True}))
+    run("a", 3, dict(ok, pass_forced=False, **{"pass": False}), "001 differs  GET /\n")
+    check(pick(os.path.join(res, "a"), True) == (2, "pass", None), "a strict pass comes first, even when opted in")
+    run("b", 1, dict(ok, **{"pass": False}), "001 same  GET /\n002 differs  GET /x\n003 differs  GET /y\n")
+    run("b", 2, dict(build_ok=True, status_mismatch=["GET /x: status: 200 -> 500"], **{"pass": False}), "")
+    check(pick(os.path.join(res, "b"), False) == (None, "no passing migration run with a diff.patch"),
+          "an unpassed run without the opt-in: not benchmarked")
+    check(pick(os.path.join(res, "b"), True) == (1, "unpassed", 2),
+          "opted in: the latest run with no status mismatch, and its differs count")
+    run("c", 1, dict(build_ok=False, status_mismatch=[], **{"pass": False}))
+    check(pick(os.path.join(res, "c"), True)[0] is None, "opted in, a run that doesn't build: not benchmarked")
+
     # The report, from planted samples of two apps and one app not benchmarked.
     root = os.path.join(tmp, "out")
-    for app in ("alpha", "beta", "gamma", "delta"):
+    for app in ("alpha", "beta", "gamma", "delta", "omega"):
         os.makedirs(os.path.join(root, app))
     with open(os.path.join(root, "machine.txt"), "w") as f:
         f.write("cpu: planted\nreportable: no\n")
-    for app, k in (("alpha", 2.0), ("beta", 0.5), ("delta", 1.0)):
+    for app, k in (("alpha", 2.0), ("beta", 0.5), ("delta", 1.0), ("omega", 3.0)):
         with open(os.path.join(root, app, "status.txt"), "w") as f:
             f.write("not benchmarked: the thwart version failed to build in repetition 3\n" if app == "delta"
                     else "benchmarked\n")
         with open(os.path.join(root, app, "meta.txt"), "w") as f:
-            f.write("engine: thymeleaf\nrun: run-3 (pass)\n")
+            f.write("engine: thymeleaf\nrun: run-3 (pass)\n" if app != "omega" else
+                    "engine: thymeleaf\nrun: run-1 (unpassed)\n"
+                    "parity: port does not pass parity: 22 differs, reasons in its notes\n")
         with open(os.path.join(root, app, "samples.tsv"), "w") as f:
             f.write("version\trep\tmetric\tcase\tvalue\n")
             for rep, x in enumerate([100, 101, 99, 100, 102], 1):
@@ -527,6 +600,13 @@ def selftest():
     check("| alpha | 2.00x (" in text and "| beta | 0.50x (" in text, "the summary rows")
     check("| delta | 1.00x" not in text and "## delta" not in text,
           "an app that failed partway has no summary row or section, only its status")
+    flag = "port does not pass parity: 22 differs, reasons in its notes"
+    summary = text[text.index("## Summary\n"):text.index("## Summary: ports that do not pass parity")]
+    check("omega" not in summary, "a port that doesn't pass parity is not in the main summary")
+    check(f"| omega ({flag}) | 3.00x (" in text, "it has its own summary table, marked")
+    check(f"| omega | thymeleaf | run-1 (unpassed) | benchmarked; {flag} |" in text, "the Apps table marks it")
+    check(f"## omega\n\n**{flag}**" in text, "its section starts with the mark")
+    check(text.index("## alpha") < text.index("## beta") < text.index("## omega"), "its section comes after the passing apps'")
     check(report(root) == text, "the same samples give the same report")
     print("consumers selftest: ok")
 
@@ -548,6 +628,9 @@ def main():
         print(" ".join("-" if x is None else f"{x:.0f}" for x in w))
     elif cmd == "report" and len(a) == 2:
         report(a[1])
+    elif cmd == "pick" and len(a) == 3:
+        k, how, *n = pick(a[1], a[2] == "1")
+        print(f"{k} {how} {n[0] if n[0] is not None else '?'}" if k is not None else f"- {how}")
     elif cmd == "selftest":
         selftest()
     else:
