@@ -19,15 +19,18 @@ import java.util.Locale;
  * supplied by the compiler; templates pass only the remaining arguments. Formatting follows
  * Thymeleaf's {@code NumberUtils}: the locale's digits, decimal point and grouping separator,
  * which a point type ({@code 'POINT'}, {@code 'COMMA'}, {@code 'WHITESPACE'}, {@code 'DEFAULT'}
- * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Unlike Thymeleaf,
- * rounding is half-up. A {@code null} number formats as {@code null} (renders as nothing).
+ * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Rounding is
+ * half-even, as in Thymeleaf, and a {@code double} or {@code float} is formatted as a
+ * {@code double}, as Thymeleaf formats it: {@code DecimalFormat} breaks a tie by the exact binary
+ * value, so 16.65 (16.6499...) rounds down. A {@code null} number formats as {@code null} (renders
+ * as nothing).
  *
  * <p>A number reaching more than 10,000 places from the decimal point, and a digit count
  * ({@code minIntDigits}, {@code minDigits}, {@code decimals}) above 10,000, throw
  * {@link IllegalArgumentException}: the bound of {@link Checks#requireBoundedMagnitude}, whose
  * rationale is on {@code Escapers.messageArgs}. A number of any {@link Number} type but a JDK
  * {@code BigDecimal} (a subclass included) is first converted to one from its {@code toString()},
- * and the converted value is checked and formatted.
+ * and the converted value is checked and, except for a {@code Double} or {@code Float}, formatted.
  * {@code formatPercent} multiplies by 100, which adds two digits.
  */
 @TemplateFunctions("numbers")
@@ -81,13 +84,13 @@ public final class Numbers {
     if (n == null) {
       return null;
     }
-    BigDecimal value = toBigDecimal(n);
+    Object value = formattable(n);
     checkDigits(minIntDigits, decimals);
     NumberFormat format = NumberFormat.getPercentInstance(locale);
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
-    format.setRoundingMode(RoundingMode.HALF_UP);
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
     return format.format(value);
   }
 
@@ -101,8 +104,8 @@ public final class Numbers {
       return null;
     }
     NumberFormat format = NumberFormat.getCurrencyInstance(locale);
-    format.setRoundingMode(RoundingMode.HALF_UP);
-    return format.format(toBigDecimal(n));
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
+    return format.format(formattable(n));
   }
 
   /**
@@ -133,7 +136,7 @@ public final class Numbers {
     if (decimal != DEFAULT) {
       symbols.setDecimalSeparator(decimal);
     }
-    BigDecimal value = toBigDecimal(n);
+    Object value = formattable(n);
     checkDigits(minIntDigits, decimals);
     NumberFormat localeFormat = NumberFormat.getNumberInstance(locale);
     DecimalFormat format = localeFormat instanceof DecimalFormat ? (DecimalFormat) localeFormat : new DecimalFormat("#,##0.###");
@@ -142,7 +145,7 @@ public final class Numbers {
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
-    format.setRoundingMode(RoundingMode.HALF_UP);
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
     return format.format(value);
   }
 
@@ -181,6 +184,17 @@ public final class Numbers {
     }
   }
 
+  /**
+   * What {@code DecimalFormat} formats for {@code n}, after {@link #toBigDecimal}'s checks: a
+   * {@code Double} or {@code Float} as its {@code double}, as Thymeleaf hands it over, so the digits
+   * and the half-even tie are {@code DecimalFormat}'s own (#917); anything else as the converted
+   * {@code BigDecimal}.
+   */
+  private static Object formattable(Object n) {
+    BigDecimal d = toBigDecimal(n);
+    return n instanceof Double || n instanceof Float ? (Object) ((Number) n).doubleValue() : d;
+  }
+
   private static BigDecimal toBigDecimal(Object n) {
     if (!(n instanceof Number)) {
       throw new IllegalArgumentException("not a number: " + n.getClass().getName());
@@ -190,8 +204,9 @@ public final class Numbers {
     }
     // Any Number can say 1e999999999 (Gson's LazilyParsedNumber does), and so can a BigDecimal
     // subclass whose own precision() and scale() say 1, since DecimalFormat copies its toString().
-    // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
-    // DecimalFormat formats, the converted value.
+    // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on the
+    // converted value, which DecimalFormat then formats; a finite Double or Float is formatted as its
+    // double instead ({@link #formattable}), which DecimalFormat reads without that risk.
     BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
     return Checks.requireBoundedMagnitude(
         d, "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");

@@ -49,15 +49,15 @@ class LocaleFunctionTest {
         Compilation.builder().java("com.example.Lang", LANG).template("page.html", PAGE).compile().assertSuccess();
     Map<String, Object> model = Map.of("amount", new BigDecimal("-2550.5"), "day", LocalDate.of(2024, 3, 5));
     assertEquals(
-        "<p><span>-2.551</span>|<span>-2550,50</span>|<span>-2,550.50</span>|<span>12,5 %</span>|"
+        "<p><span>-2.550</span>|<span>-2550,50</span>|<span>-2,550.50</span>|<span>12,5 %</span>|"
             + "<span>5 März 2024</span>|<span>de-DE</span>|<span>Hallo Ann</span></p>",
         c.render("page", model, ctx(Locale.GERMANY)).replace(' ', ' '));
     assertEquals(
-        "<p><span>-2,551</span>|<span>-2550.50</span>|<span>-2,550.50</span>|<span>12.5%</span>|"
+        "<p><span>-2,550</span>|<span>-2550.50</span>|<span>-2,550.50</span>|<span>12.5%</span>|"
             + "<span>5 March 2024</span>|<span>en-US</span>|<span>Hello Ann</span></p>",
         c.render("page", model, ctx(Locale.US)));
     assertEquals(
-        "<p><span>-2,551</span>|<span>-2550.50</span>|<span>-2,550.50</span>|<span>12.5%</span>|"
+        "<p><span>-2,550</span>|<span>-2550.50</span>|<span>-2,550.50</span>|<span>12.5%</span>|"
             + "<span>5 March 2024</span>|<span>und</span>|<span>Hello Ann</span></p>",
         c.render("page", model));
   }

@@ -24,7 +24,8 @@ class NumbersTest {
     assertEquals("007", Numbers.formatInteger(Locale.ROOT, 7, 3));
     assertEquals("12345", Numbers.formatInteger(Locale.ROOT, 12345L, 3));
     assertEquals("-07", Numbers.formatInteger(Locale.ROOT, -7, 2));
-    assertEquals("3", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
+    assertEquals("2", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
+    assertEquals("4", Numbers.formatInteger(Locale.ROOT, 3.5, 1));
     assertEquals("123456789012345678901234567890",
         Numbers.formatInteger(Locale.ROOT, new BigInteger("123456789012345678901234567890"), 1));
     assertNull(Numbers.formatInteger(Locale.ROOT, null, 2));
@@ -34,7 +35,7 @@ class NumbersTest {
   void formatDecimal() {
     assertEquals("3.14", Numbers.formatDecimal(Locale.ROOT, 3.14159, 1, 2));
     assertEquals("03.00", Numbers.formatDecimal(Locale.ROOT, 3, 2, 2));
-    assertEquals("0.13", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("0.125"), 1, 2));
+    assertEquals("0.12", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("0.125"), 1, 2));
     assertEquals("0.10", Numbers.formatDecimal(Locale.ROOT, 0.1f, 1, 2));
     assertEquals("1234567.50", Numbers.formatDecimal(Locale.ROOT, 1234567.5, 1, 2));
     assertNull(Numbers.formatDecimal(Locale.ROOT, null, 1, 2));
@@ -70,12 +71,50 @@ class NumbersTest {
   @Test
   void percentAndCurrency() {
     assertEquals("12.5%", Numbers.formatPercent(Locale.US, 0.125, 1, 1));
-    assertEquals("13%", Numbers.formatPercent(Locale.US, 0.125, 1, 0));
+    assertEquals("12%", Numbers.formatPercent(Locale.US, 0.125, 1, 0));
     assertEquals("$1,234.50", Numbers.formatCurrency(Locale.US, 1234.5));
     assertEquals("1.234,50\u00a0\u20ac", Numbers.formatCurrency(Locale.GERMANY, new BigDecimal("1234.5")));
     assertNull(Numbers.formatPercent(Locale.US, null, 1, 1));
     assertNull(Numbers.formatCurrency(Locale.US, null));
     assertThrows(IllegalArgumentException.class, () -> Numbers.formatCurrency(Locale.US, "1"));
+  }
+
+  /**
+   * #917: Thymeleaf's NumberUtils hands the Number itself to a DecimalFormat with its default
+   * rounding (half-even), which breaks a double's tie by its exact binary value: 16.65 is 16.6499...
+   */
+  @Test
+  void roundsAsThymeleafDoes() {
+    for (Object n : List.of(16.65, 16.75, 16.85, 0.125, 2.5, -2.5, 1.005, 16.65f, 0.1f, 0.35f,
+        new BigDecimal("16.65"), new BigDecimal("16.85"), new BigDecimal("-0.125"), 7L)) {
+      DecimalFormat thymeleaf = (DecimalFormat) java.text.NumberFormat.getNumberInstance(Locale.ROOT);
+      thymeleaf.setMinimumFractionDigits(1);
+      thymeleaf.setMaximumFractionDigits(1);
+      thymeleaf.setGroupingUsed(false);
+      assertEquals(thymeleaf.format(n), Numbers.formatDecimal(Locale.ROOT, n, 1, 1), String.valueOf(n));
+      java.text.NumberFormat percent = java.text.NumberFormat.getPercentInstance(Locale.US);
+      percent.setMinimumFractionDigits(0);
+      percent.setMaximumFractionDigits(0);
+      assertEquals(percent.format(n), Numbers.formatPercent(Locale.US, n, 1, 0), String.valueOf(n));
+      assertEquals(
+          java.text.NumberFormat.getCurrencyInstance(Locale.US).format(n),
+          Numbers.formatCurrency(Locale.US, n),
+          String.valueOf(n));
+    }
+    // Digits beyond a double's shortest repr are DecimalFormat's zeros, not its binary expansion.
+    for (Object n : List.of(1e23, 0.1, 0.1f, 123456789.123456789, -1e-20)) {
+      DecimalFormat thymeleaf = (DecimalFormat) java.text.NumberFormat.getNumberInstance(Locale.ROOT);
+      thymeleaf.setMinimumFractionDigits(20);
+      thymeleaf.setMaximumFractionDigits(20);
+      thymeleaf.setGroupingUsed(false);
+      assertEquals(thymeleaf.format(n), Numbers.formatDecimal(Locale.ROOT, n, 1, 20), String.valueOf(n));
+      assertEquals(
+          java.text.NumberFormat.getCurrencyInstance(Locale.US).format(n), Numbers.formatCurrency(Locale.US, n),
+          String.valueOf(n));
+    }
+    assertEquals("16,6", Numbers.formatDecimal(Locale.ROOT, 16.65, 1, "POINT", 1, "COMMA"));
+    assertEquals("16,9", Numbers.formatDecimal(Locale.ROOT, 16.85, 1, "POINT", 1, "COMMA"));
+    assertEquals("16,8", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("16.85"), 1, "POINT", 1, "COMMA"));
   }
 
   @Test
@@ -98,7 +137,7 @@ class NumbersTest {
       reference.setMinimumIntegerDigits(digits);
       reference.setMinimumFractionDigits(decimals);
       reference.setMaximumFractionDigits(decimals);
-      reference.setRoundingMode(RoundingMode.HALF_UP);
+      reference.setRoundingMode(RoundingMode.HALF_EVEN);
       String expected = reference.format(value);
       calls.add(() -> {
         for (int i = 0; i < 500; i++) {
@@ -112,7 +151,7 @@ class NumbersTest {
         result.get();
       }
     }
-    assertEquals("3", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
+    assertEquals("2", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
     assertNull(Numbers.formatDecimal(Locale.ROOT, null, -1, -1));
   }
 

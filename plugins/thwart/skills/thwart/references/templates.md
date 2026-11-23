@@ -509,7 +509,9 @@ null-tolerant.
 | `ids` | `prev(name)`, `next(name)`, `seq(name)`: Thymeleaf's `#ids` ([Forms](#forms)) |
 
 `numbers.*` and `temporals.format` use the render locale, as Thymeleaf's do (a point type is
-`'POINT'`, `'COMMA'`, `'WHITESPACE'`, `'DEFAULT'` or `'NONE'`); `numbers.*` rounds half up.
+`'POINT'`, `'COMMA'`, `'WHITESPACE'`, `'DEFAULT'` or `'NONE'`). `numbers.*` rounds half-even, as
+Thymeleaf's do, and a tie in a `double` is broken by its exact binary value: `formatDecimal(16.65, 1, 1)`
+is `16.6`, because the `double` 16.65 is 16.6499... Round in Java first if a page needs another rule.
 `numbers.sequence(1, n)` counts down when `n` is below 1, so guard a loop the old engine ran zero
 times. Add your own namespace:
 
