@@ -402,6 +402,12 @@ class ExpressionParserTest {
     "\"|a__${x}__|\"|preprocessing (__...__) is not supported: expressions are never built from strings|3",
     "\"|${'b__'} __${x}__|\"|preprocessing (__...__) is not supported: expressions are never built from strings|11",
     "@{/a/{id}(id=__${x}__)}|preprocessing (__...__) is not supported: expressions are never built from strings|14",
+    "@{/a__b__c}|preprocessing (__...__) is not supported: expressions are never built from strings|5",
+    "@{/a__${x}__}|preprocessing (__...__) is not supported: expressions are never built from strings|5",
+    "@{/{id}/a__b(id=x)} + a__b|preprocessing (__...__) is not supported: expressions are never built from strings|10",
+    "@{/a(b=c__d)}|preprocessing (__...__) is not supported: expressions are never built from strings|9",
+    "b ? @{/a__b} : @{/c__d}|preprocessing (__...__) is not supported: expressions are never built from strings|9",
+    "@{/a} + b__c|preprocessing (__...__) is not supported: expressions are never built from strings|10",
     "@bean.run()|bean references (@name) are not supported; pass values in as template parameters|1",
     "x + @bean|bean references (@name) are not supported; pass values in as template parameters|5",
     "a = b|assignment (=) is not supported; use == to compare|3",
@@ -444,6 +450,14 @@ class ExpressionParserTest {
     assertEquals("(interp 'card__item card__item--' s)", ast("|card__item card__item--${s}|"));
     assertEquals("(interp 'a__b' 'c__d')", ast("|${'a__b'}c__d|"));
     assertEquals("(? b 'x__on' 'x__off')", ast("b ? 'x__on' : 'x__off'"));
+  }
+
+  @Test
+  void oneDoubleUnderscoreInALinkPathIsPlainText() {
+    // A webjar such as @tabler/core is served as tabler__core; Thymeleaf preprocesses only a pair.
+    assertEquals("(link /webjars/tabler__core/x.css)", ast("@{/webjars/tabler__core/x.css}"));
+    assertEquals("(link /a__b/{id} id=x)", ast("@{/a__b/{id}(id=x)}"));
+    assertEquals("(? b (link /a__b) (link /c))", ast("b ? @{/a__b} : @{/c}"));
   }
 
   @Test

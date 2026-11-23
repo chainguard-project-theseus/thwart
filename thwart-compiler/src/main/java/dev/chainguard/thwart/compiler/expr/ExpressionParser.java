@@ -287,11 +287,14 @@ public final class ExpressionParser {
      * text inside a {@code '...'} string or the text of a {@code |...|} substitution (BEM class
      * names such as {@code 'card__title'}); there only {@code __} directly followed by an
      * expression opener ({@code ${ *{ #{ @{ ~{}) and closed by a later {@code __}, which
-     * Thymeleaf would preprocess, is rejected. Outside literals any {@code __} is rejected. This
-     * scan only adds errors, so a misjudged literal boundary can never make anything compile.
+     * Thymeleaf would preprocess, is rejected. The literal path of a link, up to its parameters or
+     * closing brace, may hold one {@code __} ({@code @{/webjars/tabler__core/x.css}}); one followed
+     * by a later {@code __}, which Thymeleaf would preprocess whatever is between, is rejected. Outside
+     * literals any {@code __} is rejected. This scan only adds errors, so a misjudged literal
+     * boundary can never make anything compile.
      */
     void rejectPreprocessing() {
-      final int code = 0, string = 1, text = 2;
+      final int code = 0, string = 1, text = 2, linkPath = 3;
       int[] modes = new int[s.length() + 1];
       int[] braces = new int[s.length() + 1];
       int top = 0;
@@ -317,8 +320,26 @@ public final class ExpressionParser {
             modes[++top] = code;
             braces[top] = 0;
           }
+        } else if (mode == linkPath) {
+          if (c == '\'') {
+            modes[++top] = string;
+          } else if (s.startsWith("__", k) && s.indexOf("__", k + 2) >= 0) {
+            throw preprocessing(k); // Thymeleaf preprocesses any __...__ pair in a path
+          } else if (c == '{') {
+            braces[top]++;
+          } else if (c == '}' && braces[top] > 0) {
+            braces[top]--;
+          } else if (c == '}') {
+            top--;
+          } else if (c == '(' && braces[top] == 0) {
+            modes[top] = code; // the parameters, up to the link's closing '}'
+          }
         } else if (s.startsWith("__", k)) {
           throw preprocessing(k);
+        } else if (c == '@' && k + 1 < s.length() && s.charAt(k + 1) == '{') {
+          k++;
+          modes[++top] = linkPath;
+          braces[top] = 0;
         } else if (c == '\'') {
           modes[++top] = string;
         } else if (c == '|') {
