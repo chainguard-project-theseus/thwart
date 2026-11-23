@@ -59,8 +59,9 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * and what the sanitizer and {@code css.url} write: link {@code rel} tokens, the
- * {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in any order,
+ * a CSRF token input added, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
+ * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
  * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
  * custom attributes and which decorative icon sits in a table are not compared in that form, so a
@@ -191,8 +192,22 @@ final class PageNormalizer {
     if (sortedForm(children(da, true, false)).equals(sortedForm(children(db, true, false)))) {
       return Verdict.REORDERED;
     }
+    // Thwart adds CSRF inputs and never removes one, so a page that lost one still differs.
+    if (csrfInputs(db) < csrfInputs(da)) {
+      return Verdict.DIFFERS;
+    }
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
+  }
+
+  private static int csrfInputs(Document d) {
+    int n = 0;
+    for (Element e : d.getElementsByTag("input")) {
+      if (isCsrfInput(e)) {
+        n++;
+      }
+    }
+    return n;
   }
 
   /** Strips session ids from a URL (redirect targets carry them before the cookie is set). */
@@ -206,13 +221,14 @@ final class PageNormalizer {
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
    * with their preludes expanded. With {@code forced}, {@code <script>} and {@code <style>}
-   * elements are dropped, what {@link #replacesForeign(Element)} names prints as one
+   * elements and hidden CSRF token inputs are dropped, what {@link #replacesForeign(Element)} names prints as one
    * {@link #FOREIGN} line, and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element && isScriptOrStyle((Element) node)) {
+      if (forced && node instanceof Element
+          && (isScriptOrStyle((Element) node) || isCsrfInput((Element) node))) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -256,6 +272,29 @@ final class PageNormalizer {
    */
   private static boolean isScriptOrStyle(Element e) {
     return e.normalName().equals("script") || e.normalName().equals("style");
+  }
+
+  /**
+   * A hidden CSRF token input directly in a {@code method="post"} form. Thwart adds one to every
+   * such form that posts to the page's own origin, where the old engine often didn't (a plain
+   * {@code action}, a form only htmx submits). A token in any other place is still compared, and
+   * {@link #compare} counts these so that a lost one differs. Case folds ASCII only, as a browser.
+   */
+  private static boolean isCsrfInput(Element e) {
+    Element form = e.parent();
+    return e.normalName().equals("input") && asciiLower(e.attr("type")).equals("hidden")
+        && asciiLower(e.attr("name")).contains("csrf")
+        && form != null && form.normalName().equals("form")
+        && asciiLower(form.attr("method")).equals("post");
+  }
+
+  private static String asciiLower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + 32) : c);
+    }
+    return sb.toString();
   }
 
   /**

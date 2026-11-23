@@ -153,11 +153,13 @@ class PageNormalizerTest {
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
       sanitizer rel on a stored link | <div><a href="https://x.org">x</a></div>  | <div><a href="https://x.org" rel="nofollow noopener">x</a></div>
       message rel added to a rel     | <a href="/p" rel="help" target="_blank">p</a> | <a href="/p" rel="help noopener noreferrer" target="_blank">p</a>
+      ugc rel on a stored link       | <a href="https://x.org">x</a>             | <a href="https://x.org" rel="nofollow ugc">x</a>
       sanitizer id prefix and link   | <h2 id="intro">I</h2><a href="#intro">i</a> | <h2 id="user-content-intro">I</h2><a href="#user-content-intro">i</a>
       css url quoted                 | <div style="background-image: url(/a/1.png)"></div> | <div style="background-image: url(&quot;/a/1.png&quot;)"></div>
       css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
       dialect xmlns on html          | <html lang="en" xmlns:salat="http://x.de/s"><body>a</body></html> | <html lang="en"><body>a</body></html>
       xhtml xmlns on html            | <html xmlns="http://www.w3.org/1999/xhtml"><body>a</body></html> | <html><body>a</body></html>
+      csrf input added to a form     | <form method="post" hx-post="/s"><input name="q"></form> | <form method="post" hx-post="/s"><input type="hidden" name="_csrf" value="t"><input name="q"></form>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -203,6 +205,13 @@ class PageNormalizerTest {
       css other property changed     | <div style="color: red; background: url(/a.png)"></div> | <div style="color: blue; background: url(&quot;/a.png&quot;)"></div>
       other html attribute with xmlns | <html lang="en" xmlns:s="http://x.de/s"><body>a</body></html> | <html lang="de"><body>a</body></html>
       xml:lang is still compared     | <p xml:lang="en">a</p>                    | <p>a</p>
+      other hidden input added       | <form method="post"><input name="q"></form> | <form method="post"><input type="hidden" name="id" value="1"><input name="q"></form>
+      visible csrf field added       | <form method="post"></form>               | <form method="post"><input type="text" name="_csrf"></form>
+      csrf input added to a get form | <form><input name="q"></form>             | <form><input type="hidden" name="_csrf" value="t"><input name="q"></form>
+      csrf input nested deeper       | <form method="post"><div></div></form>    | <form method="post"><div><input type="hidden" name="_csrf" value="t"></div></form>
+      csrf input removed from a post form | <form method="post"><input type="hidden" name="_csrf" value="a"><input name="q"></form> | <form method="post"><input name="q"></form>
+      csrf input in a non-ascii post form | <form method="poſt"></form>          | <form method="poſt"><input type="hidden" name="_csrf" value="t"></form>
+      csrf field non-ascii hidden    | <form method="post"></form>               | <form method="post"><input type="hıdden" name="_csrf" value="t"></form>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
