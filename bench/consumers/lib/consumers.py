@@ -220,8 +220,9 @@ def median(v):
 def bootstrap(a, b, draws=2000):
     """95% percentile bootstrap interval on median(b) / median(a): resamples each side's
     per-repetition samples, with a Park-Miller generator and a fixed seed, so the same samples
-    always give the same interval. None with fewer than two samples a side, or a zero median."""
-    if len(a) < 2 or len(b) < 2:
+    always give the same interval. None with fewer than three samples a side (two give only three
+    distinct medians, too few for a percentile interval), or a zero median."""
+    if len(a) < 3 or len(b) < 3:
         return None
     seed = 12345
 
@@ -420,7 +421,7 @@ def selftest():
     # The interval: identical samples give one value; a known spread gives a fixed interval.
     check(ratio_text([1.0, 1.0, 1.0], [1.013] * 3) == "1.01x (1.01-1.02)", "an upper bound is rounded up")
     check(ratio_text([1.0, 1.0, 1.0], [1.01] * 3) == "1.01x (1.01-1.01)", "a whole hundredth stays")
-    check(ratio_text([1.0], [2.0]) == "2.00x", "one sample a side: no interval")
+    check(ratio_text([1.0, 1.0], [2.0, 2.0]) == "2.00x", "two samples a side: no interval")
     a, b = [100, 101, 99, 100, 102], [200, 202, 198, 201, 199]
     t = ratio_text(a, b)
     check(t == ratio_text(a, b) and t.startswith("2.00x (1.9"), f"a 2x ratio with a narrow interval: {t}")

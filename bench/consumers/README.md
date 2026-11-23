@@ -121,7 +121,7 @@ times, it resamples each version's per-repetition values with replacement and ta
 the two medians; the interval runs from the 2.5th to the 97.5th percentile of those ratios. The
 draws come from a Park-Miller generator with a fixed seed, so the same samples always give the
 same interval. Ratios are truncated to two places and intervals rounded outward. With fewer than
-two repetitions there is no interval. Release readiness is judged elsewhere, from these numbers.
+three repetitions there is no interval: two values give only three distinct medians. Release readiness is judged elsewhere, from these numbers.
 
 ## Limits
 
