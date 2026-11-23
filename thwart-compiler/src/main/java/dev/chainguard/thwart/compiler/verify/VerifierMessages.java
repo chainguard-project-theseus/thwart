@@ -97,7 +97,7 @@ final class VerifierMessages {
         return f.detail + ": browsers parse a nested table, <template> or <select> that ends inside <svg> or <math>"
             + " in a table differently (Firefox goes on as if outside the table, Chrome and Safari go back to the"
             + " cell), so Thwart doesn't accept <svg> or <math> anywhere in a table or <template>; move it out of"
-            + " the table, or show the image with <img src=\"....svg\">";
+            + " the table, or show the image with <img src=\"....svg\" alt=\"\">";
       case TABLE_IN_TEMPLATE:
         return f.detail + ": browsers handle a </table> inside it differently (Firefox closes a table around the"
             + " <template>, Chrome and Safari ignore it), so Thwart doesn't accept table parts directly in a"
