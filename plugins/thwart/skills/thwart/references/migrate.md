@@ -140,9 +140,10 @@ changed, as the recipes in [Output contexts](templates.md#output-contexts) do), 
 `<style>` elements, `hx-X` written as `data-hx-X` with the same value, the query of a path in an
 attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
 `hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
-table or `<template>`, an `<svg>` or `<math>` replaced by an `<img>` or by an element with no
-content and only `class`, `role`, `title` and `aria-*` attributes. Scripts, styles and `data-*`
-values aren't compared in that form, so a wrong value in any of them is `forced` too. `forced`
+table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
+or an element with no content and `aria-hidden="true"`). Scripts, styles, `data-*` values, the
+query in such an attribute and which decorative icon sits in a table aren't compared in that form,
+so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
 computed `hx-target` or an `hx-vals` moved to hidden inputs, a URL encoded differently (a space
 written `%20`), `hx-confirm` text moved into a hidden element, a removed `hx-on::…` attribute

@@ -148,7 +148,7 @@ class PageNormalizerTest {
       query moved from data-hx-      | <a data-hx-get="/q?page=2#top">n</a>      | <a hx-get="/q#top" data-page="2">n</a>
       svg in a cell to an empty span | <table><tr><td>Edit<svg viewBox="0 0 2 2"><path d="M0 0"/></svg></td></tr></table> | <table><tr><td>Edit<span class="icon icon-edit" aria-hidden="true"></span></td></tr></table>
       svg in a cell to an img        | <table><tr><td><svg><circle r="1"/></svg> ok</td></tr></table> | <table><tr><td><img src="/i/ok.svg" alt=""> ok</td></tr></table>
-      math in a template removed     | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x</p></template>
+      math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
       style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
       """)
@@ -176,6 +176,12 @@ class PageNormalizerTest {
       class in a cell                | <table><tr><td class="ok">x</td></tr></table> | <table><tr><td class="bad">x</td></tr></table>
       empty cell removed             | <table><tr><td class="a"></td><td>x</td></tr></table> | <table><tr><td>x</td></tr></table>
       input in a cell removed        | <table><tr><td><svg></svg><input name="q"></td></tr></table> | <table><tr><td></td></tr></table>
+      icon removed from a cell       | <table><tr><td>a<svg><path d="M0 0"/></svg></td></tr></table> | <table><tr><td>a</td></tr></table>
+      image changed in a cell        | <table><tr><td><img src="/u/1.png" alt="Ann"></td></tr></table> | <table><tr><td><img src="/u/2.png" alt="Bob"></td></tr></table>
+      image removed from a cell      | <table><tr><td><img src="/u/1.png" alt="Ann">x</td></tr></table> | <table><tr><td>x</td></tr></table>
+      status element changed in a cell | <table><tr><td><span class="dot red" title="Overdue"></span>x</td></tr></table> | <table><tr><td><span class="dot green" title="Paid"></span>x</td></tr></table>
+      line break removed in a cell   | <table><tr><td>a<br>b</td></tr></table>   | <table><tr><td>ab</td></tr></table>
+      svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
       span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
       width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
       """)

@@ -60,9 +60,9 @@ import org.jsoup.nodes.TextNode;
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten): equal in that form, in any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
- * a browser, so compare does not pass it. Scripts, styles and {@code data-*} values are not
- * compared in that form, so a wrong value in any of them is {@code FORCED} too; the printed diff
- * shows it. The whole pages are compared, so how much of the diff compare prints does not matter.
+ * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
+ * custom attributes and which decorative icon sits in a table are not compared in that form, so a
+ * wrong value in any of them is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
   private PageNormalizer() {}
@@ -71,11 +71,10 @@ final class PageNormalizer {
   enum Verdict { SAME, REORDERED, FORCED, DIFFERS }
 
   private static final Pattern HANDLER = Pattern.compile("on[a-z]+");
+  /** What an {@code <svg>} or {@code <math>} in a table and its replacement print as, forced. */
+  private static final String FOREIGN = "<svg or its replacement>";
   /** The query of a path, up to a fragment. */
   private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
-  /** Elements that hold a table's or a {@code <template>}'s structure, never an icon. */
-  private static final Set<String> TABLE_PARTS = Compat.setOf("caption", "col", "colgroup",
-      "table", "tbody", "td", "template", "tfoot", "th", "thead", "tr");
 
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
@@ -195,13 +194,14 @@ final class PageNormalizer {
   }
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
-   * with their preludes expanded. With {@code forced}, what {@link #setAside(Element)} names is
-   * dropped and tags print as {@link #startTag(Element, boolean)} sets them aside. */
+   * with their preludes expanded. With {@code forced}, {@code <script>} and {@code <style>}
+   * elements are dropped, what {@link #replacesForeign(Element)} names prints as one
+   * {@link #FOREIGN} line, and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element && setAside((Element) node)) {
+      if (forced && node instanceof Element && isScriptOrStyle((Element) node)) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -223,7 +223,9 @@ final class PageNormalizer {
       if (node instanceof Element || node instanceof DocumentType) {
         flushText(text, out);
       }
-      if (node instanceof Element) {
+      if (forced && node instanceof Element && replacesForeign((Element) node)) {
+        out.add(new Line(FOREIGN, Collections.<Line>emptyList()));
+      } else if (node instanceof Element) {
         out.add(new Line(startTag((Element) node, forced),
             children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
@@ -238,36 +240,32 @@ final class PageNormalizer {
   }
 
   /**
-   * Elements the forced form drops: {@code <script>} and {@code <style>}, which a migration
-   * rewrites (Thwart allows no expression in a style and none of the old engine's inline forms in
-   * a script), and, inside a table or {@code <template>}, where Thwart rejects {@code <svg>} and
-   * {@code <math>}, those elements and what replaces them: an {@code <img>}, or an element with no
-   * content whose only attributes are {@code class}, {@code role}, {@code title} and
-   * {@code aria-*}. Table parts and anything with text or other attributes are still compared.
+   * The elements a migration rewrites, so the forced form drops them: Thwart allows no expression
+   * in a style, and none of the old engine's inline forms in a script.
    */
-  private static boolean setAside(Element e) {
-    String tag = e.normalName();
-    if (tag.equals("script") || tag.equals("style")) {
-      return true;
-    }
+  private static boolean isScriptOrStyle(Element e) {
+    return e.normalName().equals("script") || e.normalName().equals("style");
+  }
+
+  /**
+   * Inside a table or {@code <template>}, where Thwart rejects {@code <svg>} and {@code <math>}:
+   * those elements and a decorative element that can replace one, an {@code <img alt="">} or an
+   * element with no content marked {@code aria-hidden="true"}. The forced form prints each as the
+   * same {@link #FOREIGN} line, so an icon swapped for another compares equal, but an icon added
+   * or removed, an image with alt text, or a visible element still differs.
+   */
+  private static boolean replacesForeign(Element e) {
     if (!inTableOrTemplate(e)) {
       return false;
     }
-    if (tag.equals("svg") || tag.equals("math") || tag.equals("img")) {
+    String tag = e.normalName();
+    if (tag.equals("svg") || tag.equals("math")) {
       return true;
     }
-    if (TABLE_PARTS.contains(tag) || !Compat.strip(e.wholeText()).isEmpty()
-        || !e.children().isEmpty()) {
-      return false;
+    if (tag.equals("img")) {
+      return e.hasAttr("alt") && Compat.strip(e.attr("alt")).isEmpty();
     }
-    for (Attribute a : e.attributes()) {
-      String name = a.getKey().toLowerCase(Locale.ROOT);
-      if (!name.equals("class") && !name.equals("role") && !name.equals("title")
-          && !name.startsWith("aria-")) {
-        return false;
-      }
-    }
-    return true;
+    return e.attr("aria-hidden").equals("true") && e.childNodeSize() == 0;
   }
 
   private static boolean inTableOrTemplate(Element e) {
