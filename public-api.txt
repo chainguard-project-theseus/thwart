@@ -125,6 +125,7 @@ dev.chainguard.thwart.runtime.TemplateRegistry: public abstract interface dev.ch
 dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> all()
 dev.chainguard.thwart.runtime.TemplateRegistry: public abstract java.util.Optional<dev.chainguard.thwart.runtime.internal.TemplateEntry> find(java.lang.String)
 dev.chainguard.thwart.runtime.TemplateRegistry: public default int abi()
+dev.chainguard.thwart.runtime.TemplateRegistry: public default java.lang.String renderToString(java.lang.String,java.util.Map<java.lang.String, ?>,dev.chainguard.thwart.runtime.RenderContext)
 dev.chainguard.thwart.runtime.TemplateRegistry: public default java.util.Collection<dev.chainguard.thwart.runtime.internal.TemplateEntry> fragments()
 dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry load(java.lang.ClassLoader)
 dev.chainguard.thwart.runtime.TemplateRegistry: public static dev.chainguard.thwart.runtime.TemplateRegistry of(java.util.List<dev.chainguard.thwart.runtime.internal.TemplateEntry>)

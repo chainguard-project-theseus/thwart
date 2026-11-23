@@ -18,7 +18,8 @@ public interface Template {
    * app in the bench corpus writes one. Apps render with {@link #renderToString} or the view
    * resolver. The same holds where {@code Fragment.Body} names {@code Output} and
    * {@code TemplateRegistry} names {@code TemplateEntry}: the starter and generated code call
-   * those members, apps don't.
+   * those members, apps don't; apps render by view name with
+   * {@link TemplateRegistry#renderToString}.
    */
   void render(RenderContext ctx, Output out);
 

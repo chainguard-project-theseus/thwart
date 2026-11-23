@@ -28,6 +28,17 @@ class TemplateRegistryTest {
   }
 
   @Test
+  void renderToStringRendersAnEntryByName() {
+    TemplateEntry e = new TemplateEntry(
+        "mail/welcome", List.of(), (Map<String, ?> m, RenderContext c, Output o) -> o.write("hi " + m.get("name")));
+    TemplateRegistry r = TemplateRegistry.of(List.of(e));
+    assertEquals("hi Ann", r.renderToString("mail/welcome", Map.of("name", "Ann"), RenderContext.defaults()));
+    IllegalArgumentException missing = assertThrows(
+        IllegalArgumentException.class, () -> r.renderToString("mail/other", Map.of(), RenderContext.defaults()));
+    assertEquals("no Thwart template mail/other", missing.getMessage());
+  }
+
+  @Test
   void fragmentEntriesAreFoundButKeptOutOfAll() {
     TemplateEntry page =
         new TemplateEntry("list", List.of(), (Map<String, ?> m, RenderContext c, Output o) -> o.write("page"));
