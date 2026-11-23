@@ -159,6 +159,13 @@ class PageNormalizerTest {
       custom attribute to data       | <button class="addToCart" productId="1">Add</button> | <button class="addToCart" data-product-id="1">Add</button>
       hyphenated custom to data      | <div item-price="9.5">x</div>             | <div data-item-price="9.5">x</div>
       custom to data on another element | <a productid="1">x</a><b>y</b>        | <a>x</a><b data-product-id="1">y</b>
+      meta itemprop to json-ld       | <span itemscope><meta itemprop="seller" content="Default store"><meta itemprop="currency" content="CAD"><b>9</b></span> | <span itemscope><script type="application/ld+json">{"@type":"Offer","seller":"Default store","priceCurrency":"CAD"}</script><b>9</b></span>
+      meta itemprop number to json-ld | <meta itemprop="price" content="49.99"><p>x</p> | <script type="application/ld+json">{"price": 49.99}</script><p>x</p>
+      meta itemprop url to json-ld   | <meta itemprop="url" content="/p/1"><p>x</p> | <script type="application/ld+json">{"url":"\\/p\\/1"}</script><p>x</p>
+      meta itemprop escaped in json-ld | <meta itemprop="name" content="Men's shoes &amp; bags"><p>x</p> | <script type="application/ld+json">{"name":"Men\\u0027s shoes \\u0026 bags"}</script><p>x</p>
+      meta itemprop kept beside json-ld | <meta itemprop="seller" content="Shop"><p>x</p> | <meta itemprop="seller" content="Shop"><script type="application/ld+json">{"seller":"Shop"}</script><p>x</p>
+      two meta itemprop for two json-ld values | <meta itemprop="priceCurrency" content="CAD"><p>a</p><meta itemprop="priceCurrency" content="CAD"><p>b</p> | <script type="application/ld+json">[{"priceCurrency":"CAD"},{"priceCurrency":"CAD"}]</script><p>a</p><p>b</p>
+      meta itemprop in a json-ld array | <meta itemprop="sameAs" content="https://x.org/a"><p>x</p> | <script type="application/ld+json">{"sameAs":["https://x.org/b","https://x.org/a"]}</script><p>x</p>
       hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
       hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
       alpine x-on removed            | <button x-on:click="open = true">O</button> | <button data-action="open">O</button>
@@ -228,6 +235,24 @@ class PageNormalizerTest {
       hook lost beside an old data   | <a productid="1" data-product-id="1">x</a> | <a data-product-id="1">x</a>
       hook lost beside an old data elsewhere | <a data-product-id="1">x</a><b productid="1">y</b> | <a data-product-id="1">x</a><b>y</b>
       custom kept and text changed   | <button productId="1">Add</button>        | <button data-product-id="1">Buy</button>
+      meta itemprop removed          | <meta itemprop="seller" content="Default store"><p>x</p> | <p>x</p>
+      meta itemprop value lost       | <meta itemprop="seller" content="Default store"><p>x</p> | <script type="application/ld+json">{"seller":"Other store"}</script><p>x</p>
+      meta itemprop value in a js script | <meta itemprop="seller" content="Shop"><p>x</p> | <script>var s = "Shop";</script><p>x</p>
+      meta itemprop content changed  | <meta itemprop="seller" content="Shop"><p>x</p> | <meta itemprop="seller" content="Store"><script type="application/ld+json">{"seller":"Shop"}</script><p>x</p>
+      meta itemprop number in a string only | <meta itemprop="price" content="49"><p>x</p> | <script type="application/ld+json">{"sku":"A49"}</script><p>x</p>
+      meta itemprop value under another key | <meta itemprop="price" content="0"><p>x</p> | <script type="application/ld+json">{"ratingCount": 0}</script><p>x</p>
+      meta itemprop exponent out of range | <meta itemprop="price" content="1e9999999999"><p>x</p> | <script type="application/ld+json">{"price": 1}</script><p>x</p>
+      meta empty itemprop            | <meta itemprop="" content="CAD"><p>x</p>  | <script type="application/ld+json">{"priceCurrency":"CAD"}</script><p>x</p>
+      meta itemprop number as a json string | <meta itemprop="price" content="49"><p>x</p> | <script type="application/ld+json">{"price":"49.0"}</script><p>x</p>
+      meta itemprop in a bare word   | <meta itemprop="seller" content="Shop"><p>x</p> | <script type="application/ld+json">{"seller": Shop}</script><p>x</p>
+      meta itemprop with a signed escape | <meta itemprop="seller" content="A"><p>x</p> | <script type="application/ld+json">{"seller": "\\u+041"}</script><p>x</p>
+      meta itemprop number with a plus | <meta itemprop="price" content="49"><p>x</p> | <script type="application/ld+json">{"price": +49}</script><p>x</p>
+      meta itemprop number with a dot first | <meta itemprop="price" content="5"><p>x</p> | <script type="application/ld+json">{"price": .5}</script><p>x</p>
+      meta itemprop key case differs | <meta itemprop="seller" content="Shop"><p>x</p> | <script type="application/ld+json">{"Seller": "Shop"}</script><p>x</p>
+      meta itemprop key ends in it lower case | <meta itemprop="currency" content="CAD"><p>x</p> | <script type="application/ld+json">{"pricecurrency": "CAD"}</script><p>x</p>
+      two meta itemprop for one json-ld value | <meta itemprop="priceCurrency" content="CAD"><p>a</p><meta itemprop="priceCurrency" content="CAD"><p>b</p> | <script type="application/ld+json">{"priceCurrency":"CAD"}</script><p>a</p><p>b</p>
+      meta itemprop beside an old json-ld value | <script type="application/ld+json">{"seller":"Shop"}</script><meta itemprop="seller" content="Shop"><p>x</p> | <script type="application/ld+json">{"seller":"Shop"}</script><p>x</p>
+      other meta moved to json-ld    | <meta name="description" content="Bag"><p>x</p> | <script type="application/ld+json">{"description":"Bag"}</script><p>x</p>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
       other id prefix                | <h2 id="intro">I</h2>                     | <h2 id="post-intro">I</h2>

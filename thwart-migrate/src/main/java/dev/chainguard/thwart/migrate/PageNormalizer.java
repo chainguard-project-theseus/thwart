@@ -60,8 +60,9 @@ import org.jsoup.nodes.TextNode;
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added,
- * a custom attribute moved to {@code data-*} with its value, a {@code *-on:*} attribute removed,
- * and what the sanitizer and {@code css.url} write: link {@code rel}
+ * a custom attribute moved to {@code data-*} with its value, a {@code <meta itemprop>} moved into
+ * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
+ * link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
  * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
@@ -231,6 +232,7 @@ final class PageNormalizer {
     }
     dropRemovedInlineCode(da, db);
     dropCustomMovedToData(da, db);
+    dropMicrodataMovedToJsonLd(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
   }
@@ -314,6 +316,196 @@ final class PageNormalizer {
     return !HTML_ATTRIBUTES.contains(name) && !HANDLER.matcher(name).matches()
         && !name.startsWith("data-") && !name.startsWith("aria-") && name.indexOf(':') < 0
         && !name.startsWith("hx-"); // data-hx-X reads as hx-X in the forced form already
+  }
+
+  /**
+   * Removes from the old page each {@code <meta itemprop content>} the new page doesn't have, if a
+   * JSON-LD block on the new page holds its {@code content} under a key that is the
+   * {@code itemprop}, or ends with it ({@code currency} in {@code priceCurrency}), as a JSON string
+   * or an equal JSON number. Thwart rejects a computed {@code content} on a {@code <meta itemprop>},
+   * and its fix-it moves the value into a {@code <script type="application/ld+json">} block. A value
+   * that went missing, or sits under another key, still differs.
+   */
+  private static void dropMicrodataMovedToJsonLd(Document old, Document now) {
+    List<String[]> pairs = jsonLdPairs(now);
+    // Only a value the new page added stands in, and each for one <meta>.
+    for (String[] had : jsonLdPairs(old)) {
+      for (int i = 0; i < pairs.size(); i++) {
+        if (Arrays.equals(pairs.get(i), had)) {
+          pairs.remove(i);
+          break;
+        }
+      }
+    }
+    if (pairs.isEmpty()) {
+      return;
+    }
+    Set<String> kept = new HashSet<>();
+    for (Element m : now.select("meta[itemprop]")) {
+      kept.add(m.attr("itemprop") + "\n" + m.attr("content"));
+    }
+    for (Element m : old.select("meta[itemprop][content]")) {
+      String prop = m.attr("itemprop");
+      String content = m.attr("content");
+      if (!prop.trim().isEmpty() && !kept.contains(prop + "\n" + content)
+          && heldUnder(pairs, prop, content)) {
+        m.remove();
+      }
+    }
+  }
+
+  /**
+   * Whether a pair holds the value under {@code prop}, or under a camelCase key ending in it
+   * ({@code currency} in {@code priceCurrency}), and if so uses that pair up. Keys are
+   * case-sensitive, as in JSON-LD.
+   */
+  private static boolean heldUnder(List<String[]> pairs, String prop, String value) {
+    String suffix = Character.toUpperCase(prop.charAt(0)) + prop.substring(1);
+    for (int i = 0; i < pairs.size(); i++) {
+      String[] kv = pairs.get(i);
+      if ((kv[0].equals(prop) || kv[0].length() > suffix.length() && kv[0].endsWith(suffix))
+          && sameJsonValue(kv[1], kv[2] != null, value)) {
+        pairs.remove(i); // used up
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static List<String[]> jsonLdPairs(Document d) {
+    List<String[]> pairs = new ArrayList<>();
+    for (Element s : d.getElementsByTag("script")) {
+      if (scriptType(s).equals("application/ld+json")) {
+        List<String[]> block = new ArrayList<>();
+        jsonPairs(s.data(), block);
+        pairs.addAll(block);
+      }
+    }
+    return pairs;
+  }
+
+  /** Equal text, or for an unquoted JSON number, an equal number. */
+  private static boolean sameJsonValue(String json, boolean number, String value) {
+    if (json.equals(value)) {
+      return true;
+    }
+    if (number && JSON_ATOM.matcher(json).matches() && JSON_ATOM.matcher(value).matches()
+        && Character.isDigit(json.charAt(json.length() - 1))
+        && Character.isDigit(value.charAt(value.length() - 1))) {
+      try {
+        return new java.math.BigDecimal(json).compareTo(new java.math.BigDecimal(value)) == 0;
+      } catch (NumberFormatException e) { // an exponent out of range
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Adds to {@code out} each scalar in {@code json} as {@code [key, value, atom]}: the key it sits
+   * under (an array's elements sit under the array's key), the value (strings decoded), and
+   * non-null for an unquoted atom. A coarse scan, not a validator: a
+   * bare word, a stray character or a bad string escape empties {@code out}, so nothing in that block counts and the
+   * page stays {@code differs}; other malformed structure (a missing comma) is not detected.
+   */
+  static void jsonPairs(String json, List<String[]> out) {
+    java.util.ArrayDeque<String> keys = new java.util.ArrayDeque<>();
+    String pending = null;
+    int i = 0;
+    while (i < json.length()) {
+      char c = json.charAt(i);
+      if (c == '"') {
+        StringBuilder sb = new StringBuilder();
+        i = jsonString(json, i, sb);
+        if (i < 0) {
+          out.clear();
+          return;
+        }
+        int j = skipWhitespace(json, i);
+        if (j < json.length() && json.charAt(j) == ':') {
+          pending = sb.toString();
+          i = j + 1;
+        } else {
+          add(out, pending, keys, sb.toString(), false);
+          pending = null;
+        }
+      } else if (c == '{' || c == '[') {
+        keys.push(c == '[' && pending != null ? pending
+            : c == '[' && !keys.isEmpty() ? keys.peek() : "");
+        pending = null;
+        i++;
+      } else if (c == '}' || c == ']') {
+        if (!keys.isEmpty()) {
+          keys.pop();
+        }
+        i++;
+      } else if (c == '-' || Character.isDigit(c) || Character.isLetter(c)) {
+        int j = i;
+        while (j < json.length() && "{}[],: \t\n\r".indexOf(json.charAt(j)) < 0) {
+          j++;
+        }
+        String atom = json.substring(i, j);
+        if (!JSON_ATOM.matcher(atom).matches()) {
+          out.clear(); // not JSON: a crawler drops the block, so nothing in it counts
+          return;
+        }
+        add(out, pending, keys, atom, true);
+        pending = null;
+        i = j;
+      } else if (" \t\n\r,:".indexOf(c) >= 0) {
+        i++;
+      } else {
+        out.clear(); // a stray character ("+49", "$49", ".5"): not JSON
+        return;
+      }
+    }
+  }
+
+  private static void add(List<String[]> out, String pending, java.util.ArrayDeque<String> keys,
+      String value, boolean atom) {
+    String key = pending != null ? pending : keys.isEmpty() ? "" : keys.peek();
+    out.add(new String[] {key, value, atom ? "atom" : null});
+  }
+
+  /** Decodes the JSON string starting at the quote at {@code i}; the index after it, or -1. */
+  private static int jsonString(String s, int i, StringBuilder sb) {
+    i++;
+    while (i < s.length()) {
+      char c = s.charAt(i);
+      if (c == '"') {
+        return i + 1;
+      }
+      if (c != '\\') {
+        sb.append(c);
+        i++;
+        continue;
+      }
+      if (i + 1 >= s.length()) {
+        return -1;
+      }
+      char e = s.charAt(i + 1);
+      if (e == 'u') {
+        if (i + 6 > s.length()) {
+          return -1;
+        }
+        for (int h = i + 2; h < i + 6; h++) {
+          char d = s.charAt(h);
+          if (!(d >= '0' && d <= '9' || d >= 'a' && d <= 'f' || d >= 'A' && d <= 'F')) {
+            return -1;
+          }
+        }
+        sb.append((char) Integer.parseInt(s.substring(i + 2, i + 6), 16));
+        i += 6;
+        continue;
+      }
+      int k = "\"\\/bfnrt".indexOf(e);
+      if (k < 0) {
+        return -1;
+      }
+      sb.append("\"\\/\b\f\n\r\t".charAt(k));
+      i += 2;
+    }
+    return -1;
   }
 
   private static boolean isInlineCode(Attribute a) {

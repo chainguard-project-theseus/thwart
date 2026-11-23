@@ -41,7 +41,7 @@ public final class Main {
       "forces: on* handlers, javascript: and # links, data-* attributes, scripts and styles,",
       "queries in custom attributes, svg in tables, sanitizer rel and ids, quoted CSS urls,",
       "xmlns, legacy doctypes, CSRF inputs, removed -on: attributes, custom attributes moved to",
-      "data-*; see the guide) or differs",
+      "data-*, microdata moved to JSON-LD; see the guide) or differs",
       "(all but same with a diff) per page;",
       "it exits 0 only if every page has its recorded status and final URL and is the same or",
       "reordered. --ignore REGEX (repeatable) deletes the matches from both pages before comparing.");
