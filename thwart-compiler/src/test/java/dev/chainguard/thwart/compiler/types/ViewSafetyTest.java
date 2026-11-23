@@ -155,6 +155,7 @@ class ViewSafetyTest {
                       "java.time.Duration",
                       "java.math.BigDecimal",
                       "java.math.BigInteger",
+                      "java.util.UUID",
                       "dev.chainguard.thwart.runtime.LoopStatus",
                       "dev.chainguard.thwart.runtime.SafeHtml",
                       "java.util.List<com.example.Item>",
@@ -228,6 +229,53 @@ class ViewSafetyTest {
               String err = f.errors().getLast();
               assertTrue(err.startsWith("t.html:1:1: error: parameter type"), err);
               assertTrue(err.contains("its type argument com.example.Pojo"), err);
+            });
+  }
+
+  /** #913: a UUID prints, fills links and serializes as its toString(), and offers only its getters. */
+  @Test
+  void uuidIsAPrintableValue() {
+    String ns = "xmlns:t=\"https://thwart.chainguard.dev\" t:import=\"com.example.*\" ";
+    Compilation.Builder b =
+        Compilation.builder()
+            .java("com.example.A", "package com.example; public record A(java.util.UUID id, java.util.List<java.util.UUID> ids) {}");
+    Compilation c =
+        b.template(
+                "a.html",
+                "<div " + ns + "t:params=\"A a, UUID id\"><p t:text=\"id\" t:title=\"a.id\">x</p>"
+                    + "<a t:href=\"@{/x/{id}(id=a.id, q=id, all=a.ids)}\">x</a><i t:each=\"u : a.ids\">[[${u}]]</i>"
+                    + "<b t:text=\"a.id.mostSignificantBits\">0</b>"
+                    + "<script>const ids = [[${a.ids}]];</script></div>")
+            .compile()
+            .assertSuccess();
+    java.util.UUID id = java.util.UUID.fromString("123e4567-e89b-42d3-a456-426614174000");
+    Object a = c.newInstance("com.example.A", id, List.of(id));
+    assertEquals(
+        "<div><p title=\"123e4567-e89b-42d3-a456-426614174000\">123e4567-e89b-42d3-a456-426614174000</p>"
+            + "<a href=\"/x/123e4567-e89b-42d3-a456-426614174000?q=123e4567-e89b-42d3-a456-426614174000"
+            + "&amp;all=123e4567-e89b-42d3-a456-426614174000\">x</a><i>123e4567-e89b-42d3-a456-426614174000</i>"
+            + "<b>" + id.getMostSignificantBits() + "</b>"
+            + "<script>const ids = ([\"123e4567-e89b-42d3-a456-426614174000\"]);</script></div>",
+        c.render("a", Map.of("a", a, "id", id)));
+
+    // Only getters: no version(), timestamp() or compareTo; and not framework-neutral.
+    for (String expr : List.of("id.version()", "id.timestamp()", "id.compareTo(id)", "id.toString()")) {
+      b.template("a.html", "<p " + ns + "t:params=\"UUID id\" t:text=\"" + expr + "\">x</p>").compile().assertError("a.html:1:");
+    }
+    b.template("a.html", "<p " + ns + "t:params=\"UUID id\" t:data-id=\"id\">x</p>")
+        .compile()
+        .assertError("a.html:1:", "framework-neutral");
+  }
+
+  @Test
+  void dateParameterErrorNamesTheAcceptedTypes() {
+    harness()
+        .run(
+            f -> {
+              assertNull(f.compiler().resolveType(ref("java.util.Date"), List.of()));
+              String err = f.errors().getLast();
+              assertTrue(err.contains("java.time value, a UUID"), err);
+              assertFalse(err.contains("JDK value type"), err);
             });
   }
 

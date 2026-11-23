@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -328,7 +329,7 @@ public final class Escapers {
   /**
    * Value inside a {@code <script>} of JSON data (OutputContext.SCRIPT with type
    * {@code application/json} or {@code application/ld+json}; a JavaScript {@code <script>} uses
-   * {@link #javaScript}). Serializes as JSON: null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
+   * {@link #javaScript}). Serializes as JSON: null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string), UUID (string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
    * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element,
    * and {@code {}, {@code /}, {@code `} and
@@ -647,7 +648,7 @@ public final class Escapers {
       writeDouble(sb, v, Double.toString(v));
     } else if (value instanceof BigInteger || value instanceof BigDecimal) {
       sb.append(requireJdkNumber((Number) value).toString());
-    } else if (value instanceof CharSequence) {
+    } else if (value instanceof CharSequence || value instanceof UUID) {
       writeJsonString(sb, value.toString());
     } else if (value instanceof Character) {
       writeJsonString(sb, String.valueOf(((Character) value).charValue()));

@@ -130,7 +130,7 @@ final class ScriptJson {
         .error(
             pos,
             "cannot output a value of type " + type + " " + where + ": only strings, numbers,"
-                + " booleans, enums, java.time values, records and @TemplateView classes of those, and"
+                + " booleans, enums, java.time values, UUIDs, records and @TemplateView classes of those, and"
                 + " Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON"
                 + (failure == null ? "" : "; " + failure));
   }

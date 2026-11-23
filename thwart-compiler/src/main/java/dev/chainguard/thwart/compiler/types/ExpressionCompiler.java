@@ -266,8 +266,9 @@ public final class ExpressionCompiler {
     if (!safety.isViewSafe(t) && !isDeclared(t, FRAGMENT)) {
       return error(
           ref.pos(),
-          "parameter type " + t + " is not view-safe" + badTypeArgument(t, ": use a record, an enum, a JDK value"
-              + " type, a collection of those, or a class annotated @TemplateView"));
+          "parameter type " + t + " is not view-safe" + badTypeArgument(t, ": use a record, an enum, a String, a"
+              + " number or boolean, a java.time value, a UUID, a collection of those, or a class annotated"
+              + " @TemplateView"));
     }
     return t;
   }
