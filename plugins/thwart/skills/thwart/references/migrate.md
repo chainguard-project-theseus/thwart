@@ -136,14 +136,21 @@ comments, CSRF tokens and JSON formatting in scripts. Each page prints `same`, `
 check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that lost
 their sort order, no). `forced` means the page differs only in what Thwart makes you change:
 `on*` handlers, `href="javascript:…"` and `href="#"`, `data-*` attributes (added, removed or
-changed, as the recipes in [Output contexts](templates.md#output-contexts) do), `<script>`
-elements, and `hx-X` written as `data-hx-X` with the same value. Scripts and `data-*` values
-aren't compared in that form, so a wrong value in either is `forced` too. `forced` knows only these
-shapes, so some changes Thwart requires still make a page `differs`: a computed htmx request whose
-attributes no longer match (a query string or an `hx-vals` moved into `data-*` attributes and a
-script, or a URL encoded differently, such as a space written `%20`), `hx-confirm` text moved
-into a hidden element, a removed `hx-on::…` attribute (only `on*` attributes count as handlers),
-and the `_csrf` hidden input Thwart adds to a `method="post"` form. Check those pages by hand, and
+changed, as the recipes in [Output contexts](templates.md#output-contexts) do), `<script>` and
+`<style>` elements, `hx-X` written as `data-hx-X` with the same value, the query of a path in an
+attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
+`hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
+table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
+or an element with no content and `aria-hidden="true"`). Scripts, styles, `data-*` values, the
+query in such an attribute and which decorative icon sits in a table aren't compared in that form,
+so a wrong value in any of them is `forced` too: check them in the diff. `forced`
+knows only these changes, so some changes Thwart requires still make a page `differs`: a
+computed `hx-target` or an `hx-vals` moved to hidden inputs, a URL encoded differently (a space
+written `%20`), `hx-confirm` text moved into a hidden element, a removed `hx-on::…` attribute
+(Thwart copies it as written, so the CSP forced the change, and compare knows no framework's
+attribute names: only `on*` attributes count as handlers), a computed `<style>` width moved to a
+class (a `data-*` attribute that a script applies compares `forced`), and the `_csrf` hidden input
+Thwart adds to a `method="post"` form. Check those pages by hand, and
 write down the recipe behind each. Fix the other `differs` pages first, then for each `forced` page
 check the values in its diff and load it in a browser to check that its scripts work. It exits 0
 only if every page is `same` or `reordered` with its recorded status and final URL.

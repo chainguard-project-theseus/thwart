@@ -57,11 +57,12 @@ import org.jsoup.nodes.TextNode;
  *
  * <p>Pages that still differ are compared once more without what Thwart makes a migration change
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
- * computed {@code hx-*} renamed to {@code data-hx-*}): equal in that form, in any order, is
- * {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in a
- * browser, so compare does not pass it. Scripts and {@code data-*} values are not compared in
- * that form, so a wrong value in either is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
- * how much of the diff compare prints does not matter.
+ * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
+ * {@code <svg>} in a table replaced, {@code <style>} rewritten): equal in that form, in any order,
+ * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
+ * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
+ * custom attributes and which decorative icon sits in a table are not compared in that form, so a
+ * wrong value in any of them is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
   private PageNormalizer() {}
@@ -70,6 +71,10 @@ final class PageNormalizer {
   enum Verdict { SAME, REORDERED, FORCED, DIFFERS }
 
   private static final Pattern HANDLER = Pattern.compile("on[a-z]+");
+  /** What an {@code <svg>} or {@code <math>} in a table and its replacement print as, forced. */
+  private static final String FOREIGN = "<svg or its replacement>";
+  /** The query of a path, up to a fragment. */
+  private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
 
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
@@ -189,14 +194,14 @@ final class PageNormalizer {
   }
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
-   * with their preludes expanded. With {@code forced}, {@code <script>} elements are dropped and
-   * tags print as {@link #startTag(Element, boolean)} sets them aside. */
+   * with their preludes expanded. With {@code forced}, {@code <script>} and {@code <style>}
+   * elements are dropped, what {@link #replacesForeign(Element)} names prints as one
+   * {@link #FOREIGN} line, and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element
-          && ((Element) node).normalName().equals("script")) {
+      if (forced && node instanceof Element && isScriptOrStyle((Element) node)) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -218,7 +223,9 @@ final class PageNormalizer {
       if (node instanceof Element || node instanceof DocumentType) {
         flushText(text, out);
       }
-      if (node instanceof Element) {
+      if (forced && node instanceof Element && replacesForeign((Element) node)) {
+        out.add(new Line(FOREIGN, Collections.<Line>emptyList()));
+      } else if (node instanceof Element) {
         out.add(new Line(startTag((Element) node, forced),
             children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
@@ -230,6 +237,44 @@ final class PageNormalizer {
     }
     flushText(text, out);
     return out;
+  }
+
+  /**
+   * The elements a migration rewrites, so the forced form drops them: Thwart allows no expression
+   * in a style, and none of the old engine's inline forms in a script.
+   */
+  private static boolean isScriptOrStyle(Element e) {
+    return e.normalName().equals("script") || e.normalName().equals("style");
+  }
+
+  /**
+   * Inside a table or {@code <template>}, where Thwart rejects {@code <svg>} and {@code <math>}:
+   * those elements and a decorative element that can replace one, an {@code <img alt="">} or an
+   * element with no content marked {@code aria-hidden="true"}. The forced form prints each as the
+   * same {@link #FOREIGN} line, so an icon swapped for another compares equal, but an icon added
+   * or removed, an image with alt text, or a visible element still differs.
+   */
+  private static boolean replacesForeign(Element e) {
+    if (!inTableOrTemplate(e)) {
+      return false;
+    }
+    String tag = e.normalName();
+    if (tag.equals("svg") || tag.equals("math")) {
+      return true;
+    }
+    if (tag.equals("img")) {
+      return e.hasAttr("alt") && Compat.strip(e.attr("alt")).isEmpty();
+    }
+    return e.attr("aria-hidden").equals("true") && e.childNodeSize() == 0;
+  }
+
+  private static boolean inTableOrTemplate(Element e) {
+    for (Element p = e.parent(); p != null; p = p.parent()) {
+      if (p.normalName().equals("table") || p.normalName().equals("template")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** A script element whose content is JavaScript or JSON (not, say, a {@code text/template}): the
@@ -590,6 +635,9 @@ final class PageNormalizer {
    * {@code on*} handlers, {@code href="javascript:…"}, {@code href="#"} and every other
    * {@code data-*} attribute are dropped. The guide's recipes move computed {@code data-*}
    * strings to numbers, links, {@code title} or a JSON block, so their values are not compared.
+   * A path in an attribute whose name has a {@code -} (other than {@code aria-*}) prints without
+   * its query: HTML's own attributes that hold paths have no {@code -}, a template can't compute
+   * any other, so a computed query there had to move (into {@code data-*} attributes, say).
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
@@ -609,6 +657,9 @@ final class PageNormalizer {
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
             || name.startsWith("data-")) {
           continue;
+        }
+        if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
+          value = QUERY.matcher(value).replaceFirst("");
         }
       }
       if (name.equals("class")) {

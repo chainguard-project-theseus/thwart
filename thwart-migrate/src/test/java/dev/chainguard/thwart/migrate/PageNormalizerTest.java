@@ -124,10 +124,11 @@ class PageNormalizerTest {
       declared name in a string fails safe | <script>var id = 7; f(id); log("id = 1");</script> | <script>f(7); log("id = 1");</script>
       """)
   void differentPages(String rule, String a, String b) {
-    // A page that differs only inside a <script> is FORCED, even for a wrong value: migrations
-    // rewrite scripts, so the forced form drops them all, and the guide has the agent check the
-    // values in a forced page's script diff (a documented gap, not machinery).
-    check(a.contains("<script") ? FORCED : DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
+    // A page that differs only inside a <script> or <style> is FORCED, even for a wrong value:
+    // migrations rewrite both, so the forced form drops them all, and the guide has the agent
+    // check the values in a forced page's diff (a documented gap, not machinery).
+    boolean rewritten = a.contains("<script") || a.contains("<style");
+    check(rewritten ? FORCED : DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
   }
 
   /** What Thwart makes a migration change (#863): recorded page first, then the migrated one. */
@@ -143,10 +144,19 @@ class PageNormalizerTest {
       in another order               | <ul><li onclick="a()">a<li>b</ul>        | <ul><li>b<li data-action="a">a</ul>
       recorded data value changed    | <a data-lightbox="" href="/g">x</a>       | <a data-lightbox="/g" href="/g">x</a>
       recorded data attribute gone   | <a data-bs-target="#m" onclick="o()">x</a> | <a data-action="o">x</a>
+      query moved to data attributes | <button hx-delete="/posts?ids=5">D</button> | <button hx-delete="/posts" data-post-id="5">D</button>
+      query moved from data-hx-      | <a data-hx-get="/q?page=2#top">n</a>      | <a hx-get="/q#top" data-page="2">n</a>
+      svg in a cell to an empty span | <table><tr><td>Edit<svg viewBox="0 0 2 2"><path d="M0 0"/></svg></td></tr></table> | <table><tr><td>Edit<span class="icon icon-edit" aria-hidden="true"></span></td></tr></table>
+      svg in a cell to an img        | <table><tr><td><svg><circle r="1"/></svg> ok</td></tr></table> | <table><tr><td><img src="/i/ok.svg" alt=""> ok</td></tr></table>
+      math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
+      style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
+      html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
       """)
   void forcedChanges(String rule, String a, String b) {
-    assertEquals(FORCED, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
-        + PageNormalizer.lines(b));
+    String x = a.replace("\\n", "\n");
+    String y = b.replace("\\n", "\n");
+    assertEquals(FORCED, PageNormalizer.compare(x, y), () -> PageNormalizer.lines(x) + "\n"
+        + PageNormalizer.lines(y));
   }
 
   @ParameterizedTest(name = "not forced: {0}")
@@ -157,6 +167,25 @@ class PageNormalizerTest {
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
       text moved out of a script's parent | <div><p>a</p><script>x()</script></div><p>b</p> | <div><p>a</p><p>b</p></div>
       other inline handler syntax    | <form hx-on::after-request="h()"></form> | <form></form>
+      query in an href               | <a href="/p?page=2">n</a>                 | <a href="/p">n</a>
+      query in a custom attribute's other value | <a hx-get="/p?page=2">n</a> | <a hx-get="/r?page=2">n</a>
+      query in an aria attribute     | <a aria-describedby="/p?x">n</a>          | <a aria-describedby="/p">n</a>
+      query in a value that isn't a path | <a hx-confirm="Delete?">n</a>        | <a hx-confirm="Delete">n</a>
+      svg outside a table            | <p>Edit<svg><path d="M0 0"/></svg></p>    | <p>Edit<span class="icon"></span></p>
+      text in a cell                 | <table><tr><td>Ann</td></tr></table>      | <table><tr><td>Bob</td></tr></table>
+      class in a cell                | <table><tr><td class="ok">x</td></tr></table> | <table><tr><td class="bad">x</td></tr></table>
+      empty cell removed             | <table><tr><td class="a"></td><td>x</td></tr></table> | <table><tr><td>x</td></tr></table>
+      input in a cell removed        | <table><tr><td><svg></svg><input name="q"></td></tr></table> | <table><tr><td></td></tr></table>
+      icon removed from a cell       | <table><tr><td>a<svg><path d="M0 0"/></svg></td></tr></table> | <table><tr><td>a</td></tr></table>
+      image changed in a cell        | <table><tr><td><img src="/u/1.png" alt="Ann"></td></tr></table> | <table><tr><td><img src="/u/2.png" alt="Bob"></td></tr></table>
+      image removed from a cell      | <table><tr><td><img src="/u/1.png" alt="Ann">x</td></tr></table> | <table><tr><td>x</td></tr></table>
+      status element changed in a cell | <table><tr><td><span class="dot red" title="Overdue"></span>x</td></tr></table> | <table><tr><td><span class="dot green" title="Paid"></span>x</td></tr></table>
+      line break removed in a cell   | <table><tr><td>a<br>b</td></tr></table>   | <table><tr><td>ab</td></tr></table>
+      svg to a hidden element with content | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span aria-hidden="true"><b></b></span></td></tr></table>
+      wrapper with an input in a cell removed | <table><tr><td><div class="x"><input name="q"></div></td></tr></table> | <table><tr><td></td></tr></table>
+      svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
+      span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
+      width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
