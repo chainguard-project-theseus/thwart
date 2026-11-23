@@ -359,6 +359,13 @@ document.querySelectorAll('.hint').forEach((el) => {
 If the page re-initializes the plugin after swapping in new HTML, call the same init function on
 the swapped element.
 
+Scripts run in document order, each when the parser reaches it. An inline `<script>` in the page
+content runs before a script at the end of the `<body>`, and so does a plugin that sets itself up
+from `data-*` as soon as it loads (a sparkline) if its `<script>` comes first. If an end-of-body
+script copies JSON values onto the page, code that needs them goes in that script, or in a function
+it calls, not in an inline script above it. Otherwise put the JSON block and the script that reads
+it before that code.
+
 **Rich text and `SafeHtml`.** For stored HTML (articles, bios) that the old page printed raw, write
 `t:utext="html.sanitize(article.text)"`: it keeps basic formatting and checked links and drops
 everything else. `html.sanitizeRich` also keeps same-origin images, `language-*` classes, ids and
