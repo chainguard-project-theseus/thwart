@@ -58,9 +58,9 @@ import org.jsoup.nodes.TextNode;
  * <p>Pages that still differ are compared once more without what Thwart makes a migration change
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
- * {@code <svg>} in a table replaced, {@code <style>} rewritten, and what the sanitizer and
- * {@code css.url} write: link {@code rel} tokens, the {@code user-content-} id prefix, a quoted
- * {@code url(...)}): equal in that form, in any order,
+ * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
+ * and what the sanitizer and {@code css.url} write: link {@code rel} tokens, the
+ * {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
  * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
  * custom attributes and which decorative icon sits in a table are not compared in that form, so a
@@ -652,6 +652,8 @@ final class PageNormalizer {
    * Thwart's HTML sanitizer adds {@code rel} tokens to links and the {@code user-content-} prefix
    * to ids (and to {@code href="#..."} links to them), and {@code css.url} quotes a URL, so those
    * tokens, that prefix and the quotes around a {@code url(...)} in a {@code style} are dropped.
+   * {@code xmlns} and {@code xmlns:*} are dropped: Thwart's verifier rejects them, and an HTML
+   * parser gives them no meaning (the Layout Dialect copies a dialect's prefix onto {@code <html>}).
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
@@ -669,7 +671,8 @@ final class PageNormalizer {
         if (HANDLER.matcher(name).matches()
             || name.equals("href") && (value.equals("#")
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
-            || name.startsWith("data-")) {
+            || name.startsWith("data-")
+            || name.equals("xmlns") || name.startsWith("xmlns:")) {
           continue;
         }
         if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
