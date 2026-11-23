@@ -187,7 +187,9 @@ month-name dates (posters-demo-store: order numbers are `ORD-` plus the clock in
 and orders, users and the audit log are stamped at request time), and times of day on the
 pinned day (sivalabs-blog: posts, comments and page views made by `pages.txt` are stamped at
 request time; times on earlier days, which most seeded rows have, are still compared; the two
-seeded page views on the pinned day are hidden too). Held-out: the request
+seeded page views on the pinned day are hidden too), times of day on the pinned day and bcrypt
+password hashes (shopizer: the admin home shows the user's last access time, and the admin user
+form prints the new user's password hash, which has a random salt). Held-out: the request
 timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
@@ -303,3 +305,17 @@ Per-app environment fixes (in the app's commands, not its code):
   `buildSrc` code generator uses Thymeleaf, so a migration keeps Thymeleaf for those. The
   legacy-dependency check reads only `pom.xml` files, so it does not look at this app's Gradle
   files; the leftover-template check still does.
+- shopizer (Shopizer 2.17.0, `"java": 8`; Spring Boot 2.3 war with JSP, JSTL and Spring form tags
+  composed with Apache Tiles 3, a development app beside the held-out espd): the app creates an
+  H2 file database in its working directory and seeds a default store, its admin user and
+  reference data (countries, zones, currencies) on first start, so `start.sh` runs it from a fresh
+  directory under `/tmp` with session ids kept out of URLs and the clock pinned by libfaketime to
+  2025-06-15 10:00 UTC. The seed has no catalogue, so `pages.txt` builds one through the admin
+  forms: categories, a manufacturer, two products with prices, keywords, an option, an option
+  value and an attribute, a product group, a customer, customer options, a content page and box,
+  tax classes and rates, and the store, payment, shipping and system settings, each form invalid
+  first where the app validates it. It then visits the storefront in each of its four templates
+  (`saveTemplate` switches the store's template) and signs a customer up in the default one for
+  the account and review pages. Not in `pages.txt`: the order pages and the checkout, because an
+  order needs items in a cart, which only the storefront's JSON cart API adds; the file uploads
+  (multipart); and the storefront's missing-product page, which prints a stack trace.

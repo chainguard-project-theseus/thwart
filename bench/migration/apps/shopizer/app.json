@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/shopizer-ecommerce/shopizer",
+  "commit": "47396903b3805080c87057ce057c68d36ef7fb2a",
+  "engine": "jsp",
+  "difficulty": "hard",
+  "java": 8,
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/shop",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=2025 )\\d\\d:\\d\\d:\\d\\d",
+    "\\$2a\\$10\\$[./A-Za-z0-9]{53}"
+  ]
+}

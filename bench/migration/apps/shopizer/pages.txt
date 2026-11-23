@@ -1,0 +1,269 @@
+# shopizer 2.17.0: the admin, then the storefront in each of its four templates, then a customer.
+# Requests run in order against the default store the app seeds on first start (start.sh), clock
+# at 2025-06-15 10:00 UTC. The seed has no catalogue, so the admin forms build one first; each
+# form is posted invalid first (a non-number in a number field, a duplicate code, a missing
+# field) where the app validates it. Ids in the URLs are the ones those posts create.
+#
+# Not here: the order pages (admin order edit, invoice, transactions; the storefront checkout,
+# confirmation and order detail), because an order needs a cart, which only the storefront's JSON
+# API fills; the file uploads (product images, digital products, store logo, content images),
+# which are multipart; the storefront's missing-product page, which prints a stack trace; and
+# the admin's JSON endpoints (the lists are filled by script from them). The admin session ends
+# when the customer signs up, so the customer pages come last.
+
+# Storefront, empty store
+GET /shop
+GET /shop/store/contactus.html
+
+# Admin login
+GET /admin/logon.html
+POST /admin/performUserLogin username=admin@shopizer.com&password=wrong
+POST /admin/performUserLogin username=admin@shopizer.com&password=password
+GET /admin/home.html
+
+# Categories
+GET /admin/categories/createCategory.html
+POST /admin/categories/save.html category.parent.id=-1&category.visible=true&_category.visible=on&_category.featured=on&category.code=bags&descriptions[0].name=Bags&descriptions[0].categoryHighlight=&descriptions[0].seUrl=bags&descriptions[0].description=&descriptions[0].metatagTitle=&descriptions[0].metatagKeywords=&descriptions[0].metatagDescription=&descriptions[0].language.code=en&descriptions[0].id=&category.sortOrder=abc&category.id=
+POST /admin/categories/save.html category.parent.id=-1&category.visible=true&_category.visible=on&category.featured=true&_category.featured=on&category.code=bags&descriptions[0].name=Bags&descriptions[0].categoryHighlight=All our bags&descriptions[0].seUrl=bags&descriptions[0].description=<p>Bags of every <b>size</b>.</p>&descriptions[0].metatagTitle=Bags&descriptions[0].metatagKeywords=bags&descriptions[0].metatagDescription=Bags&descriptions[0].language.code=en&descriptions[0].id=&category.sortOrder=1&category.id=
+GET /admin/categories/createCategory.html
+POST /admin/categories/save.html category.parent.id=1&category.visible=true&_category.visible=on&_category.featured=on&category.code=handbags&descriptions[0].name=Handbags&descriptions[0].categoryHighlight=&descriptions[0].seUrl=handbags&descriptions[0].description=Small bags %26 purses&descriptions[0].metatagTitle=&descriptions[0].metatagKeywords=&descriptions[0].metatagDescription=&descriptions[0].language.code=en&descriptions[0].id=&category.sortOrder=2&category.id=
+GET /admin/categories/editCategory.html?id=1
+GET /admin/categories/categories.html
+GET /admin/categories/hierarchy.html
+
+# Manufacturers
+GET /admin/catalogue/manufacturer/list.html
+GET /admin/catalogue/manufacturer/create.html
+POST /admin/catalogue/manufacturer/save.html manufacturer.id=&code=acme&descriptions[0].name=Acme&descriptions[0].title=&descriptions[0].url=&descriptions[0].description=&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&order=abc
+POST /admin/catalogue/manufacturer/save.html manufacturer.id=&code=acme&descriptions[0].name=Acme&descriptions[0].title=Acme Inc&descriptions[0].url=https://example.org&descriptions[0].description=Makers of bags&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&order=1
+GET /admin/catalogue/manufacturer/edit.html?id=2
+
+# Products
+GET /admin/products/products.html
+GET /admin/products/createProduct.html
+POST /admin/products/save.html product.sku=BAG-1&product.refSku=&product.id=&product.available=true&_product.available=on&_product.preOrder=on&dateAvailable=2025-06-15&product.manufacturer.id=1&product.type.id=1&descriptions[0].name=Leather Bag&descriptions[0].seUrl=leather-bag&descriptions[0].productHighlight=&descriptions[0].description=&descriptions[0].metatagTitle=&descriptions[0].metatagDescription=&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&descriptions[0].metatagKeywords=&descriptions[0].productExternalDl=&productPrice=x&availability.productQuantity=0&availability.productQuantityOrderMin=0&availability.productQuantityOrderMax=0&_product.productShipeable=on&availability.region=*&availability.id=&price.id=&product.productVirtual=false&product.productWeight=&product.productHeight=&product.productWidth=&product.productLength=&product.sortOrder=0&productImage.productImage=&product.taxClass.id=1
+POST /admin/products/save.html product.sku=BAG-1&product.refSku=&product.id=&product.available=true&_product.available=on&_product.preOrder=on&dateAvailable=2025-06-15&product.manufacturer.id=2&product.type.id=1&descriptions[0].name=Leather Bag&descriptions[0].seUrl=leather-bag&descriptions[0].productHighlight=Soft leather&descriptions[0].description=<p>A <b>leather</b> bag %26 strap.</p>&descriptions[0].metatagTitle=Leather Bag&descriptions[0].metatagDescription=Leather bag&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&descriptions[0].metatagKeywords=&descriptions[0].productExternalDl=&productPrice=49.99&availability.productQuantity=10&availability.productQuantityOrderMin=1&availability.productQuantityOrderMax=5&product.productShipeable=true&_product.productShipeable=on&availability.region=*&availability.id=&price.id=&product.productVirtual=false&product.productWeight=1&product.productHeight=10&product.productWidth=20&product.productLength=30&product.sortOrder=1&productImage.productImage=&product.taxClass.id=1
+GET /admin/products/createProduct.html
+POST /admin/products/save.html product.sku=PURSE-1&product.refSku=&product.id=&product.available=true&_product.available=on&_product.preOrder=on&dateAvailable=2025-06-01&product.manufacturer.id=1&product.type.id=1&descriptions[0].name=Red Purse&descriptions[0].seUrl=red-purse&descriptions[0].productHighlight=Small and red&descriptions[0].description=A red purse.&descriptions[0].metatagTitle=&descriptions[0].metatagDescription=&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&descriptions[0].metatagKeywords=&descriptions[0].productExternalDl=&productPrice=19.50&availability.productQuantity=3&availability.productQuantityOrderMin=1&availability.productQuantityOrderMax=3&product.productShipeable=true&_product.productShipeable=on&availability.region=*&availability.id=&price.id=&product.productVirtual=false&product.productWeight=0.5&product.productHeight=5&product.productWidth=10&product.productLength=15&product.sortOrder=2&productImage.productImage=&product.taxClass.id=1
+GET /admin/products/editProduct.html?id=1
+GET /admin/products/viewEditProduct.html?sku=PURSE-1
+GET /admin/products/displayProductToCategories.html?id=1
+POST /admin/products/addProductToCategories.html id=1&productId=1
+GET /admin/products/displayProductToCategories.html?id=2
+POST /admin/products/addProductToCategories.html id=2&productId=2
+GET /admin/products/digitalProduct.html?id=1
+GET /admin/catalogue/related/list.html?id=1
+GET /admin/products/reviews.html?id=1
+GET /admin/products/product/keywords.html?id=1
+POST /admin/products/product/addKeyword.html languageCode=en&keyword=leather&productId=1
+GET /admin/products/prices.html?id=1
+GET /admin/products/price/create.html?productId=1&availabilityId=1
+POST /admin/products/price/save.html priceText=abc&_price.defaultPrice=on&price.code=sale&descriptions[0].name=Sale&descriptions[0].priceAppender=&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&specialPriceText=&productPriceSpecialStartDate=&productPriceSpecialEndDate=&price.productPriceType=ONE_TIME&price.id=&productAvailability.region=*&productAvailability.id=1&product.id=1
+POST /admin/products/price/save.html priceText=39.99&_price.defaultPrice=on&price.code=sale&descriptions[0].name=Sale&descriptions[0].priceAppender=&descriptions[0].language.id=1&descriptions[0].language.code=en&descriptions[0].id=&specialPriceText=&productPriceSpecialStartDate=&productPriceSpecialEndDate=&price.productPriceType=ONE_TIME&price.id=&productAvailability.region=*&productAvailability.id=1&product.id=1
+GET /admin/products/price/edit.html?id=1&productId=1
+GET /admin/products/images/list.html?id=1
+GET /admin/products/images/url/list.html?id=1
+GET /admin/catalogue/featured/list.html
+
+# Options and attributes
+GET /admin/options/options.html
+GET /admin/options/createOption.html
+POST /admin/options/save.html code=color&descriptionsList[0].name=Color&descriptionsList[0].language.code=en&descriptionsList[0].id=&productOptionType=select&id=
+GET /admin/options/createOption.html
+POST /admin/options/save.html code=color&descriptionsList[0].name=Colour&descriptionsList[0].language.code=en&descriptionsList[0].id=&productOptionType=select&id=
+GET /admin/options/optionvalues.html
+GET /admin/options/createOptionValue.html
+POST /admin/options/saveOptionValue.html code=&descriptionsList[0].name=&descriptionsList[0].language.code=en&descriptionsList[0].id=&productOptionValueImage=&id=
+POST /admin/options/saveOptionValue.html code=red&descriptionsList[0].name=Red&descriptionsList[0].language.code=en&descriptionsList[0].id=&productOptionValueImage=&id=
+GET /admin/options/editOption.html?id=1
+GET /admin/options/editOptionValue.html?id=1
+GET /admin/products/attributes/list.html?id=2
+GET /admin/products/attribute/createAttribute.html?productId=2
+POST /admin/attributes/attribute/save.html productOption.id=1&_attributeDisplayOnly=on&productOptionValue.id=1&productOptionValue.descriptionsList[0].description=&productOptionValue.descriptionsList[0].language.code=en&productOptionValue.descriptionsList[0].language.id=1&productOptionValue.descriptionsList[0].id=&productOptionValue.code=&attributePrice=abc&attributeSortOrder=0&_attributeDefault=on&_attributeRequired=on&attributeAdditionalWeight=0&id=&product.id=2
+POST /admin/attributes/attribute/save.html productOption.id=1&_attributeDisplayOnly=on&productOptionValue.id=1&productOptionValue.descriptionsList[0].description=&productOptionValue.descriptionsList[0].language.code=en&productOptionValue.descriptionsList[0].language.id=1&productOptionValue.descriptionsList[0].id=&productOptionValue.code=&attributePrice=2&attributeSortOrder=1&attributeDefault=true&_attributeDefault=on&_attributeRequired=on&attributeAdditionalWeight=0&id=&product.id=2
+GET /admin/products/attributes/editAttribute.html?productId=2&id=1
+
+# Product groups
+GET /admin/products/groups/list.html
+POST /admin/products/groups/save.html code=summer
+GET /admin/products/group/edit.html?id=summer
+
+# Customers and customer options
+GET /admin/customers/list.html
+GET /admin/customers/customer.html
+POST /admin/customers/save.html id=&merchantStore.id=&showCustomerStateList=yes&showBillingStateList=yes&showDeliveryStateList=yes&billing.firstName=&billing.lastName=&billing.company=&billing.address=&billing.city=&billing.country.isoCode=CA&billing.zone.code=QC&billing.postalCode=&emailAddress=bad&billing.telephone=&defaultLanguage.id=1&delivery.country.isoCode=CA&delivery.zone.code=QC&_groups=on
+POST /admin/customers/save.html id=&merchantStore.id=&showCustomerStateList=yes&showBillingStateList=yes&showDeliveryStateList=yes&billing.firstName=Jane&billing.lastName=Roe&billing.company=Roe <b>Co</b>&billing.address=1 Main St&billing.city=Montreal&billing.country.isoCode=CA&billing.zone.code=QC&billing.postalCode=H2H 2H2&emailAddress=jane@example.org&billing.telephone=5145550000&defaultLanguage.id=1&delivery.company=&delivery.firstName=Jane&delivery.lastName=Roe&delivery.address=1 Main St&delivery.city=Montreal&delivery.country.isoCode=CA&delivery.zone.code=QC&delivery.postalCode=H2H 2H2&_groups=on
+GET /admin/customers/customer.html?id=1
+GET /admin/customers/options/list.html
+GET /admin/customers/options/create.html
+POST /admin/customers/options/save.html code=&descriptionsList[0].name=&descriptionsList[0].language.code=en&descriptionsList[0].id=&customerOptionType=Select&id=&_publicOption=on&_active=on&sortOrder=0
+POST /admin/customers/options/save.html code=newsletter&descriptionsList[0].name=Newsletter&descriptionsList[0].language.code=en&descriptionsList[0].id=&customerOptionType=Select&id=&publicOption=true&_publicOption=on&active=true&_active=on&sortOrder=1
+GET /admin/customers/options/edit.html?id=1
+GET /admin/customers/options/values/list.html
+GET /admin/customers/options/values/create.html
+POST /admin/customers/options/values/save.html code=&descriptionsList[0].name=&descriptionsList[0].language.code=en&descriptionsList[0].id=&sortOrder=0&id=
+POST /admin/customers/options/values/save.html code=yes&descriptionsList[0].name=Yes&descriptionsList[0].language.code=en&descriptionsList[0].id=&sortOrder=1&id=
+GET /admin/customers/options/values/edit.html?id=1
+GET /admin/customers/optionsset/list.html
+
+# Content
+GET /admin/content/pages/list.html
+GET /admin/content/pages/create.html
+POST /admin/content/pages/save.html _visible=on&_linkToMenu=on&code=about&sortOrder=abc&descriptions[0].name=&descriptions[0].seUrl=&descriptions[0].description=&descriptions[0].metatagTitle=&descriptions[0].metatagKeywords=&descriptions[0].metatagDescription=&descriptions[0].language.code=en&descriptions[0].id=&id=
+POST /admin/content/pages/save.html visible=true&_visible=on&linkToMenu=true&_linkToMenu=on&code=about&sortOrder=1&descriptions[0].name=About us&descriptions[0].seUrl=about-us&descriptions[0].description=<p>We sell <b>bags</b>.</p>&descriptions[0].metatagTitle=About&descriptions[0].metatagKeywords=&descriptions[0].metatagDescription=&descriptions[0].language.code=en&descriptions[0].id=&id=
+GET /admin/content/pages/details.html?id=1
+GET /admin/content/boxes/list.html
+GET /admin/content/boxes/create.html
+POST /admin/content/boxes/save.html visible=true&_visible=on&_linkToMenu=on&code=promo&sortOrder=abc&contentPosition=LEFT&descriptions[0].name=Promo&descriptions[0].description=x&descriptions[0].language.code=en&descriptions[0].id=&id=
+POST /admin/content/boxes/save.html visible=true&_visible=on&_linkToMenu=on&code=promo&sortOrder=1&contentPosition=LEFT&descriptions[0].name=Promo&descriptions[0].description=<p>Free shipping</p>&descriptions[0].language.code=en&descriptions[0].id=&id=
+GET /admin/content/boxes/details.html?id=2
+GET /admin/content/contentImages.html
+GET /admin/content/fileBrowser.html
+GET /admin/content/static/contentFiles.html
+
+# Store
+GET /admin/store/store.html
+POST /admin/store/save.html storename=&code=DEFAULT&storephone=&storeEmailAddress=&storeaddress=&storecity=&country.isoCode=CA&zone.code=QC&storestateprovince=&storepostalcode=&languages=1&_languages=on&defaultLanguage.id=1&currency.id=105&_currencyFormatNational=on&weightunitcode=LB&seizeunitcode=IN&dateBusinessSince=2025-06-15&_useCache=on&domainName=localhost:8080&id=1&storeLogo=&storeTemplate=december
+POST /admin/store/save.html storename=Bench Bags&code=DEFAULT&storephone=514-555-0100&storeEmailAddress=shop@example.org&storeaddress=1 Bench Street&storecity=Montreal&country.isoCode=CA&zone.code=QC&storestateprovince=&storepostalcode=H2H 2H2&languages=1&_languages=on&defaultLanguage.id=1&currency.id=105&_currencyFormatNational=on&weightunitcode=LB&seizeunitcode=IN&dateBusinessSince=2025-06-15&_useCache=on&domainName=localhost:8080&id=1&storeLogo=&storeTemplate=december
+GET /admin/store/list.html
+GET /admin/store/storeCreate.html
+GET /admin/store/editStore.html?id=1
+GET /admin/store/storeBranding.html
+GET /admin/store/storeLanding.html
+POST /admin/store/saveLanding.html descriptions[0].title=Welcome&descriptions[0].description=Bags for everyone&descriptions[0].keywords=bags&descriptions[0].homePageContent=<h2>Welcome to <b>Bench Bags</b></h2>&descriptions[0].language.code=en
+
+# Users and groups
+GET /admin/users/list.html
+GET /admin/users/createUser.html
+POST /admin/users/save.html adminName=&merchantStore.id=1&adminEmail=bad&adminPassword=&firstName=&lastName=&defaultLanguage.id=1&_groups=on&active=true&_active=on&question1=In what city were you born?&answer1=&question2=What was the name of your first pet?&answer2=&question3=Who was your childhood hero?&answer3=&id=
+POST /admin/users/save.html adminName=clerk@example.org&merchantStore.id=1&adminEmail=clerk@example.org&adminPassword=clerk123&firstName=Carl&lastName=Clerk&defaultLanguage.id=1&groups=4&_groups=on&active=true&_active=on&question1=In what city were you born?&answer1=Montreal&question2=What was the name of your first pet?&answer2=Rex&question3=Who was your childhood hero?&answer3=Mom&id=
+GET /admin/users/displayUser.html
+GET /admin/users/displayStoreUser.html?id=2
+GET /admin/users/password.html
+POST /admin/users/savePassword.html password=wrong&newPassword=newpass1&repeatPassword=newpass2&user.id=1
+GET /admin/groups/groups.html
+GET /admin/groups/new.html
+POST /admin/group/save.html group.id=&group.groupName=SUPERADMIN&group.groupType=CUSTOMER
+POST /admin/group/save.html group.id=&group.groupName=VIP&group.groupType=CUSTOMER
+GET /admin/groups/editGroup.html?id=1
+GET /admin/user/permissions.html
+
+# Tax
+GET /admin/tax/taxclass/list.html
+POST /admin/tax/taxclass/save.html code=reduced&title=Reduced rate&id=&merchantStore.id=1
+POST /admin/tax/taxclass/save.html code=reduced&title=Reduced again&id=&merchantStore.id=1
+GET /admin/tax/taxclass/edit.html?id=2
+GET /admin/tax/taxrates/list.html
+POST /admin/tax/taxrates/save.html country.isoCode=CA&zone.id=9&stateProvince=&descriptions[0].name=&descriptions[0].language.id=1&descriptions[0].language.code=en&code=&rateText=abc&_piggyback=on&taxPriority=0&taxClass.id=1&merchantStore.id=1
+POST /admin/tax/taxrates/save.html country.isoCode=CA&zone.id=9&stateProvince=&descriptions[0].name=GST&descriptions[0].language.id=1&descriptions[0].language.code=en&code=gst&rateText=5&_piggyback=on&taxPriority=0&taxClass.id=1&merchantStore.id=1
+GET /admin/tax/taxrates/edit.html?id=1
+GET /admin/tax/taxconfiguration/edit.html
+POST /admin/tax/taxconfiguration/save.html taxBasisCalculation=STOREADDRESS
+
+# Payments
+GET /admin/payments/paymentMethods.html
+GET /admin/payments/paymentMethod.html?code=moneyorder
+POST /admin/payments/savePaymentMethod.html active=true&_active=on&defaultSelected=true&_defaultSelected=on&environment=PROD&integrationKeys['address']=1 Bench Street, Montreal&moduleCode=moneyorder
+GET /admin/payments/paymentMethod.html?code=paypal-express-checkout
+
+# Shipping
+GET /admin/shipping/shippingConfigs.html
+POST /admin/shipping/saveShippingConfiguration.html shipType=NATIONAL&shipBaseType=&shipOptionPriceType=ALL
+GET /admin/shipping/shippingMethods.html
+GET /admin/shipping/shippingMethod.html?code=storePickUp
+POST /admin/shipping/saveShippingMethod.html active=true&_active=on&environment=PROD&integrationKeys['note']=Pick up at the store&integrationKeys['price']=0&moduleCode=storePickUp
+GET /admin/shipping/shippingMethod.html?code=priceByDistance
+GET /admin/shipping/weightBased.html
+POST /admin/shipping/addCustomRegion.html region=Canada
+GET /admin/shipping/weightBased/edit.html?customRegionName=Canada
+GET /admin/shipping/origin/get.html
+POST /admin/shipping/origin/post.html active=true&_active=on&address=1 Bench Street&city=Montreal&country.isoCode=CA&zone.code=QC&state=&postalCode=H2H 2H2
+GET /admin/shipping/shippingOptions.html
+POST /admin/shipping/saveShippingOptions.html _freeShippingEnabled=on&orderTotalFreeShippingText=&handlingFeesText=abc&shipOptionPriceType=ALL
+POST /admin/shipping/saveShippingOptions.html freeShippingEnabled=true&_freeShippingEnabled=on&shipFreeType=NATIONAL&orderTotalFreeShippingText=100&handlingFeesText=2&shipOptionPriceType=ALL
+GET /admin/shipping/shippingPackaging.html
+POST /admin/shipping/saveShippingPackaging.html shipPackageType=ITEM&boxWidth=0&boxHeight=0&boxLength=0&boxWeight=0.0
+
+# Configuration, cache, orders
+GET /admin/configuration/accounts.html
+POST /admin/configuration/saveConfiguration.html merchantConfigs[0].value=https://facebook.example/bench&merchantConfigs[0].key=facebook_page_url&merchantConfigs[0].id=&merchantConfigs[1].value=&merchantConfigs[1].key=google_analytics_url&merchantConfigs[1].id=&merchantConfigs[2].value=&merchantConfigs[2].key=instagram&merchantConfigs[2].id=&merchantConfigs[3].value=&merchantConfigs[3].key=pinterest&merchantConfigs[3].id=&merchantConfigs[4].value=benchbags&merchantConfigs[4].key=twitter_handle&merchantConfigs[4].id=
+GET /admin/configuration/email.html
+POST /admin/configuration/saveEmailConfiguration.html protocol=smtp&host=localhost&port=2525&username=&password=&_smtpAuth=on&_starttls=on
+POST /admin/configuration/saveEmailConfiguration.html protocol=smtp&host=localhost&port=2525&username=bench&password=bench&smtpAuth=true&_smtpAuth=on&_starttls=on
+GET /admin/configuration/system.html
+POST /admin/configuration/saveSystemConfiguration.html _testMode=on&_debugMode=on&displayCustomerSection=true&_displayCustomerSection=on&displayContactUs=true&_displayContactUs=on&displayStoreAddress=true&_displayStoreAddress=on&_displayCustomerAgreement=on&displaySearchBox=true&_displaySearchBox=on&displayPagesMenu=true&_displayPagesMenu=on&_useDefaultSearchConfig['en']=on&defaultSearchConfigPath['en']=&allowPurchaseItems=true&_allowPurchaseItems=on&displayAddToCartOnFeaturedItems=true&_displayAddToCartOnFeaturedItems=on
+GET /admin/cache/cacheManagement.html
+GET /admin/orders/list.html
+GET /admin/unauthorized.html
+GET /admin/categories/editCategory.html?id=99
+
+# The storefront in each template (the store's template is set in the admin), then a customer
+# signs up in the default template, december. Customer pages exist only in december.
+GET /admin/store/storeBranding.html
+POST /admin/store/saveTemplate.html storeTemplate=generic
+GET /shop
+GET /shop/category/bags.html/ref=c:1
+GET /shop/category/handbags.html/ref=c:2
+GET /shop/product/leather-bag.html
+GET /shop/product/red-purse.html
+POST /shop/search/search.html q=bag
+GET /shop/pages/about-us.html
+GET /shop/store/contactus.html
+GET /shop/cart/shoppingCart.html
+GET /shop/customer/registration.html
+GET /shop/customer/customLogon.html
+GET /shop/listing/no-such-listing.html
+GET /admin/store/storeBranding.html
+POST /admin/store/saveTemplate.html storeTemplate=bootstrap
+GET /shop
+GET /shop/category/bags.html/ref=c:1
+GET /shop/category/handbags.html/ref=c:2
+GET /shop/product/leather-bag.html
+GET /shop/product/red-purse.html
+POST /shop/search/search.html q=bag
+GET /shop/pages/about-us.html
+GET /shop/store/contactus.html
+GET /shop/cart/shoppingCart.html
+GET /shop/customer/registration.html
+GET /shop/customer/customLogon.html
+GET /shop/listing/no-such-listing.html
+GET /admin/store/storeBranding.html
+POST /admin/store/saveTemplate.html storeTemplate=exoticamobilia
+GET /shop
+GET /shop/category/bags.html/ref=c:1
+GET /shop/category/handbags.html/ref=c:2
+GET /shop/product/leather-bag.html
+GET /shop/product/red-purse.html
+POST /shop/search/search.html q=bag
+GET /shop/pages/about-us.html
+GET /shop/store/contactus.html
+GET /shop/cart/shoppingCart.html
+GET /shop/customer/registration.html
+GET /shop/customer/customLogon.html
+GET /shop/listing/no-such-listing.html
+GET /admin/store/storeBranding.html
+POST /admin/store/saveTemplate.html storeTemplate=december
+GET /shop
+GET /shop/category/bags.html/ref=c:1
+GET /shop/category/handbags.html/ref=c:2
+GET /shop/product/leather-bag.html
+GET /shop/product/red-purse.html
+POST /shop/search/search.html q=bag
+GET /shop/pages/about-us.html
+GET /shop/store/contactus.html
+GET /shop/cart/shoppingCart.html
+GET /shop/customer/registration.html
+GET /shop/customer/customLogon.html
+GET /shop/listing/no-such-listing.html
+POST /shop/customer/register.html billing.firstName=&billing.lastName=&billing.country=CA&billing.zone=QC&billing.stateProvince=&emailAddress=bad&userName=&password=a&checkPassword=b
+POST /shop/customer/register.html billing.firstName=Sam&billing.lastName=Buyer&billing.country=CA&billing.zone=QC&billing.stateProvince=&emailAddress=sam@example.org&userName=sam@example.org&password=buyer123&checkPassword=buyer123
+GET /shop/customer/dashboard.html
+GET /shop/customer/account.html
+GET /shop/customer/billing.html
+GET /shop/customer/editAddress.html?billingAddress=true
+GET /shop/customer/password.html
+GET /shop/customer/orders.html
+GET /shop/customer/review.html?productId=1
+POST /shop/customer/review/submit.html productId=1&description=&rating=
+POST /shop/customer/review/submit.html productId=1&description=Great <b>bag</b>&rating=4
+GET /shop/product/leather-bag.html
