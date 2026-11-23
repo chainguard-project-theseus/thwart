@@ -104,7 +104,8 @@ gc_mark() { jdk "jcmd $pid GC.run" > /dev/null 2>&1; sleep 0.5; wc -l < "$gcfile
 load() {
   local name=$1 c=$2 secs=$3
   shift 3
-  taskset -c "$load_cpus" oha --no-tui -w -z "${secs}s" -c "$c" --redirect 0 --output-format json \
+  # -t: a request that never answers counts as an error instead of holding the run forever.
+  taskset -c "$load_cpus" oha --no-tui -w -t 30s -z "${secs}s" -c "$c" --redirect 0 --output-format json \
     -H 'Accept: text/html' -H 'Accept-Language: en' -H "Cookie: $(cat "$dir/cookie.txt")" "$@" \
     > "$dir/$name.json" 2> "$dir/$name.err"
 }
