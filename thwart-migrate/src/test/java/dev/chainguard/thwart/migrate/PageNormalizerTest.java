@@ -181,6 +181,8 @@ class PageNormalizerTest {
       image removed from a cell      | <table><tr><td><img src="/u/1.png" alt="Ann">x</td></tr></table> | <table><tr><td>x</td></tr></table>
       status element changed in a cell | <table><tr><td><span class="dot red" title="Overdue"></span>x</td></tr></table> | <table><tr><td><span class="dot green" title="Paid"></span>x</td></tr></table>
       line break removed in a cell   | <table><tr><td>a<br>b</td></tr></table>   | <table><tr><td>ab</td></tr></table>
+      svg to a hidden element with content | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span aria-hidden="true"><b></b></span></td></tr></table>
+      wrapper with an input in a cell removed | <table><tr><td><div class="x"><input name="q"></div></td></tr></table> | <table><tr><td></td></tr></table>
       svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
       span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
       width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
