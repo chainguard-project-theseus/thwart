@@ -207,11 +207,17 @@ public final class FunctionRegistry {
     return ok;
   }
 
-  /** Whether {@code t}, erased, is {@code Fragment} or an array of it (varargs). */
+  /**
+   * Whether {@code t}, erased, is {@code Fragment} or an array of it (varargs). A type javac can't
+   * resolve or access is not: javac reports it, and isSameType holds for it with any type.
+   */
   private boolean takesFragment(TypeMirror t) {
     TypeMirror e = env.types().erasure(t);
     if (e.getKind() == TypeKind.ARRAY) {
       return takesFragment(((ArrayType) e).getComponentType());
+    }
+    if (e.getKind() == TypeKind.ERROR) {
+      return false;
     }
     TypeElement f = env.elements().getTypeElement(Fragment.class.getName());
     return f != null && env.types().isSameType(e, f.asType());
