@@ -362,8 +362,8 @@ the swapped element.
 **Rich text and `SafeHtml`.** For stored HTML (articles, bios) that the old page printed raw, write
 `t:utext="html.sanitize(article.text)"`: it keeps basic formatting and checked links and drops
 everything else. `html.sanitizeRich` also keeps same-origin images, `language-*` classes, ids and
-`target="_blank"` links, for editor or Markdown output. Neither keeps tables, `style`, `iframe` or
-`svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
+`target="_blank"` links, for editor or Markdown output (an `<image>` tag counts as the `<img>` a
+browser makes of it). Neither keeps tables, `style`, `iframe` or `svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
 `allowAttributes`, `allowClasses`, `linkRel`, `allowLinkTarget`) and expose it as a function:
 
 <!-- compile: java -->
