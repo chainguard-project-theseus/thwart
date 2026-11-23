@@ -1,0 +1,17 @@
+{
+  "repo": "https://github.com/artivisi/balaka",
+  "commit": "5c15e18ac2e8f586670a7481f07b3386662c2eca",
+  "engine": "thymeleaf",
+  "difficulty": "hard",
+  "java": 25,
+  "note": "Accounting app on Spring Boot 4.1: Thymeleaf 3.1 with the Spring Security dialect, htmx 2 and the Alpine.js CSP build, behind a strict nonce CSP. 258 templates (255 render from pages.txt; layouts/print, mfa-verify and setup do not). Needs JDK 25 (unnamed variables). PostgreSQL only: start.sh creates a throwaway cluster with the integration-test seed plus seed/. Apache-2.0.",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test -Dsurefire.excludesFile=/bench/app/test-excludes.txt",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/login",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "\\((?:[A-Z][A-Z0-9_]+, )+[A-Z][A-Z0-9_]+\\)",
+    "\\b\\d{2}:\\d{2}(?::\\d{2})?\\b"
+  ]
+}
