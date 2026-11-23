@@ -226,6 +226,42 @@ What is easy to get wrong when leaving a particular engine. Read the part for yo
   bean, which `sec:authorize` honours. If the app uses one, compute the flag in the controller and
   pass it as a `boolean` param, for example `roleHierarchy.getReachableGrantedAuthorities(
   authentication.getAuthorities())` contains `ROLE_USER`.
+- **A `RequestDataValueProcessor`.** Thymeleaf and Spring's JSP form tags call the application's
+  `RequestDataValueProcessor` bean on every form and link: `getExtraHiddenFields` adds hidden
+  inputs (a double-submit token, say), and `processAction`, `processFormFieldValue` and
+  `processUrl` rewrite actions, field values and URLs. Thwart calls none of them, and nothing
+  fails when the fields are gone: the server-side check just stops seeing them. Search the code for
+  `RequestDataValueProcessor`. Spring Security's own CSRF processor is the exception, since Thwart
+  writes the `_csrf` input on a `method="post"` form itself. For any other, issue the value from a
+  `@ControllerAdvice` and write the input in each form, with the parameter name, session keys and
+  keying (per action path, say) that the check reads. A `@ModelAttribute` method runs only before
+  a controller's handler method, so a form on a view that an `@ExceptionHandler` or Spring Boot's
+  error page renders needs the value added there too.
+
+```java
+@ControllerAdvice
+class FormTokenAdvice {
+  @ModelAttribute("formToken")
+  String formToken(HttpSession session) {
+    String token = (String) session.getAttribute("FORM_TOKEN");
+    if (token == null) {
+      token = UUID.randomUUID().toString();
+      session.setAttribute("FORM_TOKEN", token);
+    }
+    return token;
+  }
+}
+```
+
+<!-- compile: template guide/form-token.html -->
+```html
+<form xmlns:t="https://thwart.chainguard.dev" t:params="String formToken" method="post"
+      t:action="@{/orders}">
+  <input type="hidden" name="_token" t:value="formToken">
+  <button>Order</button>
+</form>
+```
+
 - **Whitespace and comments.** Write template-only comments (`{{! }}`, `<%-- --%>`, `<#-- -->`,
   `##`, `{# #}`) as `<!--/* ... */-->`. Whitespace between `t:case` siblings is output.
 
