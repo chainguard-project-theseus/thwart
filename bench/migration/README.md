@@ -164,8 +164,11 @@ The check container (never the migrating agent) sees the app's fixture directory
 `spring.sql.init.data-locations=file:/bench/app/seed.sql`). An app whose pages send mail can start
 `python3 /bench/lib/smtp.py &`, an SMTP sink on `localhost:2525`, in its start command. Helper
 scripts go there too (budgetmaster's `start.sh` and surefire `test-excludes.txt`). The image has
-PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`) for apps that need it and libfaketime for an app whose
-pages show "today".
+PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`) for apps that need it, MySQL 9.3 for apps that run only
+on MySQL, and libfaketime for an app whose pages show "today". `bash /bench/lib/mysql.sh` in a start
+or test command starts a throwaway MySQL under `/tmp` on `localhost:3306` (socket
+`/tmp/mysql.sock`, user `root` without a password) and returns once it answers; its arguments go to
+`mysqld` (for example `--lower-case-table-names=1`), and a second call while it runs does nothing.
 
 Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
 
