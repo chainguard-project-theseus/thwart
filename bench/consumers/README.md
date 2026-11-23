@@ -18,8 +18,11 @@ versions don't build or start, is listed as not benchmarked, with the reason.
 Some Thwart versions build and answer every page with the recorded status and final URL, yet
 compare finds pages that differ, for example because its `forced` rule doesn't recognise a
 rewrite Thwart requires. `ALLOW_UNPASSED=<app>[,<app>]` opts such apps in: when an app has no
-passing run, its latest run is benchmarked if its `score.json` says the build passed and lists no
-status or final-URL mismatch (`status_mismatch` is empty). The report marks it as "port does not
+passing run, its latest run that meets every gate of `bench.py`'s score but page parity is
+benchmarked. Its `score.json` must show that it builds, that its tests pass and are no fewer than
+the baseline's, no status or final-URL mismatch, nothing insecure added, no template or
+dependency of the old engine left, and nothing new in the browser check. A `score.json` that
+doesn't parse is skipped. The report marks it as "port does not
 pass parity: N differs, reasons in its notes" (N counted from the run's `compare.txt`) in the
 Apps table, in a Summary table of its own, and at the top of its section, which comes after the
 passing apps'. Without the opt-in, nothing changes.

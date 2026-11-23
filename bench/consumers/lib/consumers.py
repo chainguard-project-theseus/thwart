@@ -3,7 +3,8 @@
 
 usage: consumers.py replay BASE PAGES OUT_DIR       replay pages.txt; first-request times, cookie
        consumers.py probe BASE PAGES COOKIE OUT     status of each GET path, no redirects followed
-       consumers.py pick APP_RESULTS ALLOW          the run to take: "K pass|pass_forced|unpassed DIFFERS" or "- why"
+       consumers.py pick APP_RESULTS ALLOW          the run to take (ALLOW: ALLOW_UNPASSED's apps):
+                                                    "K pass|pass_forced|unpassed DIFFERS" or "- why"
        consumers.py select PAGES ORIG THWART DIR    the pages to time and the mix (pages.tsv, mixed.txt)
        consumers.py oha JSON PREFIX STATUS          oha's JSON as samples.tsv rows
        consumers.py gc LOG FROM                     live heap and bytes allocated in a GC log window
@@ -184,30 +185,50 @@ def select(pages_file, orig_file, thwart_file, out_dir):
 DIFFERS = re.compile(r"^\d+ differs\s", re.M)
 
 
-def pick(app_dir, allow_unpassed):
+def unpassed_ok(score):
+    """Every gate of bench.py's score() but page parity: it builds, its tests pass and are no
+    fewer than the baseline's, every page keeps its status and final URL, the diff adds nothing
+    insecure, no template or dependency of the old engine is left, and the browser check found
+    nothing new."""
+    browser = score.get("browser")
+    return (score.get("build_ok") is True and score.get("tests_ok") is True
+            and score.get("status_mismatch") == [] and score.get("insecure") == []
+            and score.get("legacy_templates") == [] and score.get("legacy_deps") == []
+            and isinstance(browser, dict) and browser.get("new") == 0)
+
+
+def pick(app_dir, allow):
     """The run to take the Thwart version from, as (run number, how, differs) or (None, why).
-    The latest run that passed strictly, else the latest that passed with forced diffs. With
-    allow_unpassed, else the latest run whose score.json says it built and lists no status or
-    final-URL mismatch; differs is the number of pages its compare.txt calls differs."""
+    The latest run that passed strictly, else the latest that passed with forced diffs. When
+    the app is in allow (ALLOW_UNPASSED, comma-separated), else the latest run that meets every
+    gate but page parity (unpassed_ok); differs is the number of pages its compare.txt calls
+    differs. A run whose score.json doesn't parse is skipped."""
     runs = []
     for d in os.listdir(app_dir) if os.path.isdir(app_dir) else []:
         m = re.fullmatch(r"run-(\d+)", d)
         r = os.path.join(app_dir, d)
-        if m and os.path.isfile(os.path.join(r, "score.json")) and os.path.isfile(os.path.join(r, "diff.patch")):
-            runs.append((int(m.group(1)), r, json.load(open(os.path.join(r, "score.json")))))
+        if not (m and os.path.isfile(os.path.join(r, "diff.patch"))):
+            continue
+        try:
+            score = json.load(open(os.path.join(r, "score.json")))
+        except (OSError, ValueError):
+            continue
+        if isinstance(score, dict):
+            runs.append((int(m.group(1)), r, score))
     runs.sort(reverse=True)
     for key in ("pass", "pass_forced"):
         for k, _, score in runs:
             if score.get(key) is True:
                 return k, key, None
-    if not allow_unpassed:
+    if os.path.basename(os.path.normpath(app_dir)) not in allow.split(","):
         return None, "no passing migration run with a diff.patch"
     for k, r, score in runs:
-        if score.get("build_ok") is True and score.get("status_mismatch") == []:
+        if unpassed_ok(score):
             compare = os.path.join(r, "compare.txt")
             n = len(DIFFERS.findall(open(compare, errors="replace").read())) if os.path.isfile(compare) else None
             return k, "unpassed", n
-    return None, "no run that builds with every page's status and final URL matching (score.json)"
+    return None, ("no run that meets every gate but page parity (score.json: build, tests, status and "
+                  "final URL, nothing insecure, no old-engine template or dependency, browser)")
 
 
 # ------------------------------------------------------------------ load generator and GC log
@@ -547,23 +568,33 @@ def selftest():
     def run(app, k, score, compare=None):
         d = os.path.join(res, app, f"run-{k}")
         os.makedirs(d)
-        json.dump(score, open(os.path.join(d, "score.json"), "w"))
+        with open(os.path.join(d, "score.json"), "w") as f:
+            f.write(score if isinstance(score, str) else json.dumps(score))
         open(os.path.join(d, "diff.patch"), "w").close()
         if compare is not None:
             open(os.path.join(d, "compare.txt"), "w").write(compare)
-    ok = {"build_ok": True, "status_mismatch": []}
+    ok = {"pass": False, "pass_forced": False, "build_ok": True, "tests_ok": True, "status_mismatch": [],
+          "insecure": [], "legacy_templates": [], "legacy_deps": [], "browser": {"new": 0}}
+    a_dir, b_dir = os.path.join(res, "a"), os.path.join(res, "b")
     run("a", 1, dict(ok, pass_forced=True))
     run("a", 2, dict(ok, **{"pass": True}))
-    run("a", 3, dict(ok, pass_forced=False, **{"pass": False}), "001 differs  GET /\n")
-    check(pick(os.path.join(res, "a"), True) == (2, "pass", None), "a strict pass comes first, even when opted in")
-    run("b", 1, dict(ok, **{"pass": False}), "001 same  GET /\n002 differs  GET /x\n003 differs  GET /y\n")
-    run("b", 2, dict(build_ok=True, status_mismatch=["GET /x: status: 200 -> 500"], **{"pass": False}), "")
-    check(pick(os.path.join(res, "b"), False) == (None, "no passing migration run with a diff.patch"),
+    run("a", 3, ok, "001 differs  GET /\n")
+    run("a", 4, '{"pass": tr')
+    check(pick(a_dir, "a") == (2, "pass", None),
+          "a strict pass comes first, even opted in, and a truncated score.json is skipped")
+    run("b", 1, ok, "001 same  GET /\n002 differs  GET /x\n003 differs  GET /y\n")
+    run("b", 2, dict(ok, status_mismatch=["GET /x: status: 200 -> 500"]))
+    check(pick(b_dir, "") == (None, "no passing migration run with a diff.patch"),
           "an unpassed run without the opt-in: not benchmarked")
-    check(pick(os.path.join(res, "b"), True) == (1, "unpassed", 2),
-          "opted in: the latest run with no status mismatch, and its differs count")
-    run("c", 1, dict(build_ok=False, status_mismatch=[], **{"pass": False}))
-    check(pick(os.path.join(res, "c"), True)[0] is None, "opted in, a run that doesn't build: not benchmarked")
+    check(pick(b_dir, "b2,b-old")[0] is None, "the opt-in matches whole app names only")
+    check(pick(b_dir, "x,b") == (1, "unpassed", 2),
+          "opted in: the latest run that meets every gate but parity, and its differs count")
+    for i, (gate, bad) in enumerate([("build_ok", False), ("tests_ok", False), ("insecure", ["permitAll"]),
+                                     ("legacy_templates", ["a.html"]), ("legacy_deps", ["thymeleaf"]),
+                                     ("browser", {"new": 2}), ("browser", None)]):
+        app = f"g{i}"
+        run(app, 1, dict(ok, **{gate: bad}))
+        check(pick(os.path.join(res, app), app)[0] is None, f"opted in, a run with {gate} = {bad!r}: not benchmarked")
 
     # The report, from planted samples of two apps and one app not benchmarked.
     root = os.path.join(tmp, "out")
@@ -629,7 +660,7 @@ def main():
     elif cmd == "report" and len(a) == 2:
         report(a[1])
     elif cmd == "pick" and len(a) == 3:
-        k, how, *n = pick(a[1], a[2] == "1")
+        k, how, *n = pick(a[1], a[2])
         print(f"{k} {how} {n[0] if n[0] is not None else '?'}" if k is not None else f"- {how}")
     elif cmd == "selftest":
         selftest()

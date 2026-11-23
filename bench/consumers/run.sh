@@ -12,9 +12,8 @@
 #      WARMUP       seconds of mixed traffic before timing, per JVM (default 30)
 #      DURATION     seconds per timed load run (default 5)
 #      CONCURRENCY  concurrency levels (default "1 8 32")
-#      ALLOW_UNPASSED  apps (comma-separated) whose latest run may be benchmarked although it
-#                   passed neither strictly nor with forced diffs, when its score.json says it
-#                   built and every page kept its status and final URL; the report marks them
+#      ALLOW_UNPASSED  apps (comma-separated) with no passing run whose latest run that meets
+#                   every gate of score.json but page parity is benchmarked; the report marks them
 #      BENCH_REPORTABLE=yes   set by vm.sh on a dedicated VM; anything else labels the report
 #                   as a local validation run
 #
@@ -82,11 +81,9 @@ for app in "${apps[@]}"; do
     echo "engine: $(json "$cfg" engine -)"
     echo "jdk: $jdk"
   } > "$o/meta.txt"
-  allow=0
-  [[ ,${ALLOW_UNPASSED:-}, == *,$app,* ]] && allow=1
-  read -r k how differs <<< "$(python3 "$here/lib/consumers.py" pick "$RESULTS/$app" "$allow")"
-  if [ "$k" = - ]; then
-    echo "not benchmarked: $how $differs" > "$o/status.txt"
+  read -r k how differs <<< "$(python3 "$here/lib/consumers.py" pick "$RESULTS/$app" "${ALLOW_UNPASSED:-}")"
+  if [ -z "${k:-}" ] || [ "$k" = - ]; then
+    echo "not benchmarked: ${how:-could not read the runs} ${differs:-}" > "$o/status.txt"
     continue
   fi
   echo "run: run-$k ($how)" >> "$o/meta.txt"
