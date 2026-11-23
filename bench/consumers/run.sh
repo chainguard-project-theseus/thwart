@@ -40,6 +40,9 @@ if ! docker image inspect "$image" > /dev/null 2>&1; then
   python3 "$bench/bench.py" image
   docker build -t "$image" "$here"
 fi
+# The shared Maven volume gets this commit's Thwart, whatever another run seeded it with.
+docker run --rm -v thwart-migration-bench-m2:/home/bench/.m2 "$image" \
+  bash -c 'mkdir -p /home/bench/.m2/repository && cp -R /opt/m2-seed/. /home/bench/.m2/repository/'
 
 if [ $# -gt 0 ]; then apps=("$@"); else mapfile -t apps < <(ls "$bench/apps"); fi
 

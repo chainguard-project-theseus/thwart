@@ -343,7 +343,7 @@ def app_section(app, d):
              if (("rps", f"mixed @c{c}") in s)]
     tbl = "|---|---|---|---|---|"
     if mixed:
-        out += ["### Mixed traffic (every GET line of pages.txt)", "",
+        out += ["### Mixed traffic (GET lines of pages.txt with the same status on both versions)", "",
                 "| concurrency | req/s | p50 ms | p90 ms | p99 ms |", tbl] + mixed + [""]
     pages = list(dict.fromkeys(c.rsplit(" @c", 1)[0] for m, c in s if m == "rps" and not c.startswith("mixed")))
     if pages:
@@ -379,12 +379,14 @@ def report(root):
     out += [f"- {k}: {v}" for k, v in m.items() if k != "reportable"] + [""]
     apps = sorted(a for a in os.listdir(root) if os.path.isfile(os.path.join(root, a, "status.txt")))
     out += ["## Apps", "", "| app | engine | Thwart version | status |", "|---|---|---|---|"]
+    status = {}
     for a in apps:
         meta = read_kv(os.path.join(root, a, "meta.txt"))
-        st = open(os.path.join(root, a, "status.txt")).read().strip()
-        out.append(f"| {a} | {meta.get('engine', '-')} | {meta.get('run', '-')} | {st} |")
+        status[a] = open(os.path.join(root, a, "status.txt")).read().strip()
+        out.append(f"| {a} | {meta.get('engine', '-')} | {meta.get('run', '-')} | {status[a]} |")
     out.append("")
-    done = [a for a in apps if os.path.exists(os.path.join(root, a, "samples.tsv"))]
+    # Only apps that ran to the end: a failed one's samples are partial.
+    done = [a for a in apps if status[a] == "benchmarked"]
     if done:
         out += ["## Summary", "", "Thwart / original (95% interval) per app; mixed traffic at the highest concurrency.", "",
                 "| app | mixed req/s | mixed p99 | cold start | live heap | allocated per request | clean build | artifact |",
@@ -476,13 +478,14 @@ def selftest():
 
     # The report, from planted samples of two apps and one app not benchmarked.
     root = os.path.join(tmp, "out")
-    for app in ("alpha", "beta", "gamma"):
+    for app in ("alpha", "beta", "gamma", "delta"):
         os.makedirs(os.path.join(root, app))
     with open(os.path.join(root, "machine.txt"), "w") as f:
         f.write("cpu: planted\nreportable: no\n")
-    for app, k in (("alpha", 2.0), ("beta", 0.5)):
+    for app, k in (("alpha", 2.0), ("beta", 0.5), ("delta", 1.0)):
         with open(os.path.join(root, app, "status.txt"), "w") as f:
-            f.write("benchmarked\n")
+            f.write("not benchmarked: the thwart version failed to build in repetition 3\n" if app == "delta"
+                    else "benchmarked\n")
         with open(os.path.join(root, app, "meta.txt"), "w") as f:
             f.write("engine: thymeleaf\nrun: run-3 (pass)\n")
         with open(os.path.join(root, app, "samples.tsv"), "w") as f:
@@ -504,6 +507,8 @@ def selftest():
     check("| clean build | s | 25.0 | 25.0 | 1.00x (0.98-1.02) | 5, 5 |" in text, "the build row")
     check(not re.search(r"\b(PASS|FAIL|READY|verdict|block)\b", text), "the report gives numbers, no verdict")
     check("| alpha | 2.00x (" in text and "| beta | 0.50x (" in text, "the summary rows")
+    check("| delta | 1.00x" not in text and "## delta" not in text,
+          "an app that failed partway has no summary row or section, only its status")
     check(report(root) == text, "the same samples give the same report")
     print("consumers selftest: ok")
 
