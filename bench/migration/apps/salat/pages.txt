@@ -1,0 +1,231 @@
+# salat: as the manager bm, create a customer, employees, a contract, an order with two suborders and
+# employee orders (each form empty first, then valid). As tt, book time through the booking form and
+# the daily view, then fill the gaps and release September; as bm, accept and reopen it. Then the
+# budget, JIRA, reporting, authorization, invoice, move and settings forms, the detail and partial
+# pages, and the error pages (404, and 403 for tt). Fresh MySQL from testdb/testdb.sql, clock frozen
+# at 2019-09-16 09:00.
+#
+# ?login-name=<sign> logs in (the "local" profile's dev login, which also turns CSRF off); the
+# cookie it sets keeps the login until the next ?login-name=. Ids are the dump's or come from the
+# app's sequences, which a fresh database repeats.
+#
+# Left out: file uploads (CSV, revenue and JIRA imports; pages.txt has no multipart), file
+# downloads and JSON endpoints, mail (release and acceptance reminders), the JIRA replication run
+# (it calls the remote JIRA in the background), the ETL run detail (the dump has no ETL
+# definitions), and dailyreport/daily-list-card, which the inline update returns only to htmx.
+
+
+# Master data as bm; em has no contract yet
+GET /?login-name=bm
+GET /customers/create
+POST /customers/store id=&shortName=&name=&address=&_intermediary=on&_hide=on
+POST /customers/store id=&shortName=Acme&segmentId=&name=Acme Kunststoff GmbH&address=Hafenstrasse 1, Hamburg&_intermediary=on&_hide=on
+GET /employees/create
+POST /employees/store id=&firstname=&lastname=&gender=m&sign=&loginname=&status=ma&_hide=on
+POST /employees/store id=&firstname=Erika&lastname=Muster&gender=f&sign=em&loginname=em&status=ma&_hide=on
+GET /employees/edit?id=1680
+POST /employees/store id=1680&firstname=salat&lastname=admin&gender=m&sign=adm&loginname=admin&status=bl&_hide=on
+GET /my-accounts?login-name=em
+GET /?login-name=bm
+GET /employees/contracts/create
+POST /employees/contracts/store id=&_resolveConflicts=on&employeeId=&_supervisorIds=1&taskdescription=&validFrom=&validUntil=&dailyWorkingTime=&yearlyVacation=&initialOvertime=&_freelancer=on&_hide=on
+POST /employees/contracts/store id=&_resolveConflicts=on&employeeId=178369&_supervisorIds=1&supervisorIds=1680&taskdescription=Entwicklung&validFrom=2019-09-01&validUntil=&dailyWorkingTime=8:00&yearlyVacation=30&initialOvertime=0:00&_freelancer=on&_hide=on
+GET /orders/customerorders/create
+POST /orders/customerorders/store id=&storedRespContrEmployeeId=&customerId=&intermediaryId=&sign=&orderType=STANDARD&description=&shortdescription=&orderCustomer=&validFrom=&validUntil=&_responsibleHbtIds=1&respContrEmployeeId=178367&responsibleCustomerTechnical=&responsibleCustomerContractually=&debithours=&debithoursunit=&ticketReferenceMode=UNLIMITED&ticketReferenceLimit=&surchargeRates.nightPercent=&surchargeRates.nightFrom=20:00&surchargeRates.nightUntil=06:00&surchargeRates.saturdayPercent=&surchargeRates.sundayPercent=&surchargeRates.holidayPercent=&_hide=on&_tagNames=1
+POST /orders/customerorders/store id=&storedRespContrEmployeeId=&customerId=181389&intermediaryId=&sign=ACM-1&orderType=STANDARD&description=Spritzguss-Linie Planung&shortdescription=Spritzguss&orderCustomer=PO-4711&validFrom=2019-09-01&validUntil=&_responsibleHbtIds=1&responsibleHbtIds=178367&respContrEmployeeId=178367&responsibleCustomerTechnical=Herr Technik&responsibleCustomerContractually=Frau Vertrag&debithours=200:00&debithoursunit=0&ticketReferenceMode=UNLIMITED&ticketReferenceLimit=&surchargeRates.nightPercent=25&surchargeRates.nightFrom=20:00&surchargeRates.nightUntil=06:00&surchargeRates.saturdayPercent=50&surchargeRates.sundayPercent=100&surchargeRates.holidayPercent=125&_hide=on&_tagNames=1&tagNames=Fertigung
+GET /orders/customerorders
+GET /orders/suborders/create
+POST /orders/suborders/store id=&customerId=181389&customerorderId=180971&parentId=&sign=&orderType=STANDARD&description=&shortdescription=&suborder_customer=&validFrom=&validUntil=&_invoice=on&_standard=on&_commentnecessary=on&_trainingFlag=on&debithours=&debithoursunit=&ticketReferenceMode=&ticketReferenceLimit=&_hide=on&_tagNames=1
+POST /orders/suborders/store id=&customerId=181389&customerorderId=180971&parentId=&sign=01&orderType=STANDARD&description=Werkzeugkonstruktion&shortdescription=Werkzeug&suborder_customer=PO-4711-01&validFrom=2019-09-01&validUntil=&invoice=true&_invoice=on&_standard=on&commentnecessary=true&_commentnecessary=on&_trainingFlag=on&debithours=120:00&debithoursunit=0&ticketReferenceMode=&ticketReferenceLimit=&_hide=on&_tagNames=1
+POST /orders/suborders/store id=&customerId=181389&customerorderId=180971&parentId=&sign=02&orderType=STANDARD&description=Inbetriebnahme&shortdescription=IBN&suborder_customer=&validFrom=2019-09-01&validUntil=2019-12-31&invoice=true&_invoice=on&_standard=on&_commentnecessary=on&_trainingFlag=on&debithours=&debithoursunit=&ticketReferenceMode=&ticketReferenceLimit=&_hide=on&_tagNames=1
+GET /orders/suborders
+GET /orders/employeeorders/create
+POST /orders/employeeorders/store id=&storedSuborderId=&employeeContractId=&customerId=&orderId=&suborderId=&validFrom=&validUntil=&debithours=&debithoursunit=
+POST /orders/employeeorders/store id=&storedSuborderId=&employeeContractId=180662&customerId=181389&orderId=180971&suborderId=180695&validFrom=2019-09-11&validUntil=&debithours=80:00&debithoursunit=0
+POST /orders/employeeorders/store id=&storedSuborderId=&employeeContractId=180662&customerId=181389&orderId=180971&suborderId=180696&validFrom=2019-09-11&validUntil=2019-12-31&debithours=&debithoursunit=
+POST /orders/employeeorders/store id=&storedSuborderId=&employeeContractId=180663&customerId=181389&orderId=180971&suborderId=180695&validFrom=2019-09-01&validUntil=&debithours=&debithoursunit=
+GET /orders/employeeorders
+
+# Bookings as tt (booking form, daily view and its htmx actions)
+GET /dailyreport/timereports/new?login-name=tt
+POST /dailyreport/timereports durationMode=duration&saveAsFavorite=false&returnUrl=&referenceday=2019-09-19&durationTime=&orderId=180971&suborderId=180695&comment=&_training=on&numberOfSerialDays=1
+POST /dailyreport/timereports durationMode=duration&saveAsFavorite=false&returnUrl=&referenceday=2019-09-19&durationTime=4:30&orderId=180971&suborderId=180695&comment=Werkzeugzeichnung Formplatte&_training=on&numberOfSerialDays=1
+POST /dailyreport/timereports durationMode=beginEnd&saveAsFavorite=false&returnUrl=&referenceday=2019-09-19&beginTime=13:30&endTime=17:00&orderId=180971&suborderId=180696&comment=Abnahme vor Ort&_training=on&numberOfSerialDays=1
+POST /dailyreport/timereports durationMode=duration&saveAsFavorite=true&returnUrl=&referenceday=2019-09-20&durationTime=8:00&orderId=180971&suborderId=180695&comment=Konstruktion Auswerfer&_training=on&numberOfSerialDays=1
+GET /dailyreport/daily
+GET /dailyreport/daily?mode=daily&date=2019-09-19
+GET /dailyreport/list
+GET /dailyreport/matrix
+GET /dailyreport/timereports/214177/edit
+POST /dailyreport/timereports/214177 durationMode=duration&saveAsFavorite=false&returnUrl=&referenceday=2019-09-20&durationTime=25:00&orderId=180971&suborderId=180695&comment=Konstruktion Auswerfer&_training=on&numberOfSerialDays=1
+POST /dailyreport/timereports/214177 durationMode=duration&saveAsFavorite=false&returnUrl=/dailyreport/list&referenceday=2019-09-20&durationTime=7:30&orderId=180971&suborderId=180695&comment=Konstruktion Auswerfer und Schieber&_training=on&numberOfSerialDays=1
+POST /dailyreport/daily/timereport/214175/update-inline duration=4:45&taskdescription=Werkzeugzeichnung Formplatte, Rev. B
+POST /dailyreport/timereports durationMode=duration&saveAsFavorite=false&returnUrl=&referenceday=2019-09-20&durationTime=0:30&orderId=180971&suborderId=180696&comment=Telefonat&_training=on&numberOfSerialDays=1
+GET /dailyreport/daily?mode=daily&date=2019-09-20
+POST /dailyreport/daily/delete-timereport timereportId=214178&date=2019-09-20&mode=daily
+POST /dailyreport/daily/apply-favourite favoriteId=1&date=2019-09-23
+POST /dailyreport/daily/apply-previous employeeorderId=183214&comment=Konstruktion Auswerfer&durationMinutes=480&date=2019-09-24
+POST /dailyreport/daily/delete-favourite favoriteId=1&date=2019-09-24
+GET /dailyreport/daily?mode=list&fMonth=9&fYear=2019
+GET /dailyreport/list?fBookingsEmployees=&fBookingsCustomers=181389&fBookingsOrders=&fBookingsSuborders=&fBookingsTickets=&fBookingsTags=&fBookingsBillable=ALL&fBookingsFrom=2019-09-01&fBookingsUntil=2019-09-30
+GET /dailyreport/list/orders
+GET /dailyreport/list/tickets
+GET /dailyreport/matrix?fMonth=9&fYear=2019
+GET /dailyreport/dashboard
+GET /my-accounts?fEmployeeContractId=180662&trainingPeriod=LAST_YEAR
+
+# Release as tt: refused while days are open, then accepted after filling them
+GET /release
+GET /release/review?until=2019-09
+GET /release/review?until=2019-09&view=day
+POST /release contractId=180662&periodBegin=2019-09-11&periodEnd=2019-09-30&view=order
+POST /dailyreport/daily/workingday date=2019-09-11&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-12&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-13&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-16&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-17&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-18&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-19&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-20&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-23&startTime=08:00&breakTime=00:30
+POST /dailyreport/daily/workingday date=2019-09-24&startTime=08:00&breakTime=00:30
+POST /release/review/not-worked contractId=180662&date=2019-09-25&returnUrl=/release/review?until=2019-09&view=day
+POST /release/review/not-worked contractId=180662&date=2019-09-26&returnUrl=/release/review?until=2019-09&view=day
+POST /release/review/not-worked contractId=180662&date=2019-09-27&returnUrl=/release/review?until=2019-09&view=day
+POST /release/review/not-worked contractId=180662&date=2019-09-30&returnUrl=/release/review?until=2019-09&view=day
+GET /release/review?until=2019-09
+POST /release contractId=180662&periodBegin=2019-09-11&periodEnd=2019-09-30&view=order
+
+# Acceptance as bm
+GET /acceptance?login-name=bm
+GET /acceptance/release/review?contractId=180663&until=2019-09
+POST /acceptance/release contractId=180663&periodBegin=2019-09-01&periodEnd=2019-09-30&view=order
+GET /acceptance/accept/review?contractId=180662&until=2019-09
+GET /acceptance/accept/review?contractId=180662&until=2019-09&view=day
+POST /acceptance/accept contractId=180662&periodBegin=2019-09-01&periodEnd=2019-09-30&view=order
+POST /acceptance/accept contractId=180662&periodBegin=2019-09-11&periodEnd=2019-09-30&view=order
+GET /acceptance?fEmployeeContractId=180662
+POST /acceptance/reopen contractId=180662&reopenDate=2019-09
+
+# Accounts, contracts and orders
+GET /my-accounts?fEmployeeContractId=180662
+POST /my-accounts/overtime/correct fEmployeeContractId=180662
+GET /employees/view?id=178369
+GET /employees/contracts/view?id=180663
+GET /employees/contracts/edit?id=180663
+POST /employees/contracts/store id=180663&_resolveConflicts=on&employeeId=178369&_supervisorIds=1&supervisorIds=1680&taskdescription=Entwicklung&validFrom=2019-09-01&validUntil=2019-08-01&dailyWorkingTime=8:00&yearlyVacation=30&initialOvertime=0:00&_freelancer=on&_hide=on
+POST /employees/contracts/store id=180663&_resolveConflicts=on&employeeId=178369&_supervisorIds=1&supervisorIds=1680&taskdescription=Entwicklung und Konstruktion&validFrom=2019-09-01&validUntil=&dailyWorkingTime=7:00&yearlyVacation=28&initialOvertime=2:30&_freelancer=on&_hide=on
+GET /orders/customerorders/edit?id=180971
+GET /orders/suborders/180695/edit
+GET /orders/employeeorders/edit?id=183216
+POST /orders/employeeorders/store id=183216&storedSuborderId=180695&employeeContractId=180663&customerId=181389&orderId=180971&suborderId=180695&validFrom=2019-09-01&validUntil=2019-12-31&debithours=40:00&debithoursunit=12
+
+# Budget
+GET /budget/create
+POST /budget/store id=&name=&customerorderId=&suborderId=&_fixedPrice=on&validFrom=&validUntil=&alertThresholdPercent=&progressMode=&active=true&_active=on
+POST /budget/store id=&name=Spritzguss 2019&customerorderId=180971&suborderId=&_fixedPrice=on&validFrom=2019-09-01&validUntil=2019-12-31&alertThresholdPercent=80&progressMode=TIME&active=true&_active=on
+GET /budget
+GET /budget/pricing/create
+POST /budget/pricing/store id=&customerorderId=&suborderSign=&employeeId=&orderBudgetId=&priceEuro=&validFrom=&validUntil=&description=
+POST /budget/pricing/store id=&customerorderId=180971&suborderSign=&employeeId=&orderBudgetId=&priceEuro=95,00&validFrom=2019-09-01&validUntil=&description=Standardsatz
+GET /budget/pricing
+GET /budget/flat-rate/create
+POST /budget/flat-rate/store id=&customerorderId=&suborderId=&orderBudgetId=&description=&rhythm=ONCE&amountEuro=&validFrom=&validUntil=
+POST /budget/flat-rate/store id=&customerorderId=180971&suborderId=&orderBudgetId=&description=Einrichtungspauschale&rhythm=ONCE&amountEuro=1500,00&validFrom=2019-09-01&validUntil=
+GET /budget/flat-rate
+GET /budget/employee-cost/create
+POST /budget/employee-cost/store id=&name=&costEuro=
+POST /budget/employee-cost/store id=&name=Konstrukteur&costEuro=62,50
+GET /budget/employee-cost
+GET /budget/employee-cost/assignments/create
+POST /budget/employee-cost/assignments/store id=&employeeCostName=&employeeId=&customerorderId=&suborderId=&validFrom=&validUntil=
+POST /budget/employee-cost/assignments/store id=&employeeCostName=Konstrukteur&employeeId=178368&customerorderId=&suborderId=&validFrom=2019-09-01&validUntil=
+GET /budget/dashboard
+GET /budget/controlling?fBudgetCustomerOrderId=180971&from=2019-09-01&until=2019-09-30&evaluate=true
+GET /budget/controlling/by-segment
+GET /budget/backfill
+POST /budget/backfill/run customerorderId=180971
+GET /budget/bulk-assignment
+POST /budget/bulk-assignment/assign customerorderId=&suborderId=&from=&until=&_employeeIds=1&targetBudgetId=&_includeAssigned=on
+
+# JIRA tickets and replications
+GET /jira/tickets/create
+POST /jira/tickets/store id=&customerorderId=&suborderId=&key=&summary=&issueType=&parentKey=
+POST /jira/tickets/store id=&customerorderId=180971&suborderId=&key=ACM-12&summary=Formplatte konstruieren&issueType=Task&parentKey=
+POST /jira/tickets/store id=&customerorderId=180971&suborderId=180695&key=ACM-13&summary=Auswerfer auslegen&issueType=Sub-task&parentKey=ACM-12
+GET /jira/tickets
+GET /jira/replications/create
+POST /jira/replications/store id=&name=&customerorderId=&suborderId=&baseUrl=&apiFlavor=SERVER&authMethod=BASIC&username=&password=&jql=&parentFieldNames=&pageSize=&additionalFieldNames=&inheritedFieldNames=&_worklogSyncEnabled=on&worklogSyncFrom=&_worklogSyncInvoiceableOnly=on&enabled=true&_enabled=on
+POST /jira/replications/store id=&name=Acme Jira&customerorderId=180971&suborderId=&baseUrl=https://jira.acme.invalid&apiFlavor=SERVER&authMethod=BASIC&username=salat&password=geheim&jql=project = ACM&parentFieldNames=&pageSize=50&additionalFieldNames=&inheritedFieldNames=&_worklogSyncEnabled=on&worklogSyncFrom=&_worklogSyncInvoiceableOnly=on&_enabled=on
+GET /jira/replications
+
+# Reporting and authorization rules
+GET /reporting/report-groups/create
+POST /reporting/report-groups/store id=&name=
+POST /reporting/report-groups/store id=&name=Controlling
+GET /reporting/report-groups
+GET /reporting/reports/create
+POST /reporting/reports/store id=&name=&groupId=&sql=
+POST /reporting/reports/store id=&name=Mitarbeiter&groupId=1&sql=select e.sign, e.firstname, e.lastname from employee e where e.sign <> :sign order by e.sign
+GET /reporting/reports
+GET /reporting/reports/execute?id=1
+POST /reporting/reports/execute reportId=1&parameters[0].name=sign&parameters[0].value=adm
+GET /reporting/jobs/create
+POST /reporting/jobs/store id=&name=&reportDefinitionId=&reportParameters=&recipientEmails=&enabled=true&_enabled=on&_suppressEmptyResults=on&cronExpression=&description=
+POST /reporting/jobs/store id=&name=Mitarbeiter monatlich&reportDefinitionId=1&reportParameters=sign=adm&recipientEmails=controlling@example.com&enabled=true&_enabled=on&_suppressEmptyResults=on&cronExpression=0 0 6 1 * *&description=Monatliche Liste
+GET /reporting/jobs
+GET /auth/rules/create
+POST /auth/rules/store id=&name=&category=&_accessLevels=1&_granteeIds=1&validFrom=&validUntil=
+POST /auth/rules/store id=&name=Testy darf freigeben&category=RELEASE_TIMEREPORTS&_accessLevels=1&accessLevels=WRITE&_granteeIds=1&granteeIds=3&objectIds=*&validFrom=2019-09-01&validUntil=
+GET /auth/rules
+
+# Invoice, move, settings and the remaining pages and partials
+GET /invoice
+POST /invoice/generate orderId=&suborderId=&previousOrderBudgetId=&_showInactive=on&invoiceview=month&fromYearMonth=2019-09&fromDate=2019-09-01&untilDate=2019-09-30&suborderdescription=longdescription&_customeridbox=on&_invoicebox=on
+POST /invoice/generate orderId=180971&suborderId=&previousOrderBudgetId=&_showInactive=on&invoiceview=custom&fromYearMonth=2019-09&fromDate=2019-09-01&untilDate=2019-09-30&suborderdescription=longdescription&customeridbox=true&_customeridbox=on&invoicebox=true&_invoicebox=on
+GET /dailyreports/move
+POST /dailyreports/move/preview sourceCustomerId=&sourceCustomerOrderId=&sourceSuborderId=&targetCustomerId=&targetCustomerOrderId=&targetSuborderId=&fromDate=&toDate=&_employeeContractIds=1
+POST /dailyreports/move/source-customerorders sourceCustomerId=181389&targetCustomerId=181389
+POST /dailyreports/move/source-suborders sourceCustomerId=181389&sourceCustomerOrderId=180971
+POST /dailyreports/move/preview sourceCustomerId=181389&sourceCustomerOrderId=180971&sourceSuborderId=180696&targetCustomerId=181389&targetCustomerOrderId=180971&targetSuborderId=180695&fromDate=2019-09-01&toDate=2019-09-30&_employeeContractIds=1&employeeContractIds=180662
+GET /settings
+POST /settings/store workDayStart=08:30&considerMandatoryBreak=true&_considerMandatoryBreak=on&locale=en&favoriteSuborderId=60208&durationInputMode=duration&_twoStepSuborderSelect=on&notificationEmail=bm@example.com&gravatarEmail=&_notificationBell=on&_notificationMail=on&_achievementsAnnounced=on&_betaFeatures=on&weekStripPlacement=above&favoriteShortListOrder=recent&favoriteListSize=5
+GET /notifications
+GET /profile
+GET /beta/evaluation
+GET /etl/runs
+GET /budget/1
+GET /budget/flat-rate/1
+GET /budget/employee-cost/rates/create?name=Konstrukteur
+GET /jira/tickets/1/details
+GET /jira/replications/1/fields
+GET /dailyreport/csv
+GET /dailyreport/timereports/share-recipients
+GET /favorites/dialog
+GET /notifications/bell
+GET /orders/revenue-upload
+GET /palette/search?q=Acme
+GET /palette/suggest
+POST /beta/feedback feature=favoritesfirst&trigger=USE&rating=4&comment=Gut
+POST /beta/feedback/postpone feature=favoritesfirst
+POST /invoice/print orderId=180971&suborderId=&previousOrderBudgetId=&_showInactive=on&invoiceview=custom&fromYearMonth=2019-09&fromDate=2019-09-01&untilDate=2019-09-30&suborderdescription=longdescription&customeridbox=true&_customeridbox=on&invoicebox=true&_invoicebox=on&timereportsbox=true
+
+# More budget, contract and order actions
+GET /budget/1?from=2019-09-01&until=2019-09-30
+POST /budget/1/adjustments/add effective=2019-10-01&amount=5000&comment=Nachtrag Werkzeug
+POST /employees/contracts/180663/overtime newOvertimeComment=&newOvertime=0:00&newOvertimeEffective=2019-09-16
+POST /employees/contracts/180663/overtime newOvertimeComment=Uebertrag aus Vorvertrag&newOvertime=3:15&newOvertimeEffective=2019-09-16
+POST /customers/181388/toggle-hide
+POST /customers/181388/toggle-hide
+POST /orders/suborders/180696/copy
+POST /dailyreport/matrix/fill-not-worked fEmployeeContractId=180663&month=9&year=2019
+GET /dailyreport/matrix?fMonth=9&fYear=2019&fEmployeeContractId=180663
+POST /dailyreport/dashboard task=refresh
+GET /jira/tickets/scope/suborders?customerorderId=180971
+
+# Partials of the booking form as tt, then the error pages
+GET /dailyreport/timereports/new?login-name=tt
+POST /dailyreport/timereports/refresh-orders referenceday=2019-09-20&orderId=180971
+POST /dailyreport/timereports/refresh-sidebar referenceday=2019-09-20
+GET /nonexistent
+GET /customers/create?login-name=tt
