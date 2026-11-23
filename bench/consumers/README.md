@@ -60,7 +60,8 @@ bench/consumers/vm.sh --project <GCP project> --results <archive clone>/bench/mi
 
 It creates a GCE spot VM (`c4-standard-16` for amd64, `c4a-standard-16` for arm64, no service
 account, deleted after `--max-run`, default 8h, and on every exit), copies `HEAD` and the
-results' patches over, runs `run.sh` there with `BENCH_REPORTABLE=yes`, and copies the output back
+results' patches over, runs `run.sh` there with `BENCH_REPORTABLE=yes` and the same settings
+(`REPS`, `WARMUP`, `DURATION`, `CONCURRENCY`, `ALLOW_UNPASSED`), and copies the output back
 to `bench/consumers/results/vm-<time>-<arch>/`. The project is an argument (or
 `BENCH_VM_PROJECT`), never written here. All 18 apps at the defaults need about 12 hours, so
 split them over several VMs.
