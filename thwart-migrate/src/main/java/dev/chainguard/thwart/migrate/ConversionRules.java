@@ -111,9 +111,12 @@ final class ConversionRules {
       "#fields", "fields",
       "#ids", "ids");
 
-  /** Utility calls {@code #obj.fn(x)} that become a built-in method on the argument, {@code x.m()}. */
+  /**
+   * Utility calls {@code #obj.fn(x)} that become a built-in method on the argument, {@code x.m()}.
+   * Only where Thymeleaf also throws on {@code null}: {@code #lists.isEmpty(null)} is {@code true},
+   * so it stays {@code lists.isEmpty(x)}.
+   */
   static final Map<String, String> RECEIVER_CALLS = Compat.mapOf(
-      "#lists.isEmpty", "isEmpty",
       "#lists.size", "size");
 
   /**
