@@ -90,8 +90,10 @@ Then, per repetition and version:
    request as for pages.
 8. **Peak RSS** of the JVM (`VmHWM`).
 
-The JVM measured is the newest `java` process once the app answers (for `mvn spring-boot:run`,
-the forked app). oha counts responses whose status is not the probed one, and failed requests;
+The start command runs in its own session; stopping the app kills that session's process group
+(and any PostgreSQL that `pg_ctl` detached) and removes the start scripts' state under `/tmp`, so
+every start is a first start. The JVM measured is the newest `java` process once the app answers
+(for `mvn spring-boot:run`, the forked app). oha counts responses whose status is not the probed one, and failed requests;
 the report names any page that had some.
 
 ## Output
@@ -126,5 +128,8 @@ two repetitions there is no interval. Release readiness is judged elsewhere, fro
 - One session cookie is shared by every load connection.
 - Allocation is read from the GC log in the units it prints (K or M per collection), so it is
   exact over many collections and coarse over few; pages with very short runs read low.
+- ewp-registry's and posters-demo-store's start scripts put a Python forwarder on port 8080 that
+  opens only once the app is ready (README of bench/migration); load goes through it, so their
+  throughput is the forwarder's as much as the app's, on both versions.
 - A start command that runs through Maven (`jetty:run-war`, `spring-boot:run`) gives Maven's JVM
   the same flags; its cold start includes Maven's startup and up-to-date checks.

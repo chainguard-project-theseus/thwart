@@ -32,7 +32,7 @@ jdk() { JAVA_HOME=$JDK PATH=$JDK/bin:$PATH bash -c "$1"; }
 now() { date +%s%N; }
 ms_since() { echo $(( ($(now) - $1) / 1000000 )); }
 mb() { awk -v b="$1" 'BEGIN { printf "%.3f", b / 1048576 }'; }
-sample() { printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" >> "$samples"; }
+sample() { [ -n "$5" ] || return 0; printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" >> "$samples"; }
 fail() { echo "not benchmarked: $1" > "$out/status.txt"; exit 0; }
 
 # build VERSION: the app's build command in its checkout; prints seconds, 1 on failure.
@@ -59,14 +59,17 @@ spring() {
   echo "${names:-unknown}"
 }
 
-# start VERSION LOG: starts the app on the app CPUs with the pinned JVM flags; sets pid (the
-# newest java process) and cold (ms to the ready URL answering), or returns 1.
+# start VERSION LOG: starts the app in its own session on the app CPUs with the pinned JVM
+# flags; sets group (the session's process group), pid (the newest java process) and cold (ms
+# to the ready URL answering), or returns 1.
 start() {
   local t0 code
   rm -f /tmp/gc-*.log
   t0=$(now)
-  (cd "/work/$1" && JAVA_TOOL_OPTIONS="$JVM_FLAGS $gclog" taskset -c "$app_cpus" setsid bash -c \
-    "JAVA_HOME=$JDK PATH=$JDK/bin:\$PATH; $START") > "$2" 2>&1 &
+  # taskset and setsid exec in place, so $! is the new session's leader and process group.
+  JAVA_TOOL_OPTIONS="$JVM_FLAGS $gclog" taskset -c "$app_cpus" setsid bash -c \
+    "cd /work/$1 || exit 1; export JAVA_HOME=$JDK PATH=$JDK/bin:\$PATH; $START" > "$2" 2>&1 < /dev/null &
+  group=$!
   for _ in $(seq 1 6000); do
     code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$READY")
     [ "$code" != 000 ] && break
@@ -80,13 +83,17 @@ start() {
   [ -f "$gcfile" ] || gcfile=/tmp/gc-pid$pid.log
 }
 
+# stop: ends everything the start command left (its session, and the PostgreSQL that pg_ctl
+# detaches), and removes the start scripts' state under /tmp, so the next start is a first one.
 stop() {
-  pkill -f java; sleep 2; pkill -9 -f java
-  pkill -f smtp.py; pkill -f postgres
+  kill -- "-$group" 2> /dev/null; pkill -f java; pkill -f postgres
+  sleep 2
+  kill -9 -- "-$group" 2> /dev/null; pkill -9 -f java; pkill -9 -f postgres
   for _ in $(seq 1 100); do
     [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE$READY")" = 000 ] && break
     sleep 0.2
   done
+  rm -rf /tmp/pgdata /tmp/ewp-* /tmp/posters-* /tmp/luckyblog.cp /tmp/h2
   sleep 1
 }
 

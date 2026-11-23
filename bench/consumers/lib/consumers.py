@@ -11,6 +11,7 @@ usage: consumers.py replay BASE PAGES OUT_DIR       replay pages.txt; first-requ
 """
 
 import html.parser
+import http.client
 import http.cookiejar
 import json
 import os
@@ -80,7 +81,7 @@ def _send(opener, url, data=None):
             return r.status, r.geturl(), r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, url, e.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
         return 0, url, ""
 
 
@@ -124,7 +125,7 @@ def probe(base, pages_file, cookie_file, out):
                     status = r.status
             except urllib.error.HTTPError as e:
                 status = e.code
-            except (urllib.error.URLError, OSError):
+            except (urllib.error.URLError, OSError, http.client.HTTPException):
                 status = 0
             f.write(f"{path}\t{status}\n")
 
@@ -284,9 +285,13 @@ def read_samples(path):
         return s
     for line in open(path):
         f = line.rstrip("\n").split("\t")
-        if len(f) != 5 or f[0] == "version":
+        if len(f) != 5 or f[0] not in ("orig", "thwart"):
             continue
-        s.setdefault((f[2], f[3]), {"orig": [], "thwart": []})[f[0]].append(float(f[4]))
+        try:
+            v = float(f[4])
+        except ValueError:
+            continue
+        s.setdefault((f[2], f[3]), {"orig": [], "thwart": []})[f[0]].append(v)
     return s
 
 
@@ -476,10 +481,12 @@ def selftest():
                 for v, f_ in (("orig", 1), ("thwart", k)):
                     f.write(f"{v}\t{rep}\trps\t/ @c8\t{x * f_}\n{v}\t{rep}\tp50_ms\t/ @c8\t{x / 50 / f_}\n"
                             f"{v}\t{rep}\trps\tmixed @c8\t{x * f_}\n{v}\t{rep}\tbuild_s\t-\t{x / 4}\n"
-                            f"{v}\t{rep}\tfirst_ms\t/\t{x}\n{v}\t{rep}\tbad_responses\t/ @c8\t0\n")
+                            f"{v}\t{rep}\tfirst_ms\t/\t{x}\n{v}\t{rep}\tbad_responses\t/ @c8\t0\n"
+                            f"{v}\t{rep}\trss_mb\t-\t\n")
     with open(os.path.join(root, "gamma", "status.txt"), "w") as f:
         f.write("not benchmarked: no passing migration run\n")
     text = report(root)
+    check("RSS after warm-up" not in text, "an empty sample is skipped, not fatal")
     check("not reportable" in text, "a local run is labelled not reportable")
     check("| gamma | - | - | not benchmarked: no passing migration run |" in text, "an app not benchmarked, with why")
     check("| `/` | 8 | 100 / 200: 2.00x (" in text, "alpha's page row")
