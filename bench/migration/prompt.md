@@ -5,7 +5,8 @@ Migrate this application's server-rendered views to Thwart, a compiled template 
   (~/.m2/repository/dev/chainguard/thwart): thwart-runtime, thwart-compiler,
   thwart-spring-boot-starter, thwart-spring-boot-starter-javax and thwart-migrate (an
   executable jar). It is not published anywhere else.
-- JDK 21 (the default), JDK 8 (/usr/lib/jvm/java-1.8-openjdk) and Maven 3.9 are installed. Maven
+- JDK 21 (the default), JDK 8 (/usr/lib/jvm/java-1.8-openjdk), JDK 25
+  (/usr/lib/jvm/java-25-openjdk) and Maven 3.9 are installed. Maven
   Central is reachable. There is no Thwart source code or issue tracker, and no human to answer
   questions: decide for yourself and keep going.
 

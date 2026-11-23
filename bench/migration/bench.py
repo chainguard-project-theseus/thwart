@@ -25,7 +25,7 @@ VOLUME = "thwart-migration-bench-m2"
 M2 = "/home/bench/.m2"
 
 # app.json "java" picks the JDK the original app builds and runs with (default 21).
-JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
+JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk", 25: "/usr/lib/jvm/java-25-openjdk"}
 # A line of `thwart-migrate compare` output: page number, verdict, request.
 VERDICT = re.compile(r"^(\d+) (same|reordered|forced|differs)\s+(.*)$")
 # compare's summary line since it has the forced verdict (#863); archived runs' lines lack it.

@@ -47,7 +47,7 @@ and commit from `app.json`).
 1. **Image.** `Dockerfile` builds Thwart 0.1.0-SNAPSHOT from a `git archive` of this repo's
    `HEAD` and installs it into a Maven repository. The final image holds that repository (and
    the same `thwart-migrate` jar at `/opt/thwart-migrate.jar`), the Claude Code plugin from
-   `plugins/thwart` at `/opt/thwart-plugin` (same commit), JDK 21 (default) and JDK 8, Maven,
+   `plugins/thwart` at `/opt/thwart-plugin` (same commit), JDK 21 (default), JDK 8 and JDK 25, Maven,
    Python, Chromium (for the browser smoke check; the migrating agent can use it too) and the
    Claude Code CLI, but none of this repo's other sources, docs or history.
 2. **Baseline.** Each app in `apps/<name>/app.json` is cloned at its pinned commit and checked
@@ -147,8 +147,8 @@ base URL) and `apps/<name>/pages.txt` (`GET /path` or `POST /path a=1&b=2` per l
 order; a POST takes the previous page's `_csrf` token). Cover every template, both states of
 each form, and the error pages. Optional keys:
 
-- `"java": 8` builds, tests and runs the app on JDK 8 (default 21), the original and the migrated
-  one alike.
+- `"java": 8` or `"java": 25` builds, tests and runs the app on that JDK (default 21), the
+  original and the migrated one alike.
 - `"ignore": [regex, ...]` deletes matches from both the recorded and the new raw page before
   comparing (`compare --ignore`), for accepted differences such as broken markup in the original.
   Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
