@@ -192,8 +192,22 @@ final class PageNormalizer {
     if (sortedForm(children(da, true, false)).equals(sortedForm(children(db, true, false)))) {
       return Verdict.REORDERED;
     }
+    // Thwart adds CSRF inputs and never removes one, so a page that lost one still differs.
+    if (csrfInputs(db) < csrfInputs(da)) {
+      return Verdict.DIFFERS;
+    }
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
+  }
+
+  private static int csrfInputs(Document d) {
+    int n = 0;
+    for (Element e : d.getElementsByTag("input")) {
+      if (isCsrfInput(e)) {
+        n++;
+      }
+    }
+    return n;
   }
 
   /** Strips session ids from a URL (redirect targets carry them before the cookie is set). */
@@ -263,14 +277,24 @@ final class PageNormalizer {
   /**
    * A hidden CSRF token input directly in a {@code method="post"} form. Thwart adds one to every
    * such form that posts to the page's own origin, where the old engine often didn't (a plain
-   * {@code action}, a form only htmx submits). A token in any other place is still compared.
+   * {@code action}, a form only htmx submits). A token in any other place is still compared, and
+   * {@link #compare} counts these so that a lost one differs. Case folds ASCII only, as a browser.
    */
   private static boolean isCsrfInput(Element e) {
     Element form = e.parent();
-    return e.normalName().equals("input") && e.attr("type").equalsIgnoreCase("hidden")
-        && e.attr("name").toLowerCase(Locale.ROOT).contains("csrf")
+    return e.normalName().equals("input") && asciiLower(e.attr("type")).equals("hidden")
+        && asciiLower(e.attr("name")).contains("csrf")
         && form != null && form.normalName().equals("form")
-        && form.attr("method").equalsIgnoreCase("post");
+        && asciiLower(form.attr("method")).equals("post");
+  }
+
+  private static String asciiLower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + 32) : c);
+    }
+    return sb.toString();
   }
 
   /**

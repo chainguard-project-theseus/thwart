@@ -208,6 +208,9 @@ class PageNormalizerTest {
       visible csrf field added       | <form method="post"></form>               | <form method="post"><input type="text" name="_csrf"></form>
       csrf input added to a get form | <form><input name="q"></form>             | <form><input type="hidden" name="_csrf" value="t"><input name="q"></form>
       csrf input nested deeper       | <form method="post"><div></div></form>    | <form method="post"><div><input type="hidden" name="_csrf" value="t"></div></form>
+      csrf input removed from a post form | <form method="post"><input type="hidden" name="_csrf" value="a"><input name="q"></form> | <form method="post"><input name="q"></form>
+      csrf input in a non-ascii post form | <form method="poſt"></form>          | <form method="poſt"><input type="hidden" name="_csrf" value="t"></form>
+      csrf field non-ascii hidden    | <form method="post"></form>               | <form method="post"><input type="hıdden" name="_csrf" value="t"></form>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"
