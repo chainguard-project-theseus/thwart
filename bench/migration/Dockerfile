@@ -23,7 +23,7 @@ ARG CLAUDE_CODE_VERSION=2.1.308
 COPY extra-ca.crt /tmp/extra-ca.crt
 RUN cat /tmp/extra-ca.crt >> /etc/ssl/certs/ca-certificates.crt
 RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl python-3.13 nodejs-22 npm \
-      coreutils findutils grep sed diffutils procps postgresql-18 postgresql-18-client libfaketime \
+      coreutils findutils grep sed diffutils procps postgresql-18 postgresql-18-client mysql-9.3 libfaketime \
       chromium py3.13-websocket-client \
  && if [ -s /tmp/extra-ca.crt ]; then keytool -importcert -noprompt -cacerts -storepass changeit -alias extra -file /tmp/extra-ca.crt; fi \
  && npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
@@ -40,7 +40,8 @@ COPY plugins/thwart /opt/thwart-plugin
 COPY --from=thwart /m2/dev/chainguard/thwart/thwart-migrate/0.1.0-SNAPSHOT/thwart-migrate-0.1.0-SNAPSHOT.jar \
      /opt/thwart-migrate.jar
 # PostgreSQL is for apps that only run on it (budgetmaster): the app's start command creates a
-# throwaway cluster under /tmp. libfaketime pins the clock of an app whose pages show "today".
+# throwaway cluster under /tmp. MySQL is for MySQL-only apps: lib/mysql.sh starts a
+# throwaway server under /tmp. libfaketime pins the clock of an app whose pages show "today".
 # JDK 21 is the default; JDK 8 is for apps whose app.json says "java": 8.
 # Chromium and websocket-client are for lib/browser.py, the browser smoke check.
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
