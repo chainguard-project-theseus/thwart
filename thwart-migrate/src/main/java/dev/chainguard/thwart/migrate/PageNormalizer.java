@@ -57,11 +57,12 @@ import org.jsoup.nodes.TextNode;
  *
  * <p>Pages that still differ are compared once more without what Thwart makes a migration change
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
- * computed {@code hx-*} renamed to {@code data-hx-*}): equal in that form, in any order, is
- * {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in a
- * browser, so compare does not pass it. Scripts and {@code data-*} values are not compared in
- * that form, so a wrong value in either is {@code FORCED} too; the printed diff shows it. The whole pages are compared, so
- * how much of the diff compare prints does not matter.
+ * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
+ * {@code <svg>} in a table replaced, {@code <style>} rewritten): equal in that form, in any order,
+ * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
+ * a browser, so compare does not pass it. Scripts, styles and {@code data-*} values are not
+ * compared in that form, so a wrong value in any of them is {@code FORCED} too; the printed diff
+ * shows it. The whole pages are compared, so how much of the diff compare prints does not matter.
  */
 final class PageNormalizer {
   private PageNormalizer() {}
@@ -70,6 +71,11 @@ final class PageNormalizer {
   enum Verdict { SAME, REORDERED, FORCED, DIFFERS }
 
   private static final Pattern HANDLER = Pattern.compile("on[a-z]+");
+  /** The query of a path, up to a fragment. */
+  private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
+  /** Elements that hold a table's or a {@code <template>}'s structure, never an icon. */
+  private static final Set<String> TABLE_PARTS = Compat.setOf("caption", "col", "colgroup",
+      "table", "tbody", "td", "template", "tfoot", "th", "thead", "tr");
 
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
@@ -189,14 +195,13 @@ final class PageNormalizer {
   }
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
-   * with their preludes expanded. With {@code forced}, {@code <script>} elements are dropped and
-   * tags print as {@link #startTag(Element, boolean)} sets them aside. */
+   * with their preludes expanded. With {@code forced}, what {@link #setAside(Element)} names is
+   * dropped and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element
-          && ((Element) node).normalName().equals("script")) {
+      if (forced && node instanceof Element && setAside((Element) node)) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -230,6 +235,48 @@ final class PageNormalizer {
     }
     flushText(text, out);
     return out;
+  }
+
+  /**
+   * Elements the forced form drops: {@code <script>} and {@code <style>}, which a migration
+   * rewrites (Thwart allows no expression in a style and none of the old engine's inline forms in
+   * a script), and, inside a table or {@code <template>}, where Thwart rejects {@code <svg>} and
+   * {@code <math>}, those elements and what replaces them: an {@code <img>}, or an element with no
+   * content whose only attributes are {@code class}, {@code role}, {@code title} and
+   * {@code aria-*}. Table parts and anything with text or other attributes are still compared.
+   */
+  private static boolean setAside(Element e) {
+    String tag = e.normalName();
+    if (tag.equals("script") || tag.equals("style")) {
+      return true;
+    }
+    if (!inTableOrTemplate(e)) {
+      return false;
+    }
+    if (tag.equals("svg") || tag.equals("math") || tag.equals("img")) {
+      return true;
+    }
+    if (TABLE_PARTS.contains(tag) || !Compat.strip(e.wholeText()).isEmpty()
+        || !e.children().isEmpty()) {
+      return false;
+    }
+    for (Attribute a : e.attributes()) {
+      String name = a.getKey().toLowerCase(Locale.ROOT);
+      if (!name.equals("class") && !name.equals("role") && !name.equals("title")
+          && !name.startsWith("aria-")) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean inTableOrTemplate(Element e) {
+    for (Element p = e.parent(); p != null; p = p.parent()) {
+      if (p.normalName().equals("table") || p.normalName().equals("template")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** A script element whose content is JavaScript or JSON (not, say, a {@code text/template}): the
@@ -590,6 +637,9 @@ final class PageNormalizer {
    * {@code on*} handlers, {@code href="javascript:…"}, {@code href="#"} and every other
    * {@code data-*} attribute are dropped. The guide's recipes move computed {@code data-*}
    * strings to numbers, links, {@code title} or a JSON block, so their values are not compared.
+   * A path in an attribute whose name has a {@code -} (other than {@code aria-*}) prints without
+   * its query: HTML's own attributes that hold paths have no {@code -}, a template can't compute
+   * any other, so a computed query there had to move (into {@code data-*} attributes, say).
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
@@ -609,6 +659,9 @@ final class PageNormalizer {
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
             || name.startsWith("data-")) {
           continue;
+        }
+        if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
+          value = QUERY.matcher(value).replaceFirst("");
         }
       }
       if (name.equals("class")) {

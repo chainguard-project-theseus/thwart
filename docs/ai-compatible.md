@@ -115,13 +115,14 @@ hold:
 Strict parity is a hard bar on purpose. It treats every difference as a failure, including the
 ones Thwart requires. So the test also reports a second, looser verdict, **`pass_forced`**: a run
 that meets every other condition, and whose pages compare reports as `same`, `reordered` or
-`forced`. A page is `forced` when it differs only in inline `on*` handlers, `href="javascript:…"`
-and `href="#"`, `data-*` attributes, `<script>` elements, and `hx-X` written as `data-hx-X` with the
-same value: the change Thwart forces when it rejects inline handlers for the CSP. The rule is
-mechanical: it can't tell a correct listener from a broken one (the browser check covers that),
-and it misses forced changes of other shapes, such as an `id` added for a listener or a query
-string moved out of a computed htmx URL. `pass_forced` is report only. The strict Pass is the
-headline number.
+`forced`. A page is `forced` when it differs only in what Thwart forces a migration to change:
+inline `on*` handlers, `href="javascript:…"` and `href="#"`, `data-*` attributes, `<script>` and
+`<style>` elements, `hx-X` written as `data-hx-X` with the same value, a query moved out of a path
+in a custom attribute, and an `<svg>` in a table replaced (the full rule is in the
+[migration guide](guide/migrate.md#the-tools-and-the-loop)). The rule is mechanical: it can't tell
+a correct listener from a broken one (the browser check covers that), and it misses other forced
+changes, such as an `id` added for a listener or a removed `hx-on` attribute. `pass_forced` is
+report only. The strict Pass is the headline number.
 
 ### Development and held-out apps
 
