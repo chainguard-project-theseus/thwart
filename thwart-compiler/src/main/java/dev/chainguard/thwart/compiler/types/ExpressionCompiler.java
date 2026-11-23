@@ -735,6 +735,13 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr equality(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
+    boolean ne = b.op() == Expr.BinaryOp.NE;
+    if (isNot(b.left()) && r.type().getKind() == TypeKind.NULL || isNot(b.right()) && l.type().getKind() == TypeKind.NULL) {
+      // As in Thymeleaf, 'not a != null' is '(not a) != null': a boolean, never null.
+      String op = ne ? "!=" : "==";
+      return error(b.pos(), "'not' binds tighter than " + op + ", so 'not x " + op + " null' compares a boolean with null"
+          + " and is always " + ne + ": write x " + (ne ? "==" : "!=") + " null, or not (x " + op + " null)");
+    }
     String code;
     if (isEnum(l.type()) && stringLiteral(b.right()) != null) {
       code = enumEquals(l, stringLiteral(b.right()), b.right().pos());
@@ -752,7 +759,7 @@ public final class ExpressionCompiler {
     } else if (neverEqual(l.type(), r.type())) {
       // javac's rule for reference ==: no value of one type can be a value of the other.
       return error(b.pos(), "cannot compare " + describe(l.type()) + " with " + describe(r.type()) + ": no value of one is"
-          + " ever equal to the other, so this is always " + (b.op() == Expr.BinaryOp.NE) + "; compare an enum with a"
+          + " ever equal to the other, so this is always " + ne + "; compare an enum with a"
           + " string literal (status == 'ACTIVE'), or give both sides the same type in Java");
     } else {
       code = "java.util.Objects.equals(" + l.code() + ", " + r.code() + ")";
@@ -760,10 +767,14 @@ public final class ExpressionCompiler {
     if (code == null) {
       return null;
     }
-    if (b.op() == Expr.BinaryOp.NE) {
+    if (ne) {
       code = "(!" + code + ")";
     }
     return new CompiledExpr(code, prim(TypeKind.BOOLEAN), b.pos());
+  }
+
+  private static boolean isNot(Expr e) {
+    return e instanceof Expr.Unary && ((Expr.Unary) e).op() == Expr.UnaryOp.NOT;
   }
 
   /** {@code status == 'ACTIVE'}: checks the constant exists and compares by name. */

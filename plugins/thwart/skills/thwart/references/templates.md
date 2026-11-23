@@ -181,6 +181,8 @@ that runs code. What differs:
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant's name.
   Comparing types that never share a value (a `String` variable with an enum or a number) is a
   build error: compare the enum with a literal (`status == 'ACTIVE'`), or give both sides one type in Java.
+  `not` and `!` bind tighter than `==` and `!=`, as in Thymeleaf, so `not a != null` would compare a
+  boolean with `null` and is a build error: write `a == null` or `not (a != null)`.
   `c ? a` without else is `null`. Both branches of `?:` and `c ? a : b` need compatible types
   (an `Integer` and a `Long` don't mix: give the view type one number type).
   `x ?: d` evaluates `d` only when the variable `x` is null; `a.b ?: d` evaluates `d` either way,

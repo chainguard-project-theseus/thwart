@@ -157,6 +157,9 @@ class ExpressionParserTest {
     assertEquals("(? a b (? c d e))", ast("a ? b : c ? d : e"));
     assertEquals("(? a (? b c d) e)", ast("a ? b ? c : d : e"));
     assertEquals("(NOT (NOT a))", ast("!!a"));
+    // As in Thymeleaf and SpEL, not binds tighter than any binary operator.
+    assertEquals("(NE (NOT a) null)", ast("not a != null"));
+    assertEquals("(NOT (NE a null))", ast("not (a != null)"));
     assertEquals("(SUB a (NEGATE 1))", ast("a - -1"));
   }
 
