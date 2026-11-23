@@ -145,11 +145,15 @@ done
 # 2. Both versions answer each GET path with the same status before anything is timed.
 for v in orig thwart; do
   start "$v" "$out/$v/app-probe.log" || { stop; fail "the $v version never answered $READY (see $v/app-probe.log)"; }
-  $py replay "$BASE" "$pages" "$out/$v" && $py probe "$BASE" "$pages" "$out/$v/cookie.txt" "$out/$v/probe.tsv"
+  ok=0
+  $py replay "$BASE" "$pages" "$out/$v" > "$out/$v/probe.log" 2>&1 &&
+    $py probe "$BASE" "$pages" "$out/$v/cookie.txt" "$out/$v/probe.tsv" >> "$out/$v/probe.log" 2>&1 && ok=1
   stop
+  [ "$ok" = 1 ] || fail "replaying pages.txt on the $v version failed (see $v/probe.log)"
 done
-$py select "$pages" "$out/orig/probe.tsv" "$out/thwart/probe.tsv" "$out"
+$py select "$pages" "$out/orig/probe.tsv" "$out/thwart/probe.tsv" "$out" || fail "could not select the pages to time"
 mapfile -t timed < <(awk -F '\t' '$4 == "yes" { print $1 "\t" $2 }' "$out/pages.tsv")
+[ "${#timed[@]}" -gt 0 ] && [ -s "$out/mixed.txt" ] || fail "no page has the same status on both versions (see pages.tsv)"
 sed "s|^|$BASE|" "$out/mixed.txt" > "$out/mixed-urls.txt"
 read -ra levels <<< "$CONCURRENCY"
 top=${levels[${#levels[@]} - 1]}
