@@ -283,6 +283,15 @@ final class PageNormalizer {
         }
       }
     }
+    // Only a data-* the new page added stands in: one the old page had replaces nothing.
+    for (Element e : old.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
+        }
+      }
+    }
     for (Element e : old.getAllElements()) {
       List<String> removed = new ArrayList<>();
       for (Attribute a : e.attributes()) {

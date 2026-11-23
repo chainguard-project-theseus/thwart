@@ -225,6 +225,8 @@ class PageNormalizerTest {
       aria attribute to data         | <p aria-label="Bag">x</p>                 | <p data-aria-label="Bag">x</p>
       one of two hooks lost          | <a productid="1">x</a><b productid="1">y</b> | <a data-product-id="1">x</a><b>y</b>
       value only under another name elsewhere | <a productid="1">x</a><b>y</b> | <a>x</a><b data-item-id="1">y</b>
+      hook lost beside an old data   | <a productid="1" data-product-id="1">x</a> | <a data-product-id="1">x</a>
+      hook lost beside an old data elsewhere | <a data-product-id="1">x</a><b productid="1">y</b> | <a data-product-id="1">x</a><b>y</b>
       custom kept and text changed   | <button productId="1">Add</button>        | <button data-product-id="1">Buy</button>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
