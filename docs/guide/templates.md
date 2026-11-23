@@ -175,7 +175,8 @@ that runs code. What differs:
 
 - `${...}` is optional (`t:text="owner.name"`). `*{...}` works only inside `t:object`, for one
   property path: `*{firstName} + ' ' + *{lastName}`. A fragment doesn't see its caller's
-  `t:object`: take a `Field` parameter ([Fragments and layouts](#fragments-and-layouts)). Utility
+  `t:object`: pass it the object and put `t:object` on that, or, for a form control, a `Field`
+  ([Fragments and layouts](#fragments-and-layouts)). Utility
   objects are function namespaces ([Functions](#functions)); `#ctx`, `#request`, `#dates` and the
   rest don't exist.
 - Not supported: `T(...)`, `new`, `@bean`, `__...__` preprocessing, assignment, lambdas,
