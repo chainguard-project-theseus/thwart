@@ -95,6 +95,23 @@ class NameOnlyFieldsTest {
   }
 
   @Test
+  void aPasswordIsNeverEchoed() {
+    // #972: unlike <form:password showPassword="true">, the bound value never reaches the page.
+    Compilation c = compile("<input type=\"password\" value=\"static\" t:field=\"*{title}\">").assertSuccess();
+    Map<String, Object> model = new HashMap<>();
+    model.put("upload", c.newInstance("com.example.Upload", "s3cret", null, List.of()));
+    String page = c.render("form", model, new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), Forms.NONE));
+    assertEquals("<form><input type=\"password\" id=\"title\" name=\"title\"></form>", page);
+    assertFalse(c.generatedSource("thwart.generated.FormTemplate").contains(".title()"));
+    // The same field on a text input does show its value.
+    c = compile("<input type=\"text\" t:field=\"*{title}\">").assertSuccess();
+    model.put("upload", c.newInstance("com.example.Upload", "s3cret", null, List.of()));
+    assertEquals(
+        "<form><input type=\"text\" id=\"title\" name=\"title\" value=\"s3cret\"></form>",
+        c.render("form", model, new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), Forms.NONE)));
+  }
+
+  @Test
   void generatedCodeNeverReadsTheValue() {
     Compilation c =
         compile(
