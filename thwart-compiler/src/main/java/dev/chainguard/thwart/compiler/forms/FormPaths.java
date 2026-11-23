@@ -65,18 +65,21 @@ public final class FormPaths {
    * @param id Java code (a String) for the element id: the path without '[' and ']', as in
    *     Spring and Thymeleaf ({@code items0.name})
    * @param value the field's current value, or null where the caller does not need it
+   * @param type the field's static type, also when its value is not compiled; null without a check
    */
   public static final class FormField {
     private final String objectName;
     private final String path;
     private final String id;
     private final CompiledExpr value;
+    private final TypeMirror type;
 
-    public FormField(String objectName, String path, String id, CompiledExpr value) {
+    public FormField(String objectName, String path, String id, CompiledExpr value, TypeMirror type) {
       this.objectName = objectName;
       this.path = path;
       this.id = id;
       this.value = value;
+      this.type = type;
     }
 
     public String objectName() {
@@ -93,6 +96,10 @@ public final class FormPaths {
 
     public CompiledExpr value() {
       return value;
+    }
+
+    public TypeMirror type() {
+      return type;
     }
 
     @Override
@@ -131,7 +138,8 @@ public final class FormPaths {
   /** A field given as a literal {@code path} relative to {@code selection}. */
   public static FormField literal(Scope.Selection selection, String path, CompiledExpr value) {
     return new FormField(
-        JavaStrings.literal(selection.objectName()), JavaStrings.literal(path), JavaStrings.literal(idOf(path)), value);
+        JavaStrings.literal(selection.objectName()), JavaStrings.literal(path), JavaStrings.literal(idOf(path)), value,
+        value == null ? null : value.type());
   }
 
   /**
@@ -204,7 +212,8 @@ public final class FormPaths {
         j + ".objectName()",
         j + ".path()",
         j + ".id()",
-        new CompiledExpr(j + ".value()", object, pos));
+        new CompiledExpr(j + ".value()", object, pos),
+        object);
   }
 
   /** Whether {@code t} is the runtime {@code Field} type. */
@@ -314,7 +323,7 @@ public final class FormPaths {
       }
     }
     flush(text, name, id);
-    return new FormField(objectName, concat(name), concat(id), current);
+    return new FormField(objectName, concat(name), concat(id), current, type);
   }
 
   /** The type of the path so far: {@code current}'s for VALUE, resolved without reading it for PATH. */

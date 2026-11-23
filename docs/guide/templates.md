@@ -605,7 +605,9 @@ public record Address(String street) {}
 - Paths index lists and maps: `*{items[itemStat.index].name}`, `*{prices[e.key]}`. This replaces
   `__${...}__` preprocessing.
 - A field whose type isn't view-safe (a `MultipartFile`) can be bound where its value is never
-  read: a file or password input, `t:errors`, `fields.hasErrors`.
+  read: a file or password input, `t:errors`, `fields.hasErrors`. It can't be passed to a `Field`
+  fragment parameter, because a `Field` carries the field's value into the fragment, whatever the
+  fragment does with it. Write the file input for such a field in the page itself.
 
 **CSRF.** A `<form method="post">` gets Spring Security's token input automatically, but only
 where the compiler can see the form posts to the page's own origin. So in a POST form the `action`
