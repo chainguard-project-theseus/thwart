@@ -1,0 +1,13 @@
+{
+  "repo": "https://github.com/HBTGmbH/salat",
+  "commit": "43c762ecfc10b0c38d8cb11e6314083ca126762d",
+  "engine": "thymeleaf",
+  "difficulty": "hard",
+  "heldout": true,
+  "java": 25,
+  "build": "mvn -B -ntp -Dproject.build.outputTimestamp=2019-09-16T07:00:00Z clean package -DskipTests",
+  "test": "mvn -B -ntp -Dspring.test.context.cache.maxSize=4 test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/actuator/health",
+  "base": "http://localhost:8080"
+}

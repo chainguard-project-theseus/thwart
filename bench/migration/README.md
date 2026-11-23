@@ -335,3 +335,18 @@ Per-app environment fixes (in the app's commands, not its code):
   instead. The `dev` profile skips the app's guard against the seeded admin/admin login, and MFA
   and the setup wizard are off. The test command excludes, via `test-excludes.txt`, the tests that
   need Docker (Testcontainers) or a browser (Playwright), and their `@Nested` classes.
+- salat (held out; HBT's time tracking and invoicing, Boot 4.1, Thymeleaf with the Layout Dialect,
+  htmx and about 380 `${@bean}` view helpers, `"java": 25`): it runs only on MySQL 8+ (its
+  Liquibase changesets use functional indexes), so `start.sh` starts MySQL with `lib/mysql.sh
+  --lower-case-table-names=1`, loads the repo's `testdb/testdb.sql`, and Liquibase migrates it at
+  startup; the app connects without TLS, since MySQL's certificate is dated after the pinned
+  clock. The "local" profile logs in whoever a request names in `?login-name=` and turns CSRF
+  off; its login cookie is `Secure`, which a client on plain http never sends back, so the app
+  runs on 8081 and port 8080 forwards to it with `Secure` dropped from `Set-Cookie`. libfaketime
+  freezes the clock at 2019-09-16 09:00 Europe/Berlin (pages show the time of day and when
+  records were made), session ids stay out of URLs (`server.servlet.session.tracking-modes=cookie`),
+  and the build pins `project.build.outputTimestamp`, the build time every page footer shows. It
+  needs JDK 25: on JDK 21 the achievements page fails on a message pattern only newer JDKs parse.
+  The pom's own exclude keeps out the Playwright tests, and every other test runs on H2; the
+  test command keeps at most four Spring test contexts cached (`spring.test.context.cache.maxSize`),
+  as 32 do not fit the test JVM's heap in the 4 GB container.
