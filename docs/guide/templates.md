@@ -363,8 +363,8 @@ A classic `<script>` (no `defer`, `async` or `type="module"`) runs when the pars
 inline script in the page content runs before a classic script at the end of the `<body>` that
 reads the JSON block. Put code that needs the JSON values in that script, or in a function it calls,
 or put the JSON block and its script before that code. A `defer` or module script runs only after
-the whole page is parsed, and an `async` one whenever it has loaded, so neither runs before an inline
-script. A plugin that sets itself up from `data-*` as soon as it loads (a sparkline) never sees
+the whole page is parsed, so after every inline script. An `async` one runs whenever it has loaded,
+which can change from one load to the next, so don't make it depend on page order. A plugin that sets itself up from `data-*` as soon as it loads (a sparkline) never sees
 values added later: pass them through its API, as in the recipe above.
 
 **Rich text and `SafeHtml`.** For stored HTML (articles, bios) that the old page printed raw, write
