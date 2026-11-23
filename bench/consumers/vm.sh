@@ -15,7 +15,8 @@
 # (commit first: uncommitted changes are not sent) with the results' score.json and diff.patch
 # files, runs run.sh there with BENCH_REPORTABLE=yes, copies the output back to
 # bench/consumers/results/vm-<UTC time>-<arch>/ with the VM's machine type, zone and CPU added to
-# machine.txt, and deletes the VM on every exit. Needs gcloud logged in, with compute rights and
+# machine.txt, and deletes the VM on every exit, an interrupt included (by the run's label,
+# bench-run=<time>-<arch>). Needs gcloud logged in, with compute rights and
 # SSH to the VM.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -52,10 +53,17 @@ mkdir -p "$out"
 git -C "$root" bundle create "$tmp/src.bundle" HEAD 2> /dev/null
 (cd "$results" && find . \( -name score.json -o -name diff.patch \) -print0 | tar --null -T - -czf "$tmp/results.tgz")
 
-zone=''
+zone='' creating='' label=$run-$arch
+# Every exit, an interrupt included: wait for a create in flight, then delete every VM that
+# carries this run's label. Further signals can't cut that short.
 cleanup() {
   trap '' INT TERM HUP
-  [ -z "$zone" ] || gcloud compute instances delete "$name" --zone "$zone" --project "$project" --quiet > /dev/null 2>&1 || :
+  [ -z "$creating" ] || wait "$creating" 2> /dev/null || :
+  gcloud compute instances list --project "$project" --filter="labels.bench-run=$label" \
+      --format='value(name,zone.basename())' 2> /dev/null |
+    while read -r n z; do
+      gcloud compute instances delete "$n" --zone "$z" --project "$project" --quiet > /dev/null 2>&1 || :
+    done
   rm -rf "$tmp"
 }
 trap cleanup EXIT
@@ -65,11 +73,17 @@ g() { gcloud "$@" --project "$project" --quiet; }
 gssh() { g compute ssh "$name" --zone "$zone" --strict-host-key-checking=no --ssh-flag=-oConnectTimeout=15 --command "$1"; }
 
 for z in ${zones//,/ }; do
-  if g compute instances create "$name" --zone "$z" --machine-type "$machine" \
+  g compute instances create "$name" --zone "$z" --machine-type "$machine" \
       --provisioning-model=SPOT --instance-termination-action=DELETE --max-run-duration="$maxrun" \
       --image-family "ubuntu-2404-lts-$arch" --image-project ubuntu-os-cloud \
       --boot-disk-size=100GB --boot-disk-type=hyperdisk-balanced \
-      --no-service-account --no-scopes --labels "purpose=bench,bench-run=$run" > /dev/null 2> "$tmp/create.err"; then
+      --no-service-account --no-scopes --labels "purpose=bench,bench-run=$label" > /dev/null 2> "$tmp/create.err" &
+  # In the background, so a signal is handled at once and cleanup can wait for it.
+  creating=$!
+  rc=0
+  wait "$creating" || rc=$?
+  creating=''
+  if [ "$rc" = 0 ]; then
     zone=$z
     break
   fi
@@ -90,7 +104,8 @@ gssh 'm=http://metadata.google.internal/computeMetadata/v1/instance; h=Metadata-
 env=$(printf '%s=%q ' REPS "${REPS:-5}" WARMUP "${WARMUP:-30}" DURATION "${DURATION:-5}" CONCURRENCY "${CONCURRENCY:-1 8 32}")
 gssh "sudo setsid nohup env $env RESULTS=\$HOME/results OUT=\$HOME/out BENCH_REPORTABLE=yes bash -c 'thwart/bench/consumers/run.sh $*; echo \$? > \$HOME/rc' > run.log 2>&1 < /dev/null &"
 while :; do
-  sleep 60
+  sleep 60 &
+  wait $!
   if ! g compute instances describe "$name" --zone "$zone" --format='value(status)' > /dev/null 2>&1; then
     die "the VM is gone (preempted, or past --max-run); nothing was copied back"
   fi

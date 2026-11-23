@@ -129,7 +129,7 @@ two repetitions there is no interval. Release readiness is judged elsewhere, fro
 - Allocation is read from the GC log in the units it prints (K or M per collection), so it is
   exact over many collections and coarse over few; pages with very short runs read low.
 - ewp-registry's and posters-demo-store's start scripts put a Python forwarder on port 8080 that
-  opens only once the app is ready (README of bench/migration); load goes through it, so their
+  opens only once the app is ready (see bench/migration's README); load goes through it, so their
   throughput is the forwarder's as much as the app's, on both versions.
 - A start command that runs through Maven (`jetty:run-war`, `spring-boot:run`) gives Maven's JVM
   the same flags; its cold start includes Maven's startup and up-to-date checks.
