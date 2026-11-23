@@ -457,6 +457,8 @@ class ExpressionParserTest {
     // A webjar such as @tabler/core is served as tabler__core; Thymeleaf preprocesses only a pair.
     assertEquals("(link /webjars/tabler__core/x.css)", ast("@{/webjars/tabler__core/x.css}"));
     assertEquals("(link /a__b/{id} id=x)", ast("@{/a__b/{id}(id=x)}"));
+    // A path variable's '}' doesn't end the path.
+    assertEquals("(link /{id}/tabler__core id=x)", ast("@{/{id}/tabler__core(id=x)}"));
     assertEquals("(? b (link /a__b) (link /c))", ast("b ? @{/a__b} : @{/c}"));
   }
 
