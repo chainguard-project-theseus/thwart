@@ -146,7 +146,7 @@ a **view-safe** type, or a built-in (`size`, `isEmpty`, `length`, `first`/`last`
 is an error.
 
 **View-safe** (`ViewSafety`): primitives and boxes, `String`/`CharSequence`, enums, records,
-`java.time` values, `BigDecimal`/`BigInteger`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/
+`java.time` values, `BigDecimal`/`BigInteger`, `UUID`, `Optional`/`Iterable`/`Collection`/`List`/`Set`/
 `Map`/`Map.Entry` and arrays of view-safe types (a public `java.util` type that implements one of
 them is seen as that interface), `LoopStatus`, `SafeHtml`, `CssValue`, and classes annotated
 `@TemplateView`. `Fragment` passes only between templates: Java can't build one. The

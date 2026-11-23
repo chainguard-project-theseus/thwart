@@ -126,7 +126,7 @@ public record Order(String number, BigDecimal total) {}
 
 Templates may read only **view-safe** types, checked at build time for every step of a property
 chain: primitives and their boxes, `String`, enums, records, `java.time` values, `BigDecimal`,
-`BigInteger`, `Optional`, `java.util` collections, maps and arrays of view-safe types, `SafeHtml`,
+`BigInteger`, `UUID`, `Optional`, `java.util` collections, maps and arrays of view-safe types, `SafeHtml`,
 and public classes annotated `@TemplateView`. Declare collection getters as the
 `java.util` interface: `java.util.concurrent`, Guava and your own collection subclasses aren't
 view-safe. A view type, any class it is nested in, and its type arguments must be public. `Object`,

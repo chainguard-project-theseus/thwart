@@ -29,7 +29,7 @@ import javax.lang.model.type.WildcardType;
  * The view-safe allow-list and the never-view-safe deny-list (docs/architecture.md).
  *
  * <p>View-safe: primitives and boxes, String/CharSequence, enums, records, {@code java.time}
- * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
+ * value types, BigDecimal/BigInteger, UUID, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
  * view-safe types (and public {@code java.util} types that implement one of them, seen as that
  * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code CssValue},
  * and classes annotated {@code @TemplateView}; all of them public, as are any classes they are
@@ -83,7 +83,7 @@ public final class ViewSafety {
           "org.springframework.web.context",
           "org.springframework.expression");
 
-  /** Boxes, strings and big numbers ({@link #isJdkValueType}). */
+  /** Boxes, strings, big numbers and UUID ({@link #isJdkValueType}). */
   private static final Set<String> JDK_VALUE_TYPES =
       Backports.setOf(
           "java.lang.Boolean",
@@ -97,7 +97,8 @@ public final class ViewSafety {
           "java.lang.String",
           "java.lang.CharSequence",
           "java.math.BigDecimal",
-          "java.math.BigInteger");
+          "java.math.BigInteger",
+          "java.util.UUID");
 
   /** Thwart's own view-safe value types. */
   private static final Set<String> THWART_VALUE_TYPES =
@@ -109,8 +110,9 @@ public final class ViewSafety {
 
   /**
    * Whether {@code qualifiedName} is a box, {@code String}, {@code CharSequence},
-   * {@code BigDecimal} or {@code BigInteger}: a view-safe value that {@code Escapers.json} writes
-   * as a JSON scalar. The script serializer ({@code ScriptJson}) shares this list.
+   * {@code BigDecimal}, {@code BigInteger} or {@code UUID}: a view-safe value that
+   * {@code Escapers.json} writes as a JSON scalar (a UUID as a string). The script serializer
+   * ({@code ScriptJson}) shares this list.
    */
   public static boolean isJdkValueType(String qualifiedName) {
     return JDK_VALUE_TYPES.contains(qualifiedName);
