@@ -153,6 +153,7 @@ class PageNormalizerTest {
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
       sanitizer rel on a stored link | <div><a href="https://x.org">x</a></div>  | <div><a href="https://x.org" rel="nofollow noopener">x</a></div>
       message rel added to a rel     | <a href="/p" rel="help" target="_blank">p</a> | <a href="/p" rel="help noopener noreferrer" target="_blank">p</a>
+      ugc rel on a stored link       | <a href="https://x.org">x</a>             | <a href="https://x.org" rel="nofollow ugc">x</a>
       sanitizer id prefix and link   | <h2 id="intro">I</h2><a href="#intro">i</a> | <h2 id="user-content-intro">I</h2><a href="#user-content-intro">i</a>
       css url quoted                 | <div style="background-image: url(/a/1.png)"></div> | <div style="background-image: url(&quot;/a/1.png&quot;)"></div>
       css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
