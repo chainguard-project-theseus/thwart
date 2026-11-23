@@ -164,6 +164,15 @@ libraries the application still uses (`spring-context-support` with Boot's Veloc
 `mvn dependency:list` (Gradle: `gradle dependencies --configuration runtimeClasspath`) from
 before and after, and declare what the application still uses.
 
+Removing the old engine also changes where a view name only it answered goes. Thwart matches a
+view name exactly, less one leading `/`, so a name such as `/error/500.html` matches no template
+and goes to the next resolver: under Spring Boot, `InternalResourceViewResolver` forwards to the
+name as a path and the container answers 404; with no resolver left, the response is a 500
+(`Could not resolve view`). A name the old engine failed on, so that the error page answered with
+its own status, changes the same way. Find every view name the controllers, exception handlers
+and view controllers return, make each one a template's name (`error/500`, not
+`/error/500.html`), and compare the error pages and their status again.
+
 ### Hot reload
 
 Under Spring Boot, a saved template or message file reaches the browser on the next refresh, a few
@@ -306,7 +315,8 @@ become fragment calls ([Fragments and layouts](templates.md#fragments-and-layout
   model values; a context-path prefix is `@{...}`.
 - With the JSP resolver gone, a view name no template provides is a 500 (`Could not resolve
   view`), where `InternalResourceViewResolver` let the container answer 404; if that matters, add
-  a last view resolver that answers 404. Removing Jasper's `tomcat-jasper-el` can also remove the
+  a last view resolver that answers 404 (the other direction is in step 6 of
+  [The tools and the loop](#the-tools-and-the-loop)). Removing Jasper's `tomcat-jasper-el` can also remove the
   EL implementation Bean Validation needs: declare one (`org.glassfish:javax.el` for `javax`,
   `org.glassfish.expressly:expressly` for Jakarta).
 
