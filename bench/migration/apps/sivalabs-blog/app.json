@@ -1,0 +1,14 @@
+{
+  "repo": "https://github.com/siva-attic/sivalabs-blog",
+  "commit": "d9ab5c6f4f9d7c1e7de61af3e20c7ce4dd8e4e58",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "build": "mvn -B -ntp clean package -DskipTests -Djava.version=21",
+  "test": "mvn -B -ntp test -Djava.version=21 -Dsurefire.excludesFile=/bench/app/test-excludes.txt",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/login",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=2025-06-15 )\\d\\d:\\d\\d(:\\d\\d)?"
+  ]
+}

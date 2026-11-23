@@ -184,7 +184,10 @@ templates send to the browser (Thwart rejects them, #833), order timestamps (jpe
 stamped from the clock; no seeded order has one), jpetstore's seeded `Jay <i>` first name (the
 original prints it unescaped; Thwart escapes it), and order numbers, times of day and
 month-name dates (posters-demo-store: order numbers are `ORD-` plus the clock in milliseconds,
-and orders, users and the audit log are stamped at request time). Held-out: the request
+and orders, users and the audit log are stamped at request time), and times of day on the
+pinned day (sivalabs-blog: posts, comments and page views made by `pages.txt` are stamped at
+request time; times on earlier days, which most seeded rows have, are still compared; the two
+seeded page views on the pinned day are hidden too). Held-out: the request
 timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
@@ -266,3 +269,16 @@ Per-app environment fixes (in the app's commands, not its code):
   customers with fixed ids first (`spring.jpa.defer-datasource-initialization`, after Hibernate
   creates the tables); the import skips them. The JSON APIs, the `hx-delete` endpoints and the backoffice's credit-card form post
   (it fails in the app itself) are not in `pages.txt`.
+- sivalabs-blog (a blog with an admin area, Boot 3.5, Thymeleaf with the Layout Dialect, the
+  Spring Security dialect and htmx; post bodies are Markdown printed with `th:utext`): the pom asks
+  for Java 24, so the build and tests pass `-Djava.version=21`. It runs only on PostgreSQL, so
+  `start.sh` creates a throwaway cluster under `/tmp`, adds `flyway/V100__bench_seed.sql` (posts in
+  every status, comments, subscribers, a message and page views, all with fixed timestamps) to the
+  app's Flyway scripts, keeps `app.init-sample-data` off (it picks random authors and cover
+  images), sends mail to the SMTP sink and pins the clock with libfaketime to 2025-06-15 10:00 UTC.
+  All but two of the 28 test classes import the Testcontainers configuration (PostgreSQL and
+  MailHog), so `test-excludes.txt` lists those 26 and their 2 base classes, and the baseline runs
+  5 tests. The htmx endpoints (bulk
+  delete, publish and moderation, newsletter sign-up) are not in `pages.txt`: they match only with
+  an `HX-Request` header and render no template. Neither is the profile image upload (multipart),
+  nor the invalid profile form, which answers 500 in the app itself.

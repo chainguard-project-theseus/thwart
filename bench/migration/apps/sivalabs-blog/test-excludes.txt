@@ -1,0 +1,32 @@
+# Tests the bench cannot run, passed to surefire as -Dsurefire.excludesFile; every other test class
+# runs (ModularityTests and MessageTests, 5 tests). Each of these is a @SpringBootTest that imports
+# TestcontainersConfiguration (PostgreSQL and MailHog in Docker), directly or through AbstractIT or
+# BaseServiceTest.
+com.sivalabs.blog.AbstractIT
+com.sivalabs.blog.BaseServiceTest
+com.sivalabs.blog.BlogApplicationTests
+com.sivalabs.blog.admin.dashboard.AdminDashboardControllerTests
+com.sivalabs.blog.admin.messages.AdminMessagesControllerTests
+com.sivalabs.blog.admin.messages.MessageServiceTest
+com.sivalabs.blog.admin.posts.AdminCommentsControllerTests
+com.sivalabs.blog.admin.posts.AdminPostsControllerTests
+com.sivalabs.blog.admin.settings.SettingsControllerTests
+com.sivalabs.blog.admin.settings.SettingsServiceTest
+com.sivalabs.blog.admin.subscribers.AdminSubscribersControllerTests
+com.sivalabs.blog.admin.subscribers.SubscriberServiceTest
+com.sivalabs.blog.admin.taxonomy.AdminCategoriesControllerTests
+com.sivalabs.blog.admin.taxonomy.AdminTagsControllerTests
+com.sivalabs.blog.admin.taxonomy.CategoryServiceTest
+com.sivalabs.blog.admin.taxonomy.TagServiceTest
+com.sivalabs.blog.admin.users.AdminUsersControllerTests
+com.sivalabs.blog.admin.users.UserControllerTests
+com.sivalabs.blog.admin.users.UserServiceTest
+com.sivalabs.blog.analytics.domain.AnalyticsServiceTest
+com.sivalabs.blog.analytics.web.AnalyticsControllerTests
+com.sivalabs.blog.blog.domain.BlogCategoryServiceTest
+com.sivalabs.blog.blog.domain.BlogMessageServiceTest
+com.sivalabs.blog.blog.domain.BlogPostServiceTest
+com.sivalabs.blog.blog.domain.BlogSubscriberServiceTest
+com.sivalabs.blog.blog.web.BlogMessageControllerTests
+com.sivalabs.blog.blog.web.BlogPostControllerTests
+com.sivalabs.blog.blog.web.BlogSubscriberControllerTests
