@@ -9,7 +9,7 @@
 # --arch      amd64 runs on c4-standard-16, arm64 on c4a-standard-16 (default amd64)
 # --zones     zones to try, in order, until one has capacity
 # --max-run   GCE deletes the VM after this long whatever happens (default 8h)
-# REPS, WARMUP, DURATION and CONCURRENCY pass through to run.sh.
+# REPS, WARMUP, DURATION, CONCURRENCY and ALLOW_UNPASSED pass through to run.sh.
 #
 # It creates the VM (Ubuntu 24.04, spot, no service account), copies HEAD over as a git bundle
 # (commit first: uncommitted changes are not sent) with the results' score.json and diff.patch
@@ -101,7 +101,7 @@ gssh 'git clone -q src.bundle thwart && mkdir -p results && tar xzf results.tgz 
 gssh 'm=http://metadata.google.internal/computeMetadata/v1/instance; h=Metadata-Flavor:Google; echo "machine type: $(curl -sf -H $h $m/machine-type | sed "s|.*/||") (spot) in $(curl -sf -H $h $m/zone | sed "s|.*/||")"' > "$tmp/vm.txt"
 
 # Detached, so a dropped SSH session does not stop it; polled until it writes its exit code.
-env=$(printf '%s=%q ' REPS "${REPS:-5}" WARMUP "${WARMUP:-30}" DURATION "${DURATION:-5}" CONCURRENCY "${CONCURRENCY:-1 8 32}")
+env=$(printf '%s=%q ' REPS "${REPS:-5}" WARMUP "${WARMUP:-30}" DURATION "${DURATION:-5}" CONCURRENCY "${CONCURRENCY:-1 8 32}" ALLOW_UNPASSED "${ALLOW_UNPASSED:-}")
 gssh "sudo setsid nohup env $env RESULTS=\$HOME/results OUT=\$HOME/out BENCH_REPORTABLE=yes bash -c 'thwart/bench/consumers/run.sh $*; echo \$? > \$HOME/rc' > run.log 2>&1 < /dev/null &"
 while :; do
   sleep 60 &
