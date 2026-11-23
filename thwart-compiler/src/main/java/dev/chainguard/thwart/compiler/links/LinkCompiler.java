@@ -71,8 +71,7 @@ public final class LinkCompiler {
       }
       CompiledExpr c = expressions.compileOutput(p.value(), scope);
       if (c == null) {
-        ok = false;
-        continue;
+        ok = false; // keep the name: the parameter is written, its value is what failed
       }
       params.put(p.name(), c);
     }
