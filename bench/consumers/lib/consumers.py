@@ -3,7 +3,7 @@
 
 usage: consumers.py replay BASE PAGES OUT_DIR       replay pages.txt; first-request times, cookie
        consumers.py probe BASE PAGES COOKIE OUT     status of each GET path, no redirects followed
-       consumers.py select PAGES ORIG THWART OUT    the pages to time (pages.tsv)
+       consumers.py select PAGES ORIG THWART DIR    the pages to time and the mix (pages.tsv, mixed.txt)
        consumers.py oha JSON PREFIX STATUS          oha's JSON as samples.tsv rows
        consumers.py gc LOG FROM                     live heap and bytes allocated in a GC log window
        consumers.py report OUT                      OUT/report.md from OUT/*/samples.tsv
@@ -135,17 +135,20 @@ def read_status(path):
         return dict(line.rstrip("\n").split("\t")[:2] for line in f if line.strip())
 
 
-def select(pages_file, orig_file, thwart_file, out):
-    """pages.tsv: each distinct GET path with its status on both versions and whether it is
-    timed. One page per path pattern (each run of digits counts as one), so /owners/1 and
-    /owners/2 are timed once; never a redirect, a failed request, or a status that differs."""
+def select(pages_file, orig_file, thwart_file, out_dir):
+    """OUT_DIR/pages.tsv: each distinct GET path with its status on both versions and whether
+    it is timed. One page per path pattern (each run of digits counts as one), so /owners/1 and
+    /owners/2 are timed once; never a redirect, a failed request, or a status that differs.
+    OUT_DIR/mixed.txt: the mix, every GET line of pages.txt whose path has the same status on
+    both versions (redirects too), but logout and delete links and failed requests."""
     orig, thwart = read_status(orig_file), read_status(thwart_file)
-    patterns = set()
-    with open(out, "w") as f:
+    seen, patterns, same = set(), set(), set()
+    with open(os.path.join(out_dir, "pages.tsv"), "w") as f:
         f.write("path\torig\tthwart\ttimed\n")
         for m, path, _ in read_pages(pages_file):
-            if m != "GET" or path in patterns:
+            if m != "GET" or path in seen:
                 continue
+            seen.add(path)
             key = re.sub(r"\d+", "N", path)
             a, b = orig.get(path, "-"), thwart.get(path, "-")
             if DESTRUCTIVE.search(path):
@@ -154,14 +157,18 @@ def select(pages_file, orig_file, thwart_file, out):
                 why = "no: status differs"
             elif a in ("0", "-"):
                 why = "no: no response"
-            elif a.startswith("3"):
-                why = "no: redirect"
-            elif key in patterns:
-                why = "no: same pattern as an earlier page"
             else:
-                why = "yes"
-            patterns.update((key, path))
+                same.add(path)
+                if a.startswith("3"):
+                    why = "no: redirect"
+                elif key in patterns:
+                    why = "no: same pattern as an earlier timed page"
+                else:
+                    why = "yes"
+                    patterns.add(key)
             f.write(f"{path}\t{a}\t{b}\t{why}\n")
+    with open(os.path.join(out_dir, "mixed.txt"), "w") as f:
+        f.writelines(p + "\n" for m, p, _ in read_pages(pages_file) if m == "GET" and p in same)
 
 
 # ------------------------------------------------------------------ load generator and GC log
@@ -445,14 +452,17 @@ def selftest():
     with open(o, "w") as f:
         f.write("/\t200\n/owners/1\t200\n/owners/2\t200\n/owners/3/edit\t200\n/gone\t404\n/moved\t302\n/oups\t500\n")
     with open(w, "w") as f:
-        f.write("/\t200\n/owners/1\t200\n/owners/2\t200\n/owners/3/edit\t200\n/gone\t500\n/moved\t302\n/oups\t500\n")
-    sel = os.path.join(tmp, "sel.tsv")
+        f.write("/\t200\n/owners/1\t302\n/owners/2\t200\n/owners/3/edit\t200\n/gone\t500\n/moved\t302\n/oups\t500\n")
+    sel = os.path.join(tmp, "sel")
+    os.makedirs(sel)
     select(p, o, w, sel)
-    got = {line.split("\t")[0]: line.rstrip("\n").split("\t")[3] for line in open(sel)}
-    check([k for k, v in got.items() if v == "yes"] == ["/", "/owners/1", "/owners/3/edit", "/oups"],
+    got = {line.split("\t")[0]: line.rstrip("\n").split("\t")[3] for line in open(os.path.join(sel, "pages.tsv"))}
+    check([k for k, v in got.items() if v == "yes"] == ["/", "/owners/2", "/owners/3/edit", "/oups"],
           "the timed pages: one per pattern, errors kept, redirects and differing statuses left out")
-    check(got["/gone"] == "no: status differs" and got["/logout"].startswith("no: logout"),
-          "each page left out says why")
+    check(got["/gone"] == "no: status differs" and got["/logout"].startswith("no: logout")
+          and got["/owners/1"] == "no: status differs", "each page left out says why")
+    check(open(os.path.join(sel, "mixed.txt")).read() == "/\n/owners/2\n/owners/3/edit\n/moved\n/oups\n",
+          "the mix: lines whose status matches, redirects too")
 
     # oha's JSON.
     j = os.path.join(tmp, "oha.json")

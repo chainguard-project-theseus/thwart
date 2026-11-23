@@ -66,14 +66,14 @@ the previous page's `_csrf`, as `thwart-migrate record` does), and then sent eac
 with the session cookie and no redirect followed (`probe`). `pages.tsv` lists every GET path, its
 status on each version, and whether it is timed. A page is timed when both versions give it the
 same status, the status is not a redirect, the path has no `logout`, `signout`, `delete` or
-`remove` (they end the session or change the data), and no earlier page has the same pattern
-(each run of digits counts as one, so `/owners/1` and `/owners/2` are timed once). Error pages
+`remove` (they end the session or change the data), and no earlier timed page has the same
+pattern (each run of digits counts as one, so `/owners/1` and `/owners/2` are timed once). Error pages
 (4xx, 5xx) with the same status are timed: they render templates too.
 
 Then, per repetition and version:
 
 1. **Build cost:** the app's `build` command from `app.json` (a clean build), timed, and the size
-   of the largest jar or war under `target/`.
+   of the largest jar or war under `target/` (or `build/`).
 2. **Cold start:** time from launching the `start` command to the `ready` URL answering. For apps
    started through Maven this includes Maven.
 3. **First requests:** `pages.txt` is replayed again (this also rebuilds the data the POSTs make
@@ -85,9 +85,10 @@ Then, per repetition and version:
    loop, keep-alive, the session cookie, no redirects followed): requests/s and p50, p90 and p99
    latency. A forced GC before and after each page's runs gives the bytes allocated per request
    (the heap growth between collections in the GC log, over the requests sent).
-7. **Mixed traffic:** every GET line of `pages.txt` (but logout and delete links) as one request
-   mix, oha picking a line at random for each request, at each concurrency level; allocation per
-   request as for pages.
+7. **Mixed traffic:** the GET lines of `pages.txt` as one request mix (`mixed.txt`), oha picking a
+   line at random for each request, at each concurrency level; allocation per request as for
+   pages. A line is in the mix when both versions gave its path the same status (redirects
+   included), and it is not a logout or delete link. The warm-up uses the same mix.
 8. **Peak RSS** of the JVM (`VmHWM`).
 
 The start command runs in its own session; stopping the app kills that session's process group

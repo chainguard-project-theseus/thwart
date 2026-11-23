@@ -45,9 +45,9 @@ build() {
   return $rc
 }
 
-# The largest jar or war under a target directory: the app's artifact.
+# The largest jar or war under a target or build directory: the app's artifact.
 artifact() {
-  find "/work/$1" -maxdepth 4 -path '*/target/*' \( -name '*.jar' -o -name '*.war' \) \
+  find "/work/$1" -maxdepth 4 \( -path '*/target/*' -o -path '*/build/*' \) \( -name '*.jar' -o -name '*.war' \) \
     ! -name '*sources*' ! -name '*.original' -printf '%s %P\n' 2>/dev/null | sort -n | tail -1
 }
 
@@ -137,7 +137,7 @@ for v in orig thwart; do
   mkdir -p "$out/$v"
   build "$v" "$out/$v/build-first.log" > /dev/null || fail "the $v version does not build (see $v/build-first.log)"
   read -r size path <<< "$(artifact "$v")"
-  [ -n "${path:-}" ] || fail "no jar or war under target/ in the $v version"
+  [ -n "${path:-}" ] || fail "no jar or war under target/ or build/ in the $v version"
   echo "artifact $v: $path" >> "$out/meta.txt"
   echo "spring $v: $(spring "$v/$path")" >> "$out/meta.txt"
 done
@@ -148,10 +148,9 @@ for v in orig thwart; do
   $py replay "$BASE" "$pages" "$out/$v" && $py probe "$BASE" "$pages" "$out/$v/cookie.txt" "$out/$v/probe.tsv"
   stop
 done
-$py select "$pages" "$out/orig/probe.tsv" "$out/thwart/probe.tsv" "$out/pages.tsv"
+$py select "$pages" "$out/orig/probe.tsv" "$out/thwart/probe.tsv" "$out"
 mapfile -t timed < <(awk -F '\t' '$4 == "yes" { print $1 "\t" $2 }' "$out/pages.tsv")
-grep -v -e '^#' -e '^\s*$' "$pages" | awk '$1 == "GET" { print $2 }' | grep -viE 'logout|signout|delete|remove' |
-  sed "s|^|$BASE|" > "$out/mixed.txt"
+sed "s|^|$BASE|" "$out/mixed.txt" > "$out/mixed-urls.txt"
 read -ra levels <<< "$CONCURRENCY"
 top=${levels[${#levels[@]} - 1]}
 
@@ -173,7 +172,7 @@ for rep in $(seq 1 "$REPS"); do
       p=${t%%$'\t'*}
       sample "$v" "$rep" first_ms "$p" "$(awk -F '\t' -v p="$p" '$1 == p { print $3 }' "$dir/first.tsv")"
     done
-    load warmup "$top" "$WARMUP" --urls-from-file "$out/mixed.txt"
+    load warmup "$top" "$WARMUP" --urls-from-file "$out/mixed-urls.txt"
     mark=$(gc_mark)
     read -r live _ <<< "$($py gc "$gcfile" "$mark")"
     [ "$live" != - ] && sample "$v" "$rep" heap_live_mb - "$(mb "$live")"
@@ -193,7 +192,7 @@ for rep in $(seq 1 "$REPS"); do
     runs=()
     mark=$(gc_mark)
     for c in "${levels[@]}"; do
-      load "mixed-c$c" "$c" "$DURATION" --urls-from-file "$out/mixed.txt"
+      load "mixed-c$c" "$c" "$DURATION" --urls-from-file "$out/mixed-urls.txt"
       $py oha "$dir/mixed-c$c.json" "$v"$'\t'"$rep"$'\t' '*' "mixed @c$c" >> "$samples"
       runs+=("mixed-c$c")
     done
