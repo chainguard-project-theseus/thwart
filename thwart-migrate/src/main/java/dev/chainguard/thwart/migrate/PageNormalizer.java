@@ -59,7 +59,9 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added,
+ * a custom attribute moved to {@code data-*} with its value, a {@code *-on:*} attribute removed,
+ * and what the sanitizer and {@code css.url} write: link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
  * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
@@ -91,6 +93,34 @@ final class PageNormalizer {
       "url\\(\\s*(?:\"([^\"'()\\\\\\s]*)\"|'([^\"'()\\\\\\s]*)'|([^\"'()\\\\\\s]*))\\s*\\)",
       Pattern.CASE_INSENSITIVE);
 
+  /**
+   * HTML's own attribute names (the HTML standard's attribute index, with the obsolete
+   * presentational ones): never set aside as a custom attribute moved to {@code data-*}.
+   */
+  private static final Set<String> HTML_ATTRIBUTES = Compat.setOf("abbr", "accept",
+      "accept-charset", "accesskey", "action", "align", "alink", "allow", "allowfullscreen", "alt",
+      "archive", "as", "async", "autocapitalize", "autocomplete", "autocorrect", "autofocus",
+      "autoplay", "axis", "background", "bgcolor", "blocking", "border", "cellpadding",
+      "cellspacing", "char", "charoff", "charset", "checked", "cite", "class", "classid", "clear",
+      "closedby", "code", "codebase", "codetype", "color", "cols", "colspan", "command",
+      "commandfor", "compact", "content", "contenteditable", "controls", "coords", "crossorigin",
+      "data", "datetime", "declare", "decoding", "default", "defer", "dir", "dirname", "disabled",
+      "download", "draggable", "enctype", "enterkeyhint", "face", "fetchpriority", "for", "form",
+      "formaction", "formenctype", "formmethod", "formnovalidate", "formtarget", "frame",
+      "frameborder", "headers", "height", "hidden", "high", "href", "hreflang", "hspace",
+      "http-equiv", "id", "imagesizes", "imagesrcset", "inert", "inputmode", "integrity", "is",
+      "ismap", "itemid", "itemprop", "itemref", "itemscope", "itemtype", "kind", "label", "lang",
+      "language", "link", "list", "loading", "longdesc", "loop", "low", "marginheight",
+      "marginwidth", "max", "maxlength", "media", "method", "min", "minlength", "multiple", "muted",
+      "name", "nohref", "nomodule", "nonce", "noshade", "novalidate", "nowrap", "open", "optimum",
+      "pattern", "ping", "placeholder", "playsinline", "popover", "popovertarget",
+      "popovertargetaction", "poster", "preload", "profile", "readonly", "referrerpolicy", "rel",
+      "required", "rev", "reversed", "role", "rows", "rowspan", "rules", "sandbox", "scheme",
+      "scope", "scrolling", "selected", "shadowrootclonable", "shadowrootdelegatesfocus",
+      "shadowrootmode", "shadowrootserializable", "shape", "size", "sizes", "slot", "span",
+      "spellcheck", "src", "srcdoc", "srclang", "srcset", "standby", "start", "step", "style",
+      "summary", "tabindex", "target", "text", "title", "translate", "type", "usemap", "valign",
+      "value", "valuetype", "version", "vlink", "vspace", "width", "wrap", "writingsuggestions");
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
@@ -200,6 +230,7 @@ final class PageNormalizer {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
+    dropCustomMovedToData(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
   }
@@ -230,6 +261,50 @@ final class PageNormalizer {
         e.removeAttr(name);
       }
     }
+  }
+
+  /**
+   * Removes from the old page each custom attribute (not one of {@link #HTML_ATTRIBUTES}, nor
+   * {@code data-*}, {@code aria-*}, {@code hx-*} or a prefixed name) that the new page doesn't have with the same
+   * value, if the new page has a {@code data-*} attribute with the same value whose name, without
+   * {@code data-} and hyphens, is the same, one for each such old attribute (matched across the
+   * page, not per element): {@code productid="1"} and {@code data-product-id="1"}.
+   * Thwart computes no custom attribute, and its fix-it moves the value to {@code data-*}.
+   */
+  private static void dropCustomMovedToData(Document old, Document now) {
+    Set<String> kept = new HashSet<>();
+    Map<String, Integer> moved = new HashMap<>();
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        kept.add(name + "=" + a.getValue());
+        if (name.startsWith("data-")) {
+          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      List<String> removed = new ArrayList<>();
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        String key = name.replace("-", "") + "=" + a.getValue();
+        // Each data-* on the new page stands in for one old attribute, so one lost hook differs.
+        if (isCustom(name) && !kept.contains(name + "=" + a.getValue())
+            && moved.getOrDefault(key, 0) > 0) {
+          moved.merge(key, -1, Integer::sum);
+          removed.add(a.getKey());
+        }
+      }
+      for (String name : removed) {
+        e.removeAttr(name);
+      }
+    }
+  }
+
+  private static boolean isCustom(String name) {
+    return !HTML_ATTRIBUTES.contains(name) && !HANDLER.matcher(name).matches()
+        && !name.startsWith("data-") && !name.startsWith("aria-") && name.indexOf(':') < 0
+        && !name.startsWith("hx-"); // data-hx-X reads as hx-X in the forced form already
   }
 
   private static boolean isInlineCode(Attribute a) {

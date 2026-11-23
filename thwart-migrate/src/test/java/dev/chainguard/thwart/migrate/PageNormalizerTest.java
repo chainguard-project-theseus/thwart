@@ -156,6 +156,9 @@ class PageNormalizerTest {
       xhtml 1.1 doctype              | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
       html 4.01 doctype              | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
       html 4.01 frameset doctype     | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
+      custom attribute to data       | <button class="addToCart" productId="1">Add</button> | <button class="addToCart" data-product-id="1">Add</button>
+      hyphenated custom to data      | <div item-price="9.5">x</div>             | <div data-item-price="9.5">x</div>
+      custom to data on another element | <a productid="1">x</a><b>y</b>        | <a>x</a><b data-product-id="1">y</b>
       hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
       hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
       alpine x-on removed            | <button x-on:click="open = true">O</button> | <button data-action="open">O</button>
@@ -214,6 +217,15 @@ class PageNormalizerTest {
       html 3.2 doctype replaced      | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
       other public id replaced       | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN" "http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
       legacy doctype and text changed | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <!DOCTYPE html><p>y</p>
+      custom attribute removed       | <button productId="1">Add</button>        | <button>Add</button>
+      custom attribute value changed | <button productId="1">Add</button>        | <button data-product-id="2">Add</button>
+      custom to another data name    | <button productId="1">Add</button>        | <button data-item-id="1">Add</button>
+      html attribute to data         | <p id="5">x</p>                           | <p data-id="5">x</p>
+      title to data                  | <a title="Bag">x</a>                      | <a data-title="Bag">x</a>
+      aria attribute to data         | <p aria-label="Bag">x</p>                 | <p data-aria-label="Bag">x</p>
+      one of two hooks lost          | <a productid="1">x</a><b productid="1">y</b> | <a data-product-id="1">x</a><b>y</b>
+      value only under another name elsewhere | <a productid="1">x</a><b>y</b> | <a>x</a><b data-item-id="1">y</b>
+      custom kept and text changed   | <button productId="1">Add</button>        | <button data-product-id="1">Buy</button>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
       other id prefix                | <h2 id="intro">I</h2>                     | <h2 id="post-intro">I</h2>
