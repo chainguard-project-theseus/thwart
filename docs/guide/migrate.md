@@ -147,7 +147,9 @@ or an element with no content and `aria-hidden="true"`), what the HTML sanitizer
 `css.url` write where the old page printed stored HTML or a CSS URL as it was (the `rel` tokens
 `nofollow`, `noopener`, `noreferrer` and `ugc` on a link, the `user-content-` prefix on an `id`
 and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute),
-the hidden `_csrf` input Thwart adds to a `method="post"` form, and a removed attribute whose
+an HTML 4 or XHTML 1.x doctype replaced by `<!DOCTYPE html>` (the only one Thwart accepts; it
+can change the browser's rendering mode, so look at the page), the hidden `_csrf` input Thwart
+adds to a `method="post"` form, and a removed attribute whose
 name contains `-on:` (`hx-on::after-request`, `x-on:click`: inline code the CSP blocks; one added
 or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
