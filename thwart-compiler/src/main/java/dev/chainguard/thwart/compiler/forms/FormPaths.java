@@ -312,7 +312,7 @@ public final class FormPaths {
           id.add(code);
         }
         text.append(']');
-        value = new Expr.Index(value, index.index(), step.pos());
+        value = new Expr.Index(value, index.index(), true, step.pos());
       }
       if (check == Check.VALUE) {
         current = expressions.compile(value, valueScope);

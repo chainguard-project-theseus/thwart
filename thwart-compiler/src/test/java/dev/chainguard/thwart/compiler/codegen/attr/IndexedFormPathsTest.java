@@ -65,6 +65,28 @@ class IndexedFormPathsTest {
   }
 
   @Test
+  void anIndexIntoANullContainerIsAnEmptyValue() {
+    // #971: like a property step, an index step on a null List, array or Map gives a null value.
+    Compilation c =
+        compile(
+                "<input t:field=\"*{items[0].name}\"><input t:field=\"*{array[0].qty}\"><input t:field=\"*{byId[7].name}\">"
+                    + "<select t:field=\"*{tags[0]}\"><option value=\"t\">t</option></select>"
+                    + "<input type=\"checkbox\" value=\"t\" t:field=\"*{tags[0]}\">")
+            .assertSuccess();
+    Object order = c.newInstance("com.example.Order", null, null, null, "n", null);
+    Map<String, Object> model = new HashMap<>();
+    model.put("owner", order);
+    assertEquals(
+        "<form><input id=\"items0.name\" name=\"items[0].name\" value=\"\"><input id=\"array0.qty\" name=\"array[0].qty\""
+            + " value=\"\"><input id=\"byId7.name\" name=\"byId[7].name\" value=\"\">"
+            + "<select id=\"tags0\" name=\"tags[0]\"><option value=\"t\">t</option></select>"
+            + "<input type=\"checkbox\" value=\"t\" id=\"tags01\" name=\"tags[0]\"><input type=\"hidden\" name=\"_tags[0]\" value=\"on\" /></form>",
+        c.render("form", model, ctx(new TestForms())));
+    // Outside a field path an index is not null-safe: the expression language is unchanged.
+    assertFalse(compile("<p t:text=\"owner.items[0].name\">x</p>").generatedSource("thwart.generated.FormTemplate").contains(".nav("));
+  }
+
+  @Test
   void valuesAndErrorsGoThroughFormsWithTheConcretePath() {
     Compilation c =
         compile(
