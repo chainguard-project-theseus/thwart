@@ -195,7 +195,8 @@ the webjar version segment (budgetmaster, as above), the free-memory figures on 
 monitor page (luckyblog: read from the operating system), and the time each manifest was last
 fetched and the home page's commit and build day (ewp-registry), and the eCertis URL handed to
 `EcertisHandler(...)` in espd's layout script (the original printed `&amp;` inside a `<script>`, a
-bug a port fixes by writing the URL as JSON; the country argument is still compared).
+bug a port fixes by writing the URL as JSON; the country argument is still compared), and the
+double-submit token in every form (doma2: random per form).
 
 Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so don't publish
 their runs' `diff.patch` files.
@@ -282,3 +283,23 @@ Per-app environment fixes (in the app's commands, not its code):
   delete, publish and moderation, newsletter sign-up) are not in `pages.txt`: they match only with
   an `HX-Request` header and render no template. Neither is the profile image upload (multipart),
   nor the invalid profile form, which answers 500 in the app itself.
+- doma2 (held out; miyabayt/spring-boot-doma2-sample, the bench's only Gradle build: a
+  multi-project on Boot 3.4 with Doma 2, Thymeleaf and the Layout Dialect): the build and tests use
+  the Gradle wrapper (which downloads Gradle and the dependencies in each container) and skip the
+  Spotless tasks, whose google-java-format fails on JDK 21. Only the admin app (`sample-web-admin`,
+  context path `/admin`) is started and recorded; the front app (`sample-web-front`) is built and
+  its tests compiled, so its templates must still build after a migration. Every test needs
+  Testcontainers MySQL, so the test command compiles the tests (`testClasses`) and the baseline
+  runs 0. MySQL is replaced by in-memory H2 in MySQL mode: `start.sh` copies H2 from Maven and adds
+  it with `loader.path`, Flyway runs the app's scripts from `migration/` with two edits for H2, Doma
+  uses its H2 dialect, the locale is fixed to `ja_JP` (the messages are Japanese), mail goes to the
+  SMTP sink and libfaketime pins the clock to 2025-06-15 10:00 JST. One ignore: the double-submit
+  token. Not in `pages.txt`: the mail template and upload pages, which answer 500 in the original
+  (their controllers name `modules/mailTemplate/...` and `modules/uploadFile/...` but the
+  directories are lower case), and `error/403.html`, which nothing renders (the app's exception
+  handler and its `/forbidden` page name views such as `/error/403.html`, which don't resolve, so
+  those requests get Boot's error page with status 500). The app also renders mail templates
+  stored in the database with Thymeleaf's TEXT mode at run time (`SendMailHelper`), and its
+  `buildSrc` code generator uses Thymeleaf, so a migration keeps Thymeleaf for those. The
+  legacy-dependency check reads only `pom.xml` files, so it does not look at this app's Gradle
+  files; the leftover-template check still does.
