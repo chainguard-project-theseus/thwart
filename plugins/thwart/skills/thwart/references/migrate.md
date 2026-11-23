@@ -141,22 +141,21 @@ changed, as the recipes in [Output contexts](templates.md#output-contexts) do), 
 Thwart can't compute one, and rejects a dialect's `xmlns:x` on `<html>`, which the Layout Dialect
 copied there), `hx-X` written as `data-hx-X` with the same value, the query of a path in an
 attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
-`hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
+`hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), inside a
 table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
-or an element with no content and `aria-hidden="true"`), and what the HTML sanitizer and
-`css.url` write where the old page printed stored HTML or a CSS URL as it was: the `rel` tokens
+or an element with no content and `aria-hidden="true"`), what the HTML sanitizer and
+`css.url` write where the old page printed stored HTML or a CSS URL as it was (the `rel` tokens
 `nofollow`, `noopener`, `noreferrer` and `ugc` on a link, the `user-content-` prefix on an `id`
-and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute.
-Scripts, styles, `data-*` values, the
+and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute),
+and the hidden `_csrf` input Thwart adds to a `method="post"` form. Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
 so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
 computed `hx-target` or an `hx-vals` moved to hidden inputs, a URL encoded differently (a space
 written `%20`), `hx-confirm` text moved into a hidden element, a removed `hx-on::…` attribute
 (Thwart copies it as written, so the CSP forced the change, and compare knows no framework's
-attribute names: only `on*` attributes count as handlers), a computed `<style>` width moved to a
-class (a `data-*` attribute that a script applies compares `forced`), and the `_csrf` hidden input
-Thwart adds to a `method="post"` form. Check those pages by hand, and
+attribute names: only `on*` attributes count as handlers), and a computed `<style>` width moved to a
+class (a `data-*` attribute that a script applies compares `forced`). Check those pages by hand, and
 write down the recipe behind each. Fix the other `differs` pages first, then for each `forced` page
 check the values in its diff and load it in a browser to check that its scripts work. It exits 0
 only if every page is `same` or `reordered` with its recorded status and final URL.

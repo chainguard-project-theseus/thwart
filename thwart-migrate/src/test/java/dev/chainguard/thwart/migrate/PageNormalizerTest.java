@@ -158,6 +158,7 @@ class PageNormalizerTest {
       css url single quotes          | <div style="background:url( '/a/1.png' ) no-repeat"></div> | <div style="background:url(&quot;/a/1.png&quot;) no-repeat"></div>
       dialect xmlns on html          | <html lang="en" xmlns:salat="http://x.de/s"><body>a</body></html> | <html lang="en"><body>a</body></html>
       xhtml xmlns on html            | <html xmlns="http://www.w3.org/1999/xhtml"><body>a</body></html> | <html><body>a</body></html>
+      csrf input added to a form     | <form method="post" hx-post="/s"><input name="q"></form> | <form method="post" hx-post="/s"><input type="hidden" name="_csrf" value="t"><input name="q"></form>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -203,6 +204,10 @@ class PageNormalizerTest {
       css other property changed     | <div style="color: red; background: url(/a.png)"></div> | <div style="color: blue; background: url(&quot;/a.png&quot;)"></div>
       other html attribute with xmlns | <html lang="en" xmlns:s="http://x.de/s"><body>a</body></html> | <html lang="de"><body>a</body></html>
       xml:lang is still compared     | <p xml:lang="en">a</p>                    | <p>a</p>
+      other hidden input added       | <form method="post"><input name="q"></form> | <form method="post"><input type="hidden" name="id" value="1"><input name="q"></form>
+      visible csrf field added       | <form method="post"></form>               | <form method="post"><input type="text" name="_csrf"></form>
+      csrf input added to a get form | <form><input name="q"></form>             | <form><input type="hidden" name="_csrf" value="t"><input name="q"></form>
+      csrf input nested deeper       | <form method="post"><div></div></form>    | <form method="post"><div><input type="hidden" name="_csrf" value="t"></div></form>
       """)
   void notForced(String rule, String a, String b) {
     assertEquals(DIFFERS, PageNormalizer.compare(a, b), () -> PageNormalizer.lines(a) + "\n"

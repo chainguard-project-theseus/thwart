@@ -59,8 +59,9 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * and what the sanitizer and {@code css.url} write: link {@code rel} tokens, the
- * {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in any order,
+ * a CSRF token input added, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
+ * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
  * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
  * custom attributes and which decorative icon sits in a table are not compared in that form, so a
@@ -206,13 +207,14 @@ final class PageNormalizer {
 
   /** The nodes under {@code parent}; with {@code expandPrelude}, JavaScript scripts are printed
    * with their preludes expanded. With {@code forced}, {@code <script>} and {@code <style>}
-   * elements are dropped, what {@link #replacesForeign(Element)} names prints as one
+   * elements and hidden CSRF token inputs are dropped, what {@link #replacesForeign(Element)} names prints as one
    * {@link #FOREIGN} line, and tags print as {@link #startTag(Element, boolean)} sets them aside. */
   private static List<Line> children(Node parent, boolean expandPrelude, boolean forced) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (forced && node instanceof Element && isScriptOrStyle((Element) node)) {
+      if (forced && node instanceof Element
+          && (isScriptOrStyle((Element) node) || isCsrfInput((Element) node))) {
         continue;
       }
       if (node instanceof TextNode) {
@@ -256,6 +258,19 @@ final class PageNormalizer {
    */
   private static boolean isScriptOrStyle(Element e) {
     return e.normalName().equals("script") || e.normalName().equals("style");
+  }
+
+  /**
+   * A hidden CSRF token input directly in a {@code method="post"} form. Thwart adds one to every
+   * such form that posts to the page's own origin, where the old engine often didn't (a plain
+   * {@code action}, a form only htmx submits). A token in any other place is still compared.
+   */
+  private static boolean isCsrfInput(Element e) {
+    Element form = e.parent();
+    return e.normalName().equals("input") && e.attr("type").equalsIgnoreCase("hidden")
+        && e.attr("name").toLowerCase(Locale.ROOT).contains("csrf")
+        && form != null && form.normalName().equals("form")
+        && form.attr("method").equalsIgnoreCase("post");
   }
 
   /**
