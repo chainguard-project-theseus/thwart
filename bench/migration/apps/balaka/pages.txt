@@ -1,0 +1,454 @@
+# balaka: every template as admin (admin/admin, MFA off), then as the employee login (self-service
+# pages and a 403). Fresh PostgreSQL per start: the integration-test seed plus seed/ (vendor, bill,
+# assets, amortization, bank statement and reconciliation, contract, fiscal periods, BOM,
+# production order, recurring transaction, tax case and archive, withholding payment, alerts), all
+# with fixed ids; clock at 2025-06-15 (start.sh).
+#
+# Forms: each form is posted blank or with a bad value (the invalid state), then valid. A valid post
+# that creates a record with a random id (assets, products, accounts, users and the other
+# UUID-keyed records) would put that id in URLs and links, so those forms are posted valid as an
+# edit of a seeded record instead. Records keyed by a code (clients, vendors, employees, projects,
+# invoices) are also created, last, since later forms would list their random ids. Two forms
+# have no invalid state: recurring create (blank fields answer 500, no validation) and the
+# self-service profile (no validation); alert thresholds, tax profile and evidence posting policy
+# have none either. Invalid only, since a valid post creates a random-id row and there is no
+# seeded record to edit instead (or its edit form is built by script): bank reconciliation,
+# fiscal period (closing a seeded month stands in), inventory purchase/sale/adjustment, payroll
+# run, journal template, tax case, evidence requirement, API client, fiscal adjustment and
+# withholding payment.
+#
+# htmx: the partial endpoints are requested directly (dashboard widgets, quick transaction,
+# template search and preview, tax-detail section, stock and transaction tables, disposal preview,
+# entry table, favourite button, template tags). List endpoints that answer a partial only with an
+# HX-Request header are covered by their full page, which includes the same fragment.
+#
+# Not covered: layouts/print (no page uses it), mfa-verify (MFA is off), setup (the setup wizard is
+# off). Left out: PDF/Excel/CSV exports, JSON APIs, file uploads (bank statement and archive
+# import, logo, documents), and posts that create rows with random ids shown on later pages
+# (posting transactions, payroll runs, disposals, depreciation runs, fiscal closing, API clients).
+# /forgot-password and /reset-password answer 503 because password reset (mail) is not
+# configured. The tag form with an unknown tag type answers 500 (the app's JSON error handler
+# cannot answer text/html) and the reconciliation form without a statement answers 400.
+
+GET /login
+POST /login username=admin&password=wrong
+GET /forgot-password
+GET /reset-password?token=bench-invalid-token
+GET /device
+POST /login username=admin&password=admin
+GET /dashboard
+GET /dashboard/kpis
+GET /dashboard/cash-bank-breakdown
+GET /dashboard/recent-transactions
+GET /dashboard/amortization-widget
+GET /dashboard/alerts
+GET /tax-calendar/api/widget
+GET /about
+GET /account/password
+GET /accounts
+GET /accounts/new
+GET /accounts/10000000-0000-0000-0000-000000000101/edit
+GET /alerts
+GET /alerts/config
+GET /alerts/history
+GET /amortization
+GET /amortization/new
+GET /amortization/be030000-0000-0000-0000-000000000001
+GET /amortization/be030000-0000-0000-0000-000000000001/edit
+GET /analysis-reports
+GET /analysis-reports/be040000-0000-0000-0000-000000000001
+GET /assets
+GET /assets/new
+GET /assets/be010000-0000-0000-0000-000000000001
+GET /assets/be010000-0000-0000-0000-000000000001/edit
+GET /assets/be010000-0000-0000-0000-000000000001/dispose
+GET /assets/be010000-0000-0000-0000-000000000001/dispose/preview?disposalType=SOLD&disposalDate=2025-06-15&proceeds=20000000
+GET /assets/be010000-0000-0000-0000-000000000002
+GET /assets/categories
+GET /assets/categories/new
+GET /assets/categories/a0000000-0000-0000-0000-000000000001/edit
+GET /assets/depreciation
+GET /assets/disposals
+GET /assets/disposals/be020000-0000-0000-0000-000000000001
+GET /assets/verification
+GET /bank-reconciliation
+GET /bank-reconciliation/import
+GET /bank-reconciliation/parser-configs
+GET /bank-reconciliation/parser-configs/new
+GET /bank-reconciliation/parser-configs/00000000-0000-0000-0000-000000000001/edit
+GET /bank-reconciliation/statements
+GET /bank-reconciliation/statements/be050000-0000-0000-0000-000000000001
+GET /bank-reconciliation/reconciliations
+GET /bank-reconciliation/reconciliations/new
+GET /bank-reconciliation/reconciliations/be060000-0000-0000-0000-000000000001
+GET /bank-reconciliation/reconciliations/be060000-0000-0000-0000-000000000001/report
+GET /bank-reconciliation/reconciliations/be060000-0000-0000-0000-000000000001/report/print
+GET /bills
+GET /bills/new
+GET /bills/BILL-2025-0001
+GET /bills/BILL-2025-0001/edit
+GET /bpjs-calculator
+GET /clients
+GET /clients/new
+GET /clients/CLI-001
+GET /clients/CLI-001/edit
+GET /contracts
+GET /contracts/new
+GET /contracts/be080000-0000-0000-0000-000000000001
+GET /contracts/be080000-0000-0000-0000-000000000001/edit
+GET /device
+GET /device/success
+GET /documents/transaction/90100000-0000-0000-1000-000000000001
+GET /drafts
+GET /drafts/d0000000-0000-0000-0000-000000000001
+GET /drafts/d0000000-0000-0000-0000-000000000004
+GET /employees
+GET /employees/new
+GET /employees/EMP001
+GET /employees/EMP001/edit
+GET /evidence/audit-pack
+GET /evidence/bank-statements
+GET /evidence/missing
+GET /evidence/requirements
+GET /evidence/transactions/90100000-0000-0000-1000-000000000001
+GET /fiscal-periods
+GET /fiscal-periods/new
+GET /fiscal-periods/be090000-0000-0000-0000-000000000001
+GET /fiscal-periods/be090000-0000-0000-0000-000000000002
+GET /inventory/bom
+GET /inventory/bom/create
+GET /inventory/bom/be0a0000-0000-0000-0000-000000000001
+GET /inventory/bom/be0a0000-0000-0000-0000-000000000001/edit
+GET /inventory/production
+GET /inventory/production/create
+GET /inventory/production/be0b0000-0000-0000-0000-000000000001
+GET /inventory/production/be0b0000-0000-0000-0000-000000000001/edit
+GET /inventory/stock
+GET /inventory/stock/table
+GET /inventory/stock/d0911002-0000-0000-0000-000000000001
+GET /inventory/transactions
+GET /inventory/transactions/table
+GET /inventory/transactions/d0911004-0000-0000-0000-000000000001
+GET /inventory/purchase
+GET /inventory/sale
+GET /inventory/adjustment
+GET /inventory/reports
+GET /inventory/reports/stock-balance
+GET /inventory/reports/stock-balance/print
+GET /inventory/reports/stock-movement?startDate=2024-01-01&endDate=2024-12-31
+GET /inventory/reports/stock-movement/print?startDate=2024-01-01&endDate=2024-12-31
+GET /inventory/reports/valuation
+GET /inventory/reports/valuation/print
+GET /inventory/reports/profitability?startDate=2024-01-01&endDate=2024-12-31
+GET /inventory/reports/profitability/print?startDate=2024-01-01&endDate=2024-12-31
+GET /invoices
+GET /invoices/new
+GET /invoices/INV-2024-001
+GET /invoices/INV-2024-001/print
+GET /journals
+GET /journals?accountId=10000000-0000-0000-0000-000000000101&startDate=2024-01-01&endDate=2024-12-31
+GET /payroll
+GET /payroll/new
+GET /payroll/a0000000-0000-0000-0000-000000000001
+GET /payroll/reconciliation
+GET /payroll/bukti-potong
+GET /pph21-calculator
+GET /products
+GET /products/new
+GET /products/d0911002-0000-0000-0000-000000000001
+GET /products/d0911002-0000-0000-0000-000000000001/edit
+GET /products/categories
+GET /products/categories/new
+GET /products/categories/d0911001-0000-0000-0000-000000000001/edit
+GET /projects
+GET /projects/new
+GET /projects/PRJ-TEST-001
+GET /projects/PRJ-TEST-001/edit
+GET /projects/PRJ-TEST-001/milestones/new
+GET /projects/PRJ-TEST-001/milestones/b0500000-0000-0000-0000-000000000001/edit
+GET /projects/PRJ-TEST-001/payment-terms/new
+GET /projects/PRJ-TEST-001/payment-terms/be120000-0000-0000-0000-000000000001/edit
+GET /recurring
+GET /recurring/new
+GET /recurring/be0c0000-0000-0000-0000-000000000001
+GET /recurring/be0c0000-0000-0000-0000-000000000001/edit
+GET /reports
+GET /reports/trial-balance
+GET /reports/trial-balance?asOfDate=2024-12-31
+GET /reports/trial-balance/print?asOfDate=2024-12-31
+GET /reports/income-statement?startDate=2024-01-01&endDate=2024-12-31
+GET /reports/income-statement/print?startDate=2024-01-01&endDate=2024-12-31
+GET /reports/balance-sheet?asOfDate=2024-12-31
+GET /reports/balance-sheet/print?asOfDate=2024-12-31
+GET /reports/cash-flow?startDate=2024-01-01&endDate=2024-12-31
+GET /reports/cash-flow/print?startDate=2024-01-01&endDate=2024-12-31
+GET /reports/period
+GET /reports/depreciation?year=2025
+GET /reports/depreciation/print?year=2025
+GET /reports/tax-summary
+GET /reports/ppn-summary
+GET /reports/ppn-summary/print
+GET /reports/ppn-detail
+GET /reports/pph23-withholding
+GET /reports/pph23-withholding/print
+GET /reports/pph23-detail
+GET /reports/ppn-crosscheck
+GET /reports/client-profitability
+GET /reports/client-ranking
+GET /reports/project-profitability
+GET /reports/fiscal-closing
+GET /reports/rekonsiliasi-fiskal
+GET /reports/tag-summary
+GET /reports/aging/receivables
+GET /reports/aging/payables
+GET /reports/self-test
+GET /reports/spt-checklist
+GET /reports/tax-export
+GET /salary-components
+GET /salary-components/new
+GET /salary-components/c0000000-0000-0000-0000-000000000002
+GET /salary-components/c0000000-0000-0000-0000-000000000002/edit
+GET /sales-tax-chain
+GET /self-service/payslips
+GET /self-service/bukti-potong
+GET /self-service/profile
+GET /settings
+GET /settings/about
+GET /settings/api-clients
+GET /settings/audit-logs
+GET /settings/bank-accounts
+GET /settings/bank-accounts/new
+GET /settings/bank-accounts/b0600000-0000-0000-0000-000000000001/edit
+GET /settings/data-subjects
+GET /settings/data-subjects/e0000000-0000-0000-0000-000000000001
+GET /settings/data-subjects/e0000000-0000-0000-0000-000000000001/export
+GET /settings/data-subjects/e0000000-0000-0000-0000-000000000001/anonymize
+GET /settings/devices
+GET /settings/export
+GET /settings/import
+GET /settings/mfa
+GET /settings/privacy
+GET /settings/telegram
+GET /statements/client/CLI-001
+GET /statements/client/CLI-001/print
+GET /statements/vendor/VND-001
+GET /statements/vendor/VND-001/print
+GET /statements/shareholder
+GET /tags/types
+GET /tags/types/new
+GET /tax-audit
+GET /tax-audit?year=2024
+GET /tax-audit/trace?year=2024&line=REVENUE_VS_PPN_DPP&month=0
+GET /tax-audit/transactions/c0000000-0000-0000-0000-000000000003
+GET /tax-audit/archive
+GET /tax-audit/archive/import
+GET /tax-audit/archive/be140000-0000-0000-0000-000000000001
+GET /tax-audit/cases
+GET /tax-audit/cases/new
+GET /tax-audit/cases/be0e0000-0000-0000-0000-000000000001
+GET /tax-audit/cases/be0e0000-0000-0000-0000-000000000001/export
+GET /tax-calendar
+GET /tax-calendar/yearly
+GET /tax-calendar/upcoming
+GET /tax-profile
+GET /templates
+GET /templates/new
+GET /templates/e0000000-0000-0000-0000-000000000001
+GET /templates/e0000000-0000-0000-0000-000000000001/edit
+GET /templates/e0000000-0000-0000-0000-000000000001/duplicate
+GET /templates/e0000000-0000-0000-0000-000000000008
+GET /transactions
+GET /transactions/new
+GET /transactions/new?templateId=e0000000-0000-0000-0000-000000000005
+GET /transactions/journal-entry/new
+GET /transactions/a0000000-0000-0000-0000-000000000001
+GET /transactions/a0000000-0000-0000-0000-000000000001/edit
+GET /transactions/90100000-0000-0000-1000-000000000001
+GET /transactions/90100000-0000-0000-1000-000000000001/void
+GET /transactions/90100000-0000-0000-1000-000000000008
+GET /transactions/quick/templates
+GET /transactions/quick/form?templateId=e0000000-0000-0000-0000-000000000005
+GET /transactions/templates/search?q=beban
+GET /transactions/preview?templateId=e0000000-0000-0000-0000-000000000005&amount=2500000
+GET /transactions/tax-details/bulk
+GET /users
+GET /users/new
+GET /users/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11
+GET /users/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/edit
+GET /users/b0000000-0000-0000-0000-000000000001/change-password
+GET /vendors
+GET /vendors/new
+GET /vendors/VND-001
+GET /vendors/VND-001/edit
+GET /withholding
+GET /withholding/payments/be110000-0000-0000-0000-000000000001
+GET /tags/types/00000000-0000-0000-0000-00000000000d/edit
+GET /tags/types/00000000-0000-0000-0000-00000000000d/tags
+GET /tags/types/00000000-0000-0000-0000-00000000000d/tags/new
+GET /tags/types/00000000-0000-0000-0000-00000000000d/tags/00000000-0000-0000-0000-00000000000e/edit
+GET /withholding/payments/new
+GET /transactions/c0000000-0000-0000-0000-000000000003/tax-details
+GET /transactions/c0000000-0000-0000-0000-000000000003/tax-details/form
+GET /account/password
+POST /account/password currentPassword=wrong&newPassword=short&confirmPassword=other
+GET /alerts/config
+POST /alerts/config/00000000-0000-0000-0000-000000000006 threshold=5000000.00&enabled=true
+GET /amortization/new
+POST /amortization code=&name=&description=&scheduleType=PREPAID_EXPENSE&sourceAccountId=10000000-0000-0000-0000-000000000105&targetAccountId=50000000-0000-0000-0000-000000000108&totalAmount=6000000&startDate=2025-07-01&endDate=2025-06-30&frequency=MONTHLY&postDay=1
+GET /amortization/be030000-0000-0000-0000-000000000001/edit
+POST /amortization/be030000-0000-0000-0000-000000000001 name=Sewa Kantor Depok 2025&description=Sewa kantor dibayar di muka setahun&postDay=1
+GET /assets/new
+POST /assets/new assetCode=&name=&category=&fundingAccount=&_autoPost=on&location=&description=&purchaseDate=2025-06-15&purchaseCost=&supplier=&invoiceNumber=&serialNumber=&brand=&model=&custodian=&condition=&depreciationStartDate=2025-06-01&depreciationMethod=STRAIGHT_LINE&usefulLifeMonths=&residualValue=0&depreciationRate=&notes=
+GET /assets/be010000-0000-0000-0000-000000000001/edit
+POST /assets/be010000-0000-0000-0000-000000000001 assetCode=AST-001&name=Laptop Developer&category=a0000000-0000-0000-0000-000000000001&fundingAccount=&_autoPost=on&location=Gudang Depok&description=Laptop untuk tim development&purchaseDate=2025-01-10&purchaseCost=24000000.00&supplier=PT Komputer Jaya&invoiceNumber=KJ-2025-011&serialNumber=SN-LTP-0001&brand=Lenovo&model=ThinkPad T14&custodian=Budi Santoso&condition=GOOD&depreciationStartDate=2025-02-01&depreciationMethod=STRAIGHT_LINE&usefulLifeMonths=48&residualValue=0.00&depreciationRate=&notes=
+GET /assets/categories/new
+POST /assets/categories/new code=&name=&description=&depreciationMethod=STRAIGHT_LINE&usefulLifeMonths=48&depreciationRate=&assetAccount=&accumulatedDepreciationAccount=&depreciationExpenseAccount=
+GET /assets/categories/a0000000-0000-0000-0000-000000000003/edit
+POST /assets/categories/a0000000-0000-0000-0000-000000000003 code=PERALATAN&name=Peralatan Kantor&description=Meja, kursi dan lemari&depreciationMethod=STRAIGHT_LINE&usefulLifeMonths=48&depreciationRate=&assetAccount=10000000-0000-0000-0000-000000000143&accumulatedDepreciationAccount=10000000-0000-0000-0000-000000000144&depreciationExpenseAccount=50000000-0000-0000-0000-000000000107
+GET /bank-reconciliation/parser-configs/new
+POST /bank-reconciliation/parser-configs/new bankType=&configName=&description=&dateColumn=&descriptionColumn=&debitColumn=&creditColumn=&balanceColumn=&dateFormat=&delimiter=,&skipHeaderRows=1&encoding=UTF-8&decimalSeparator=.&thousandSeparator=,
+GET /bank-reconciliation/parser-configs/00000000-0000-0000-0000-000000000002/edit
+POST /bank-reconciliation/parser-configs/00000000-0000-0000-0000-000000000002 bankType=MANDIRI&configName=Mandiri - CSV Standar&description=Format CSV Mandiri&dateColumn=0&descriptionColumn=1&debitColumn=2&creditColumn=3&balanceColumn=4&dateFormat=dd/MM/yyyy&delimiter=,&skipHeaderRows=1&encoding=UTF-8&decimalSeparator=.&thousandSeparator=,
+GET /bank-reconciliation/reconciliations/new
+POST /bank-reconciliation/reconciliations/new bankStatementId=&notes=
+GET /bills/new
+POST /bills/new billNumber=&vendorLabel=&vendor.id=&vendorInvoiceNumber=&billDate=&dueDate=&notes=
+GET /bills/BILL-2025-0001/edit
+POST /bills/BILL-2025-0001 billNumber=BILL-2025-0001&vendorLabel=&vendor.id=&vendorInvoiceNumber=CN-5501&billDate=2025-06-01&dueDate=2025-07-01&notes=Server dan backup Juni
+GET /inventory/bom/create
+POST /inventory/bom/save id=&code=&name=&productId=d0911002-0000-0000-0000-000000000003&outputQuantity=1&description=&active=true&componentId[]=d0911002-0000-0000-0000-000000000001&componentQty[]=1&componentNotes[]=
+GET /inventory/bom/be0a0000-0000-0000-0000-000000000001/edit
+POST /inventory/bom/save id=be0a0000-0000-0000-0000-000000000001&code=BOM-001&name=Resep Kue Bolu&productId=d0911002-0000-0000-0000-000000000003&outputQuantity=1.0000&description=Satu loyang 22 cm&active=true&componentId[]=&componentQty[]=1&componentNotes[]=&componentId[]=d0911002-0000-0000-0000-000000000001&componentQty[]=0.5000&componentNotes[]=Ayak dulu&componentId[]=d0911002-0000-0000-0000-000000000002&componentQty[]=0.3000&componentNotes[]=
+GET /bpjs-calculator
+POST /bpjs-calculator/calculate salary=-1&riskClass=1
+GET /bpjs-calculator
+POST /bpjs-calculator/calculate salary=10000000&riskClass=2
+GET /accounts/new
+POST /accounts/new accountCode=&accountName=&accountType=&parentId=&_isHeader=on&_isCashBank=on&_permanent=on&serviceExpense=&fiscalTreatment=&closeCheckRole=&selfTestRole=&description=
+GET /accounts/10000000-0000-0000-0000-000000000107/edit
+POST /accounts/10000000-0000-0000-0000-000000000107/edit accountCode=1.1.07&accountName=Langganan Dibayar Dimuka&accountType=ASSET&parentId=10000000-0000-0000-0000-000000000011&normalBalance=DEBIT&_isHeader=on&_isCashBank=on&permanent=true&_permanent=on&serviceExpense=&fiscalTreatment=&closeCheckRole=&selfTestRole=&description=Langganan tahunan dibayar di muka&active=true&_active=on
+GET /clients/new
+POST /clients/new code=&name=&contactPerson=&email=&phone=&address=&notes=&idType=TIN&npwp=&nitku=&nik=
+GET /contracts/new
+POST /contracts contractNumber=&title=&clientId=&vendorId=&startDate=&endDate=&contractValue=&notes=
+GET /contracts/be080000-0000-0000-0000-000000000001/edit
+POST /contracts/be080000-0000-0000-0000-000000000001 contractNumber=KTR-2025-001&title=Pemeliharaan Website 2025&clientId=c0500000-0000-0000-0000-000000000001&vendorId=&startDate=2025-01-01&endDate=2025-12-31&contractValue=120000000.00&notes=Termin bulanan, ditagih tanggal 1
+GET /employees/new
+POST /employees/new employeeId=&name=&email=&phone=&address=&user=&nikKtp=&npwp=&ptkpStatus=TK_0&hireDate=&resignDate=&employmentType=PERMANENT&employmentStatus=ACTIVE&jobTitle=&department=&bankName=&bankAccountNumber=&bankAccountName=&bpjsKesehatanNumber=&bpjsKetenagakerjaanNumber=&notes=
+GET /fiscal-periods/new
+POST /fiscal-periods/new year=2025&month=1
+GET /inventory/purchase
+POST /inventory/purchase productId=&transactionDate=2025-06-15&quantity=&unitCost=&referenceNumber=&notes=
+GET /inventory/sale
+POST /inventory/sale productId=&transactionDate=2025-06-15&quantity=&unitPrice=&referenceNumber=&notes=
+GET /inventory/adjustment
+POST /inventory/adjustment inbound=true&productId=&transactionDate=2025-06-15&quantity=&unitCost=&referenceNumber=&notes=
+GET /invoices/new
+POST /invoices/new invoiceNumber=&clientLabel=&client.id=&project.id=&invoiceDate=&dueDate=&amount=&notes=
+GET /templates/new
+POST /templates templateName=&category=EXPENSE&cashFlowCategory=OPERATING&templateType=SIMPLE&description=&semanticDescription=&keywordsText=&exampleMerchantsText=&typicalAmountMin=&typicalAmountMax=&merchantPatternsText=
+GET /projects/PRJ-TEST-001/milestones/new
+POST /projects/PRJ-TEST-001/milestones/new sequence=&name=&weightPercent=&targetDate=&description=
+GET /projects/PRJ-TEST-001/milestones/b0500000-0000-0000-0000-000000000003/edit
+POST /projects/PRJ-TEST-001/milestones/b0500000-0000-0000-0000-000000000003 sequence=3&name=Testing Phase&weightPercent=25&targetDate=2099-12-31&description=QA, UAT dan serah terima
+GET /projects/PRJ-TEST-001/payment-terms/new
+POST /projects/PRJ-TEST-001/payment-terms/new sequence=&name=&dueTrigger=&milestone.id=&dueDate=&percentage=&amount=
+GET /projects/PRJ-TEST-001/payment-terms/be120000-0000-0000-0000-000000000001/edit
+POST /projects/PRJ-TEST-001/payment-terms/be120000-0000-0000-0000-000000000001 sequence=1&name=Uang Muka 30 persen&dueTrigger=ON_SIGNING&milestone.id=&dueDate=&percentage=30.00&amount=
+GET /payroll/new
+POST /payroll/create period=&baseSalary=10000000&jkkRiskClass=1
+GET /pph21-calculator
+POST /pph21-calculator/calculate salary=-1&ptkpStatus=TK_0
+GET /pph21-calculator
+POST /pph21-calculator/calculate salary=15000000&ptkpStatus=K_1
+GET /products/categories/new
+POST /products/categories/new code=&name=&description=&parent=&active=true&_active=on
+GET /products/categories/d0911001-0000-0000-0000-000000000002/edit
+POST /products/categories/d0911001-0000-0000-0000-000000000002/edit code=CAT-PRODUK&name=Produk Jadi&description=Barang jadi siap jual&parent=&active=true&_active=on
+GET /products/new
+POST /products/new code=&name=&unit=&category=&description=&trackInventory=true&_trackInventory=on&costingMethod=WEIGHTED_AVERAGE&minimumStock=0&sellingPrice=&inventoryAccount=&cogsAccount=&salesAccount=&active=true&_active=on
+GET /products/d0911002-0000-0000-0000-000000000002/edit
+POST /products/d0911002-0000-0000-0000-000000000002/edit code=PRD-TEST-002&name=Gula Pasir&unit=kg&category=d0911001-0000-0000-0000-000000000001&description=Gula pasir putih&trackInventory=true&_trackInventory=on&costingMethod=WEIGHTED_AVERAGE&minimumStock=5.0000&sellingPrice=&inventoryAccount=&cogsAccount=&salesAccount=&active=true&_active=on
+GET /inventory/production/create
+POST /inventory/production/save id=&bomId=be0a0000-0000-0000-0000-000000000001&quantity=0&orderDate=2025-06-15&plannedCompletionDate=&notes=
+GET /inventory/production/be0b0000-0000-0000-0000-000000000001/edit
+POST /inventory/production/save id=be0b0000-0000-0000-0000-000000000001&bomId=be0a0000-0000-0000-0000-000000000001&quantity=10.0000&orderDate=2025-06-10&plannedCompletionDate=2025-06-12&notes=Pesanan arisan RT 05
+GET /projects/new
+POST /projects/new code=&name=&clientId=&contractValue=&budgetAmount=&startDate=&endDate=&description=
+GET /recurring/be0c0000-0000-0000-0000-000000000001/edit
+POST /recurring/be0c0000-0000-0000-0000-000000000001 name=Langganan Cloud Bulanan&journalTemplateId=e0000000-0000-0000-0000-000000000005&amount=2500000.00&description=Tagihan cloud dan backup bulanan&frequency=MONTHLY&dayOfMonth=5&dayOfWeek=&startDate=2025-01-05&endDate=&maxOccurrences=
+GET /salary-components/new
+POST /salary-components/new code=&name=&description=&componentType=EARNING&isPercentage=false&defaultAmount=&defaultRate=&displayOrder=&isTaxable=true&_isTaxable=on&bpjsCategory=
+GET /salary-components/c0000000-0000-0000-0000-000000000003/edit
+POST /salary-components/c0000000-0000-0000-0000-000000000003 code=TJ-MAKAN&name=Tunjangan Makan&description=Tunjangan makan harian&componentType=EARNING&isPercentage=false&defaultAmount=500000.00&defaultRate=&displayOrder=30&isTaxable=true&_isTaxable=on&bpjsCategory=
+GET /settings
+POST /settings/company id=a0000000-0000-0000-0000-000000000001&companyName=&companyAddress=Jl. Margonda Raya No. 123, Depok, Jawa Barat 16424&companyPhone=021-7712345&companyEmail=info@artivisi.com&taxId=01.234.567.8-012.000&currencyCode=IDR&industry=&fiscalYearStartMonth=1&npwp=01.234.567.8-012.000&nitku=0000000000000000000001&signingOfficerName=Endy Muhardin&signingOfficerTitle=Direktur&receivableAccountId=&payableAccountId=&outputTaxAccountId=&inputTaxAccountId=
+GET /settings
+POST /settings/company id=a0000000-0000-0000-0000-000000000001&companyName=PT Artivisi Intermedia&companyAddress=Jl. Margonda Raya No. 123, Depok, Jawa Barat 16424&companyPhone=021-7712346&companyEmail=info@artivisi.com&taxId=01.234.567.8-012.000&currencyCode=IDR&industry=&fiscalYearStartMonth=1&npwp=01.234.567.8-012.000&nitku=0000000000000000000001&signingOfficerName=Endy Muhardin&signingOfficerTitle=Direktur&receivableAccountId=&payableAccountId=&outputTaxAccountId=&inputTaxAccountId=
+GET /settings/bank-accounts/new
+POST /settings/bank-accounts/new bankName=&bankBranch=&accountNumber=&accountName=&currencyCode=IDR&glAccountId=&_isDefault=on
+GET /settings/bank-accounts/b0600000-0000-0000-0000-000000000001/edit
+POST /settings/bank-accounts/b0600000-0000-0000-0000-000000000001 bankName=Bank Central Asia (BCA)&bankBranch=KCP Depok&accountNumber=1234567890&accountName=PT Artivisi Intermedia&currencyCode=IDR&glAccountId=10000000-0000-0000-0000-000000000102&isDefault=true&_isDefault=on
+GET /tags/types/new
+POST /tags/types/new code=&name=&description=&active=true&_active=on
+GET /tags/types/00000000-0000-0000-0000-00000000000d/edit
+POST /tags/types/00000000-0000-0000-0000-00000000000d/edit code=NATURA&name=Natura&description=Imbalan dalam bentuk natura&active=true&_active=on
+GET /tags/types/00000000-0000-0000-0000-00000000000d/tags/new
+POST /tags/types/00000000-0000-0000-0000-00000000000d/tags/new code=&name=&description=&active=true&_active=on
+GET /tags/types/00000000-0000-0000-0000-00000000000d/tags/00000000-0000-0000-0000-00000000000e/edit
+POST /tags/types/00000000-0000-0000-0000-00000000000d/tags/00000000-0000-0000-0000-00000000000e/edit code=NATURA&name=Natura/Kenikmatan&description=Fasilitas kenikmatan&active=true&_active=on
+GET /tax-audit/cases/new
+POST /tax-audit/cases inquiryType=SP2DK&taxYear=&letterNumber=&taxOffice=&letterDate=&receivedDate=&deadline=&subject=&taxDocumentId=
+GET /users/new
+POST /users username=&password=&fullName=&email=
+GET /users/b0000000-0000-0000-0000-000000000001/edit
+POST /users/b0000000-0000-0000-0000-000000000001 username=staff&fullName=Staff Keuangan&email=staff@artivisi.com&active=on&selectedRoles=ACCOUNTANT
+GET /users/b0000000-0000-0000-0000-000000000001/change-password
+POST /users/b0000000-0000-0000-0000-000000000001/change-password newPassword=a&confirmPassword=b
+GET /users/b0000000-0000-0000-0000-000000000001/change-password
+POST /users/b0000000-0000-0000-0000-000000000001/change-password newPassword=Bench-Pass-2025&confirmPassword=Bench-Pass-2025
+GET /vendors/new
+POST /vendors/new code=&name=&contactPerson=&email=&phone=&paymentTermDays=&address=&defaultExpenseAccount.id=&payeeType=&defaultWithholding=&defaultTaxObjectCode=&nik=&countryCode=&foreignTin=&treatyRate=&dgtFormNumber=&dgtValidUntil=&npwp=&nitku=&bankName=&bankAccountNumber=&bankAccountName=&notes=
+GET /tax-profile
+POST /tax-profile establishedDate=2015-03-01&isPkp=true&pkpSince=2016-01-01
+GET /evidence/requirements
+POST /evidence/requirements/posting-policy requiredFrom=2025-01-01
+GET /evidence/requirements
+POST /evidence/requirements accountId=&templateId=&evidenceType=&minAmount=&notes=
+GET /settings/api-clients
+POST /settings/api-clients name=&scopes=&userId=a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11
+GET /reports/rekonsiliasi-fiskal
+POST /reports/rekonsiliasi-fiskal/adjustments year=2025&description=&adjustmentCategory=PERMANENT&adjustmentDirection=POSITIVE&amount=
+GET /withholding/payments/new
+POST /withholding/payments/new vendorId=&treatment=&taxObjectCode=&paymentDate=&grossAmount=&expenseAccountId=&bankAccountId=&billNumber=&settledAmount=&paymentMethod=&referenceNumber=&description=
+GET /templates/e0000000-0000-0000-0000-000000000005
+POST /templates/e0000000-0000-0000-0000-000000000005/toggle-favorite
+GET /templates/e0000000-0000-0000-0000-000000000005
+POST /templates/e0000000-0000-0000-0000-000000000005/tags tag=bulanan
+GET /amortization/be030000-0000-0000-0000-000000000001
+POST /amortization/be030000-0000-0000-0000-000000000001/entries/be030000-0000-0000-0000-000000000101/skip
+GET /drafts/d0000000-0000-0000-0000-000000000001
+POST /drafts/d0000000-0000-0000-0000-000000000001/reject reason=Struk ganda
+GET /fiscal-periods/be090000-0000-0000-0000-000000000002
+POST /fiscal-periods/be090000-0000-0000-0000-000000000002/close-month
+GET /clients/new
+POST /clients/new code=CLI-004&name=PT Bench Klien&contactPerson=Andi&email=andi@klien.example&phone=021-5550004&address=Bogor&notes=&idType=TIN&npwp=&nitku=&nik=
+GET /employees/new
+POST /employees/new employeeId=EMP005&name=Rudi Hartono&email=rudi@test.com&phone=&address=&user=&nikKtp=&npwp=&ptkpStatus=TK_0&hireDate=2025-06-02&resignDate=&employmentType=CONTRACT&employmentStatus=ACTIVE&jobTitle=Developer&department=Engineering&bankName=&bankAccountNumber=&bankAccountName=&bpjsKesehatanNumber=&bpjsKetenagakerjaanNumber=&notes=
+GET /invoices/new
+POST /invoices/new invoiceNumber=&clientLabel=PT ABC Technology&client.id=c0500000-0000-0000-0000-000000000001&project.id=&invoiceDate=2025-06-15&dueDate=2025-07-15&amount=15000000&notes=Termin Juni
+GET /projects/new
+POST /projects/new code=PRJ-BENCH-001&name=Audit Sistem&clientId=c0500000-0000-0000-0000-000000000002&contractValue=50000000&budgetAmount=30000000&startDate=2025-06-01&endDate=2025-09-30&description=Audit keamanan sistem
+GET /vendors/new
+POST /vendors/new code=VND-002&name=CV Desain Kreatif&contactPerson=Sari&email=sari@desain.example&phone=021-5550002&paymentTermDays=14&address=Depok&defaultExpenseAccount.id=&payeeType=BADAN&defaultWithholding=&defaultTaxObjectCode=&nik=&countryCode=&foreignTin=&treatyRate=&dgtFormNumber=&dgtValidUntil=&npwp=&nitku=&bankName=&bankAccountNumber=&bankAccountName=&notes=
+GET /no-such-page
+GET /tags/types/00000000-0000-0000-0000-000000000000/tags/new
+GET /dashboard
+POST /logout
+POST /login username=employee&password=admin
+GET /self-service/payslips
+GET /self-service/bukti-potong
+GET /self-service/profile
+GET /self-service/profile/edit
+POST /self-service/profile/edit phone=081234567899&address=Jl. Margonda 10, Depok&bankName=BCA&bankAccountNumber=1234509876&bankAccountName=Siti Rahayu
+GET /accounts

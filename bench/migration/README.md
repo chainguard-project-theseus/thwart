@@ -189,7 +189,10 @@ pinned day (sivalabs-blog: posts, comments and page views made by `pages.txt` ar
 request time; times on earlier days, which most seeded rows have, are still compared; the two
 seeded page views on the pinned day are hidden too), times of day on the pinned day and bcrypt
 password hashes (shopizer: the admin home shows the user's last access time, and the admin user
-form prints the new user's password hash, which has a random salt). Held-out: the request
+form prints the new user's password hash, which has a random salt), and times of day and the
+permission lists of the API scopes (balaka: records saved by the forms, the audit log, print
+pages, the data-subject export and the error page are stamped at request time, while the date is
+still compared; each scope prints its permissions from a hash set, in no fixed order). Held-out: the request
 timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
@@ -319,3 +322,16 @@ Per-app environment fixes (in the app's commands, not its code):
   the account and review pages. Not in `pages.txt`: the order pages and the checkout, because an
   order needs items in a cart, which only the storefront's JSON cart API adds; the file uploads
   (multipart); and the storefront's missing-product page, which prints a stack trace.
+- balaka (`"java": 25`; an accounting app on Boot 4.1 with Thymeleaf, the Spring Security dialect,
+  htmx and the Alpine.js CSP build): it uses unnamed variables, so it needs JDK 25. It runs only on
+  PostgreSQL, so `start.sh` creates a throwaway cluster and Flyway loads the repo's
+  integration-test seed plus `seed/`, which adds the records the seed lacks (a vendor and bill,
+  fixed assets, an amortization schedule, a bank statement and reconciliation, and others) with
+  fixed ids. libfaketime stands PostgreSQL's clock still at 2025-06-15 10:00 UTC, so the seed's
+  `NOW()` and `CURRENT_DATE` are the same on every start, and starts the app's clock there. The
+  migrations call `gen_random_uuid()`; `start.sh` puts a sequence-backed one in a `bench` schema
+  ahead of `pg_catalog` on the search path, so seeded rows get the same ids on every start. A form
+  post that would create a record with a random id is posted as an edit of a seeded record
+  instead. The `dev` profile skips the app's guard against the seeded admin/admin login, and MFA
+  and the setup wizard are off. The test command excludes, via `test-excludes.txt`, the tests that
+  need Docker (Testcontainers) or a browser (Playwright), and their `@Nested` classes.
