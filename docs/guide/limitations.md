@@ -44,7 +44,7 @@ Gaps in Thwart today, with what to do instead.
 | `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
 | `VALUE_IN_RAW_TEXT` | A value inside `<noscript>` or `<iframe>` | Static content; move the value outside the element |
 | (build error) `<xmp>`, `<plaintext>`, `<noembed>`, `<noframes>`, `<frameset>` | Obsolete elements whose parsing Thwart doesn't model | Escaped text (`&lt;`) in a `<pre>`; `<noscript>`; an ordinary layout or an `<iframe>` |
-| `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img>` with the SVG file, or the SVG outside the table |
+| `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img alt="">` with the SVG file, or an empty element with `aria-hidden="true"` painted by CSS (`compare` reads both as the icon), or the SVG outside the table |
 | `TABLE_IN_TEMPLATE` | A table part directly in `<template>` | Put the whole `<table>` in the `<template>` |
 | `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |
 | `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` ([Output contexts](templates.md#output-contexts), Rich text) |
