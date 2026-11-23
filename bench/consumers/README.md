@@ -62,7 +62,8 @@ reach the JVM whatever the start command (`java -jar`, `mvn spring-boot:run`, `j
 
 Before anything is timed, each version is built once (untimed: this fetches dependencies),
 started, sent `pages.txt` in order (`replay`: one cookie jar, redirects followed, each POST with
-the previous page's `_csrf`, as `thwart-migrate record` does), and then sent each GET path once
+the previous page's `_csrf`, as `thwart-migrate record` does, but no request to a logout or
+signout path, so the session stays logged in), and then sent each GET path once
 with the session cookie and no redirect followed (`probe`). `pages.tsv` lists every GET path, its
 status on each version, and whether it is timed. A page is timed when both versions give it the
 same status, the status is not a redirect, the path has no `logout`, `signout`, `delete` or

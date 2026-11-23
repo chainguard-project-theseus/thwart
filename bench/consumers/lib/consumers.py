@@ -26,6 +26,8 @@ import urllib.request
 
 # GET paths never timed or mixed in: they end the session or change the data.
 DESTRUCTIVE = re.compile(r"logout|signout|delete|remove", re.I)
+# Requests the replay skips, so the session it ends with is still logged in.
+LOGOUT = re.compile(r"logout|signout", re.I)
 HEADERS = {"Accept": "text/html", "Accept-Language": "en"}
 
 
@@ -65,6 +67,10 @@ def csrf(body):
     return p.token
 
 
+def replayed(pages):
+    return [p for p in pages if not LOGOUT.search(p[1])]
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args):
         return None
@@ -88,13 +94,14 @@ def _send(opener, url, data=None):
 def replay(base, pages_file, out_dir):
     """Sends pages.txt in order, as `thwart-migrate record` does (one cookie jar, redirects
     followed, each POST with the previous page's _csrf), so the data and the session match the
-    recording. Writes first.tsv (each GET path's first request: status and ms, redirects
-    included) and cookie.txt (the Cookie header for the load generator)."""
+    recording, but logout requests are skipped, so the session stays logged in. Writes first.tsv
+    (each GET path's first request: status and ms, redirects included) and cookie.txt (the
+    Cookie header for the load generator)."""
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     seen, body = set(), ""
     with open(os.path.join(out_dir, "first.tsv"), "w") as first:
-        for method, path, form in read_pages(pages_file):
+        for method, path, form in replayed(read_pages(pages_file)):
             data = None
             if method == "POST":
                 pairs = urllib.parse.parse_qsl(form, keep_blank_values=True)
@@ -471,6 +478,11 @@ def selftest():
           and got["/owners/1"] == "no: status differs", "each page left out says why")
     check(open(os.path.join(sel, "mixed.txt")).read() == "/\n/owners/2\n/owners/3/edit\n/moved\n/oups\n",
           "the mix: lines whose status matches, redirects too")
+
+    # The replay keeps the session.
+    check([p for _, p, _ in replayed(read_pages(p))] == ["/", "/owners/1", "/owners/2", "/owners/new",
+                                                         "/owners/3/edit", "/gone", "/moved", "/oups"],
+          "the replay skips logout")
 
     # oha's JSON.
     j = os.path.join(tmp, "oha.json")
