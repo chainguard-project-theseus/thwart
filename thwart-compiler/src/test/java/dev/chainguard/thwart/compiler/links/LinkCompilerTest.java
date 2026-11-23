@@ -219,6 +219,18 @@ class LinkCompilerTest {
     owners("\"1\"", "null").compile("@{/x(s=o.nope)}").assertError("nope");
   }
 
+  @Test
+  void aFailedPathVariableValueIsTheOnlyError() {
+    // #914: the parameter is written, so "has no parameter" would send the reader to the wrong place.
+    ExprRunner r = owners("\"1\"", "null");
+    for (String link : List.of("@{/x/{id}(id=o.nope)}", "@{/x/{id}(id=o.secret)}", "@{/x/{id}(id=nope.str(o.id))}")) {
+      List<String> errors = r.compile(link).errors();
+      assertEquals(1, errors.size(), link + ": " + errors);
+      assertFalse(errors.get(0).contains("no parameter"), errors.get(0));
+    }
+    r.compile("@{/x/{id}/{n}(id=o.nope)}").assertError("{n}", "no parameter");
+  }
+
   // ------------------------------------------- protocol-relative in disguise (#313)
 
   private static Compilation page(String markup) {
