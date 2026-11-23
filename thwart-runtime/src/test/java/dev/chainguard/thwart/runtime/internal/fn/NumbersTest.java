@@ -81,11 +81,11 @@ class NumbersTest {
 
   /**
    * #917: Thymeleaf's NumberUtils hands the Number itself to a DecimalFormat with its default
-   * rounding (half-even), so a double rounds from its exact binary value: 16.65 is 16.6499...
+   * rounding (half-even), which breaks a double's tie by its exact binary value: 16.65 is 16.6499...
    */
   @Test
   void roundsAsThymeleafDoes() {
-    for (Object n : List.of(16.65, 16.75, 16.85, 0.125, 2.5, -2.5, 1.005, 16.65f, 0.1f,
+    for (Object n : List.of(16.65, 16.75, 16.85, 0.125, 2.5, -2.5, 1.005, 16.65f, 0.1f, 0.35f,
         new BigDecimal("16.65"), new BigDecimal("16.85"), new BigDecimal("-0.125"), 7L)) {
       DecimalFormat thymeleaf = (DecimalFormat) java.text.NumberFormat.getNumberInstance(Locale.ROOT);
       thymeleaf.setMinimumFractionDigits(1);
@@ -99,6 +99,17 @@ class NumbersTest {
       assertEquals(
           java.text.NumberFormat.getCurrencyInstance(Locale.US).format(n),
           Numbers.formatCurrency(Locale.US, n),
+          String.valueOf(n));
+    }
+    // Digits beyond a double's shortest repr are DecimalFormat's zeros, not its binary expansion.
+    for (Object n : List.of(1e23, 0.1, 0.1f, 123456789.123456789, -1e-20)) {
+      DecimalFormat thymeleaf = (DecimalFormat) java.text.NumberFormat.getNumberInstance(Locale.ROOT);
+      thymeleaf.setMinimumFractionDigits(20);
+      thymeleaf.setMaximumFractionDigits(20);
+      thymeleaf.setGroupingUsed(false);
+      assertEquals(thymeleaf.format(n), Numbers.formatDecimal(Locale.ROOT, n, 1, 20), String.valueOf(n));
+      assertEquals(
+          java.text.NumberFormat.getCurrencyInstance(Locale.US).format(n), Numbers.formatCurrency(Locale.US, n),
           String.valueOf(n));
     }
     assertEquals("16,6", Numbers.formatDecimal(Locale.ROOT, 16.65, 1, "POINT", 1, "COMMA"));
