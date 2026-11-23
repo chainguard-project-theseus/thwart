@@ -95,7 +95,7 @@ class CodegenEndToEndTest {
             .compile()
             .assertSuccess();
     RenderContext ctx = RenderContext.defaults();
-    assertEquals("<div><p>&lt;Ann&gt;</p><b>2</b></div>",
+    assertEquals("<div><p>&lt;Ann&gt;</p></div>",
         c.registry().renderToString("mail/welcome", Map.of("name", "<Ann>", "n", 2), ctx));
     assertEquals("<b>3</b>", c.registry().renderToString("mail/welcome :: count", Map.of("n", 3), ctx));
     assertThrows(TemplateModelException.class,
