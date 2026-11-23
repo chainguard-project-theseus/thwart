@@ -507,7 +507,10 @@ welcome.html=Hello <b>{0}</b>!
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
 links must be `http`/`https`. A path in quotes is the same constant (`@{'/owners?page=1'}`), but
 one built with `+` or `${...}` is a build error: write `@{/owners(page=${i})}`. Links get the
-context path and `response.encodeURL`. A `null`, empty, `.` or `..` path variable fails the
+context path and `response.encodeURL`. Unlike Thymeleaf, a `?` in a query value is percent-encoded:
+`@{/login(returnUrl=${r})}` with `r` = `/a?b=1` writes `/login?returnUrl=/a%3Fb%3D1`, where
+Thymeleaf writes `returnUrl=/a?b%3D1`. The server decodes both to the same value, but `compare`
+shows the page as different. A `null`, empty, `.` or `..` path variable fails the
 render: guard the link with `t:if`. A URL computed in Java goes in `t:href` as a `String`
 (scheme-checked); a URL with another scheme (`sms:`, `data:`, ...) must be a static attribute.
 
