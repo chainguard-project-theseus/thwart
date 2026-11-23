@@ -251,6 +251,24 @@ class FieldFragmentsTest {
         .assertError("fields.hasErrors(...) can only be used inside t:object");
   }
 
+  /** A fragment sees only its parameters, so not its caller's t:object; a Field parameter carries the path. */
+  @Test
+  void fragmentDoesNotSeeTheCallersObject() {
+    model()
+        .template("frag.html", "<div " + NS + "><p t:fragment=\"f\" t:text=\"*{firstName}\">x</p></div>")
+        .template("form.html", HEAD + "<t:block t:replace=\"~{frag :: f}\"></t:block></form>")
+        .compile()
+        .assertError("frag.html:1:", "*{firstName} can only be used inside t:object", "a fragment doesn't see its"
+            + " caller's t:object, so take the field as a Field parameter");
+    Compilation c = model()
+        .template("frag.html", "<div " + NS + "><input t:fragment=\"f(Field name)\" t:field=\"name\" /></div>")
+        .template("form.html", HEAD + "<t:block t:replace=\"~{frag :: f('firstName')}\"></t:block></form>")
+        .compile()
+        .assertSuccess();
+    assertEquals("<form><input id=\"firstName\" name=\"firstName\" value=\"Ann\" /></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+  }
+
   @Test
   void fieldIsAFragmentParameterTypeOnly() {
     Compilation.builder()

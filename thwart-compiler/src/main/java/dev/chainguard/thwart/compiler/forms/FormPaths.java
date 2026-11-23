@@ -511,7 +511,8 @@ public final class FormPaths {
       String path, SourcePos pos, Scope scope, ExpressionCompiler expressions, Check check) {
     if (!scope.selection().isPresent()) {
       expressions.env().diagnostics().error(pos, "field '" + path + "' can only be used inside t:object: put t:object=\"...\" on"
-              + " this element or an enclosing one");
+              + " this element or an enclosing one; a fragment doesn't see its caller's t:object, so take the field as a"
+              + " Field parameter");
       return null;
     }
     Expr e = parseLiteral(path, pos);

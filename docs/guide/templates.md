@@ -174,8 +174,10 @@ Expressions and attributes are Thymeleaf's Standard dialect with `t:` for `th:`,
 that runs code. What differs:
 
 - `${...}` is optional (`t:text="owner.name"`). `*{...}` works only inside `t:object`, for one
-  property path: `*{firstName} + ' ' + *{lastName}`. Utility objects are function namespaces
-  ([Functions](#functions)); `#ctx`, `#request`, `#dates` and the rest don't exist.
+  property path: `*{firstName} + ' ' + *{lastName}`. A fragment doesn't see its caller's
+  `t:object`: take a `Field` parameter ([Fragments and layouts](#fragments-and-layouts)). Utility
+  objects are function namespaces ([Functions](#functions)); `#ctx`, `#request`, `#dates` and the
+  rest don't exist.
 - Not supported: `T(...)`, `new`, `@bean`, `__...__` preprocessing, assignment, lambdas,
   selection and projection (`.?[...]`, `.![...]`), `div`/`mod` (use `/`, `%`).
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant's name.
@@ -794,8 +796,10 @@ itself with the outer one and passes its own markup:
 </html>
 ```
 
-**Reusable form fields.** A `Field` parameter takes a field path that the compiler checks against
-the caller's `t:object`. `Field<T>` also binds the type's properties (`t:field="c.answer"`), which
+**Reusable form fields.** A fragment sees only its parameters, so not the caller's `t:object`:
+`*{...}`, `t:field`, `t:errors` and `fields.*` inside it need a `t:object` on one of its
+parameters, or a `Field` parameter. A `Field` parameter takes a field path that the compiler checks
+against the caller's `t:object`. `Field<T>` also binds the type's properties (`t:field="c.answer"`), which
 replaces JSP's `path="${field}.answer"` and Thymeleaf's `*{__${field}__.answer}`:
 
 <!-- compile: template guide/fragments/fields.html -->
