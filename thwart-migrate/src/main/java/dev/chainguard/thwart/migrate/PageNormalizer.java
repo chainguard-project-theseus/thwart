@@ -652,8 +652,9 @@ final class PageNormalizer {
    * Thwart's HTML sanitizer adds {@code rel} tokens to links and the {@code user-content-} prefix
    * to ids (and to {@code href="#..."} links to them), and {@code css.url} quotes a URL, so those
    * tokens, that prefix and the quotes around a {@code url(...)} in a {@code style} are dropped.
-   * {@code xmlns} and {@code xmlns:*} are dropped: Thwart's verifier rejects them, and an HTML
-   * parser gives them no meaning (the Layout Dialect copies a dialect's prefix onto {@code <html>}).
+   * {@code xmlns} and {@code xmlns:*} are dropped: an HTML parser gives them no meaning, Thwart
+   * can't compute one, and its verifier rejects a dialect's {@code xmlns:x} on {@code <html>} as a
+   * parse error (the Layout Dialect copies one there from each decorated page).
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
