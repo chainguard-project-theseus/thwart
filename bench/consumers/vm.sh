@@ -102,7 +102,8 @@ gssh 'm=http://metadata.google.internal/computeMetadata/v1/instance; h=Metadata-
 
 # Detached, so a dropped SSH session does not stop it; polled until it writes its exit code.
 env=$(printf '%s=%q ' REPS "${REPS:-5}" WARMUP "${WARMUP:-30}" DURATION "${DURATION:-5}" CONCURRENCY "${CONCURRENCY:-1 8 32}" ALLOW_UNPASSED "${ALLOW_UNPASSED:-}")
-gssh "sudo setsid nohup env $env RESULTS=\$HOME/results OUT=\$HOME/out BENCH_REPORTABLE=yes bash -c 'thwart/bench/consumers/run.sh $*; echo \$? > \$HOME/rc' > run.log 2>&1 < /dev/null &"
+# RC is expanded before sudo: under sudo, $HOME is root's, not the home polled below.
+gssh "sudo setsid nohup env $env RESULTS=\$HOME/results OUT=\$HOME/out RC=\$HOME/rc BENCH_REPORTABLE=yes bash -c 'thwart/bench/consumers/run.sh $*; echo \$? > \$RC' > run.log 2>&1 < /dev/null &"
 while :; do
   sleep 60 &
   wait $!
