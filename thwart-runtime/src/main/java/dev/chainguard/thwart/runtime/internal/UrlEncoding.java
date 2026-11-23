@@ -26,10 +26,14 @@ public final class UrlEncoding {
     return encode(value, "");
   }
 
-  /** Encodes a query parameter name or value: {@code & = + # ?} and space are encoded. */
+  /**
+   * Encodes a query parameter name or value: {@code & = + #} and space are encoded. {@code /} and
+   * {@code ?} stay, as in Thymeleaf: after the query's first {@code ?} (written by the compiler),
+   * neither ends anything (RFC 3986 3.4).
+   */
   public static String queryParam(String value) {
     // Query characters with no meaning inside a name or value stay readable; all else is encoded.
-    return encode(value, "/:@!$'()*,;");
+    return encode(value, "/?:@!$'()*,;");
   }
 
   /** The encoded path variable {@code name} filled by a value that is not a collection or array. */

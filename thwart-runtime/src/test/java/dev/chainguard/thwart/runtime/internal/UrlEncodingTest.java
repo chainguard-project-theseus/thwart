@@ -24,8 +24,10 @@ class UrlEncodingTest {
 
   @Test
   void queryParamEncodesDelimiters() {
-    assertEquals("%26%3D%2B%23%3F%20", UrlEncoding.queryParam("&=+#? "));
-    assertEquals("a/b:c@d!$'()*,;", UrlEncoding.queryParam("a/b:c@d!$'()*,;"));
+    assertEquals("%26%3D%2B%23%20", UrlEncoding.queryParam("&=+# "));
+    // As in Thymeleaf: after the query's first '?', '/' and '?' end nothing (RFC 3986 3.4).
+    assertEquals("a/b?c:d@e!$'()*,;", UrlEncoding.queryParam("a/b?c:d@e!$'()*,;"));
+    assertEquals("/a?b%3D1%26c%232", UrlEncoding.queryParam("/a?b=1&c#2"));
     assertEquals("%25%22%3C%3E%5C%C3%A9", UrlEncoding.queryParam("%\"<>\\é"));
   }
 
@@ -68,7 +70,7 @@ class UrlEncodingTest {
   @Test
   void queryValueNullIsEmpty() {
     assertEquals("", UrlEncoding.queryValue(null));
-    assertEquals("a%26b%3Dc%2Bd%23e%3Ff%20g", UrlEncoding.queryValue("a&b=c+d#e?f g"));
+    assertEquals("a%26b%3Dc%2Bd%23e?f%20g", UrlEncoding.queryValue("a&b=c+d#e?f g"));
     assertEquals("&q=", UrlEncoding.queryValues("q", null));
     assertEquals("&q=1", UrlEncoding.queryValues("q", 1));
   }
