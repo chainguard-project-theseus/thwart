@@ -220,8 +220,11 @@ def median(v):
 def bootstrap(a, b, draws=2000):
     """95% percentile bootstrap interval on median(b) / median(a): resamples each side's
     per-repetition samples, with a Park-Miller generator and a fixed seed, so the same samples
-    always give the same interval. None with fewer than two samples a side, or a zero median."""
-    if len(a) < 2 or len(b) < 2:
+    always give the same interval. None with fewer than five samples a side, or a zero median:
+    with three, the resampled median is always one of the three values and each extreme comes up
+    7/27 of the time, so the 2.5th and 97.5th percentiles are the whole min/max range (with four,
+    nearly so), and an A/A run would leave out 1 far more often than 5% of the time."""
+    if len(a) < 5 or len(b) < 5:
         return None
     seed = 12345
 
@@ -418,9 +421,12 @@ def selftest():
         print(f"ok: {what}")
 
     # The interval: identical samples give one value; a known spread gives a fixed interval.
-    check(ratio_text([1.0, 1.0, 1.0], [1.013] * 3) == "1.01x (1.01-1.02)", "an upper bound is rounded up")
-    check(ratio_text([1.0, 1.0, 1.0], [1.01] * 3) == "1.01x (1.01-1.01)", "a whole hundredth stays")
-    check(ratio_text([1.0], [2.0]) == "2.00x", "one sample a side: no interval")
+    check(ratio_text([1.0] * 5, [1.013] * 5) == "1.01x (1.01-1.02)", "an upper bound is rounded up")
+    check(ratio_text([1.0] * 5, [1.01] * 5) == "1.01x (1.01-1.01)", "a whole hundredth stays")
+    # The floor: four samples a side get no interval; five get one inside the min/max range.
+    check(ratio_text([1, 2, 3, 4], [6, 7, 8, 9]) == "3.00x", "four samples a side: no interval")
+    lo, hi = bootstrap([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
+    check(6 / 5 < lo < 8 / 3 < hi < 10 / 1, f"five samples a side: an interval inside the full range ({lo:.2f}-{hi:.2f})")
     a, b = [100, 101, 99, 100, 102], [200, 202, 198, 201, 199]
     t = ratio_text(a, b)
     check(t == ratio_text(a, b) and t.startswith("2.00x (1.9"), f"a 2x ratio with a narrow interval: {t}")
