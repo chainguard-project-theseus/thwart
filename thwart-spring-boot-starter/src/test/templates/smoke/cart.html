@@ -11,6 +11,8 @@
         <i class="due-error" t:if="fields.hasErrors(*{lines[lineStat.index].due})"
            t:text="fields.errors(*{lines[lineStat.index].due}).first">error</i>
       </div>
+      <input type="text" class="literal" t:field="*{qty['tea']}" />
+      <span class="literal-error" t:errors="*{qty['tea']}">error</span>
       <div t:each="e : cart.qty">
         <input type="text" t:field="*{qty[e.key]}" />
         <span class="error" t:errors="*{qty[e.key]}">error</span>

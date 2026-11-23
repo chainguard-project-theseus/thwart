@@ -643,7 +643,9 @@ public record Address(String street) {}
   JSP `spring:bind`'s `status.value`, Thymeleaf's `*{{x}}`) take a literal path, a `Field`
   parameter, or `*{...}` for an indexed path (`fields.hasErrors(*{items[itemStat.index].name})`).
 - Paths index lists and maps: `*{items[itemStat.index].name}`, `*{prices[e.key]}`. This replaces
-  `__${...}__` preprocessing.
+  `__${...}__` preprocessing. A literal key is written as Spring's form tags write it, with its
+  quotes (`*{prices['x']}` gives `name="prices['x']"`, `id="prices'x'"`); a key from a variable is
+  written without them (`prices[x]`). Spring binds both forms the same way.
 - A field whose type isn't view-safe (a `MultipartFile`) can be bound where its value is never
   read: a file or password input, `t:errors`, `fields.hasErrors`. It can't be passed to a `Field`
   fragment parameter, because a `Field` carries the field's value into the fragment, whatever the

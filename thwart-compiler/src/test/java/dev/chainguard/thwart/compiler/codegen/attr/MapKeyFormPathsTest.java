@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Map key segments in form paths ({@code *{prices[key]}}, {@code *{prices['x']}}) in t:field,
- * t:errors and fields.* (#190): Spring's unquoted {@code prices[x]} name and
- * Thymeleaf's bracket-free id {@code pricesx}.
+ * t:errors and fields.* (#190): Spring's {@code prices[x]} name for a variable key, the path as
+ * written for a literal one ({@code prices['x']}, #970), and Thymeleaf's bracket-free id.
  */
 class MapKeyFormPathsTest {
   // The form object is named "owner" so that FormFixture.TestForms applies.
@@ -70,7 +70,9 @@ class MapKeyFormPathsTest {
     assertEquals(
         "<form><div><input id=\"pricesx\" name=\"prices[x]\" value=\"1\"></div>"
             + "<div><input id=\"pricesa.b&lt;&amp;\" name=\"prices[a.b&lt;&amp;]\" value=\"2\"></div>"
-            + "<input id=\"pricesx\" name=\"prices[x]\" value=\"1\"><input id=\"pricesx\" name=\"prices[x]\" value=\"1\">"
+            // A literal key keeps its quotes, as Spring's form tags and Thymeleaf write it (#970).
+            + "<input id=\"prices&#39;x&#39;\" name=\"prices[&#39;x&#39;]\" value=\"1\">"
+            + "<input id=\"prices&#39;x&#39;\" name=\"prices[&#39;x&#39;]\" value=\"1\">"
             + "<input id=\"byId7.name\" name=\"byId[7].name\" value=\"seven\">"
             + "<input id=\"colorsGREEN\" name=\"colors[GREEN]\" value=\"g\"></form>",
         render(c, new TestForms(), prices("x", "1", "a.b<&", "2")));
@@ -91,7 +93,7 @@ class MapKeyFormPathsTest {
     TestForms forms = new TestForms();
     forms.rejected.put("prices[y]", "\"><x>");
     forms.errors.put("prices[y]", List.of("Price <required>"));
-    forms.errors.put("threads[t]", List.of("T"));
+    forms.errors.put("threads['t']", List.of("T"));
     assertEquals(
         "<form><div><input id=\"pricesx\" name=\"prices[x]\" value=\"1\"><i>1</i></div>"
             + "<div><input id=\"pricesy\" name=\"prices[y]\" value=\"&quot;&gt;&lt;x&gt;\" class=\"bad\">"
