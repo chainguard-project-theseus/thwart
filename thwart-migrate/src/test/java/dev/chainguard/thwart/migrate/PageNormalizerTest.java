@@ -151,6 +151,10 @@ class PageNormalizerTest {
       math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
       style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
+      hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
+      hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
+      alpine x-on removed            | <button x-on:click="open = true">O</button> | <button data-action="open">O</button>
+      hx-on kept and another removed | <a hx-on:click="a()">a</a><form hx-on::after-request="r()"></form> | <a hx-on:click="a()">a</a><form></form>
       sanitizer rel on a stored link | <div><a href="https://x.org">x</a></div>  | <div><a href="https://x.org" rel="nofollow noopener">x</a></div>
       message rel added to a rel     | <a href="/p" rel="help" target="_blank">p</a> | <a href="/p" rel="help noopener noreferrer" target="_blank">p</a>
       ugc rel on a stored link       | <a href="https://x.org">x</a>             | <a href="https://x.org" rel="nofollow ugc">x</a>
@@ -175,7 +179,12 @@ class PageNormalizerTest {
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
       text moved out of a script's parent | <div><p>a</p><script>x()</script></div><p>b</p> | <div><p>a</p><p>b</p></div>
-      other inline handler syntax    | <form hx-on::after-request="h()"></form> | <form></form>
+      hx-on added                    | <form hx-post="/s"></form>                | <form hx-post="/s" hx-on::after-request="h()"></form>
+      hx-on changed                  | <form hx-on::after-request="h()"></form>  | <form hx-on::after-request="g()"></form>
+      hx-on removed with another attribute | <form hx-on::after-request="h()" hx-post="/s"></form> | <form></form>
+      other attribute removed        | <form hx-on:submit="h()" hx-post="/s"></form> | <form hx-on:submit="h()"></form>
+      hx-on kept and one changed     | <a hx-on:click="a()">a</a><a hx-on:click="b()">b</a> | <a hx-on:click="a()">a</a><a hx-on:click="c()">b</a>
+      attribute without a colon removed | <form hx-on="click: h()"></form>     | <form></form>
       query in an href               | <a href="/p?page=2">n</a>                 | <a href="/p">n</a>
       query in a custom attribute's other value | <a hx-get="/p?page=2">n</a> | <a hx-get="/r?page=2">n</a>
       query in an aria attribute     | <a aria-describedby="/p?x">n</a>          | <a aria-describedby="/p">n</a>
