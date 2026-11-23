@@ -149,7 +149,10 @@ or an element with no content and `aria-hidden="true"`), what the HTML sanitizer
 and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute),
 an HTML 4 or XHTML 1.x doctype replaced by `<!DOCTYPE html>` (the only one Thwart accepts; it
 can change the browser's rendering mode, so look at the page), the hidden `_csrf` input Thwart
-adds to a `method="post"` form, and a removed attribute whose
+adds to a `method="post"` form, a custom attribute (a name HTML doesn't define) moved to a
+`data-*` attribute with the same name less its hyphens and the same value (`productid="1"` became
+`data-product-id="1"`, the compiler's fix-it for a computed custom attribute; each `data-*` stands
+in for one such attribute), and a removed attribute whose
 name contains `-on:` (`hx-on::after-request`, `x-on:click`: inline code the CSP blocks; one added
 or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
