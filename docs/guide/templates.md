@@ -646,7 +646,7 @@ gets the token input too, and htmx 2 puts it in the URL of an `hx-delete`: add
 ## Fragments and layouts
 
 A fragment is an element with `t:fragment`. Parameters are typed, and a fragment sees only its
-parameters.
+parameters. A fragment name may join its parts with `-` (`period-selector`), as in Thymeleaf.
 
 <!-- compile: template guide/fragments/cards.html -->
 ```html

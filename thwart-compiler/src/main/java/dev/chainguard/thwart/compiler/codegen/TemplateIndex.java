@@ -377,11 +377,16 @@ public final class TemplateIndex {
         sink.error(frag.pos(), "t:fragment needs a name, e.g. t:fragment=\"card(OwnerView owner)\"");
       } else if (frag != null) {
         FragmentSignature sig = parser.parseFragmentSignature(frag.value(), frag.valuePos(), sink);
+        String method = sig == null ? null : "fragment_" + sig.name().replace('-', '_');
+        Optional<FragmentInfo> clash = out.values().stream().filter(f -> f.methodName().equals(method)).findFirst();
         if (sig != null && out.containsKey(sig.name())) {
           sink.error(sig.pos(), "duplicate fragment '" + sig.name() + "' in this template: rename one of them");
+        } else if (clash.isPresent()) {
+          sink.error(sig.pos(), "fragments '" + clash.get().name() + "' and '" + sig.name() + "' in this template both"
+              + " compile to the Java method " + method + " ('-' becomes '_'): rename one of them");
         } else if (sig != null) {
           List<Param> params = resolve(sig.params(), imports, expressions, sink);
-          out.put(sig.name(), new FragmentInfo(sig.name(), params, e, "fragment_" + sig.name()));
+          out.put(sig.name(), new FragmentInfo(sig.name(), params, e, method));
           rejected |= params.size() < sig.params().size();
         }
       }

@@ -54,6 +54,31 @@ class FragmentsTest {
   }
 
   @Test
+  void hyphenatedFragmentNames() {
+    // #915: Thymeleaf accepts '-' in fragment names; the Java method gets '_' for it.
+    Compilation c =
+        Compilation.builder()
+            .template("f.html", "<t:block " + NS + "><div t:fragment=\"period-selector(String mode)\" t:text=\"mode\">m</div>"
+                + "<i t:fragment=\"a-b\">ab</i></t:block>")
+            .template("p.html", "<main " + NS + "><div t:replace=\"~{f :: period-selector('x')}\"></div>"
+                + "<section t:insert=\"~{f :: period-selector(mode='y')}\"></section><b t:replace=\"f :: a-b\"></b>"
+                + "<i t:fragment=\"my-card\">own</i><s t:replace=\"~{:: my-card}\"></s></main>")
+            .compile()
+            .assertSuccess();
+    assertEquals("<main><div>x</div><section><div>y</div></section><i>ab</i><i>own</i><i>own</i></main>", c.render("p", Map.of()));
+    assertTrue(c.generatedSource("thwart.generated.FTemplate").contains("public static void fragment_period_selector("));
+    assertTrue(c.registry().find("f :: a-b").isPresent());
+  }
+
+  @Test
+  void fragmentNamesThatShareAJavaMethodAreAnError() {
+    Compilation.builder()
+        .template("f.html", "<t:block " + NS + "><i t:fragment=\"a_b\">1</i><i t:fragment=\"a-b\">2</i></t:block>")
+        .compile()
+        .assertError("f.html:1:", "fragments 'a_b' and 'a-b'", "fragment_a_b");
+  }
+
+  @Test
   void parameterizedFragmentIsSkippedInPlace() {
     Compilation c = base().compile().assertSuccess();
     // card and user need arguments; plain has none and renders in place.
