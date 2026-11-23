@@ -179,7 +179,7 @@ m=See <a href="/docs">the docs</a>.
 == FOREIGN_IN_TABLE: an SVG icon in a table cell
 -- t.html
 <table><tr><td><svg viewBox="0 0 1 1"><path d="M0 0"/></svg> <span t:text="s">x</span></td></tr></table>
-=> t.html:1:81: error: <svg> inside <td>: browsers parse a nested table, <template> or <select> that ends inside <svg> or <math> in a table differently (Firefox goes on as if outside the table, Chrome and Safari go back to the cell), so Thwart doesn't accept <svg> or <math> anywhere in a table or <template>; move it out of the table, or show the image with <img src="....svg"> [verifier:FOREIGN_IN_TABLE]
+=> t.html:1:81: error: <svg> inside <td>: browsers parse a nested table, <template> or <select> that ends inside <svg> or <math> in a table differently (Firefox goes on as if outside the table, Chrome and Safari go back to the cell), so Thwart doesn't accept <svg> or <math> anywhere in a table or <template>; move it out of the table, or show the image with <img src="....svg" alt=""> [verifier:FOREIGN_IN_TABLE]
 == TABLE_IN_TEMPLATE: rows directly in a <template>
 -- t.html
 <template><tr><td t:text="s">x</td></tr></template>
