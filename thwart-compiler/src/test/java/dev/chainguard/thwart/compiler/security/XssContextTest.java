@@ -165,8 +165,7 @@ class XssContextTest {
                 ContextOracle.decodeHtml(slot).matches("[A-Za-z0-9%._~-]*") ? null : "unencoded path segment";
             case QUERY -> {
               String r = ContextOracle.html(slot, null);
-              // After the query's first '?', a '?' in a value ends nothing (RFC 3986 3.4), as in Thymeleaf.
-              yield r != null || !ContextOracle.decodeHtml(slot).matches("[^&=+# \"<>]*") ? "unencoded query value" : null;
+              yield r != null || !ContextOracle.decodeHtml(slot).matches("[^&=+#? \"<>]*") ? "unencoded query value" : null;
             }
           };
       if (problem != null) {
