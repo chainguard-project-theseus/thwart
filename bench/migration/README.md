@@ -186,7 +186,8 @@ original prints it unescaped; Thwart escapes it), and order numbers, times of da
 month-name dates (posters-demo-store: order numbers are `ORD-` plus the clock in milliseconds,
 and orders, users and the audit log are stamped at request time), and times of day on the
 pinned day (sivalabs-blog: posts, comments and page views made by `pages.txt` are stamped at
-request time; seeded rows, on earlier days, are still compared). Held-out: the request
+request time; times on earlier days, which most seeded rows have, are still compared; the two
+seeded page views on the pinned day are hidden too). Held-out: the request
 timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
@@ -275,8 +276,9 @@ Per-app environment fixes (in the app's commands, not its code):
   every status, comments, subscribers, a message and page views, all with fixed timestamps) to the
   app's Flyway scripts, keeps `app.init-sample-data` off (it picks random authors and cover
   images), sends mail to the SMTP sink and pins the clock with libfaketime to 2025-06-15 10:00 UTC.
-  All but two test classes import the Testcontainers configuration (PostgreSQL and MailHog), so
-  `test-excludes.txt` lists those 28 and the baseline runs 5 tests. The htmx endpoints (bulk
+  All but two of the 28 test classes import the Testcontainers configuration (PostgreSQL and
+  MailHog), so `test-excludes.txt` lists those 26 and their 2 base classes, and the baseline runs
+  5 tests. The htmx endpoints (bulk
   delete, publish and moderation, newsletter sign-up) are not in `pages.txt`: they match only with
   an `HX-Request` header and render no template. Neither is the profile image upload (multipart),
   nor the invalid profile form, which answers 500 in the app itself.
