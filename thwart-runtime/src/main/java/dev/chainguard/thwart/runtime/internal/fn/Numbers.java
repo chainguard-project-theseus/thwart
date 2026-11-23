@@ -19,15 +19,18 @@ import java.util.Locale;
  * supplied by the compiler; templates pass only the remaining arguments. Formatting follows
  * Thymeleaf's {@code NumberUtils}: the locale's digits, decimal point and grouping separator,
  * which a point type ({@code 'POINT'}, {@code 'COMMA'}, {@code 'WHITESPACE'}, {@code 'DEFAULT'}
- * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Unlike Thymeleaf,
- * rounding is half-up. A {@code null} number formats as {@code null} (renders as nothing).
+ * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Rounding is
+ * half-even, as in Thymeleaf, and a {@code double} or {@code float} rounds from its exact binary
+ * value, as {@code DecimalFormat} rounds it. A {@code null} number formats as {@code null} (renders
+ * as nothing).
  *
  * <p>A number reaching more than 10,000 places from the decimal point, and a digit count
  * ({@code minIntDigits}, {@code minDigits}, {@code decimals}) above 10,000, throw
  * {@link IllegalArgumentException}: the bound of {@link Checks#requireBoundedMagnitude}, whose
  * rationale is on {@code Escapers.messageArgs}. A number of any {@link Number} type but a JDK
- * {@code BigDecimal} (a subclass included) is first converted to one from its {@code toString()},
- * and the converted value is checked and formatted.
+ * {@code BigDecimal} (a subclass included) is first converted to one, a {@code Double} or
+ * {@code Float} exactly and anything else from its {@code toString()}, and the converted value is
+ * checked and formatted.
  * {@code formatPercent} multiplies by 100, which adds two digits.
  */
 @TemplateFunctions("numbers")
@@ -87,7 +90,7 @@ public final class Numbers {
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
-    format.setRoundingMode(RoundingMode.HALF_UP);
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
     return format.format(value);
   }
 
@@ -101,7 +104,7 @@ public final class Numbers {
       return null;
     }
     NumberFormat format = NumberFormat.getCurrencyInstance(locale);
-    format.setRoundingMode(RoundingMode.HALF_UP);
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
     return format.format(toBigDecimal(n));
   }
 
@@ -142,7 +145,7 @@ public final class Numbers {
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
-    format.setRoundingMode(RoundingMode.HALF_UP);
+    format.setRoundingMode(RoundingMode.HALF_EVEN);
     return format.format(value);
   }
 
@@ -192,7 +195,11 @@ public final class Numbers {
     // subclass whose own precision() and scale() say 1, since DecimalFormat copies its toString().
     // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
     // DecimalFormat formats, the converted value.
-    BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
+    // A Double or Float converts exactly: the value Thymeleaf's DecimalFormat rounds (#917).
+    BigDecimal d =
+        n.getClass() == BigDecimal.class
+            ? (BigDecimal) n
+            : n instanceof Double || n instanceof Float ? new BigDecimal(((Number) n).doubleValue()) : new BigDecimal(n.toString());
     return Checks.requireBoundedMagnitude(
         d, "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
   }
