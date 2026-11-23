@@ -211,6 +211,9 @@ final class HtmlSanitizer {
     }
     pos++;
     String name = tagName();
+    if (name.equals("image")) {
+      name = "img"; // HTML's tree builder renames a start tag image to img; svg's is dropped with svg
+    }
     Map<String, String> attrs = attributes();
     if (attrs != null) {
       startTag(name, attrs, selfClosing);
