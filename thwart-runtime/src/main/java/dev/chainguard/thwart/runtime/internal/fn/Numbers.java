@@ -204,8 +204,9 @@ public final class Numbers {
     }
     // Any Number can say 1e999999999 (Gson's LazilyParsedNumber does), and so can a BigDecimal
     // subclass whose own precision() and scale() say 1, since DecimalFormat copies its toString().
-    // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
-    // DecimalFormat formats, the converted value.
+    // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on the
+    // converted value, which DecimalFormat then formats; a finite Double or Float is formatted as its
+    // double instead ({@link #formattable}), which DecimalFormat reads without that risk.
     BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
     return Checks.requireBoundedMagnitude(
         d, "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
