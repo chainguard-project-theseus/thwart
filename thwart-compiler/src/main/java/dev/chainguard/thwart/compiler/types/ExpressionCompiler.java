@@ -365,7 +365,8 @@ public final class ExpressionCompiler {
     if (!sel.isPresent()) {
       return error(s.pos(), "*{" + s.name() + "} can only be used inside t:object: put t:object=\"...\" on this element or an"
           + " enclosing one, or write the full path (owner." + s.name() + "); a fragment doesn't see its caller's"
-          + " t:object, so take the field as a Field parameter");
+          + " t:object, so pass it the object as a parameter and put t:object on that, or, for a form control,"
+          + " take a Field parameter");
     }
     return member(new CompiledExpr(sel.get().code(), sel.get().type(), s.pos()), s.name(), false, false, s.pos());
   }

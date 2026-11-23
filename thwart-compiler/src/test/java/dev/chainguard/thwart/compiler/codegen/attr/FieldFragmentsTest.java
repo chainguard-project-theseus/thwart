@@ -259,7 +259,17 @@ class FieldFragmentsTest {
         .template("form.html", HEAD + "<t:block t:replace=\"~{frag :: f}\"></t:block></form>")
         .compile()
         .assertError("frag.html:1:", "*{firstName} can only be used inside t:object", "a fragment doesn't see its"
-            + " caller's t:object, so take the field as a Field parameter");
+            + " caller's t:object, so pass it the object as a parameter and put t:object on that, or, for a form"
+            + " control, take a Field parameter");
+    // A value: the object as a parameter, with t:object on it.
+    Compilation value = model()
+        .template("frag.html", "<div " + NS + " t:import=\"com.example.*\"><p t:fragment=\"f(Owner o)\" t:object=\"o\""
+            + " t:text=\"*{firstName}\">x</p></div>")
+        .template("form.html", HEAD + "<t:block t:replace=\"~{frag :: f(owner)}\"></t:block></form>")
+        .compile()
+        .assertSuccess();
+    assertEquals("<form><p>Ann</p></form>", render(value, owner(value, "Ann", null), new TestForms()));
+    // A form control: a Field parameter.
     Compilation c = model()
         .template("frag.html", "<div " + NS + "><input t:fragment=\"f(Field name)\" t:field=\"name\" /></div>")
         .template("form.html", HEAD + "<t:block t:replace=\"~{frag :: f('firstName')}\"></t:block></form>")
