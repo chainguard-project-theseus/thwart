@@ -37,9 +37,11 @@ public interface TemplateRegistry {
   }
 
   /**
-   * Renders the template or fragment entry {@code viewName} from a name-to-value model, as the view
-   * resolver does, for code outside a request such as a mail job. Each value is checked against its
-   * parameter's type ({@link TemplateModelException} on a mismatch); a missing one is {@code null}.
+   * Renders the template or fragment entry {@code viewName} from a name-to-value model, for code
+   * outside a request such as a mail job. Each value is checked against its parameter's type
+   * ({@link TemplateModelException} on a mismatch, or when a primitive parameter is missing); a
+   * missing reference-typed value is {@code null}. Unlike the view resolver, a {@code java.util.Date}
+   * is not converted to a {@code java.time} parameter type.
    *
    * @throws IllegalArgumentException if there is no entry {@code viewName}
    */

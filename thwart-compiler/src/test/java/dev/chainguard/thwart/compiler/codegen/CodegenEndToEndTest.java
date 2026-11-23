@@ -100,6 +100,9 @@ class CodegenEndToEndTest {
     assertEquals("<b>3</b>", c.registry().renderToString("mail/welcome :: count", Map.of("n", 3), ctx));
     assertThrows(TemplateModelException.class,
         () -> c.registry().renderToString("mail/welcome", Map.of("name", 1, "n", 2), ctx));
+    // A missing primitive fails; a missing reference is null.
+    assertThrows(TemplateModelException.class, () -> c.registry().renderToString("mail/welcome", Map.of("name", "Ann"), ctx));
+    assertEquals("<div><p></p></div>", c.registry().renderToString("mail/welcome", Map.of("n", 2), ctx));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> c.registry().renderToString("mail/missing", Map.of(), ctx));
     assertEquals("no Thwart template mail/missing", e.getMessage());
