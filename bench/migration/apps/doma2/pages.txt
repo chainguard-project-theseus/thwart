@@ -1,0 +1,123 @@
+# doma2 (sample-web-admin, context path /admin): login (failure, success), the password reset and
+# change pages, and for each master (users, staffs, holidays, codes, code categories, roles) the
+# list with and without search criteria, the new and edit forms invalid and valid, the detail page
+# and removal, and the error pages (404 and 500). Requests run in order against a
+# fresh in-memory H2 loaded by Flyway (start.sh), clock at 2025-06-15 10:00 JST.
+#
+# Each form carries a random _double (double-submit) token: ignored in app.json. pages.txt doesn't
+# send it back, and the app checks it only when it is sent. Invalid posts redirect back to the
+# form, which shows the errors from flash attributes.
+#
+# Not here: /admin/mailTemplates/* and /admin/uploadFiles/list answer 500 in the original, because
+# the controllers name modules/mailTemplate/... and modules/uploadFile/... but the template
+# directories are lower case (it works only on a case-insensitive file system); their four
+# templates are not rendered. The app's own exception handler names its error views
+# /error/404.html, /error/403.html and /error/500.html, which don't resolve, so a missing record
+# or a role without a permission gets Boot's error page with status 500 (one such page is here:
+# /admin/users/show/abc). For the same reason error/403.html is never rendered: access denied
+# redirects to /forbidden, whose view name is /error/403.html too. CSV, Excel and PDF downloads are not HTML. File uploads are multipart.
+
+GET /admin/login
+GET /admin/loginTimeout
+POST /admin/login loginId=test@sample.com&password=wrong
+POST /admin/login loginId=&password=
+GET /admin/login
+POST /admin/login loginId=test@sample.com&password=passw0rd
+GET /admin/
+GET /admin/home
+
+# Users
+GET /admin/users/find
+POST /admin/users/find?page=1 lastName=doe&firstName=&email=
+GET /admin/users/find
+POST /admin/users/find?page=1 lastName=nobody&firstName=&email=
+GET /admin/users/find?init=true
+GET /admin/users/new
+POST /admin/users/new firstName=&lastName=&password=a&passwordConfirm=b&email=bad&zip=&address=&tel=abc
+POST /admin/users/new firstName=Hanako&lastName=Yamada&password=secret1&passwordConfirm=secret1&email=hanako@example.org&zip=1000001&address=Chiyoda <b>1</b>&tel=0312345678
+GET /admin/users/show/1
+GET /admin/users/edit/1
+POST /admin/users/edit/1 firstName=&lastName=doe&password=&passwordConfirm=&email=test@sample.com&zip=&address=&tel=
+POST /admin/users/edit/1 firstName=John&lastName=Doe&password=passw0rd&passwordConfirm=passw0rd&email=test@sample.com&zip=1040061&address=tokyo, chuo-ku 1-2-3&tel=09011112222
+GET /admin/users/find?page=1&sort=id,desc
+GET /admin/users/show/abc
+
+# Staffs
+GET /admin/staffs/find
+POST /admin/staffs/find?page=1 lastName=doe&firstName=&email=
+GET /admin/staffs/new
+POST /admin/staffs/new firstName=&lastName=&password=&passwordConfirm=&email=&tel=
+POST /admin/staffs/new firstName=Taro&lastName=Suzuki&password=norole1&passwordConfirm=norole1&email=norole@example.org&tel=0311112222
+GET /admin/staffs/show/1
+GET /admin/staffs/edit/1
+POST /admin/staffs/edit/1 firstName=&lastName=&password=&passwordConfirm=&email=test@sample.com&tel=
+POST /admin/staffs/edit/1 firstName=john&lastName=doe&password=passw0rd&passwordConfirm=passw0rd&email=test@sample.com&tel=09011112222
+GET /admin/staffs/find?init=true
+
+# Holidays
+GET /admin/holidays/find
+GET /admin/holidays/find?page=2
+POST /admin/holidays/find?page=1 holidayName=元日
+GET /admin/holidays/find?page=1
+GET /admin/holidays/find?init=true
+GET /admin/holidays/new
+POST /admin/holidays/new holidayName=&holidayDate=not-a-date
+POST /admin/holidays/new holidayName=Bench Day&holidayDate=2025/06/16
+GET /admin/holidays/show/1
+GET /admin/holidays/edit/1
+POST /admin/holidays/edit/1 holidayName=&holidayDate=2017/01/01
+POST /admin/holidays/edit/1 holidayName=元日 (edited)&holidayDate=2017/01/01
+GET /admin/holidays/show/2
+POST /admin/holidays/remove/2
+
+# Codes
+GET /admin/codes/find
+POST /admin/codes/find?page=1 categoryCode=GNR0001&codeValue=
+GET /admin/codes/find
+GET /admin/codes/find?init=true
+GET /admin/codes/new
+POST /admin/codes/new categoryCode=&codeValue=&codeName=&codeAlias=&displayOrder=x
+POST /admin/codes/new categoryCode=GNR0003&codeValue=99&codeName=Bench&codeAlias=bench&displayOrder=99
+GET /admin/codes/show/1
+GET /admin/codes/edit/1
+POST /admin/codes/edit/1 categoryCode=GNR0001&codeValue=&codeName=&codeAlias=male&displayOrder=1
+POST /admin/codes/edit/1 categoryCode=GNR0001&codeValue=01&codeName=男性&codeAlias=male&displayOrder=1
+
+# Code categories
+GET /admin/codeCategories/find
+POST /admin/codeCategories/find?page=1 categoryCode=GNR0001&categoryName=
+GET /admin/codeCategories/find
+GET /admin/codeCategories/find?init=true
+GET /admin/codeCategories/new
+POST /admin/codeCategories/new categoryCode=&categoryName=
+POST /admin/codeCategories/new categoryCode=BEN0001&categoryName=Bench category
+GET /admin/codeCategories/show/1
+GET /admin/codeCategories/edit/1
+POST /admin/codeCategories/edit/1 categoryCode=GNR0001&categoryName=
+POST /admin/codeCategories/edit/1 categoryCode=GNR0001&categoryName=性別 (edited)
+
+# Roles
+GET /admin/roles/find
+POST /admin/roles/find?page=1 roleName=admin
+GET /admin/roles/find
+GET /admin/roles/find?init=true
+GET /admin/roles/new
+POST /admin/roles/new roleCode=&roleName=
+POST /admin/roles/new roleCode=bench&roleName=Bench role&permissions[holiday:read]=true&permissions[code:read]=true
+GET /admin/roles/show/1
+GET /admin/roles/edit/1
+POST /admin/roles/edit/1 roleCode=system_admin&roleName=&permissions[holiday:read]=true
+GET /admin/roles/find
+
+# Errors, logout
+GET /admin/no-such-page
+POST /admin/logout
+
+# Password reset and change, logged out
+GET /admin/resetPassword
+POST /admin/resetPassword email=
+POST /admin/resetPassword email=test@sample.com
+GET /admin/resetPassword?token=bad-token
+GET /admin/changePassword
+POST /admin/changePassword token=&password=&passwordConfirm=
+POST /admin/changePassword token=bad-token&password=newpass1&passwordConfirm=newpass1

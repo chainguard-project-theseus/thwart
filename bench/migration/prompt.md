@@ -14,8 +14,8 @@ Done means, and your result is checked against:
 
 1. Every page the application renders is rendered by Thwart. The old view technology (its
    templates, dependency and configuration) is gone.
-2. The application's normal Maven build passes on the JDK it targets, and so do all of its
-   existing tests. Do not delete, disable or weaken tests; update a test only where it asserts on
+2. The application's normal build (Maven, or Gradle for a Gradle project) passes on the JDK it
+   targets, and so do all of its existing tests. Do not delete, disable or weaken tests; update a test only where it asserts on
    details of the old view technology.
 3. Page parity. The check has its own list of requests that covers every page and form state
    (including error pages and forms with validation errors). It starts the original app and

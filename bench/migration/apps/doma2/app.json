@@ -1,0 +1,15 @@
+{
+  "repo": "https://github.com/miyabayt/spring-boot-doma2-sample",
+  "commit": "db0c8315cc493ef8eed5a31e783f8c17ae109353",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "heldout": true,
+  "build": "./gradlew --no-daemon :sample-web-admin:bootJar :sample-web-front:bootJar -x test -x spotlessJava -x spotlessGroovy -x spotlessApply",
+  "test": "./gradlew --no-daemon :sample-web-admin:testClasses :sample-web-front:testClasses -x spotlessJava -x spotlessGroovy -x spotlessApply",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/admin/login",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=name=\"_double\" value=\")\\d+"
+  ]
+}
