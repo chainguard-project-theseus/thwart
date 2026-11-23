@@ -124,7 +124,8 @@ lparam      = ident [ "=" expr ] ;                         (* no value: ?name *)
 interp      = "|" { text | "${" expr "}" | "*{" selpath "}" | message } "|" ;
 fragment    = "~{" fragref "}" ;
 fragref     = [ tplname | "this" ] "::" selector [ "(" [ fargs ] ")" ] ;
-selector    = ident { "-" ident } | "t:block" ;
+selector    = name | "t:block" ;
+name        = ident { "-" ident } ;                        (* also t:fragment's name *)
 fargs       = expr { "," expr } | ident "=" expr { "," ident "=" expr } ;  (* all positional or all named *)
 literal     = "'" chars "'" | int [ "L" ] | decimal | "true" | "false" | "null" ;
 each        = ident [ "," ident ] ":" expr ;
@@ -225,7 +226,8 @@ without `t:params` has no static `render` (it would clash with the instance meth
 `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated code
 (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
 A fragment compiles to a `private static` method in its class and a copy in every class that calls
-it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>`.
+it; one without a `Fragment` parameter also gets a Java-facing `fragment_<name>` (each `-` in the
+name becomes `_`, and two fragments of a template that would get the same method name are an error).
 The registry also has `fragments()`: an entry named `page :: name` per fragment that
 `ContextVerifier.servableFragments` accepts as a response body and that has no `Fragment` or
 `Field` param, adapting the model to the fragment's declared params the same way and calling

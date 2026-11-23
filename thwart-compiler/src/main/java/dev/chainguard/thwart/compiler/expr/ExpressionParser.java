@@ -103,7 +103,7 @@ public final class ExpressionParser {
     return run(text, start, diagnostics, p -> {
       p.ws();
       int at = p.i;
-      String name = p.ident("a fragment name");
+      String name = p.fragmentName("a fragment name");
       List<ParamDecl> params = Backports.listOf();
       if (p.eat("(") && !p.eat(")")) {
         params = p.paramList();
@@ -851,13 +851,9 @@ public final class ExpressionParser {
      * supported.
      */
     String selector() {
-      String name = ident("a fragment or tag name after '::' (markup selectors such as #id and .class are not"
+      String name = fragmentName("a fragment or tag name after '::' (markup selectors such as #id and .class are not"
           + " supported)");
       int start = i - name.length();
-      while (at("-") && identPart(peekAt(1))) {
-        i++;
-        name += "-" + identRaw();
-      }
       if (at(":") && !at("::")) {
         i++;
         String qualified = name + ":" + (identStart(peek()) ? identRaw() : "");
@@ -866,6 +862,16 @@ public final class ExpressionParser {
               + " t:block" + (qualified.equals("th:block") ? " (Thwart's name for th:block)" : ""));
         }
         name = qualified;
+      }
+      return name;
+    }
+
+    /** A name whose parts may be joined by '-': {@code period-selector}, {@code my-card}. */
+    String fragmentName(String what) {
+      String name = ident(what);
+      while (at("-") && identPart(peekAt(1))) {
+        i++;
+        name += "-" + identRaw();
       }
       return name;
     }

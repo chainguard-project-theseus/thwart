@@ -373,6 +373,15 @@ class ExpressionParserTest {
     assertTrue(error("card(a, b)", p).message().startsWith("expected a parameter name after type 'a'"));
     assertTrue(error("card(A a", p).message().startsWith("expected ',' or ')'"));
     assertTrue(error("(A a)", p).message().startsWith("expected a fragment name"));
+
+    // #915: parts joined by '-', as the reference after '::' already allows.
+    assertEquals("period-selector", ok("period-selector(String mode)", p).name());
+    assertEquals("a-b-c1", ok("a-b-c1", p).name());
+    assertTrue(error("a-", p).message().startsWith("unexpected '-'"));
+    assertTrue(error("a--b", p).message().startsWith("unexpected '-'"));
+    assertTrue(error("-a", p).message().startsWith("expected a fragment name"));
+    assertTrue(error("a-(b)", p).message().startsWith("unexpected '-'"));
+    assertTrue(error("t:block", p).message().startsWith("unexpected ':'"));
   }
 
   // ---- rejected constructs (security) ----
