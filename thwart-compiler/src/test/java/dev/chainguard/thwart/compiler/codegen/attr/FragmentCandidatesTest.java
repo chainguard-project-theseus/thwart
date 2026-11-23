@@ -1,6 +1,7 @@
 package dev.chainguard.thwart.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.chainguard.thwart.compiler.testing.Compilation;
@@ -149,6 +150,29 @@ class FragmentCandidatesTest {
         .template("f.html", crossOriginSlot("", "${#frags.pass(body)}"))
         .compile()
         .assertError("@TemplateFunction com.example.Frags.pass parameter f has type dev.chainguard.thwart.runtime.Fragment", "a function may not take a Fragment");
+  }
+
+  /**
+   * A parameter type javac can't access (another class's private nested class) is javac's error, not "may
+   * not take a Fragment": an unresolved type matches any type in isSameType.
+   */
+  @Test
+  void inaccessibleParameterTypeIsNotCalledAFragment() {
+    Compilation c = Compilation.builder()
+        .java("com.example.Rows", "package com.example; public final class Rows { private static final class Row {} }")
+        .java("com.example.Fx", """
+            package com.example;
+            import dev.chainguard.thwart.runtime.*;
+            @TemplateFunctions("fx")
+            public final class Fx {
+              private Fx() {}
+              @TemplateFunction public static String a(Rows.Row r) { return ""; }
+            }
+            """)
+        .template("t.html", "<p " + NS + " t:params=\"String s\" t:text=\"s\">x</p>")
+        .compile()
+        .assertError("com.example.Rows.Row has private access in com.example.Rows");
+    assertFalse(String.join("\n", c.diagnostics()).contains("Fragment"), c.diagnostics().toString());
   }
 
   private static final String OR_NULL_FUNCTION =
