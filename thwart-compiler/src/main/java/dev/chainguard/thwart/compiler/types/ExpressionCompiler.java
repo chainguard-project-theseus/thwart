@@ -427,6 +427,9 @@ public final class ExpressionCompiler {
     String prefix = "";
     String suffix;
     TypeMirror result;
+    if (FIRST_LAST.contains(name) && unordered(type)) {
+      return error(pos, "'" + name + "' works on a List, not on " + describe(type) + ": " + UNORDERED);
+    }
     Builtin builtin = builtin(type, name);
     if (builtin != null) {
       prefix = builtin.prefix();
@@ -449,7 +452,7 @@ public final class ExpressionCompiler {
         return error(
             pos,
             "'" + name + "' is not a property of " + type + ": templates can read record components, public"
-                + " getX()/isX() getters and built-ins (size, isEmpty, length, first, last)"
+                + " getX()/isX() getters and built-ins (size, isEmpty, length, and first and last on a List)"
                 + (isSubtypeOf(type, "java.util.Map") ? "; read a map value by key as m['" + name + "']" : "")
                 + (isSubtypeOf(type, "java.util.Optional") ? "; unwrap the Optional in the view type (orElse(null))" : ""));
       }
@@ -503,6 +506,20 @@ public final class ExpressionCompiler {
     Builtin(String suffix, TypeMirror type) {
       this("", suffix, type);
     }
+  }
+
+  private static final Set<String> FIRST_LAST = Backports.setOf("first", "getFirst", "last", "getLast");
+
+  /** Why a Set has no first or n-th element, and the recipes (#969). */
+  private static final String UNORDERED =
+      "a Set (or another Collection that isn't a List) has no defined order, and a HashSet's changes between runs,"
+          + " so it has no first or n-th element. Loop over it with t:each, or give the view a List in the order"
+          + " the page shows, or the one element the page means";
+
+  /** A Collection that is not a List: no index, no first or last. */
+  private boolean unordered(TypeMirror type) {
+    return type.getKind() == TypeKind.DECLARED && isSubtypeOf(type, "java.util.Collection")
+        && !isSubtypeOf(type, "java.util.List");
   }
 
   private Builtin builtin(TypeMirror type, String name) {
@@ -613,6 +630,8 @@ public final class ExpressionCompiler {
         return error(i.index().pos(), "map key must be a " + k + ", got " + describe(idx.type()));
       }
       code = recv + ".get(" + idx.code() + ")";
+    } else if (unordered(t)) {
+      return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map; " + UNORDERED);
     } else {
       return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map");
     }
