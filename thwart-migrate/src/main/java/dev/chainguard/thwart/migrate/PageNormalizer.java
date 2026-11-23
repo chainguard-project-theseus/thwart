@@ -58,7 +58,9 @@ import org.jsoup.nodes.TextNode;
  * <p>Pages that still differ are compared once more without what Thwart makes a migration change
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
- * {@code <svg>} in a table replaced, {@code <style>} rewritten): equal in that form, in any order,
+ * {@code <svg>} in a table replaced, {@code <style>} rewritten, and what the sanitizer and
+ * {@code css.url} write: link {@code rel} tokens, the {@code user-content-} id prefix, a quoted
+ * {@code url(...)}): equal in that form, in any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
  * a browser, so compare does not pass it. Scripts, styles, {@code data-*} values, queries in
  * custom attributes and which decorative icon sits in a table are not compared in that form, so a
@@ -75,6 +77,15 @@ final class PageNormalizer {
   private static final String FOREIGN = "<svg or its replacement>";
   /** The query of a path, up to a fragment. */
   private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
+  /** The id prefix Thwart's HTML sanitizer writes, so stored ids can't clobber the page's. */
+  private static final String USER_CONTENT = "user-content-";
+  /** The link {@code rel} tokens Thwart's sanitizer and message policy add. */
+  private static final Set<String> SANITIZER_REL =
+      Compat.setOf("nofollow", "noopener", "noreferrer", "ugc");
+  /** A CSS {@code url(...)}, quoted or not, whose URL has no quote, space, paren or escape. */
+  private static final Pattern CSS_URL = Pattern.compile(
+      "url\\(\\s*(?:\"([^\"'()\\\\\\s]*)\"|'([^\"'()\\\\\\s]*)'|([^\"'()\\\\\\s]*))\\s*\\)",
+      Pattern.CASE_INSENSITIVE);
 
   private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
@@ -638,6 +649,9 @@ final class PageNormalizer {
    * A path in an attribute whose name has a {@code -} (other than {@code aria-*}) prints without
    * its query: HTML's own attributes that hold paths have no {@code -}, a template can't compute
    * any other, so a computed query there had to move (into {@code data-*} attributes, say).
+   * Thwart's HTML sanitizer adds {@code rel} tokens to links and the {@code user-content-} prefix
+   * to ids (and to {@code href="#..."} links to them), and {@code css.url} quotes a URL, so those
+   * tokens, that prefix and the quotes around a {@code url(...)} in a {@code style} are dropped.
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
@@ -660,6 +674,21 @@ final class PageNormalizer {
         }
         if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
           value = QUERY.matcher(value).replaceFirst("");
+        }
+        if (tag.equals("a") && name.equals("rel")) {
+          value = withoutSanitizerRel(value);
+          if (value.isEmpty()) {
+            continue;
+          }
+        }
+        if (name.equals("id") && value.startsWith(USER_CONTENT)) {
+          value = value.substring(USER_CONTENT.length());
+        }
+        if (name.equals("href") && value.startsWith("#" + USER_CONTENT)) {
+          value = "#" + value.substring(1 + USER_CONTENT.length());
+        }
+        if (name.equals("style")) {
+          value = unquoteCssUrls(value);
         }
       }
       if (name.equals("class")) {
@@ -691,6 +720,28 @@ final class PageNormalizer {
       }
     });
     return sb.append('>').toString();
+  }
+
+  /** {@code rel} without the tokens Thwart's sanitizer adds, in its own order. */
+  private static String withoutSanitizerRel(String rel) {
+    StringBuilder sb = new StringBuilder();
+    for (String token : rel.split(" ")) {
+      if (!token.isEmpty() && !SANITIZER_REL.contains(token.toLowerCase(Locale.ROOT))) {
+        sb.append(sb.length() == 0 ? "" : " ").append(token);
+      }
+    }
+    return sb.toString();
+  }
+
+  /** Each {@code url("x")} or {@code url('x')} as {@code url(x)}: the same URL to CSS. */
+  static String unquoteCssUrls(String css) {
+    Matcher m = CSS_URL.matcher(css);
+    StringBuffer sb = new StringBuffer();
+    while (m.find()) {
+      String url = m.group(1) != null ? m.group(1) : m.group(2) != null ? m.group(2) : m.group(3);
+      m.appendReplacement(sb, Matcher.quoteReplacement("url(" + url + ")"));
+    }
+    return m.appendTail(sb).toString();
   }
 
   private static String nonNull(String s) {

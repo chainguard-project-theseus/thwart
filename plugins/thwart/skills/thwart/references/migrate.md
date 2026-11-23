@@ -141,7 +141,11 @@ changed, as the recipes in [Output contexts](templates.md#output-contexts) do), 
 attribute whose name has a `-` (other than `aria-*`: `hx-delete="/posts?ids=5"` became
 `hx-delete="/posts"` with a `data-*` attribute and a script that adds the query), and, inside a
 table or `<template>`, an `<svg>` or `<math>` replaced by a decorative element (an `<img alt="">`,
-or an element with no content and `aria-hidden="true"`). Scripts, styles, `data-*` values, the
+or an element with no content and `aria-hidden="true"`), and what the HTML sanitizer and
+`css.url` write where the old page printed stored HTML or a CSS URL as it was: the `rel` tokens
+`nofollow`, `noopener`, `noreferrer` and `ugc` on a link, the `user-content-` prefix on an `id`
+and on an `href="#..."` link to it, and the quotes around a `url(...)` in a `style` attribute.
+Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
 so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
