@@ -359,12 +359,13 @@ document.querySelectorAll('.hint').forEach((el) => {
 If the page re-initializes the plugin after swapping in new HTML, call the same init function on
 the swapped element.
 
-Scripts run in document order, each when the parser reaches it. An inline `<script>` in the page
-content runs before a script at the end of the `<body>`, and so does a plugin that sets itself up
-from `data-*` as soon as it loads (a sparkline) if its `<script>` comes first. If an end-of-body
-script copies JSON values onto the page, code that needs them goes in that script, or in a function
-it calls, not in an inline script above it. Otherwise put the JSON block and the script that reads
-it before that code.
+A classic `<script>` (no `defer`, `async` or `type="module"`) runs when the parser reaches it, so an
+inline script in the page content runs before a classic script at the end of the `<body>` that
+reads the JSON block. Put code that needs the JSON values in that script, or in a function it calls,
+or put the JSON block and its script before that code. A `defer` or module script runs only after
+the whole page is parsed, and an `async` one whenever it has loaded, so neither runs before an inline
+script. A plugin that sets itself up from `data-*` as soon as it loads (a sparkline) never sees
+values added later: pass them through its API, as in the recipe above.
 
 **Rich text and `SafeHtml`.** For stored HTML (articles, bios) that the old page printed raw, write
 `t:utext="html.sanitize(article.text)"`: it keeps basic formatting and checked links and drops
