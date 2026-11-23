@@ -9,7 +9,7 @@
 # --arch      amd64 runs on c4-standard-16, arm64 on c4a-standard-16 (default amd64)
 # --zones     zones to try, in order, until one has capacity
 # --max-run   GCE deletes the VM after this long whatever happens (default 8h)
-# REPS, WARMUP, DURATION and CONCURRENCY pass through to run.sh.
+# REPS, WARMUP, DURATION, CONCURRENCY and ALLOW_UNPASSED pass through to run.sh.
 #
 # It creates the VM (Ubuntu 24.04, spot, no service account), copies HEAD over as a git bundle
 # (commit first: uncommitted changes are not sent) with the results' score.json and diff.patch
