@@ -315,7 +315,8 @@ attributes are copied as written. Port a computed string by what it is for:
 
 | The string is | Recipe |
 |---|---|
-| a request value: `hx-vals`, `hx-headers`, a query in `hx-get` | Hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. |
+| a query in an `hx-get`, `hx-post`, `hx-delete`, ... path | The path without its query, written as is; each value as a number in `t:data-*` (a string in a JSON block); and an `htmx:configRequest` listener that adds them (below). For a GET or DELETE, htmx 2 puts them in the query, so the URL is the same; for a POST or PUT they go in the body, which `@RequestParam` reads too. `compare` counts the page `forced`. |
+| a request value: `hx-vals`, `hx-headers` | Hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. Both change the page, so `compare` counts it `differs`; keep hidden inputs out of a form that other buttons submit, or those send them too. |
 | text for people: a tooltip, a label, a status | `title` or element text. Bootstrap's tooltip reads `title`. |
 | `hx-confirm` text | A static `hx-confirm`, and the text in a hidden element your confirm script reads. |
 | data your own script reads (`el.dataset.x`) | A JSON block or a hidden input the script reads instead. |
@@ -337,6 +338,23 @@ page: write down which recipe caused each `compare` difference, and mask a chang
     <button hx-post="/cart" hx-include="previous input">Add</button>
   </li>
 </ul>
+```
+
+<!-- compile: template guide/recipes/query-data.html -->
+```html
+<ul xmlns:t="https://thwart.chainguard.dev" t:params="List<Long> postIds">
+  <li t:each="id : postIds">
+    <button hx-delete="/admin/posts" t:data-post-id="id">Delete</button>
+  </li>
+</ul>
+```
+
+```js
+// was hx-delete="/admin/posts?postIds=5"
+document.addEventListener('htmx:configRequest', (e) => {
+  const id = e.detail.elt.dataset.postId;
+  if (id !== undefined) e.detail.parameters.postIds = id;
+});
 ```
 
 <!-- compile: template guide/recipes/plugin.html -->
