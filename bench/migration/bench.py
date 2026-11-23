@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,13 +89,27 @@ def checkout(app, dest):
     sh(["git", "-C", dest, "checkout", "-q", "-B", "bench", cfg["commit"]])
 
 
-def docker(mounts, env, cmd, out=None, memory="4g"):
+CREDENTIALS = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
+
+
+def credentials():
+    """The agent's credentials: an API key, or a token from `claude setup-token`."""
+    return {k: os.environ[k] for k in CREDENTIALS if os.environ.get(k)}
+
+
+def docker(mounts, env, cmd, out=None, memory="4g", secrets=None):
+    """secrets go through an --env-file readable only by this user, never the command line."""
     args = ["docker", "run", "--rm", "--init", f"--memory={memory}", "-w", "/work/app", "-v", f"{VOLUME}:{M2}"]
     for host, ctr in mounts:
         args += ["-v", f"{host}:{ctr}"]
     for k, v in env.items():
         args += ["-e", f"{k}={v}"]
-    return subprocess.run(args + [IMAGE] + cmd, stdout=out, stderr=subprocess.STDOUT if out else None)
+    with tempfile.NamedTemporaryFile("w", prefix="bench-env-") as f:
+        if secrets:
+            f.write("".join(f"{k}={v}\n" for k, v in secrets.items()))
+            f.flush()
+            args += ["--env-file", f.name]
+        return subprocess.run(args + [IMAGE] + cmd, stdout=out, stderr=subprocess.STDOUT if out else None)
 
 
 def check(app, app_dir, out_dir, recording=None, browser=False):
@@ -400,11 +415,11 @@ def migrate(app, k, args):
     # and it sees only the checkout and the image's Thwart plugin, which lib/run-agent.sh loads.
     start = time.time()
     with open(os.path.join(run_dir, "transcript.jsonl"), "w") as out:
-        env = {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
-               "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model, "AGENT_BUDGET_USD": args.budget_usd}
+        env = {"PROMPT": prompt, "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model,
+               "AGENT_BUDGET_USD": args.budget_usd}
         if os.environ.get("ANTHROPIC_BASE_URL"):
             env["ANTHROPIC_BASE_URL"] = os.environ["ANTHROPIC_BASE_URL"]
-        p = docker([(app_dir, "/work/app")], env, ["run-agent"], out=out)
+        p = docker([(app_dir, "/work/app")], env, ["run-agent"], out=out, secrets=credentials())
     meta = {"wall_minutes": round((time.time() - start) / 60, 1), "exit": p.returncode,
             "model": args.model, "budget_usd": args.budget_usd, "budget_minutes": args.minutes}
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
@@ -520,8 +535,8 @@ def main():
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             list(ex.map(baseline, names))
     if args.cmd in ("all", "migrate"):
-        if "ANTHROPIC_API_KEY" not in os.environ:
-            sys.exit("ANTHROPIC_API_KEY is required")
+        if not credentials():
+            sys.exit("ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is required")
         tasks = [(a, k) for k in range(args.first_run, args.first_run + args.runs) for a in names]
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             list(ex.map(baseline_browser, names))  # for a baseline recorded before #790

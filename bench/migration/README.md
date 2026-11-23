@@ -9,7 +9,7 @@ local and not committed.
 
 ## Run it
 
-Needs Docker (about 4 GB of memory per job), Python 3 and `ANTHROPIC_API_KEY`.
+Needs Docker (about 4 GB of memory per job), Python 3, and `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (a token from `claude setup-token`, which runs under a Claude subscription and its usage limits; the run's cost in `agent.json` is then what the same use would cost through the API). Either reaches the agent's container through an env file, not the command line.
 
 ```sh
 bench/migration/run.sh --runs 3                # milestone: image, baselines, 3 runs of every app, summary
