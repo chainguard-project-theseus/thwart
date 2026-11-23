@@ -59,7 +59,7 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * a CSRF token input added, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write: link {@code rel}
+ * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write: link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
  * any order,
  * is {@link Verdict#FORCED}. It still differs from the old page, and its scripts need checking in
@@ -78,6 +78,9 @@ final class PageNormalizer {
   private static final String FOREIGN = "<svg or its replacement>";
   /** The query of a path, up to a fragment. */
   private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
+  /** The public ids of HTML 4.0, 4.01 and XHTML 1.0, 1.1 (Strict, Transitional, Frameset). */
+  private static final Pattern LEGACY_DOCTYPE = Pattern.compile(
+      "-//W3C//DTD (?:HTML 4\\.01?|XHTML 1\\.[01])(?: (?:Strict|Transitional|Frameset))?//EN");
   /** The id prefix Thwart's HTML sanitizer writes, so stored ids can't clobber the page's. */
   private static final String USER_CONTENT = "user-content-";
   /** The link {@code rel} tokens Thwart's sanitizer and message policy add. */
@@ -290,7 +293,8 @@ final class PageNormalizer {
             children(node, expandPrelude, forced)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
-        out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
+        out.add(new Line(forced && isLegacyDoctype(dt) ? "<!doctype html>"
+            : "<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
             Collections.<Line>emptyList()));
       }
       // Comments and other nodes are dropped; text either side of them joins.
@@ -697,6 +701,14 @@ final class PageNormalizer {
 
   private static boolean isWhitespace(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+  }
+
+  /**
+   * An HTML 4 or XHTML 1.x doctype. Thwart's verifier accepts only {@code <!DOCTYPE html>}, so a
+   * port has to replace one of these; the forced form prints them as that.
+   */
+  private static boolean isLegacyDoctype(DocumentType dt) {
+    return dt.name().equalsIgnoreCase("html") && LEGACY_DOCTYPE.matcher(dt.publicId()).matches();
   }
 
   private static String publicId(DocumentType dt) {

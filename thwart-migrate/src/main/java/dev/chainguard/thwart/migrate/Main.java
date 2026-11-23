@@ -40,7 +40,7 @@ public final class Main {
       "pages from the new app and prints same, reordered, forced (differs only in what Thwart",
       "forces: on* handlers, javascript: and # links, data-* attributes, scripts and styles,",
       "queries in custom attributes, svg in tables, sanitizer rel and ids, quoted CSS urls,",
-      "xmlns, CSRF inputs, removed -on: attributes; see the guide) or differs",
+      "xmlns, legacy doctypes, CSRF inputs, removed -on: attributes; see the guide) or differs",
       "(all but same with a diff) per page;",
       "it exits 0 only if every page has its recorded status and final URL and is the same or",
       "reordered. --ignore REGEX (repeatable) deletes the matches from both pages before comparing.");

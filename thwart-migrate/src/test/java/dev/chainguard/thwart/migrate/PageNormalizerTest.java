@@ -151,6 +151,11 @@ class PageNormalizerTest {
       math in a template replaced    | <template><p>x<math><mi>y</mi></math></p></template> | <template><p>x<i class="m" aria-hidden="true"></i></p></template>
       style rewritten                | <style>#bar-3 { width: 40% }</style><div id="bar-3"></div> | <div id="bar-3" data-progress="40"></div>
       html comment in a script       | <script><!-- menu\\ntoggle();</script>     | <script>// menu\\ntoggle();</script>
+      xhtml 1.0 transitional doctype | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      xhtml 1.0 strict doctype       | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      xhtml 1.1 doctype              | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      html 4.01 doctype              | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      html 4.01 frameset doctype     | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
       hx-on removed                  | <form hx-on::after-request="h()" hx-post="/s"></form> | <form hx-post="/s"></form>
       hx-on colon form removed       | <button hx-on:htmx:before-request="c(event)">D</button> | <button>D</button>
       alpine x-on removed            | <button x-on:click="open = true">O</button> | <button data-action="open">O</button>
@@ -204,6 +209,11 @@ class PageNormalizerTest {
       svg to a visible element       | <table><tr><td><svg></svg></td></tr></table> | <table><tr><td><span class="icon"></span></td></tr></table>
       span with text in a cell       | <table><tr><td><span class="b">new</span></td></tr></table> | <table><tr><td><span class="b">old</span></td></tr></table>
       width moved to a class         | <style>#b { width: 40% }</style><div id="b"></div> | <div id="b" class="w-40"></div>
+      doctype removed                | <!DOCTYPE html><p>x</p>                   | <p>x</p>
+      legacy doctype removed         | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <p>x</p>
+      html 3.2 doctype replaced      | <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><p>x</p> | <!DOCTYPE html><p>x</p>
+      other public id replaced       | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN" "http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd"><p>x</p> | <!DOCTYPE html><p>x</p>
+      legacy doctype and text changed | <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><p>x</p> | <!DOCTYPE html><p>y</p>
       other rel token added          | <a href="/p">p</a>                        | <a href="/p" rel="external">p</a>
       rel on a non-link              | <link href="/s.css">                      | <link href="/s.css" rel="noopener">
       other id prefix                | <h2 id="intro">I</h2>                     | <h2 id="post-intro">I</h2>
