@@ -1,0 +1,102 @@
+# sivalabs-blog: every template, anonymous and logged in (admin, then a new author), and both
+# states of every form a browser posts without script. Requests run in order against a fresh
+# PostgreSQL with Flyway's seed (users, categories, tags, settings) plus flyway/V100__bench_seed.sql
+# (posts in every status, comments, subscribers, a message, page views); clock at 2025-06-15 10:00.
+#
+# Not here: the htmx endpoints (hx-delete/hx-put on /admin/posts, /admin/comments, /admin/tags,
+# /admin/messages, /admin/subscribers and hx-post /newsletter/subscribe). They are matched only
+# with an HX-Request header, which pages.txt can't send, and they render no template (an
+# HX-Refresh or a plain string). The profile image upload is multipart. index.html is never
+# rendered: / redirects to /posts. Error pages: 404 (a missing post), 500 (bad parameters, and an
+# unknown path, which the app's catch-all exception handler answers) and 403 (the author on
+# /admin/users).
+
+# Anonymous
+GET /
+GET /posts
+GET /posts?page=2
+GET /posts/search?q=spring
+GET /categories/spring-boot/posts
+GET /tags/java/posts
+GET /posts/getting-started-with-spring-boot-3
+GET /posts/securing-apis-with-oauth
+POST /posts/getting-started-with-spring-boot-3/comments postId=1&name=&email=bad&content=
+POST /posts/getting-started-with-spring-boot-3/comments postId=1&name=Erin&email=erin@example.org&content=Nice <i>post</i> %26 thanks
+GET /contact
+POST /contact/messages name=&email=nope&subject=&content=
+POST /contact/messages name=Frank&email=frank@example.org&subject=Hello&content=Hi <b>there</b>
+GET /posts/no-such-post
+GET /admin/dashboard
+
+# Log in as admin
+GET /login
+POST /login username=admin@gmail.com&password=wrong
+POST /login username=admin@gmail.com&password=admin
+GET /admin/dashboard
+
+# Posts: create (invalid, then valid), edit (invalid, then valid), lists
+GET /admin/posts/new
+POST /admin/posts title=&mdContent=&category=&tags=&status=PUBLISHED
+POST /admin/posts title=Bench Post One&mdContent=# Hello <b>bold</b> %26 more&category=java&tags=java,thymeleaf&status=PUBLISHED
+GET /admin/posts/new
+POST /admin/posts title=Second Post&mdContent=Plain *text* with a [link](https://example.org).&category=spring-boot&tags=spring-boot&status=DRAFT
+GET /admin/posts
+GET /admin/posts?page=2
+GET /admin/posts/1/edit
+POST /admin/posts/1 _method=put&title=&mdContent=&category=spring-boot&tags=spring-boot&status=PUBLISHED
+POST /admin/posts/1 _method=put&title=Getting Started with Spring Boot 3.5&mdContent=Spring Boot 3.5 needs **Java 17**.&category=spring-boot&tags=spring-boot,maven&status=PUBLISHED
+GET /admin/posts/99999/edit
+GET /no-such-page
+GET /admin/posts?page=x
+GET /posts
+GET /posts/bench-post-one
+GET /categories/java/posts
+GET /tags/thymeleaf/posts
+
+# Comments, categories, tags, messages, subscribers
+GET /admin/comments
+GET /admin/categories
+POST /admin/categories label=&slug=
+POST /admin/categories label=Java Again&slug=java
+POST /admin/categories label=Kotlin&slug=kotlin
+GET /admin/tags
+GET /admin/messages
+GET /admin/subscribers
+
+# Settings: invalid, then valid with comment auto-approval on; a comment is then approved at once
+GET /admin/settings
+POST /admin/settings _method=put&id=100&adminContactName=&adminContactEmail=&adminContactAddress=&adminContactTwitter=&adminContactGithub=&adminContactLinkedin=&adminContactYoutube=&_autoApproveComment=on
+POST /admin/settings _method=put&id=100&adminContactName=Bench Admin&adminContactEmail=bench@example.org&adminContactAddress=Somewhere 1&adminContactTwitter=https://x.com/bench&adminContactGithub=https://github.com/bench&adminContactLinkedin=&adminContactYoutube=&autoApproveComment=true&_autoApproveComment=on
+GET /posts/bench-post-one
+POST /posts/bench-post-one/comments postId=100&name=Grace&email=grace@example.org&content=Approved at once
+
+# Users: invalid, duplicate e-mail, valid
+GET /admin/users
+POST /admin/users name=&email=&password=&role=ROLE_AUTHOR
+POST /admin/users name=Dup&email=admin@gmail.com&password=x&role=ROLE_AUTHOR
+POST /admin/users name=Writer&email=writer@example.org&password=writer&role=ROLE_AUTHOR
+
+# Analytics, a few admin requests (not counted as page views) after the last public page, whose
+# view is recorded asynchronously
+GET /admin/analytics
+GET /admin/analytics/page-details?path=/posts/getting-started-with-spring-boot-3
+GET /admin/analytics/page-details
+
+
+# My profile: profile (valid only: an invalid profile answers 500 upstream, its error branch
+# does not put the password form in the model), password (empty, mismatch, wrong old, valid; unchanged)
+GET /my-profile
+POST /my-profile _method=put&id=1&name=SivaLabs Admin&email=admin@gmail.com&bio=Writes about <b>Java</b>.
+POST /my-profile/password _method=put&id=1&oldPassword=&newPassword=&confirmPassword=
+POST /my-profile/password _method=put&id=1&oldPassword=admin&newPassword=one&confirmPassword=two
+POST /my-profile/password _method=put&id=1&oldPassword=wrong&newPassword=admin&confirmPassword=admin
+POST /my-profile/password _method=put&id=1&oldPassword=admin&newPassword=admin&confirmPassword=admin
+
+# Log out, then log in as the new author: admin-only pages are forbidden
+POST /logout
+GET /login
+POST /login username=writer@example.org&password=writer
+GET /admin/dashboard
+GET /admin/posts
+GET /admin/users
+GET /my-profile
