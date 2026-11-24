@@ -86,14 +86,14 @@ start() {
 # stop: ends everything the start command left (its session, and the PostgreSQL that pg_ctl
 # detaches), and removes the start scripts' state under /tmp, so the next start is a first one.
 stop() {
-  kill -- "-$group" 2> /dev/null; pkill -f java; pkill -f postgres
+  kill -- "-$group" 2> /dev/null; pkill -f java; pkill -f postgres; pkill -x mysqld
   sleep 2
-  kill -9 -- "-$group" 2> /dev/null; pkill -9 -f java; pkill -9 -f postgres
+  kill -9 -- "-$group" 2> /dev/null; pkill -9 -f java; pkill -9 -f postgres; pkill -9 -x mysqld
   for _ in $(seq 1 100); do
     [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE$READY")" = 000 ] && break
     sleep 0.2
   done
-  rm -rf /tmp/pgdata /tmp/ewp-* /tmp/posters-* /tmp/luckyblog.cp /tmp/h2
+  rm -rf /tmp/pgdata /tmp/ewp-* /tmp/posters-* /tmp/luckyblog.cp /tmp/h2 /tmp/mysql /tmp/mysql.sock* /tmp/mysql.pid /tmp/mysql*.log
   sleep 1
 }
 
