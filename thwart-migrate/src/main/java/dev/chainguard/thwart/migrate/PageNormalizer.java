@@ -1176,7 +1176,8 @@ final class PageNormalizer {
    * Thwart's escapers write it: a control other than ASCII whitespace (U+0000-U+001F but tab, LF,
    * FF and CR, and U+007F-U+009F), a noncharacter (U+FDD0-U+FDEF, U+xFFFE, U+xFFFF) or a lone
    * surrogate. A stray control in a message (a mis-decoded U+0081) then compares equal to
-   * the U+FFFD Thwart writes for it; any other changed character still differs.
+   * the U+FFFD Thwart writes for it; any other changed character still differs. Seen on espd, a
+   * held-out app: an exception to the held-out rule, approved by the owner (#1007).
    */
   static String asThwartWrites(String s) {
     StringBuilder sb = null;
