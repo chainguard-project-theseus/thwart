@@ -189,6 +189,7 @@ class PageNormalizerTest {
       data-hx- rename encoded        | <form hx-get="/a b"></form>               | <form data-hx-get="/a%20b"></form>
       data-hx- query moved and encoded | <a hx-get="/c/World of Nature?page=2">n</a> | <a data-hx-get="/c/World%20of%20Nature" data-page="2">n</a>
       csrf input kept out of an hx-delete | <form hx-delete="/c/2" method="post"></form> | <form data-hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
+      hx-params not _csrf kept       | <form hx-delete="/c/2" hx-params="not _csrf" method="post" onsubmit="s()"><input type="hidden" name="_csrf" value="t"></form> | <form data-action="s" hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -208,7 +209,8 @@ class PageNormalizerTest {
       encoded text                   | <p>a b</p>                                | <p>a%20b</p>
       encoded title                  | <a title="a b">x</a>                      | <a title="a%20b">x</a>
       hx-params without a csrf input | <form hx-delete="/c/2" method="post"></form> | <form hx-delete="/c/2" hx-params="not _csrf" method="post"></form>
-      hx-params on a get form        | <form hx-delete="/c/2"></form>            | <form hx-delete="/c/2" hx-params="not _csrf"><input type="hidden" name="_csrf" value="t"></form>
+      hx-params on a get form        | <form hx-delete="/c/2"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" hx-params="not _csrf"><input type="hidden" name="_csrf" value="t"></form>
+      hx-params not _csrf lost       | <form hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" method="post"><input type="hidden" name="_csrf" value="t"></form>
       other hx-params                | <form hx-delete="/c/2" method="post"></form> | <form hx-delete="/c/2" hx-params="none" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx-params changed              | <form hx-params="q" method="post"></form> | <form hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx- attribute replaced         | <a hx-get="/p" href="/p">p</a>            | <a hx-boost="true" href="/p">p</a>

@@ -237,6 +237,10 @@ final class PageNormalizer {
     if (csrfInputs(db) < csrfInputs(da)) {
       return Verdict.DIFFERS;
     }
+    // Nor does a port lose the guide's hx-params="not _csrf", which keeps the token out of a URL.
+    if (tokenParams(db) < tokenParams(da)) {
+      return Verdict.DIFFERS;
+    }
     dropRemovedInlineCode(da, db);
     dropCustomMovedToData(da, db);
     dropMicrodataMovedToJsonLd(da, db);
@@ -612,7 +616,8 @@ final class PageNormalizer {
    * Whether {@code form} holds a CSRF token input that {@link #isCsrfInput} sets aside. The guide
    * has a form that only htmx submits say {@code hx-params="not _csrf"}, so that htmx 2 doesn't
    * put the token Thwart added into an {@code hx-delete} URL; the forced form drops that
-   * attribute with the token input, and nowhere else.
+   * attribute with the token input, and nowhere else. {@link #compare} counts these forms, so a
+   * page that lost one still differs.
    */
   private static boolean hasCsrfInput(Element form) {
     for (Element child : form.children()) {
@@ -621,6 +626,18 @@ final class PageNormalizer {
       }
     }
     return false;
+  }
+
+  /** How many token forms ({@link #hasCsrfInput}) say {@code hx-params="not _csrf"}. */
+  private static int tokenParams(Document d) {
+    int n = 0;
+    for (Element form : d.select("form[hx-params]")) {
+      if (Compat.strip(WS.matcher(form.attr("hx-params")).replaceAll(" ")).equals("not _csrf")
+          && hasCsrfInput(form)) {
+        n++;
+      }
+    }
+    return n;
   }
 
   private static String asciiLower(String s) {
