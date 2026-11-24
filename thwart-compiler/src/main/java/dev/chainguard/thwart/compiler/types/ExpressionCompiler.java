@@ -427,9 +427,6 @@ public final class ExpressionCompiler {
     String prefix = "";
     String suffix;
     TypeMirror result;
-    if (FIRST_LAST.contains(name) && unordered(type)) {
-      return error(pos, "'" + name + "' works on a List, not on " + describe(type) + ": " + UNORDERED);
-    }
     Builtin builtin = builtin(type, name);
     if (builtin != null) {
       prefix = builtin.prefix();
@@ -448,6 +445,10 @@ public final class ExpressionCompiler {
       // An ArrayList or TreeMap is read as its List or Map: only the interface's getters.
       TypeMirror owner = safety.containerView(type);
       ExecutableElement accessor = owner.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) owner, name, call) : null;
+      if (accessor == null && FIRST_LAST.contains(name) && unordered(type)) {
+        // Only when the type declares no such getter itself (#969).
+        return error(pos, "'" + name + "' works on a List, not on " + describe(type) + ": " + noIndex(type));
+      }
       if (accessor == null) {
         return error(
             pos,
@@ -510,11 +511,14 @@ public final class ExpressionCompiler {
 
   private static final Set<String> FIRST_LAST = Backports.setOf("first", "getFirst", "last", "getLast");
 
-  /** Why a Set has no first or n-th element, and the recipes (#969). */
-  private static final String UNORDERED =
-      "only a List has an index, a first and a last. A Set has no defined order (a HashSet's changes between"
-          + " runs), so it has no first or n-th element. Loop over it with t:each, or give the view a List in the"
-          + " order the page shows, or the one element the page means";
+  /** Why a Set or another Collection that isn't a List has no index, first or last, and the recipes (#969). */
+  private String noIndex(TypeMirror type) {
+    String recipe = "Loop over it with t:each, or give the view a List in the order the page shows, or the one"
+        + " element the page means";
+    return isSubtypeOf(type, "java.util.Set")
+        ? "a Set has no defined order (a HashSet's changes between runs), so it has no first or n-th element. " + recipe
+        : "only a List has an index, a first and a last. " + recipe;
+  }
 
   /** A Collection that is not a List: no index, no first or last. */
   private boolean unordered(TypeMirror type) {
@@ -631,7 +635,7 @@ public final class ExpressionCompiler {
       }
       code = recv + ".get(" + idx.code() + ")";
     } else if (unordered(t)) {
-      return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map; " + UNORDERED);
+      return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map; " + noIndex(t));
     } else {
       return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map");
     }
