@@ -263,16 +263,29 @@ public interface Expr {
     }
   }
 
-  /** {@code target[index]} on a List, array or Map. */
+  /**
+   * {@code target[index]} on a List, array or Map. Null-safe ({@code null} when {@code target} is)
+   * only in a form field path, which {@code FormPaths} builds; the grammar has no null-safe index.
+   */
   final class Index implements Expr {
     private final Expr target;
     private final Expr index;
+    private final boolean nullSafe;
     private final SourcePos pos;
 
     public Index(Expr target, Expr index, SourcePos pos) {
+      this(target, index, false, pos);
+    }
+
+    public Index(Expr target, Expr index, boolean nullSafe, SourcePos pos) {
       this.target = target;
       this.index = index;
+      this.nullSafe = nullSafe;
       this.pos = pos;
+    }
+
+    public boolean nullSafe() {
+      return nullSafe;
     }
 
     public Expr target() {
@@ -295,6 +308,7 @@ public interface Expr {
       Index that = (Index) o;
       return Objects.equals(target, that.target)
           && Objects.equals(index, that.index)
+          && nullSafe == that.nullSafe
           && Objects.equals(pos, that.pos);
     }
 
@@ -302,13 +316,14 @@ public interface Expr {
     public int hashCode() {
       int h = Objects.hashCode(target);
       h = 31 * h + Objects.hashCode(index);
+      h = 31 * h + Boolean.hashCode(nullSafe);
       h = 31 * h + Objects.hashCode(pos);
       return h;
     }
 
     @Override
     public String toString() {
-      return "Index[target=" + target + ", index=" + index + ", pos=" + pos + "]";
+      return "Index[target=" + target + ", index=" + index + ", nullSafe=" + nullSafe + ", pos=" + pos + "]";
     }
   }
 

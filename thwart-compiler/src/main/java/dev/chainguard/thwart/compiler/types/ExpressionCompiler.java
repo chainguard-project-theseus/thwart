@@ -590,19 +590,21 @@ public final class ExpressionCompiler {
       return null;
     }
     TypeMirror t = normalize(target.type());
+    // A null-safe index (a form field path step, #971) reads the receiver once, through Values.nav.
+    String recv = i.nullSafe() ? "v$$" + (++lambdas) : target.code();
     String code;
     TypeMirror result;
     if (t.getKind() == TypeKind.ARRAY) {
       if (!isIntIndexBoxed(idx.type())) {
         return error(i.index().pos(), "array index must be an int, got " + describe(idx.type()));
       }
-      code = target.code() + "[" + idx.code() + "]";
+      code = recv + "[" + idx.code() + "]";
       result = normalize(((ArrayType) t).getComponentType());
     } else if (t.getKind() == TypeKind.DECLARED && isSubtypeOf(t, "java.util.List")) {
       if (!isIntIndexBoxed(idx.type())) {
         return error(i.index().pos(), "list index must be an int, got " + describe(idx.type()));
       }
-      code = target.code() + ".get(" + idx.code() + ")";
+      code = recv + ".get(" + idx.code() + ")";
       result = typeArg(t, "java.util.List", 0);
     } else if (t.getKind() == TypeKind.DECLARED && isSubtypeOf(t, "java.util.Map")) {
       TypeMirror k = typeArg(t, "java.util.Map", 0);
@@ -610,7 +612,7 @@ public final class ExpressionCompiler {
       if (k != null && !types().isAssignable(idx.type(), k)) {
         return error(i.index().pos(), "map key must be a " + k + ", got " + describe(idx.type()));
       }
-      code = target.code() + ".get(" + idx.code() + ")";
+      code = recv + ".get(" + idx.code() + ")";
     } else {
       return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map");
     }
@@ -620,6 +622,10 @@ public final class ExpressionCompiler {
     Optional<String> bad = safety.neverViewSafeReason(result);
     if (bad.isPresent() && !pathOnly) {
       return error(i.pos(), "cannot index " + t + ": " + bad.get());
+    }
+    if (i.nullSafe()) {
+      result = box(result);
+      code = "((" + JavaStrings.typeName(result) + ") " + VALUES + ".nav(" + target.code() + ", " + recv + " -> " + code + "))";
     }
     return new CompiledExpr(code, result, i.pos());
   }
