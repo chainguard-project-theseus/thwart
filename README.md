@@ -9,6 +9,16 @@ or a `javascript:` URL, relative to the pinned WHATWG parser and the documented 
 What page scripts or a client framework do with the DOM afterwards is outside the guarantee, with
 the strict CSP as a backstop ([§9](docs/security-model.md#9-known-gaps)).
 
+## About Chainguard Project Theseus
+
+Thwart is part of [Chainguard Project Theseus](https://github.com/chainguard-project-theseus), an
+effort to rebuild the core components of open source and eliminate entire
+classes of bugs. Each Guarded Component replaces a core open source
+component and is built so a whole class of bugs isn't possible in it.
+
+**Status:** experimental. Try it in a test environment, and file an issue
+in [chainguard-project-theseus/feedback](https://github.com/chainguard-project-theseus/feedback/issues) if something breaks or the migration misses something. We aren't accepting pull requests.
+
 ## What it looks like
 
 ```html
@@ -197,8 +207,10 @@ We don't accept pull requests from external contributors. If you and your
 organization would seriously like to get involved, email
 dlorenc@chainguard.dev.
 
-Use of the Thwart and Chainguard names is governed by Chainguard's
-trademark policy.
+## Trademark
+
+Chainguard, Thwart and challoc are trademarks of Chainguard, Inc., governed by Chainguard's Trademark Use Policy. Thymeleaf, JSP, FreeMarker, Spring and Claude Code belong to their owners; no affiliation or endorsement is implied.
+
 
 ## Where to go next
 
