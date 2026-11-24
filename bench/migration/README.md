@@ -194,8 +194,10 @@ form prints the new user's password hash, which has a random salt), and times of
 permission lists of the API scopes (balaka: records saved by the forms, the audit log, print
 pages, the data-subject export and the error page are stamped at request time, while the date is
 still compared; each scope prints its permissions from a hash set, in no fixed order). Held-out: the request
-timestamp and the webjar version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
-segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
+timestamp, the webjar version segment and the starter's filter frames (purl-server: Boot's error
+page prints the date and time of the request; its admin error page prints the stack trace, where a
+migrated app has three more frames for Thwart's `CspFilter`; the webjar segment as above), the
+invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
 the webjar version segment (budgetmaster, as above), the free-memory figures on the admin
 monitor page (luckyblog: read from the operating system), and the time each manifest was last

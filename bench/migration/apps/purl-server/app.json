@@ -11,6 +11,7 @@
   "base": "http://localhost:8080",
   "ignore": [
     "\\w{3} \\w{3} \\d\\d \\d\\d:\\d\\d:\\d\\d \\w+ \\d{4}",
-    "(?<=/webjars/[\\w.-]{1,40}/)v?\\d+(\\.\\d+)+[\\w.-]*/"
+    "(?<=/webjars/[\\w.-]{1,40}/)v?\\d+(\\.\\d+)+[\\w.-]*/",
+    "\\s+at dev\\.chainguard\\.thwart\\.spring\\.view\\.CspFilter\\.doFilter\\(CspFilter\\.java:\\d+\\)\\s+at org\\.apache\\.catalina\\.core\\.ApplicationFilterChain\\.internalDoFilter\\(ApplicationFilterChain\\.java:\\d+\\)\\s+at org\\.apache\\.catalina\\.core\\.ApplicationFilterChain\\.doFilter\\(ApplicationFilterChain\\.java:\\d+\\)"
   ]
 }
