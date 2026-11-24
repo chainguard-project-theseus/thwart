@@ -512,9 +512,9 @@ public final class ExpressionCompiler {
 
   /** Why a Set has no first or n-th element, and the recipes (#969). */
   private static final String UNORDERED =
-      "a Set (or another Collection that isn't a List) has no defined order, and a HashSet's changes between runs,"
-          + " so it has no first or n-th element. Loop over it with t:each, or give the view a List in the order"
-          + " the page shows, or the one element the page means";
+      "only a List has an index, a first and a last. A Set has no defined order (a HashSet's changes between"
+          + " runs), so it has no first or n-th element. Loop over it with t:each, or give the view a List in the"
+          + " order the page shows, or the one element the page means";
 
   /** A Collection that is not a List: no index, no first or last. */
   private boolean unordered(TypeMirror type) {

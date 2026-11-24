@@ -26,11 +26,11 @@ class UnorderedCollectionTest {
   void indexAndFirstOnASetSayWhyAndWhatToWrite() {
     for (String expr : List.of("m.set[0].name", "m.all[0].name")) {
       compile("<p t:text=\"" + expr + "\">x</p>")
-          .assertError("a.html:1:", "cannot index java.util.", "has no defined order", "Loop over it with t:each");
+          .assertError("a.html:1:", "cannot index java.util.", "only a List has an index", "A Set has no defined order", "Loop over it with t:each");
     }
     for (String expr : List.of("m.set.first.name", "m.set.last.name", "m.all.getFirst().name")) {
       compile("<p t:text=\"" + expr + "\">x</p>")
-          .assertError("a.html:1:", "works on a List, not on java.util.", "has no defined order", "give the view a List");
+          .assertError("a.html:1:", "works on a List, not on java.util.", "A Set has no defined order", "give the view a List");
     }
   }
 
