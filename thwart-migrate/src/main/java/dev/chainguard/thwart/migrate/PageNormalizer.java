@@ -465,7 +465,8 @@ final class PageNormalizer {
    * element that already had a title is skipped, and the value must be non-empty. Only the old
    * page changes, so the comparison still checks that the title sits on the same element: a
    * title moved to another element, one with another value, or one more than the lost attributes
-   * still differs, and a lost {@code data-*} with no new title is set aside as before.
+   * still differs, and a lost {@code data-*} with no new title is set aside as before. Seen on
+   * budgetmaster, a held-out app: an exception to the held-out rule, approved by the owner (#1009).
    */
   private static void addTitlesFromData(Document old, Document now) {
     Map<String, Integer> lost = new HashMap<>();
