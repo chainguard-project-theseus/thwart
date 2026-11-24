@@ -59,7 +59,8 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added,
+ * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
+ * (with {@code hx-params="not _csrf"} on its form),
  * a custom attribute moved to {@code data-*} with its value, a URL percent-encoded where a
  * browser encodes it anyway, a {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
@@ -234,6 +235,10 @@ final class PageNormalizer {
     }
     // Thwart adds CSRF inputs and never removes one, so a page that lost one still differs.
     if (csrfInputs(db) < csrfInputs(da)) {
+      return Verdict.DIFFERS;
+    }
+    // Nor does a port lose the guide's hx-params="not _csrf", which keeps the token out of a URL.
+    if (tokenParams(db) < tokenParams(da)) {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
@@ -605,6 +610,41 @@ final class PageNormalizer {
         && asciiLower(e.attr("name")).contains("csrf")
         && form != null && form.normalName().equals("form")
         && asciiLower(form.attr("method")).equals("post");
+  }
+
+  /**
+   * Whether {@code form} holds a CSRF token input that {@link #isCsrfInput} sets aside. The guide
+   * has a form that only htmx submits say {@code hx-params="not _csrf"}, so that htmx 2 doesn't
+   * put the token Thwart added into an {@code hx-delete} URL; the forced form drops that
+   * attribute with the token input, and nowhere else. {@link #compare} counts these forms, so a
+   * page that lost one still differs.
+   */
+  private static boolean hasCsrfInput(Element form) {
+    for (Element child : form.children()) {
+      if (isCsrfInput(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * How many token forms ({@link #hasCsrfInput}) say {@code hx-params="not _csrf"}, or
+   * {@code data-hx-params}, which htmx also reads. Counted page-wide, as {@link #csrfInputs} is,
+   * so the attribute moved from one token form to another still compares forced.
+   */
+  private static int tokenParams(Document d) {
+    int n = 0;
+    for (Element form : d.select("form[hx-params], form[data-hx-params]")) {
+      // As the forced form reads it: data-hx-params stands for hx-params when that is absent.
+      String params = form.hasAttr("hx-params") ? form.attr("hx-params")
+          : form.attr("data-hx-params");
+      if (Compat.strip(WS.matcher(params).replaceAll(" ")).equals("not _csrf")
+          && hasCsrfInput(form)) {
+        n++;
+      }
+    }
+    return n;
   }
 
   private static String asciiLower(String s) {
@@ -1024,6 +1064,8 @@ final class PageNormalizer {
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
+    // Before iterating: jsoup caches the child list in the attributes.
+    boolean tokenForm = forced && tag.equals("form") && hasCsrfInput(e);
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
       String name = a.getKey().toLowerCase();
@@ -1036,6 +1078,7 @@ final class PageNormalizer {
           name = name.substring(5);
         }
         if (HANDLER.matcher(name).matches()
+            || tokenForm && name.equals("hx-params") && value.equals("not _csrf")
             || name.equals("href") && (value.equals("#")
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
             || name.startsWith("data-")
