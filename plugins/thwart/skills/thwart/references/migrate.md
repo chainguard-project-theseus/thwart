@@ -165,7 +165,9 @@ such a form for htmx), a custom attribute (a name HTML doesn't define) moved to 
 `data-*` attribute with the same name less its hyphens and the same value (`productid="1"` became
 `data-product-id="1"`, the compiler's fix-it for a computed custom attribute; each `data-*` stands
 in for one such attribute), an `hx-vals` JSON object moved the same way, a `data-*` per key
-(`hx-vals='{"productId": 1}'` became `data-product-id="1"`), a `<meta itemprop content>` whose
+(`hx-vals='{"productId": 1}'` became `data-product-id="1"`), the `hx-confirm` recipe (the old
+`hx-confirm` text in a child element with the `hidden` attribute and only text, under a static
+`hx-confirm`; that text is compared with the old `hx-confirm`), a `<meta itemprop content>` whose
 `content` a
 `<script type="application/ld+json">` block on the new page holds under the `itemprop` or a
 camelCase key ending in it (`currency` in `priceCurrency`, case-sensitive; the compiler's fix-it
@@ -175,10 +177,10 @@ or changed still differs). Scripts, styles, `data-*` values, the
 query in such an attribute and which decorative icon sits in a table aren't compared in that form,
 so a wrong value in any of them is `forced` too: check them in the diff. `forced`
 knows only these changes, so some changes Thwart requires still make a page `differs`: a
-computed `hx-target` or an `hx-vals` moved to hidden inputs, `hx-confirm` text moved into a
-hidden element, and a computed `<style>` width moved to a class (a `data-*` attribute that a
-script applies compares `forced`). Check those pages by hand, and write down the recipe behind
-each. Fix the other `differs` pages first, then for each `forced` page
+computed `hx-target` or an `hx-vals` moved to hidden inputs, and a computed `<style>` width moved
+to a class (a `data-*` attribute that a script applies compares `forced`). Check those pages by
+hand, and write down the recipe behind each. Fix the other `differs` pages first, then for each
+`forced` page
 check the values in its diff and load it in a browser to check that its scripts work. It exits 0
 only if every page is `same` or `reordered` with its recorded status and final URL.
 
