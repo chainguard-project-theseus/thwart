@@ -324,7 +324,7 @@ attributes are copied as written. Port a computed string by what it is for:
 |---|---|
 | a query in an `hx-get`, `hx-post`, `hx-delete`, ... path | The path without its query, written as is; each value as a number in `t:data-*` (a string in a JSON block); and an `htmx:configRequest` listener that adds them (below). For a GET or DELETE, htmx 2 puts them in the query, so the URL is the same; for a POST or PUT they go in the body, which `@RequestParam` reads too. `compare` counts the page `forced`. |
 | a request value: `hx-vals`, `hx-headers` | For `hx-vals` integers, the query recipe above: each value in a `t:data-*` named after its key (`data-product-id` for `productId`) and the `htmx:configRequest` listener; `compare` counts that `forced`. Otherwise hidden inputs and `hx-include` (below), or a link (`t:href`, which takes a query) with `hx-boost`. Both change the page, so `compare` counts them `differs`; keep hidden inputs out of a form that other buttons submit, or those send them too. |
-| text for people: a tooltip, a label, a status | `title` or element text. Bootstrap's tooltip reads `title`. |
+| text for people: a tooltip, a label, a status | `title` or element text. Bootstrap's tooltip reads `title`. `compare` counts a `data-*` string moved to `title` on the same element, with the same value, as `forced`. |
 | `hx-confirm` text | A static `hx-confirm`, and the text in a hidden child element (`<span hidden>`) your confirm script reads. `compare` counts the page `forced`. |
 | data your own script reads (`el.dataset.x`) | A JSON block or a hidden input the script reads instead. |
 | Alpine `x-data`, Vue props, other component state | A named component (`Alpine.data`, `createApp(App, props)`) that reads a JSON block. |

@@ -59,7 +59,7 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * a control character written as U+FFFD,
+ * a control character written as U+FFFD, a {@code data-*} value moved to {@code title},
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
  * (with {@code hx-params="not _csrf"} on its form),
  * a custom attribute or an {@code hx-vals} value moved to {@code data-*}, a URL percent-encoded
@@ -253,6 +253,7 @@ final class PageNormalizer {
     dropValsMovedToData(da, db, added);
     dropCustomMovedToData(da, db, added);
     dropMicrodataMovedToJsonLd(da, db);
+    addTitlesFromData(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
   }
@@ -453,6 +454,58 @@ final class PageNormalizer {
    */
   private static boolean isJsonNumber(String[] kv) {
     return kv[2] != null && CANONICAL_INTEGER.matcher(kv[1]).matches();
+  }
+
+  /**
+   * Gives an element of the old page a {@code title} with the value of a {@code data-*} attribute
+   * it had and the new page lost, as many times as the new page has more {@code title}s with that
+   * value than the old page: {@code data-tooltip="Delete"} became {@code title="Delete"} on that
+   * element. Thwart's computed {@code data-*} takes no string, and the guide's recipe for text a
+   * tooltip plugin read from {@code data-*} is {@code title}. Elements are taken in page order, an
+   * element that already had a title is skipped, and the value must be non-empty. Only the old
+   * page changes, so the comparison still checks that the title sits on the same element: a
+   * title moved to another element, one with another value, or one more than the lost attributes
+   * still differs, and a lost {@code data-*} with no new title is set aside as before.
+   */
+  private static void addTitlesFromData(Document old, Document now) {
+    Map<String, Integer> lost = new HashMap<>();
+    Map<String, Integer> extraTitles = new HashMap<>();
+    for (Element e : old.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          lost.merge(name + "\n" + a.getValue(), 1, Integer::sum);
+        } else if (name.equals("title")) {
+          extraTitles.merge(a.getValue(), -1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          lost.merge(name + "\n" + a.getValue(), -1, Integer::sum);
+        } else if (name.equals("title")) {
+          extraTitles.merge(a.getValue(), 1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      if (e.hasAttr("title")) {
+        continue;
+      }
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        String key = name + "\n" + a.getValue();
+        if (name.startsWith("data-") && !Compat.strip(a.getValue()).isEmpty()
+            && lost.getOrDefault(key, 0) > 0 && extraTitles.getOrDefault(a.getValue(), 0) > 0) {
+          lost.merge(key, -1, Integer::sum);
+          extraTitles.merge(a.getValue(), -1, Integer::sum);
+          e.attr("title", a.getValue()); // then break: jsoup forbids iterating on after a change
+          break;
+        }
+      }
+    }
   }
 
   private static boolean isCustom(String name) {

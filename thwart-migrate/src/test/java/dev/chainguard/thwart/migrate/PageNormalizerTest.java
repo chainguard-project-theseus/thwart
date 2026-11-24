@@ -385,6 +385,39 @@ class PageNormalizerTest {
     assertEquals(SAME, PageNormalizer.compare("<p>a\ufffdb</p>", "<p>a\ufffdb</p>"));
   }
 
+  /** The guide's tooltip recipe: a data-* string moved to title (budgetmaster, round 3). */
+  @Test
+  void dataStringMovedToTitleIsForced() {
+    assertEquals(FORCED, PageNormalizer.compare(
+        "<a class=\"tooltipped\" data-position=\"left\" data-tooltip=\"Set as default\" href=\"/a/2\">s</a>",
+        "<a class=\"tooltipped\" data-position=\"left\" href=\"/a/2\" title=\"Set as default\">s</a>"));
+    assertEquals(FORCED, PageNormalizer.compare(
+        "<input data-tooltip=\"Please insert a name.\" name=\"n\"><a data-tooltip=\"Edit\">e</a>",
+        "<input name=\"n\" title=\"Please insert a name.\"><a title=\"Edit\">e</a>"));
+    // The same text as a static title on another element doesn't get in the way.
+    assertEquals(FORCED, PageNormalizer.compare("<a data-tooltip=\"Edit\">x</a><b title=\"Edit\">y</b>",
+        "<a title=\"Edit\">x</a><b title=\"Edit\">y</b>"));
+    // A lost data-* with no title anywhere is set aside as before.
+    assertEquals(FORCED, PageNormalizer.compare("<a data-bs-target=\"#m\" onclick=\"o()\">x</a>",
+        "<a data-action=\"o\">x</a>"));
+    // Still differs: moved to another element, another value, a title that replaces nothing, one
+    // data-* for two titles, a data-* kept beside the new title, a title changed or removed.
+    assertEquals(DIFFERS, PageNormalizer.compare("<p data-hint=\"Help\">a</p><b>x</b>",
+        "<p>a</p><b title=\"Help\">x</b>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\">e</a>",
+        "<a title=\"Delete\">e</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a>e</a>", "<a title=\"Edit\">e</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\">e</a><a>f</a>",
+        "<a title=\"Edit\">e</a><a title=\"Edit\">f</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\">e</a>",
+        "<a data-tooltip=\"Edit\" title=\"Edit\">e</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\" title=\"A\">e</a>",
+        "<a title=\"B\">e</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\" title=\"Edit\">e</a>",
+        "<a>e</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"\">e</a>", "<a title=\"\">e</a>"));
+  }
+
   @Test
   void forcedLooksAtTheWholePage() {
     // compare prints at most MAX_DIFF_LINES of a diff; the verdict still sees every line, so a
