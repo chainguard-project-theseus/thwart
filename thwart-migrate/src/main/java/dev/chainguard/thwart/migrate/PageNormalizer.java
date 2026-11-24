@@ -62,7 +62,8 @@ import org.jsoup.nodes.TextNode;
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
  * (with {@code hx-params="not _csrf"} on its form),
  * a custom attribute or an {@code hx-vals} value moved to {@code data-*}, a URL percent-encoded
- * where a browser encodes it anyway, a {@code <meta itemprop>} moved into
+ * where a browser encodes it anyway, {@code hx-confirm} text moved into a hidden child element, a
+ * {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
  * link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
@@ -245,6 +246,7 @@ final class PageNormalizer {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
+    moveConfirmTextBack(da, db);
     // One budget of added data-* attributes, so each stands in for one value across both rules.
     Map<String, Integer> added = addedData(da, db);
     dropValsMovedToData(da, db, added);
@@ -280,6 +282,58 @@ final class PageNormalizer {
         e.removeAttr(name);
       }
     }
+  }
+
+  /**
+   * Undoes the guide's {@code hx-confirm} recipe on the new page: an element with
+   * {@code hx-confirm} or {@code data-hx-confirm} and exactly one child element that has the
+   * {@code hidden} attribute and holds only text loses that child, and its confirm attribute takes
+   * the child's text. Thwart computes no {@code hx-confirm}, so a localized question moves into a
+   * hidden element that the confirm script reads, under a static {@code hx-confirm}. The text
+   * there is compared with the old {@code hx-confirm}, so a wrong or lost question still differs.
+   * An element the old page already had in that form, with the same question and the same hidden
+   * text, is left as it is on both pages (one for each such old element), so it stays equal and a
+   * changed question or a lost child still differs.
+   */
+  private static void moveConfirmTextBack(Document old, Document now) {
+    Map<String, Integer> had = new HashMap<>();
+    for (Element e : old.select("[hx-confirm], [data-hx-confirm]")) {
+      Element hidden = hiddenConfirmText(e);
+      if (hidden != null) {
+        had.merge(confirmOf(e) + "\n" + hidden.text(), 1, Integer::sum);
+      }
+    }
+    for (Element e : now.select("[hx-confirm], [data-hx-confirm]")) {
+      Element hidden = hiddenConfirmText(e);
+      if (hidden == null) {
+        continue;
+      }
+      String key = confirmOf(e) + "\n" + hidden.text();
+      if (had.getOrDefault(key, 0) > 0) {
+        had.merge(key, -1, Integer::sum);
+        continue;
+      }
+      e.attr(e.hasAttr("hx-confirm") ? "hx-confirm" : "data-hx-confirm", hidden.text());
+      hidden.remove();
+    }
+  }
+
+  /** The one child of {@code e} with the {@code hidden} attribute and only text, or null. */
+  private static Element hiddenConfirmText(Element e) {
+    Element hidden = null;
+    int count = 0;
+    for (Element child : e.children()) {
+      if (child.hasAttr("hidden") && child.children().isEmpty()) {
+        hidden = child;
+        count++;
+      }
+    }
+    return count == 1 ? hidden : null;
+  }
+
+  private static String confirmOf(Element e) {
+    String v = e.hasAttr("hx-confirm") ? e.attr("hx-confirm") : e.attr("data-hx-confirm");
+    return Compat.strip(WS.matcher(v).replaceAll(" "));
   }
 
   /**

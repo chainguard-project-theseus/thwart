@@ -195,6 +195,10 @@ class PageNormalizerTest {
       hx-vals with two keys          | <a hx-get="/c" hx-vals='{"page": 2, "size": 10}'>n</a> | <a data-page="2" data-size="10" hx-get="/c">n</a>
       two hx-vals for two data       | <a hx-vals='{"id": 1}'>a</a><a hx-vals='{"id": 1}'>b</a> | <a data-id="1">a</a><a data-id="1">b</a>
       two data for hx-vals and a custom attribute | <span productid="1">x</span><button hx-vals='{"productId": 1}'>y</button> | <span data-product-id="1">x</span><button data-product-id="1">y</button>
+      confirm text in a hidden child | <button hx-confirm="Remove it?" hx-post="/d">x</button> | <button hx-confirm="Remove it?" hx-post="/d">x<span class="q" hidden>Remove it?</span></button>
+      localized confirm text hidden  | <button hx-confirm="Entfernen?" hx-post="/d">x</button> | <button hx-confirm="Remove?" hx-post="/d">x<span hidden>Entfernen?</span></button>
+      confirm text with data-hx-confirm | <a hx-confirm="Sure?">d</a>        | <a data-hx-confirm="Sure?"><span hidden> Sure? </span>d</a>
+      hidden confirm child on both pages | <button hx-confirm="Delete?" productid="1">x<span hidden>Deleting</span></button> | <button data-product-id="1" hx-confirm="Delete?">x<span hidden>Deleting</span></button>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -236,6 +240,15 @@ class PageNormalizerTest {
       hx-vals boolean to data        | <a hx-vals='{"f": true}'>n</a>           | <a data-f="true">n</a>
       one data for hx-vals and a custom attribute | <span productid="1">x</span><button hx-vals='{"productId": 1}'>y</button> | <span>x</span><button data-product-id="1">y</button>
       one data for a custom attribute and hx-vals | <a productid="1" hx-vals='{"productId": 1}'>n</a> | <a data-product-id="1">n</a>
+      hidden confirm text differs    | <button hx-confirm="Entfernen?">x</button> | <button hx-confirm="Entfernen?">x<span hidden>Remove?</span></button>
+      hidden element without a confirm | <button hx-post="/d">x</button>     | <button hx-post="/d">x<span hidden>Remove?</span></button>
+      two hidden children            | <button hx-confirm="A?">x</button>        | <button hx-confirm="A?">x<span hidden>A?</span><span hidden>A?</span></button>
+      hidden child with an element   | <button hx-confirm="A?">x</button>        | <button hx-confirm="A?">x<span hidden><b>A?</b></span></button>
+      confirm text in a visible child | <button hx-confirm="A?">x</button>       | <button hx-confirm="A?">x<span>A?</span></button>
+      confirm text in a hidden sibling | <button hx-confirm="A?">x</button>      | <button hx-confirm="A?">x</button><span hidden>A?</span>
+      old hidden confirm child changed | <button hx-confirm="A?">x<span hidden>B</span></button> | <button hx-confirm="A?">x<span hidden>C</span></button>
+      question changed beside an old hidden child | <button hx-confirm="Delete?">x<span hidden>Deleting</span></button> | <button hx-confirm="Wipe everything?">x<span hidden>Deleting</span></button>
+      old hidden child lost          | <button hx-confirm="Delete?">x<span hidden>Deleting</span></button> | <button hx-confirm="Deleting">x</button>
       hx- attribute replaced         | <a hx-get="/p" href="/p">p</a>            | <a hx-boost="true" href="/p">p</a>
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
