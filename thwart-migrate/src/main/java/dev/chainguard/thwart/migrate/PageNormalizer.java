@@ -61,8 +61,8 @@ import org.jsoup.nodes.TextNode;
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
  * (with {@code hx-params="not _csrf"} on its form),
- * a custom attribute moved to {@code data-*} with its value, a URL percent-encoded where a
- * browser encodes it anyway, a {@code <meta itemprop>} moved into
+ * a custom attribute or an {@code hx-vals} value moved to {@code data-*}, a URL percent-encoded
+ * where a browser encodes it anyway, a {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
  * link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
@@ -242,6 +242,7 @@ final class PageNormalizer {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
+    dropValsMovedToData(da, db);
     dropCustomMovedToData(da, db);
     dropMicrodataMovedToJsonLd(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
@@ -319,6 +320,65 @@ final class PageNormalizer {
       }
       for (String name : removed) {
         e.removeAttr(name);
+      }
+    }
+  }
+
+  /**
+   * Removes from the old page each {@code hx-vals} that the new page doesn't have with the same
+   * value, if it is a flat JSON object and the new page added, for each of its keys, a
+   * {@code data-*} attribute whose name, without {@code data-} and hyphens, is the key (ASCII case
+   * folded) and whose value is the key's value: {@code hx-vals='{"productId": 1}'} and
+   * {@code data-product-id="1"}. Thwart computes no {@code hx-vals}; the guide moves each number
+   * into {@code t:data-*} for an {@code htmx:configRequest} listener, as for a query. Each added
+   * {@code data-*} stands in for one value, matched across the page; a value that went missing
+   * still differs, and so does an {@code hx-vals} that is not a flat JSON object
+   * ({@code js:...}).
+   */
+  private static void dropValsMovedToData(Document old, Document now) {
+    Set<String> kept = new HashSet<>();
+    Map<String, Integer> added = new HashMap<>();
+    for (Element e : now.getAllElements()) {
+      kept.add(e.attr("hx-vals"));
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.select("[hx-vals]")) {
+      String json = Compat.strip(e.attr("hx-vals"));
+      if (kept.contains(e.attr("hx-vals")) || !json.startsWith("{") || !json.endsWith("}")
+          || json.substring(1).indexOf('{') >= 0 || json.indexOf('[') >= 0) {
+        continue;
+      }
+      List<String[]> pairs = new ArrayList<>();
+      jsonPairs(json, pairs);
+      if (pairs.isEmpty()) {
+        continue;
+      }
+      Map<String, Integer> left = new HashMap<>(added);
+      boolean all = true;
+      for (String[] kv : pairs) {
+        String key = asciiLower(kv[0]) + "=" + kv[1];
+        if (kv[0].isEmpty() || left.getOrDefault(key, 0) <= 0) {
+          all = false;
+          break;
+        }
+        left.merge(key, -1, Integer::sum);
+      }
+      if (all) {
+        added = left;
+        e.removeAttr("hx-vals");
       }
     }
   }
