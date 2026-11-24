@@ -352,6 +352,11 @@ path on Spring Boot's error dispatch. Write the path the page means, such as `@{
   `<c:set var>` of a value is `t:with`; one that captures markup to repeat is a fragment.
 - EL implicit objects (`param`, `sessionScope`, `header`, `pageContext.request.contextPath`) are
   model values; a context-path prefix is `@{...}`.
+- JSP EL (`${visitor.status}`), `<c:out>` and the Spring form tags' option values print an enum's
+  `name()`; Thwart prints its `toString()`. They differ wherever the enum overrides `toString()`
+  (`PAYED` became `Payed`). Check each enum the pages print, and where `toString()` is overridden,
+  print the name through a getter or a template function that returns `name()`, in text and in
+  `t:value` alike.
 - With the JSP resolver gone, a view name no template provides is a 500 (`Could not resolve
   view`), where `InternalResourceViewResolver` let the container answer 404; if that matters, add
   a last view resolver that answers 404 (the other direction is in step 6 of
