@@ -128,6 +128,14 @@ guard such a link with `t:if`. A new `NullPointerException` reading `a.b` means 
 and wasn't before, nearly always a value the old template got from outside the model. Tests catch
 these only if a fixture holds the `null`.
 
+**Port what the old page printed, quirks included,** not what it should have printed: an empty
+`<select>` on an error path whose controller never added the options, a `null` the old engine
+wrote as text in a link, an empty `mode=` for a request parameter that wasn't sent. A fix changes
+the page, and `compare` can't tell it from a regression, so make it a separate change after the
+migration and note it in your report. For `param.x`, pass the request's own value
+(`@RequestParam(name = "x", required = false) String x`, without a default) rather than a
+controller variable that defaults it, so an absent parameter prints as it did.
+
 **5. Compare** the new app, started from the same data:
 `java -jar thwart-migrate.jar compare http://localhost:8080 pages.txt baseline/`. It compares
 status, final URL and the page as a browser builds it, ignoring whitespace, attribute order,
