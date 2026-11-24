@@ -1043,9 +1043,9 @@ final class PageNormalizer {
           continue;
         }
         if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
-          value = browserEncoded(QUERY.matcher(value).replaceFirst(""));
+          value = browserEncoded(QUERY.matcher(asParsedUrl(a.getValue())).replaceFirst(""));
         } else if (URL_VALUED.contains(name)) {
-          value = browserEncoded(value);
+          value = browserEncoded(asParsedUrl(a.getValue()));
         }
         if (tag.equals("a") && name.equals("rel")) {
           value = withoutSanitizerRel(value);
@@ -1126,6 +1126,30 @@ final class PageNormalizer {
     if (hash >= 0) {
       sb.append('#');
       encode(url.substring(hash + 1), "\"<>`", sb);
+    }
+    return sb.toString();
+  }
+
+  /**
+   * An attribute's raw URL as the URL parser first reads it: leading and trailing C0 controls and
+   * spaces trimmed, every tab, LF and CR removed. Other whitespace stays and is encoded, so a run
+   * of spaces is not one {@code %20}.
+   */
+  static String asParsedUrl(String raw) {
+    int start = 0;
+    int end = raw.length();
+    while (start < end && raw.charAt(start) <= ' ') {
+      start++;
+    }
+    while (end > start && raw.charAt(end - 1) <= ' ') {
+      end--;
+    }
+    StringBuilder sb = new StringBuilder(end - start);
+    for (int i = start; i < end; i++) {
+      char c = raw.charAt(i);
+      if (c != '\t' && c != '\n' && c != '\r') {
+        sb.append(c);
+      }
     }
     return sb.toString();
   }

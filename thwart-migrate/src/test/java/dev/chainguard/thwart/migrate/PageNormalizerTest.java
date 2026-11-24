@@ -292,6 +292,32 @@ class PageNormalizerTest {
         + PageNormalizer.lines(b));
   }
 
+  /** The URL rule's whitespace and its path and fragment characters; a backtick can't go in the
+   * CSV tables above. */
+  @Test
+  void urlsCompareAsTheBrowserParsesThem() {
+    assertEquals(FORCED, PageNormalizer.compare("<a href=\"/a{b}`c\">x</a>",
+        "<a href=\"/a%7Bb%7D%60c\">x</a>"));
+    assertEquals(FORCED, PageNormalizer.compare("<a href=\"/a#b`c\">x</a>",
+        "<a href=\"/a#b%60c\">x</a>"));
+    assertEquals(FORCED, PageNormalizer.compare("<a href=\" /a b \">x</a>",
+        "<a href=\"/a%20b\">x</a>"));
+    // The browser requests /s?q={a}: the query set leaves curly brackets.
+    assertEquals(DIFFERS, PageNormalizer.compare("<a href=\"/s?q={a}\">x</a>",
+        "<a href=\"/s?q=%7Ba%7D\">x</a>"));
+    // The browser drops a tab or newline (/ab) and encodes each space (/a%20%20b).
+    assertEquals(DIFFERS, PageNormalizer.compare("<a href=\"/a\tb\">x</a>",
+        "<a href=\"/a%20b\">x</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a href=\"/a\nb\">x</a>",
+        "<a href=\"/a%20b\">x</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a href=\"/a  b\">x</a>",
+        "<a href=\"/a%20b\">x</a>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<a hx-get=\"/a  b?p=1\">x</a>",
+        "<a data-hx-get=\"/a%20b\" data-p=\"1\">x</a>"));
+    assertEquals(FORCED, PageNormalizer.compare("<a href=\"/a\tb\">x</a>",
+        "<a href=\"/ab\">x</a>"));
+  }
+
   @Test
   void forcedLooksAtTheWholePage() {
     // compare prints at most MAX_DIFF_LINES of a diff; the verdict still sees every line, so a
