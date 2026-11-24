@@ -174,7 +174,8 @@ or test command starts a throwaway MySQL under `/tmp` on `localhost:3306` (socke
 Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
 
 Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at startup; the date
-is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
+is still compared, and their start commands start the clock at 2025-06-15 10:00 with libfaketime,
+so a check that runs on a later day than the recording shows the same date), UUIDs (fredbet: image keys generated at startup), the webjar version path
 segment (spring-petclinic, its Boot 2.0 and 1.5 rungs, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`;
 the starter now registers that filter too, #122, so these can go once a bench round confirms
 the segment matches), JobSearch's `<span text-bg-...">`, an
