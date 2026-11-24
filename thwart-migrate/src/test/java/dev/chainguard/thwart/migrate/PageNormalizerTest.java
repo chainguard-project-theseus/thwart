@@ -228,6 +228,7 @@ class PageNormalizerTest {
       nested hx-vals                 | <a hx-vals='{"o": {"id": 1}}'>n</a>      | <a data-id="1">n</a>
       hx-vals with an array          | <a hx-vals='{"ids": [1]}'>n</a>          | <a data-ids="1">n</a>
       hx-vals key with an equals sign | <a hx-vals='{"a=1": 1}'>n</a>         | <a data-a="1=1">n</a>
+      hx-vals negative zero to data  | <a hx-vals='{"d": -0}'>n</a>             | <a data-d="-0">n</a>
       hx-vals decimal to data        | <a hx-vals='{"price": 1.0}'>n</a>       | <a data-price="1.0">n</a>
       hx-vals exponent to data       | <a hx-vals='{"n": 1e2}'>n</a>            | <a data-n="1e2">n</a>
       hx-vals long integer to data   | <a hx-vals='{"id": 12345678901234567890}'>n</a> | <a data-id="12345678901234567890">n</a>

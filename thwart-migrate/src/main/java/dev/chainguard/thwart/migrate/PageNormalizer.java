@@ -133,7 +133,7 @@ final class PageNormalizer {
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
       "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected");
-  private static final Pattern CANONICAL_INTEGER = Pattern.compile("-?(?:0|[1-9][0-9]{0,14})");
+  private static final Pattern CANONICAL_INTEGER = Pattern.compile("0|-?[1-9][0-9]{0,14}");
   /** An {@code hx-vals} key a {@code data-*} name less its hyphens can spell. */
   private static final Pattern DATA_KEY = Pattern.compile("[A-Za-z0-9_]+");
   private static final Pattern WS = Pattern.compile("[ \\t\\n\\f\\r]+");
