@@ -361,6 +361,22 @@ class PageNormalizerTest {
         "<a href=\"/ab\">x</a>"));
   }
 
+  /** Thwart's escapers write a parse-error code point as U+FFFD (espd's tooltip, round 3). */
+  @Test
+  void controlCharacterWrittenAsReplacementIsForced() {
+    assertEquals(FORCED, PageNormalizer.compare("<span title=\"Section \u00ef\u0081\u00a1 of\">x</span>",
+        "<span title=\"Section \u00ef\ufffd\u00a1 of\">x</span>"));
+    assertEquals(FORCED, PageNormalizer.compare("<p>a\u0001b</p>", "<p>a\ufffdb</p>"));
+    assertEquals(FORCED, PageNormalizer.compare("<p>a\ufdd0b</p>", "<p>a\ufffdb</p>"));
+    // Only a parse-error code point stands for U+FFFD: a letter, a space or a tab still differs.
+    assertEquals(DIFFERS, PageNormalizer.compare("<p>ab</p>", "<p>a\ufffdb</p>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<p>axb</p>", "<p>a\ufffdb</p>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<p title=\"a b\">x</p>", "<p title=\"a\ufffdb\">x</p>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<p>a\tb</p>", "<p>a\ufffdb</p>"));
+    assertEquals(DIFFERS, PageNormalizer.compare("<p>a\u0081b</p>", "<p>a\ufffdc</p>"));
+    assertEquals(SAME, PageNormalizer.compare("<p>a\ufffdb</p>", "<p>a\ufffdb</p>"));
+  }
+
   @Test
   void forcedLooksAtTheWholePage() {
     // compare prints at most MAX_DIFF_LINES of a diff; the verdict still sees every line, so a
