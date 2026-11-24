@@ -419,7 +419,7 @@ def migrate(app, k, args):
                "AGENT_BUDGET_USD": args.budget_usd}
         if os.environ.get("ANTHROPIC_BASE_URL"):
             env["ANTHROPIC_BASE_URL"] = os.environ["ANTHROPIC_BASE_URL"]
-        p = docker([(app_dir, "/work/app")], env, ["run-agent"], out=out, secrets=credentials())
+        p = docker([(app_dir, "/work/app")], env, ["run-agent"], out=out, secrets=credentials(), memory="12g")
     meta = {"wall_minutes": round((time.time() - start) / 60, 1), "exit": p.returncode,
             "model": args.model, "budget_usd": args.budget_usd, "budget_minutes": args.minutes}
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
