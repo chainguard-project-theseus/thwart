@@ -329,9 +329,13 @@ path on Spring Boot's error dispatch. Write the path the page means, such as `@{
   hand-write the form tags' markup: what you miss (selected options, ids, markers) shows up only in
   compare.
 - The form tags write things `t:` attributes don't: `<form:errors>` writes an `id` (`p.errors`,
-  or `<form>.errors` for `*`), so write it statically; `<form:form>` without an `action` posts to
-  the request URI with its query string, which omitting the action does too, while a
-  `t:action="@{...}"` must pass the query parameters itself.
+  or `<form>.errors` for `*`), so write it statically. `<form:form>` without an `action` writes
+  the request URI with its query string as the action (`action="/request/ca/exclusion?lang=it"`
+  on a page opened with `?lang=it`). Write that action with `t:action` and pass the query
+  parameters the request had, `lang` from the model:
+  `t:action="lang != null ? @{/request/ca/exclusion(lang=${lang})} : @{/request/ca/exclusion}"`
+  (a `null` query value would print `lang=`). A link without them loses `?lang=`, and an omitted
+  action, though it posts to the same URL, is an attribute `compare` reports missing.
 
 <!-- compile: template guide/jsp-form-defaults.html -->
 ```html
@@ -339,6 +343,14 @@ path on Spring Boot's error dispatch. Write the path the page means, such as `@{
       t:object="signup" method="post">
   <span id="signup.errors" class="alert" t:errors="*">errors</span>
   <input type="text" t:field="*{email}" /> <span id="email.errors" t:errors="*{email}">error</span>
+</form>
+```
+
+<!-- compile: template guide/jsp-form-query.html -->
+```html
+<form xmlns:t="https://thwart.chainguard.dev" t:params="String lang" method="post"
+      t:action="lang != null ? @{/request/ca/exclusion(lang=${lang})} : @{/request/ca/exclusion}">
+  <button type="submit">Next</button>
 </form>
 ```
 
