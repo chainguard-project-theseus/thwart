@@ -26,7 +26,7 @@ class UnorderedCollectionTest {
   void indexAndFirstOnASetSayWhyAndWhatToWrite() {
     compile("<p t:text=\"m.set[0].name\">x</p>")
         .assertError("a.html:1:", "cannot index java.util.Set", "a Set has no defined order", "Loop over it with t:each");
-    for (String expr : List.of("m.set.first.name", "m.set.last.name", "m.set.getFirst().name")) {
+    for (String expr : List.of("m.set.first.name", "m.set.last.name", "m.set.getFirst().name", "m.set.getLast().name")) {
       compile("<p t:text=\"" + expr + "\">x</p>")
           .assertError("a.html:1:", "works on a List, not on java.util.Set", "a Set has no defined order", "give the view a List");
     }
