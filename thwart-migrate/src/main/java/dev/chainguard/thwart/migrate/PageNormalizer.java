@@ -133,6 +133,7 @@ final class PageNormalizer {
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
       "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected");
+  private static final Pattern CANONICAL_INTEGER = Pattern.compile("-?(?:0|[1-9][0-9]{0,14})");
   /** An {@code hx-vals} key a {@code data-*} name less its hyphens can spell. */
   private static final Pattern DATA_KEY = Pattern.compile("[A-Za-z0-9_]+");
   private static final Pattern WS = Pattern.compile("[ \\t\\n\\f\\r]+");
@@ -317,14 +318,14 @@ final class PageNormalizer {
 
   /**
    * Removes from the old page each {@code hx-vals} that the new page doesn't have with the same
-   * value, if it is a flat JSON object of numbers and the new page added, for each of its keys, a
+   * value, if it is a flat JSON object of integers and the new page added, for each of its keys, a
    * {@code data-*} attribute whose name, without {@code data-} and hyphens, is the key (ASCII case
    * folded) and whose value is the key's value: {@code hx-vals='{"productId": 1}'} and
    * {@code data-product-id="1"}. Thwart computes no {@code hx-vals}; the guide moves each number
    * into {@code t:data-*} for an {@code htmx:configRequest} listener, as for a query. Each added
    * {@code data-*} stands in for one value, matched across the page and shared with
    * {@link #dropCustomMovedToData}; a value that went missing still differs, and so does an
-   * {@code hx-vals} that is not a flat JSON object of numbers (a string goes in a JSON block,
+   * {@code hx-vals} that is not a flat JSON object of integers (a string goes in a JSON block,
    * and {@code js:...} is code).
    */
   private static void dropValsMovedToData(Document old, Document now,
@@ -390,10 +391,13 @@ final class PageNormalizer {
     return added;
   }
 
-  /** A {@link #jsonPairs} entry whose value is an unquoted JSON number. */
+  /**
+   * A {@link #jsonPairs} entry whose value is an unquoted canonical integer within 15 digits. htmx
+   * sends {@code JSON.parse}'s number, so {@code 1.0}, {@code 1e2} or a 20-digit integer goes out
+   * in another form than the {@code data-*} text the listener sends.
+   */
   private static boolean isJsonNumber(String[] kv) {
-    return kv[2] != null && JSON_ATOM.matcher(kv[1]).matches() && !kv[1].equals("true")
-        && !kv[1].equals("false") && !kv[1].equals("null");
+    return kv[2] != null && CANONICAL_INTEGER.matcher(kv[1]).matches();
   }
 
   private static boolean isCustom(String name) {
