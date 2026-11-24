@@ -5,7 +5,7 @@
   "difficulty": "hard",
   "build": "mvn -B -ntp clean package -DskipTests",
   "test": "mvn -B -ntp test",
-  "start": "java -jar target/fredbet.jar '--spring.datasource.url=jdbc:h2:mem:fredbet;DB_CLOSE_DELAY=-1' --fredbet.default-language=en",
+  "start": "env LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1 FAKETIME=\"@2025-06-15 10:00:00\" FAKETIME_DONT_FAKE_MONOTONIC=1 java -jar target/fredbet.jar '--spring.datasource.url=jdbc:h2:mem:fredbet;DB_CLOSE_DELAY=-1' --fredbet.default-language=en",
   "ready": "/login",
   "base": "http://localhost:8080",
   "ignore": [
