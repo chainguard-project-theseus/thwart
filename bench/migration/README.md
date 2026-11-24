@@ -48,7 +48,8 @@ and commit from `app.json`).
    `HEAD` and installs it into a Maven repository. The final image holds that repository (and
    the same `thwart-migrate` jar at `/opt/thwart-migrate.jar`), the Claude Code plugin from
    `plugins/thwart` at `/opt/thwart-plugin` (same commit), JDK 21 (default), JDK 8 and JDK 25, Maven,
-   Python, Chromium (for the browser smoke check; the migrating agent can use it too) and the
+   Python, Chromium (for the browser smoke check; the migrating agent can use it too), the real
+   `lsof`, `fuser` and `ss` (not busybox's, #979) and the
    Claude Code CLI, but none of this repo's other sources, docs or history.
 2. **Baseline.** Each app in `apps/<name>/app.json` is cloned at its pinned commit and checked
    in a container (`lib/check.sh`): template and construct counts (`lib/count.py`), the build,

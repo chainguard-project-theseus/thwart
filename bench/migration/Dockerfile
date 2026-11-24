@@ -23,7 +23,7 @@ ARG CLAUDE_CODE_VERSION=2.1.308
 COPY extra-ca.crt /tmp/extra-ca.crt
 RUN cat /tmp/extra-ca.crt >> /etc/ssl/certs/ca-certificates.crt
 RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 openjdk-25 maven-3.9 bash git curl python-3.13 nodejs-22 npm \
-      coreutils findutils grep sed diffutils procps postgresql-18 postgresql-18-client mysql-9.3 libfaketime \
+      coreutils findutils grep sed diffutils procps lsof psmisc iproute2 postgresql-18 postgresql-18-client mysql-9.3 libfaketime \
       chromium py3.13-websocket-client \
  && if [ -s /tmp/extra-ca.crt ]; then keytool -importcert -noprompt -cacerts -storepass changeit -alias extra -file /tmp/extra-ca.crt; fi \
  && npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
@@ -44,6 +44,8 @@ COPY --from=thwart /m2/dev/chainguard/thwart/thwart-migrate/0.1.0-SNAPSHOT/thwar
 # throwaway server under /tmp. libfaketime pins the clock of an app whose pages show "today".
 # JDK 21 is the default; JDK 8 and 25 are for apps whose app.json says "java": 8 or 25.
 # Chromium and websocket-client are for lib/browser.py, the browser smoke check.
+# lsof, psmisc (fuser) and iproute2 (ss) replace busybox's lsof and fuser, which ignore their
+# options: the agent's `kill $(lsof -t -i:8080)` got every PID and stopped claude too (#979).
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
     NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
     LANG=C.UTF-8 \
