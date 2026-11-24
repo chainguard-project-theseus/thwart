@@ -120,6 +120,42 @@ class MapKeyFormPathsTest {
         render(c, forms, prices("x", "1")));
   }
 
+  /** A {@code Field<Holder>} fragment parameter, its sub-paths with a literal key (#970). */
+  private static Compilation fieldSubPath(String fragmentBody) {
+    return Compilation.builder()
+        .java("com.example.Holder", "package com.example; public record Holder(java.util.Map<String, String> prices) {}")
+        .java("com.example.Shop", "package com.example; public record Shop(Holder holder) {}")
+        .template(
+            "form.html",
+            "<form xmlns:t=\"https://thwart.chainguard.dev\" t:import=\"com.example.*\" t:params=\"Shop owner\""
+                + " t:object=\"owner\"><t:block t:fragment=\"f(Field<Holder> h)\">" + fragmentBody + "</t:block>"
+                + "<t:block t:fragment=\"g(Field n)\"><textarea t:field=\"n\"></textarea></t:block>"
+                + "<t:block t:replace=\"~{:: f('holder')}\"></t:block></form>")
+        .compile();
+  }
+
+  @Test
+  void aLiteralKeyInAFieldSubPathKeepsItsQuotes() {
+    Compilation c =
+        fieldSubPath(
+                "<input t:field=\"h.prices['x']\"><span t:errors=\"h.prices['x']\">e</span>"
+                    + "<b t:if=\"fields.hasErrors(h.prices['x'])\">!</b><t:block t:replace=\"~{:: g(h.prices['x'])}\"></t:block>")
+            .assertSuccess();
+    Map<String, String> prices = prices("x", "1");
+    Object shop = c.newInstance("com.example.Shop", c.newInstance("com.example.Holder", prices));
+    TestForms forms = new TestForms();
+    forms.errors.put("holder.prices['x']", List.of("bad"));
+    Map<String, Object> model = new HashMap<>();
+    model.put("owner", shop);
+    assertEquals(
+        "<form><input id=\"holder.prices&#39;x&#39;\" name=\"holder.prices[&#39;x&#39;]\" value=\"1\"><span>bad</span><b>!</b>"
+            + "<textarea id=\"holder.prices&#39;x&#39;\" name=\"holder.prices[&#39;x&#39;]\">\n1</textarea></form>",
+        c.render("form", model, ctx(forms)));
+    // The key still can't hold a bracket or a quote, which would change the path.
+    fieldSubPath("<input t:field=\"h.prices['a]b']\">").assertError("form.html:1:", "map key 'a]b' cannot be bound");
+    fieldSubPath("<span t:errors=\"h.prices['a[b']\">e</span>").assertError("map key 'a[b' cannot be bound");
+  }
+
   @Test
   void aKeyThatWouldChangeThePathFailsTheRender() {
     Compilation c = compile("<div t:each=\"e : owner.prices\"><input t:field=\"*{prices[e.key]}\"></div>").assertSuccess();
