@@ -173,7 +173,8 @@ class AttributesEndToEndTest {
   @Test
   void staticInlineScriptIsBuildError() {
     String col = "t.html:1:" + (HEADER.length() + 4) + ":";
-    compile("<a onclick=\"x()\">x</a>").assertError(col, "onclick on <a> is not allowed", "addEventListener", "data-*");
+    compile("<a onclick=\"x()\">x</a>").assertError(col, "onclick on <a> is not allowed", "addEventListener",
+        "data-* attribute instead of a new id or class", "delegated listener");
     for (String t : new String[] {"<p ONMOUSEOVER=\"x()\">x</p>", "<svg><circle onload=\"x()\"/></svg>",
         "<img src=\"/a.png\" onerror=x()>"}) {
       compile(t).assertError("t.html:1:", "is not allowed: inline event handlers are not supported");
