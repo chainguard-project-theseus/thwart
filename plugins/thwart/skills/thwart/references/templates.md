@@ -911,8 +911,11 @@ original (from a webjar or a CDN), with a comment that says what was changed and
 Materialize 1.0.0 bundles cash-dom, whose `parseHTML` builds a detached document and appends a
 `<base href>` to it; the default `base-uri 'none'` reports that on every page that loads
 Materialize. `@materializecss/materialize` 2.x has no cash-dom, or remove the three lines that
-create the `<base>` from a local copy of `materialize.js`. `jQuery.parseHTML(html)` without a
-context argument does the same: pass `document`.
+create the `<base>` from a local copy of `materialize.js` (cash-dom still parses into its own
+detached document, so the parsed markup's handlers still don't run). `jQuery.parseHTML(html)`
+without a context does the same: pass a detached document you create,
+`jQuery.parseHTML(html, document.implementation.createHTMLDocument(''))`, never the page's
+`document`, in which the parsed markup's inline handlers would run.
 
 **A third-party script that needs `eval`.** The default policy has no `'unsafe-eval'`, so a library
 that calls `eval` or `new Function` (an old `owl.carousel.min.js`, `jquery-rotate.js`) throws an

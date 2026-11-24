@@ -64,8 +64,9 @@ start and run it again before deciding time is short.
   browser (Chromium) on both apps and diff the console. Any CSP report, uncaught exception or
   console error the old app doesn't have fails the check, even one that seems to break nothing.
   A blocked inline script or `on*` handler is the table in [The model](templates.md#the-model); a
-  blocked `eval`, or a third-party library that sets a `<base>` or does anything else the policy
-  reports, is "A third-party script the CSP reports" in [Rendering](templates.md#rendering).
+  blocked `eval` is "A third-party script that needs `eval`" in [Rendering](templates.md#rendering),
+  and a third-party library that sets a `<base>` or does anything else the policy reports is "A
+  third-party script the CSP reports" in the same section.
 - Security isn't weakened: no new `permitAll`,
   no CSRF or escaping turned off. Output the old engine printed raw and Thwart now escapes is the
   intended difference.
