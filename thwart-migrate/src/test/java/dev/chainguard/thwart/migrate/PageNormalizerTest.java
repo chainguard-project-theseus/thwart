@@ -210,6 +210,7 @@ class PageNormalizerTest {
       encoded title                  | <a title="a b">x</a>                      | <a title="a%20b">x</a>
       hx-params without a csrf input | <form hx-delete="/c/2" method="post"></form> | <form hx-delete="/c/2" hx-params="not _csrf" method="post"></form>
       hx-params on a get form        | <form hx-delete="/c/2"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" hx-params="not _csrf"><input type="hidden" name="_csrf" value="t"></form>
+      data-hx-params not _csrf lost  | <form hx-delete="/c/2" data-hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx-params not _csrf lost       | <form hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" method="post"><input type="hidden" name="_csrf" value="t"></form>
       other hx-params                | <form hx-delete="/c/2" method="post"></form> | <form hx-delete="/c/2" hx-params="none" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx-params changed              | <form hx-params="q" method="post"></form> | <form hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>

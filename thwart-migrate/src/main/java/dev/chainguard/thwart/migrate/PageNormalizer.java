@@ -628,11 +628,18 @@ final class PageNormalizer {
     return false;
   }
 
-  /** How many token forms ({@link #hasCsrfInput}) say {@code hx-params="not _csrf"}. */
+  /**
+   * How many token forms ({@link #hasCsrfInput}) say {@code hx-params="not _csrf"}, or
+   * {@code data-hx-params}, which htmx also reads. Counted page-wide, as {@link #csrfInputs} is,
+   * so the attribute moved from one token form to another still compares forced.
+   */
   private static int tokenParams(Document d) {
     int n = 0;
-    for (Element form : d.select("form[hx-params]")) {
-      if (Compat.strip(WS.matcher(form.attr("hx-params")).replaceAll(" ")).equals("not _csrf")
+    for (Element form : d.select("form[hx-params], form[data-hx-params]")) {
+      // As the forced form reads it: data-hx-params stands for hx-params when that is absent.
+      String params = form.hasAttr("hx-params") ? form.attr("hx-params")
+          : form.attr("data-hx-params");
+      if (Compat.strip(WS.matcher(params).replaceAll(" ")).equals("not _csrf")
           && hasCsrfInput(form)) {
         n++;
       }
