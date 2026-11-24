@@ -102,7 +102,8 @@ for app in "${apps[@]}"; do
     continue
   fi
   # The container's user is not this one: let it write both trees and the output.
-  chmod -R a+rwX "$work/$app" "$o"
+  # Files a container made in an earlier run are its own already.
+  chmod -R a+rwX "$work/$app" "$o" 2> /dev/null || :
   # The image's JDKs, as bench.py names them: java-1.8-openjdk, java-<N>-openjdk.
   jdk_home=/usr/lib/jvm/java-$jdk-openjdk
   [ "$jdk" = 8 ] && jdk_home=/usr/lib/jvm/java-1.8-openjdk
