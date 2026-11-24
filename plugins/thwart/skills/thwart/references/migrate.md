@@ -61,11 +61,11 @@ start and run it again before deciding time is short.
   its recorded status and final URL, or you can say why a remaining difference is right. A
   `pages.txt` that skips pages or states proves nothing.
 - Page scripts still run, which `compare` can't see: load the `pages.txt` pages in a headless
-  browser on both apps and diff the console. Check each CSP violation or uncaught exception the old
-  app doesn't have: a blocked inline script or `on*` handler is the table in
-  [The model](templates.md#the-model); a blocked `eval` is "A third-party script that needs `eval`" in
-  [Rendering](templates.md#rendering). A report that breaks nothing
-  (no exception, nothing missing on the page) can be noted and left.
+  browser (Chromium) on both apps and diff the console. Any CSP report, uncaught exception or
+  console error the old app doesn't have fails the check, even one that seems to break nothing.
+  A blocked inline script or `on*` handler is the table in [The model](templates.md#the-model); a
+  blocked `eval`, or a third-party library that sets a `<base>` or does anything else the policy
+  reports, is "A third-party script the CSP reports" in [Rendering](templates.md#rendering).
 - Security isn't weakened: no new `permitAll`,
   no CSRF or escaping turned off. Output the old engine printed raw and Thwart now escapes is the
   intended difference.

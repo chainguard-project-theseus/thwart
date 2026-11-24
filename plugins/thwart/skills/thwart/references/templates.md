@@ -904,6 +904,16 @@ server, a `metadata-complete` `web.xml`, Boot importing `ThwartConfiguration`) r
 for REQUEST, ASYNC and ERROR, or the starter logs `CspFilter is not in the filter chain`. The one
 off switch is `thwart.csp.enabled=false`. Delete `th:nonce`.
 
+**A third-party script the CSP reports.** Every new report on the console counts, even one that
+changes nothing on the page. Fix the library, not the policy: upgrade it to a version that no
+longer does it, or keep a patched copy under your static resources and load that instead of the
+original (from a webjar or a CDN), with a comment that says what was changed and why. For example,
+Materialize 1.0.0 bundles cash-dom, whose `parseHTML` builds a detached document and appends a
+`<base href>` to it; the default `base-uri 'none'` reports that on every page that loads
+Materialize. `@materializecss/materialize` 2.x has no cash-dom, or remove the three lines that
+create the `<base>` from a local copy of `materialize.js`. `jQuery.parseHTML(html)` without a
+context argument does the same: pass `document`.
+
 **A third-party script that needs `eval`.** The default policy has no `'unsafe-eval'`, so a library
 that calls `eval` or `new Function` (an old `owl.carousel.min.js`, `jquery-rotate.js`) throws an
 `EvalError`, and whatever it set up is missing (`owl.owlCarousel is not a function`). Neither the

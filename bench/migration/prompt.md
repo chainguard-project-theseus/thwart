@@ -24,6 +24,10 @@ Done means, and your result is checked against:
    `reordered`, with the recorded status and final URL. The list is not given to you.
 4. Security is not weakened: no escaping bypass, no new
    `permitAll`, no CSRF or escaping turned off, no tests disabled.
+5. Page scripts still work. The check loads the same requests in headless Chromium (installed
+   here as `chromium`) against the original app and against yours. Any CSP report, uncaught
+   exception or console error at page load that your app has and the original doesn't fails the
+   check, even one that seems to break nothing.
 
 You have {minutes} minutes. Work in /work/app only. Before you finish, write
 /work/app/MIGRATION-REPORT.md: what you changed, anything you could not convert and why, and
