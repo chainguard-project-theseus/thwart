@@ -369,9 +369,9 @@ public final class Contexts {
   public static String staticScript(Element element, String name, String value) {
     String attr = HtmlParser.asciiLower(name);
     if (attr.startsWith("on")) {
-      return "inline event handlers are not supported: a strict CSP blocks them; remove " + name + " and attach"
-          + " the listener from a <script> with addEventListener, or mark the element with a data-* attribute and"
-          + " handle it with one delegated listener";
+      return "inline event handlers are not supported: a strict CSP blocks them; remove " + name + ", mark the"
+          + " element with a data-* attribute instead of a new id or class, and handle it with one delegated"
+          + " listener from a <script> (addEventListener)";
     }
     if (value == null || !(URL_ATTRIBUTES.contains(attr) || isResourceUrl(HtmlParser.asciiLower(element.name()), attr))) {
       return null;
