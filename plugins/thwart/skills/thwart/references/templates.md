@@ -632,9 +632,10 @@ public record Address(String street) {}
   `th:field` does. Checkboxes and radios get numbered ids (`roles1`, `roles2`); point labels at
   them with `ids.prev('roles')`/`ids.next('roles')`. A `t:selected` on an option replaces the
   bound-value match for that option.
-- On a password or file input `t:field` writes only `id` and `name`, never the value, and drops a
-  static `value`: a password is never echoed into the page. Thymeleaf writes `value=""`; Spring's
-  `<form:password>` echoes it only with `showPassword="true"`, which has no Thwart equivalent.
+- On a password or file input `t:field` writes only `id` and `name`, never the bound value; on a
+  password input it also drops a static `value`, so a password is never echoed into the page.
+  Thymeleaf writes `value=""`; Spring's `<form:password>` echoes it only with
+  `showPassword="true"`, which has no Thwart equivalent.
 - `t:errors` writes the field's messages joined by `<br />`, or removes the element if there are
   none; `*` is all errors and `global` the form object's own. For other markup, loop over
   `fields.errors('email')`.
