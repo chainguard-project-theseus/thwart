@@ -60,7 +60,8 @@ import org.jsoup.nodes.TextNode;
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added,
- * a custom attribute moved to {@code data-*} with its value, a {@code <meta itemprop>} moved into
+ * a custom attribute moved to {@code data-*} with its value, a URL percent-encoded where a
+ * browser encodes it anyway, a {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
  * link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
@@ -81,6 +82,11 @@ final class PageNormalizer {
   private static final String FOREIGN = "<svg or its replacement>";
   /** The query of a path, up to a fragment. */
   private static final Pattern QUERY = Pattern.compile("\\?[^#]*");
+  /** Attributes whose value is a URL, as the forced form encodes it (see {@link #browserEncoded}). */
+  private static final Set<String> URL_VALUED =
+      Compat.setOf("href", "src", "action", "formaction", "cite", "poster");
+  /** A URL scheme: a URL with any other than http or https is left as it is. */
+  private static final Pattern SCHEME = Pattern.compile("[A-Za-z][A-Za-z0-9+.-]*:");
   /** The public ids of HTML 4.0, 4.01 and XHTML 1.0, 1.1 (Strict, Transitional, Frameset). */
   private static final Pattern LEGACY_DOCTYPE = Pattern.compile(
       "-//W3C//DTD (?:HTML 4\\.01?|XHTML 1\\.[01])(?: (?:Strict|Transitional|Frameset))?//EN");
@@ -1037,7 +1043,9 @@ final class PageNormalizer {
           continue;
         }
         if (name.indexOf('-') >= 0 && !name.startsWith("aria-") && value.startsWith("/")) {
-          value = QUERY.matcher(value).replaceFirst("");
+          value = browserEncoded(QUERY.matcher(asParsedUrl(a.getValue())).replaceFirst(""));
+        } else if (URL_VALUED.contains(name)) {
+          value = browserEncoded(asParsedUrl(a.getValue()));
         }
         if (tag.equals("a") && name.equals("rel")) {
           value = withoutSanitizerRel(value);
@@ -1084,6 +1092,80 @@ final class PageNormalizer {
       }
     });
     return sb.append('>').toString();
+  }
+
+  /**
+   * {@code url} with each character percent-encoded that a browser's URL parser encodes anyway
+   * when it resolves a relative, {@code http} or {@code https} URL (the WHATWG URL standard's
+   * path, special-query and fragment percent-encode sets): a space, {@code "}, {@code <},
+   * {@code >} and every non-ASCII character everywhere, {@code `} and curly brackets in the
+   * path, {@code `} in the fragment, {@code '} in the query. Thwart's link builder encodes these where the
+   * old page wrote them raw ({@code /topic/World of Nature} became
+   * {@code /topic/World%20of%20Nature}), and the browser requests the same URL for both. A
+   * {@code %} already there is left alone, as the browser leaves it, so {@code %2F} and
+   * {@code /} still differ. A URL with another scheme ({@code mailto:}) is returned as it is.
+   */
+  static String browserEncoded(String url) {
+    Matcher scheme = SCHEME.matcher(url);
+    if (scheme.lookingAt()) {
+      String s = asciiLower(scheme.group());
+      if (!s.equals("http:") && !s.equals("https:")) {
+        return url;
+      }
+    }
+    int hash = url.indexOf('#');
+    String beforeFragment = hash < 0 ? url : url.substring(0, hash);
+    int question = beforeFragment.indexOf('?');
+    StringBuilder sb = new StringBuilder(url.length());
+    String path = question < 0 ? beforeFragment : beforeFragment.substring(0, question);
+    encode(path, "\"<>`{}", sb);
+    if (question >= 0) {
+      sb.append('?');
+      encode(beforeFragment.substring(question + 1), "\"<>'", sb);
+    }
+    if (hash >= 0) {
+      sb.append('#');
+      encode(url.substring(hash + 1), "\"<>`", sb);
+    }
+    return sb.toString();
+  }
+
+  /**
+   * An attribute's raw URL as the URL parser first reads it: leading and trailing C0 controls and
+   * spaces trimmed, every tab, LF and CR removed. Other whitespace stays and is encoded, so a run
+   * of spaces is not one {@code %20}.
+   */
+  static String asParsedUrl(String raw) {
+    int start = 0;
+    int end = raw.length();
+    while (start < end && raw.charAt(start) <= ' ') {
+      start++;
+    }
+    while (end > start && raw.charAt(end - 1) <= ' ') {
+      end--;
+    }
+    StringBuilder sb = new StringBuilder(end - start);
+    for (int i = start; i < end; i++) {
+      char c = raw.charAt(i);
+      if (c != '\t' && c != '\n' && c != '\r') {
+        sb.append(c);
+      }
+    }
+    return sb.toString();
+  }
+
+  /** Appends {@code s} with C0 controls, space, {@code extra} and non-ASCII percent-encoded. */
+  private static void encode(String s, String extra, StringBuilder sb) {
+    byte[] bytes = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    for (byte b : bytes) {
+      int c = b & 0xff;
+      if (c <= 0x20 || c >= 0x7f || extra.indexOf(c) >= 0) {
+        sb.append('%').append(Character.toUpperCase(Character.forDigit(c >> 4, 16)))
+            .append(Character.toUpperCase(Character.forDigit(c & 0xf, 16)));
+      } else {
+        sb.append((char) c);
+      }
+    }
   }
 
   /** {@code rel} without the tokens Thwart's sanitizer adds, in its own order. */
