@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Map key segments in form paths ({@code *{prices[key]}}, {@code *{prices['x']}}) in t:field,
- * t:errors and fields.* (#190): Spring's unquoted {@code prices[x]} name and
- * Thymeleaf's bracket-free id {@code pricesx}.
+ * t:errors and fields.* (#190): Spring's {@code prices[x]} name for a variable key, the path as
+ * written for a literal one ({@code prices['x']}, #970), and Thymeleaf's bracket-free id.
  */
 class MapKeyFormPathsTest {
   // The form object is named "owner" so that FormFixture.TestForms applies.
@@ -70,7 +70,9 @@ class MapKeyFormPathsTest {
     assertEquals(
         "<form><div><input id=\"pricesx\" name=\"prices[x]\" value=\"1\"></div>"
             + "<div><input id=\"pricesa.b&lt;&amp;\" name=\"prices[a.b&lt;&amp;]\" value=\"2\"></div>"
-            + "<input id=\"pricesx\" name=\"prices[x]\" value=\"1\"><input id=\"pricesx\" name=\"prices[x]\" value=\"1\">"
+            // A literal key keeps its quotes, as Spring's form tags and Thymeleaf write it (#970).
+            + "<input id=\"prices&#39;x&#39;\" name=\"prices[&#39;x&#39;]\" value=\"1\">"
+            + "<input id=\"prices&#39;x&#39;\" name=\"prices[&#39;x&#39;]\" value=\"1\">"
             + "<input id=\"byId7.name\" name=\"byId[7].name\" value=\"seven\">"
             + "<input id=\"colorsGREEN\" name=\"colors[GREEN]\" value=\"g\"></form>",
         render(c, new TestForms(), prices("x", "1", "a.b<&", "2")));
@@ -91,7 +93,7 @@ class MapKeyFormPathsTest {
     TestForms forms = new TestForms();
     forms.rejected.put("prices[y]", "\"><x>");
     forms.errors.put("prices[y]", List.of("Price <required>"));
-    forms.errors.put("threads[t]", List.of("T"));
+    forms.errors.put("threads['t']", List.of("T"));
     assertEquals(
         "<form><div><input id=\"pricesx\" name=\"prices[x]\" value=\"1\"><i>1</i></div>"
             + "<div><input id=\"pricesy\" name=\"prices[y]\" value=\"&quot;&gt;&lt;x&gt;\" class=\"bad\">"
@@ -116,6 +118,42 @@ class MapKeyFormPathsTest {
     assertEquals(
         "<form><input id=\"pricesx\" name=\"prices[x]\" value=\"1\"><span>bad</span></form>",
         render(c, forms, prices("x", "1")));
+  }
+
+  /** A {@code Field<Holder>} fragment parameter, its sub-paths with a literal key (#970). */
+  private static Compilation fieldSubPath(String fragmentBody) {
+    return Compilation.builder()
+        .java("com.example.Holder", "package com.example; public record Holder(java.util.Map<String, String> prices) {}")
+        .java("com.example.Shop", "package com.example; public record Shop(Holder holder) {}")
+        .template(
+            "form.html",
+            "<form xmlns:t=\"https://thwart.chainguard.dev\" t:import=\"com.example.*\" t:params=\"Shop owner\""
+                + " t:object=\"owner\"><t:block t:fragment=\"f(Field<Holder> h)\">" + fragmentBody + "</t:block>"
+                + "<t:block t:fragment=\"g(Field n)\"><textarea t:field=\"n\"></textarea></t:block>"
+                + "<t:block t:replace=\"~{:: f('holder')}\"></t:block></form>")
+        .compile();
+  }
+
+  @Test
+  void aLiteralKeyInAFieldSubPathKeepsItsQuotes() {
+    Compilation c =
+        fieldSubPath(
+                "<input t:field=\"h.prices['x']\"><span t:errors=\"h.prices['x']\">e</span>"
+                    + "<b t:if=\"fields.hasErrors(h.prices['x'])\">!</b><t:block t:replace=\"~{:: g(h.prices['x'])}\"></t:block>")
+            .assertSuccess();
+    Map<String, String> prices = prices("x", "1");
+    Object shop = c.newInstance("com.example.Shop", c.newInstance("com.example.Holder", prices));
+    TestForms forms = new TestForms();
+    forms.errors.put("holder.prices['x']", List.of("bad"));
+    Map<String, Object> model = new HashMap<>();
+    model.put("owner", shop);
+    assertEquals(
+        "<form><input id=\"holder.prices&#39;x&#39;\" name=\"holder.prices[&#39;x&#39;]\" value=\"1\"><span>bad</span><b>!</b>"
+            + "<textarea id=\"holder.prices&#39;x&#39;\" name=\"holder.prices[&#39;x&#39;]\">\n1</textarea></form>",
+        c.render("form", model, ctx(forms)));
+    // The key still can't hold a bracket or a quote, which would change the path.
+    fieldSubPath("<input t:field=\"h.prices['a]b']\">").assertError("form.html:1:", "map key 'a]b' cannot be bound");
+    fieldSubPath("<span t:errors=\"h.prices['a[b']\">e</span>").assertError("map key 'a[b' cannot be bound");
   }
 
   @Test

@@ -196,7 +196,7 @@ public final class FormPaths {
     // The value chain starts at the field's value, seen under the field's own name.
     Scope valueScope = scope.with(new Variable(field.name(), type, j + ".value()"));
     return steps(
-        j + ".objectName()", name, id, new StringBuilder(), root, valueScope, e, scope, expressions, check);
+        j + ".objectName()", name, id, new StringBuilder(), root, valueScope, e, scope, expressions, check, true);
   }
 
   /**
@@ -228,7 +228,9 @@ public final class FormPaths {
    * {@code *{prices[key]}}, {@code *{prices['x']}}. A List or array index is an int literal
    * or an int-typed variable or property chain (a loop variable, {@code iterStat.index}); a Map key
    * is a literal or a variable or property chain of type int, long, String or an enum, written as
-   * Spring's {@code BeanWrapper} reads it, unquoted: {@code prices[x]}. A String key is checked by
+   * Spring's {@code BeanWrapper} reads it: a variable's key unquoted ({@code prices[x]}), a literal
+   * String key in an expression quoted ({@code *{prices['x']}} gives {@code prices['x']}), as Spring's
+   * form tags and Thymeleaf's {@code th:field} write it; a string path keeps its keys as written. A String key is checked by
    * {@link Forms#pathKey} (at build time if literal), so it cannot change the path's structure.
    * Reports through
    * {@code expressions}' diagnostics and returns null on error. The caller checks that there is a
@@ -237,6 +239,11 @@ public final class FormPaths {
    * @param check what to check and compile: with {@link Check#VALUE} the field's current value
    */
   public static FormField resolve(Expr e, Scope scope, ExpressionCompiler expressions, Check check) {
+    return resolve(e, scope, expressions, check, true);
+  }
+
+  /** {@link #resolve}; {@code quoteKeys} false for a string path, whose keys are kept as written. */
+  private static FormField resolve(Expr e, Scope scope, ExpressionCompiler expressions, Check check, boolean quoteKeys) {
     if (!isPath(e)) {
       throw new IllegalArgumentException("not a field path: " + e);
     }
@@ -253,7 +260,8 @@ public final class FormPaths {
         e,
         scope,
         expressions,
-        check);
+        check,
+        quoteKeys);
   }
 
   /**
@@ -273,7 +281,8 @@ public final class FormPaths {
       Expr e,
       Scope scope,
       ExpressionCompiler expressions,
-      Check check) {
+      Check check,
+      boolean quoteKeys) {
     DiagnosticSink diagnostics = expressions.env().diagnostics();
     List<Expr> chain = new ArrayList<>();
     for (Expr step = e; step != null; step = target(step)) {
@@ -299,7 +308,7 @@ public final class FormPaths {
           return null;
         }
         // Without a check the container is unknown: allow both (t:field reports).
-        String code = index(index.index(), scope, expressions, map || check == Check.NONE);
+        String code = index(index.index(), scope, expressions, map || check == Check.NONE, quoteKeys);
         if (code == null) {
           return null;
         }
@@ -342,7 +351,7 @@ public final class FormPaths {
    * {@code mapKey}, a key may also be a long, a String or an enum (its name, as Spring converts it
    * back), and a variable String key is checked by {@link Forms#pathKey} when the page renders.
    */
-  private static String index(Expr e, Scope scope, ExpressionCompiler expressions, boolean mapKey) {
+  private static String index(Expr e, Scope scope, ExpressionCompiler expressions, boolean mapKey, boolean quoteKeys) {
     DiagnosticSink diagnostics = expressions.env().diagnostics();
     if (!(e instanceof Expr.Literal) && !isVariableChain(e)) {
       diagnostics.error(e.pos(), mapKey
@@ -378,7 +387,9 @@ public final class FormPaths {
             + " contain no '[', ']' or quotes, which Spring's property paths cannot escape");
         return null;
       }
-      return text;
+      // *{prices['x']} as Spring's form tags and Thymeleaf's th:field write it (#970). The key holds
+      // no quote or bracket (isPathKey), so the quotes can't change the path.
+      return isString && quoteKeys ? "'" + text + "'" : text;
     }
     if (isString) {
       return Forms.class.getName() + ".pathKey(" + c.code() + ")";
@@ -520,7 +531,7 @@ public final class FormPaths {
           + " items[0].name");
       return null;
     }
-    return resolve(e, scope, expressions, check);
+    return resolve(e, scope, expressions, check, false);
   }
 
   /** True if {@code s} is an ASCII identifier: {@code [A-Za-z_][A-Za-z0-9_]*}. */

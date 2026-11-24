@@ -136,7 +136,15 @@ class SmokeTest {
         .andExpect(content().string(not(containsString("has-error"))))
         // A map key path: Spring's qty[tea] name and Thymeleaf's bracket-free id (#190).
         .andExpect(
-            content().string(containsString("<input type=\"text\" id=\"qtytea\" name=\"qty[tea]\" value=\"1\" />")));
+            content().string(containsString("<input type=\"text\" id=\"qtytea\" name=\"qty[tea]\" value=\"1\" />")))
+        // A literal key keeps its quotes, as Spring's form tags write it (#970).
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "<input type=\"text\" class=\"literal\" id=\"qty&#39;tea&#39;\" name=\"qty[&#39;tea&#39;]\""
+                            + " value=\"1\" />")))
+        .andExpect(content().string(not(containsString("literal-error"))));
   }
 
   @Test
@@ -158,7 +166,10 @@ class SmokeTest {
         .andExpect(content().string(containsString("<b class=\"due\">soon</b>")))
         .andExpect(content().string(containsString("<i class=\"due-error\">Failed to convert")))
         // A map key path: the rejected value and its conversion error, through BindStatus (#190).
-        .andExpect(content().string(containsString("id=\"qtytea\" name=\"qty[tea]\" value=\"lots\"")));
+        .andExpect(content().string(containsString("id=\"qtytea\" name=\"qty[tea]\" value=\"lots\"")))
+        // The quoted path reads the same rejected value and error: Spring canonicalizes the key (#970).
+        .andExpect(content().string(containsString("name=\"qty[&#39;tea&#39;]\" value=\"lots\"")))
+        .andExpect(content().string(containsString("<span class=\"literal-error\">Failed to convert")));
   }
 
   @Test

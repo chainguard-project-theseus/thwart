@@ -72,7 +72,7 @@ class TypeUseAnnotationsTest {
     assertEquals(
         "<form><div><input id=\"quantities0\" name=\"quantities[0]\" value=\"3\"></div>"
             + "<div><input id=\"quantities1\" name=\"quantities[1]\" value=\"4\"></div>"
-            + "<input id=\"byKeyk0\" name=\"byKey[k][0]\" value=\"7\">"
+            + "<input id=\"byKey&#39;k&#39;0\" name=\"byKey[&#39;k&#39;][0]\" value=\"7\">"
             + "<input id=\"names1\" name=\"names[1]\" value=\"y\"></form>",
         render(c));
   }
