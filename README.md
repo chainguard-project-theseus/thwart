@@ -209,7 +209,7 @@ dlorenc@chainguard.dev.
 
 ## Trademark
 
-Chainguard and Thwart are trademarks of Chainguard, Inc., governed by Chainguard's Trademark Use Policy. Thymeleaf, JSP, FreeMarker, Spring and Claude Code belong to their owners; no affiliation or endorsement is implied.
+Chainguard and Thwart are trademarks of Chainguard, Inc., governed by Chainguard's Trademark Use Policy. Thymeleaf, JSP, FreeMarker, Velocity, Pebble, Apache Tiles, htmx, Spring and Claude Code belong to their owners; no affiliation or endorsement is implied.
 
 
 ## Where to go next
