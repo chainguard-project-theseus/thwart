@@ -445,11 +445,15 @@ public final class ExpressionCompiler {
       // An ArrayList or TreeMap is read as its List or Map: only the interface's getters.
       TypeMirror owner = safety.containerView(type);
       ExecutableElement accessor = owner.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) owner, name, call) : null;
+      if (accessor == null && FIRST_LAST.contains(name) && unordered(type)) {
+        // Only when the type declares no such getter itself (#969).
+        return error(pos, "'" + name + "' works on a List, not on " + describe(type) + ": " + noIndex(type));
+      }
       if (accessor == null) {
         return error(
             pos,
             "'" + name + "' is not a property of " + type + ": templates can read record components, public"
-                + " getX()/isX() getters and built-ins (size, isEmpty, length, first, last)"
+                + " getX()/isX() getters and built-ins (size, isEmpty, length, and first and last on a List)"
                 + (isSubtypeOf(type, "java.util.Map") ? "; read a map value by key as m['" + name + "']" : "")
                 + (isSubtypeOf(type, "java.util.Optional") ? "; unwrap the Optional in the view type (orElse(null))" : ""));
       }
@@ -503,6 +507,23 @@ public final class ExpressionCompiler {
     Builtin(String suffix, TypeMirror type) {
       this("", suffix, type);
     }
+  }
+
+  private static final Set<String> FIRST_LAST = Backports.setOf("first", "getFirst", "last", "getLast");
+
+  /** Why a Set or another Collection that isn't a List has no index, first or last, and the recipes (#969). */
+  private String noIndex(TypeMirror type) {
+    String recipe = "Loop over it with t:each, or give the view a List in the order the page shows, or the one"
+        + " element the page means";
+    return isSubtypeOf(type, "java.util.Set")
+        ? "a Set has no defined order (a HashSet's changes between runs), so it has no first or n-th element. " + recipe
+        : "only a List has an index, a first and a last. " + recipe;
+  }
+
+  /** A Collection that is not a List: no index, no first or last. */
+  private boolean unordered(TypeMirror type) {
+    return type.getKind() == TypeKind.DECLARED && isSubtypeOf(type, "java.util.Collection")
+        && !isSubtypeOf(type, "java.util.List");
   }
 
   private Builtin builtin(TypeMirror type, String name) {
@@ -613,6 +634,8 @@ public final class ExpressionCompiler {
         return error(i.index().pos(), "map key must be a " + k + ", got " + describe(idx.type()));
       }
       code = recv + ".get(" + idx.code() + ")";
+    } else if (unordered(t)) {
+      return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map; " + noIndex(t));
     } else {
       return error(i.pos(), "cannot index " + describe(t) + ": [...] works on a List, an array or a Map");
     }

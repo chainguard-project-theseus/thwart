@@ -134,8 +134,9 @@ class ExpressionCompilerTest {
     h.compile(call(v("tm"), "pollFirstEntry")).assertError("'pollFirstEntry' is not a property");
     h.compile(call(v("tm"), "firstKey")).assertError("'firstKey' is not a property");
     h.compile(prop(v("sm"), "comparator")).assertError("'comparator' is not a property");
-    h.compile(call(v("dq"), "getFirst")).assertError("'getFirst' is not a property of java.util.ArrayDeque<java.lang.String>");
-    h.compile(prop(v("dq"), "first")).assertError("'first' is not a property");
+    // An ArrayDeque is seen as a Collection, which has no first (#969).
+    h.compile(call(v("dq"), "getFirst")).assertError("'getFirst' works on a List, not on java.util.ArrayDeque<java.lang.String>");
+    h.compile(prop(v("dq"), "first")).assertError("'first' works on a List");
     h.compile(call(v("en"), "setValue", lit(1))).assertError("is not allowed");
     h.compile(call(v("al"), "getClass")).assertError("java.lang.Object method");
   }

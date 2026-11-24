@@ -134,9 +134,11 @@ view-safe. A view type, any class it is nested in, and its type arguments must b
 
 On a view-safe type a template can read record components (`owner.name()`), public no-argument
 getters (`owner.name`, `owner.getName()`, `isX()` for booleans; `new` is a keyword, so write
-`pet.isNew()`), `size()`/`isEmpty()`/`first`/`last` on collections, `length` on arrays, and index
-access (`list[0]`, `map['key']`). Nothing else. So `map.key` is a build error (write
+`pet.isNew()`), `size()`/`isEmpty()` on collections, `first`/`last` on lists, `length` on arrays,
+and index access (`list[0]`, `map['key']`). Nothing else. So `map.key` is a build error (write
 `map['key']`), and an `Optional` offers only `present`: unwrap it in the view type (`orElse(null)`).
+A `Set` has neither an index nor `first`: a `HashSet`'s order changes between runs, so loop over it
+with `t:each`, or give the view a `List` in the order the page shows (or the one element it means).
 An enum's `name()` can't be called either: print the enum itself (its `toString()`), or add a
 getter where `toString()` is overridden.
 
