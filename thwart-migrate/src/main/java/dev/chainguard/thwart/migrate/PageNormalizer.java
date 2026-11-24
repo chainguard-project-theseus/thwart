@@ -61,8 +61,8 @@ import org.jsoup.nodes.TextNode;
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
  * (with {@code hx-params="not _csrf"} on its form),
- * a custom attribute moved to {@code data-*} with its value, a URL percent-encoded where a
- * browser encodes it anyway, a {@code <meta itemprop>} moved into
+ * a custom attribute or an {@code hx-vals} value moved to {@code data-*}, a URL percent-encoded
+ * where a browser encodes it anyway, a {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
  * link {@code rel}
  * tokens, the {@code user-content-} id prefix, a quoted {@code url(...)}): equal in that form, in
@@ -133,6 +133,9 @@ final class PageNormalizer {
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
       "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected");
+  private static final Pattern CANONICAL_INTEGER = Pattern.compile("0|-?[1-9][0-9]{0,14}");
+  /** An {@code hx-vals} key a {@code data-*} name less its hyphens can spell. */
+  private static final Pattern DATA_KEY = Pattern.compile("[A-Za-z0-9_]+");
   private static final Pattern WS = Pattern.compile("[ \\t\\n\\f\\r]+");
   private static final Pattern TOKEN_NAME = Pattern.compile("csrf|jsessionid",
       Pattern.CASE_INSENSITIVE);
@@ -242,7 +245,10 @@ final class PageNormalizer {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
-    dropCustomMovedToData(da, db);
+    // One budget of added data-* attributes, so each stands in for one value across both rules.
+    Map<String, Integer> added = addedData(da, db);
+    dropValsMovedToData(da, db, added);
+    dropCustomMovedToData(da, db, added);
     dropMicrodataMovedToJsonLd(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
@@ -284,25 +290,12 @@ final class PageNormalizer {
    * page, not per element): {@code productid="1"} and {@code data-product-id="1"}.
    * Thwart computes no custom attribute, and its fix-it moves the value to {@code data-*}.
    */
-  private static void dropCustomMovedToData(Document old, Document now) {
+  private static void dropCustomMovedToData(Document old, Document now,
+      Map<String, Integer> moved) {
     Set<String> kept = new HashSet<>();
-    Map<String, Integer> moved = new HashMap<>();
     for (Element e : now.getAllElements()) {
       for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        kept.add(name + "=" + a.getValue());
-        if (name.startsWith("data-")) {
-          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
-        }
-      }
-    }
-    // Only a data-* the new page added stands in: one the old page had replaces nothing.
-    for (Element e : old.getAllElements()) {
-      for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        if (name.startsWith("data-")) {
-          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
-        }
+        kept.add(a.getKey().toLowerCase(Locale.ROOT) + "=" + a.getValue());
       }
     }
     for (Element e : old.getAllElements()) {
@@ -321,6 +314,90 @@ final class PageNormalizer {
         e.removeAttr(name);
       }
     }
+  }
+
+  /**
+   * Removes from the old page each {@code hx-vals} that the new page doesn't have with the same
+   * value, if it is a flat JSON object of integers and the new page added, for each of its keys, a
+   * {@code data-*} attribute whose name, without {@code data-} and hyphens, is the key (ASCII case
+   * folded) and whose value is the key's value: {@code hx-vals='{"productId": 1}'} and
+   * {@code data-product-id="1"}. Thwart computes no {@code hx-vals}; the guide moves each number
+   * into {@code t:data-*} for an {@code htmx:configRequest} listener, as for a query. Each added
+   * {@code data-*} stands in for one value, matched across the page and shared with
+   * {@link #dropCustomMovedToData}; a value that went missing still differs, and so does an
+   * {@code hx-vals} that is not a flat JSON object of integers (a string goes in a JSON block,
+   * and {@code js:...} is code).
+   */
+  private static void dropValsMovedToData(Document old, Document now,
+      Map<String, Integer> added) {
+    Set<String> kept = new HashSet<>();
+    for (Element e : now.getAllElements()) {
+      kept.add(e.attr("hx-vals"));
+    }
+    for (Element e : old.select("[hx-vals]")) {
+      String json = Compat.strip(e.attr("hx-vals"));
+      if (kept.contains(e.attr("hx-vals")) || !json.startsWith("{") || !json.endsWith("}")
+          || json.substring(1).indexOf('{') >= 0 || json.indexOf('[') >= 0) {
+        continue;
+      }
+      List<String[]> pairs = new ArrayList<>();
+      jsonPairs(json, pairs);
+      if (pairs.isEmpty()) {
+        continue;
+      }
+      Map<String, Integer> left = new HashMap<>(added);
+      boolean all = true;
+      for (String[] kv : pairs) {
+        String key = asciiLower(kv[0]) + "=" + kv[1];
+        // A data-* name carries only these; anything else ("a=1", "a-b") stays unmatched.
+        if (!DATA_KEY.matcher(kv[0]).matches() || !isJsonNumber(kv)
+            || left.getOrDefault(key, 0) <= 0) {
+          all = false;
+          break;
+        }
+        left.merge(key, -1, Integer::sum);
+      }
+      if (all) {
+        added.clear();
+        added.putAll(left);
+        e.removeAttr("hx-vals");
+      }
+    }
+  }
+
+  /**
+   * The {@code data-*} attributes the new page added, by name less {@code data-} and hyphens, then
+   * {@code =} and the value: those the new page has less those the old page had, which replace
+   * nothing.
+   */
+  private static Map<String, Integer> addedData(Document old, Document now) {
+    Map<String, Integer> added = new HashMap<>();
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
+        }
+      }
+    }
+    return added;
+  }
+
+  /**
+   * A {@link #jsonPairs} entry whose value is an unquoted canonical integer within 15 digits. htmx
+   * sends {@code JSON.parse}'s number, so {@code 1.0}, {@code 1e2} or a 20-digit integer goes out
+   * in another form than the {@code data-*} text the listener sends.
+   */
+  private static boolean isJsonNumber(String[] kv) {
+    return kv[2] != null && CANONICAL_INTEGER.matcher(kv[1]).matches();
   }
 
   private static boolean isCustom(String name) {

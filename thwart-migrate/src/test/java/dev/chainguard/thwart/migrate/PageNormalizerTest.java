@@ -190,6 +190,11 @@ class PageNormalizerTest {
       data-hx- query moved and encoded | <a hx-get="/c/World of Nature?page=2">n</a> | <a data-hx-get="/c/World%20of%20Nature" data-page="2">n</a>
       csrf input kept out of an hx-delete | <form hx-delete="/c/2" method="post"></form> | <form data-hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx-params not _csrf kept       | <form hx-delete="/c/2" hx-params="not _csrf" method="post" onsubmit="s()"><input type="hidden" name="_csrf" value="t"></form> | <form data-action="s" hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
+      hx-vals moved to data          | <select hx-post="/price" hx-vals='{ "productId": 1}'></select> | <select data-hx-post="/price" data-product-id="1"></select>
+      hx-vals negative integer       | <a hx-vals='{"d": -3}'>n</a>             | <a data-d="-3">n</a>
+      hx-vals with two keys          | <a hx-get="/c" hx-vals='{"page": 2, "size": 10}'>n</a> | <a data-page="2" data-size="10" hx-get="/c">n</a>
+      two hx-vals for two data       | <a hx-vals='{"id": 1}'>a</a><a hx-vals='{"id": 1}'>b</a> | <a data-id="1">a</a><a data-id="1">b</a>
+      two data for hx-vals and a custom attribute | <span productid="1">x</span><button hx-vals='{"productId": 1}'>y</button> | <span data-product-id="1">x</span><button data-product-id="1">y</button>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -214,6 +219,23 @@ class PageNormalizerTest {
       hx-params not _csrf lost       | <form hx-delete="/c/2" hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form> | <form hx-delete="/c/2" method="post"><input type="hidden" name="_csrf" value="t"></form>
       other hx-params                | <form hx-delete="/c/2" method="post"></form> | <form hx-delete="/c/2" hx-params="none" method="post"><input type="hidden" name="_csrf" value="t"></form>
       hx-params changed              | <form hx-params="q" method="post"></form> | <form hx-params="not _csrf" method="post"><input type="hidden" name="_csrf" value="t"></form>
+      hx-vals removed                | <a hx-get="/c" hx-vals='{"page": 2}'>n</a> | <a hx-get="/c">n</a>
+      hx-vals value changed          | <a hx-get="/c" hx-vals='{"page": 2}'>n</a> | <a data-page="3" hx-get="/c">n</a>
+      hx-vals one key lost           | <a hx-vals='{"page": 2, "size": 10}'>n</a> | <a data-page="2">n</a>
+      hx-vals beside an old data     | <a data-id="1" hx-vals='{"id": 1}'>n</a> | <a data-id="1">n</a>
+      two hx-vals for one data       | <a hx-vals='{"id": 1}'>a</a><a hx-vals='{"id": 1}'>b</a> | <a data-id="1">a</a><a>b</a>
+      hx-vals as script              | <a hx-vals='js:{id: getId()}'>n</a>      | <a data-id="1">n</a>
+      nested hx-vals                 | <a hx-vals='{"o": {"id": 1}}'>n</a>      | <a data-id="1">n</a>
+      hx-vals with an array          | <a hx-vals='{"ids": [1]}'>n</a>          | <a data-ids="1">n</a>
+      hx-vals key with an equals sign | <a hx-vals='{"a=1": 1}'>n</a>         | <a data-a="1=1">n</a>
+      hx-vals negative zero to data  | <a hx-vals='{"d": -0}'>n</a>             | <a data-d="-0">n</a>
+      hx-vals decimal to data        | <a hx-vals='{"price": 1.0}'>n</a>       | <a data-price="1.0">n</a>
+      hx-vals exponent to data       | <a hx-vals='{"n": 1e2}'>n</a>            | <a data-n="1e2">n</a>
+      hx-vals long integer to data   | <a hx-vals='{"id": 12345678901234567890}'>n</a> | <a data-id="12345678901234567890">n</a>
+      hx-vals string to data         | <a hx-vals='{"q": "a b"}'>n</a>          | <a data-q="a b">n</a>
+      hx-vals boolean to data        | <a hx-vals='{"f": true}'>n</a>           | <a data-f="true">n</a>
+      one data for hx-vals and a custom attribute | <span productid="1">x</span><button hx-vals='{"productId": 1}'>y</button> | <span>x</span><button data-product-id="1">y</button>
+      one data for a custom attribute and hx-vals | <a productid="1" hx-vals='{"productId": 1}'>n</a> | <a data-product-id="1">n</a>
       hx- attribute replaced         | <a hx-get="/p" href="/p">p</a>            | <a hx-boost="true" href="/p">p</a>
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
