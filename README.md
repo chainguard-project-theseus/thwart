@@ -17,7 +17,7 @@ classes of bugs. Each Guarded Component replaces a core open source
 component and is built so a whole class of bugs isn't possible in it.
 
 **Status:** experimental. Try it in a test environment, and file an issue
-in [chainguard-project-theseus/feedback](https://github.com/chainguard-project-theseus/feedback/issues) if something breaks or the migration misses something. We aren't accepting pull requests.
+in [chainguard-project-theseus/feedback](https://github.com/chainguard-project-theseus/feedback/issues) if something breaks or the migration misses something.
 
 ## What it looks like
 
@@ -209,7 +209,7 @@ dlorenc@chainguard.dev.
 
 ## Trademark
 
-Chainguard, Thwart and challoc are trademarks of Chainguard, Inc., governed by Chainguard's Trademark Use Policy. Thymeleaf, JSP, FreeMarker, Spring and Claude Code belong to their owners; no affiliation or endorsement is implied.
+Chainguard and Thwart are trademarks of Chainguard, Inc., governed by Chainguard's Trademark Use Policy. Thymeleaf, JSP, FreeMarker, Spring and Claude Code belong to their owners; no affiliation or endorsement is implied.
 
 
 ## Where to go next
