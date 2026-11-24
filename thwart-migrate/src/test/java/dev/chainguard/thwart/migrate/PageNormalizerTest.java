@@ -416,6 +416,13 @@ class PageNormalizerTest {
     assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\" title=\"Edit\">e</a>",
         "<a>e</a>"));
     assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"\">e</a>", "<a title=\"\">e</a>"));
+    // One tooltip dropped and another doubled.
+    assertEquals(DIFFERS, PageNormalizer.compare(
+        "<a data-tooltip=\"Edit\">x</a><b data-tooltip=\"Edit\">y</b>",
+        "<a data-tooltip=\"Edit\" title=\"Edit\">x</a><b>y</b>"));
+    // A title the old element had is never overwritten.
+    assertEquals(DIFFERS, PageNormalizer.compare("<a data-tooltip=\"Edit\" title=\"Old\">e</a>",
+        "<a title=\"Edit\">e</a>"));
   }
 
   @Test

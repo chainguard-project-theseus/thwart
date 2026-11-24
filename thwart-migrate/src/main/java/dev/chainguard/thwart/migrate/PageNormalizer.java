@@ -482,13 +482,17 @@ final class PageNormalizer {
       }
     }
     for (Element e : now.getAllElements()) {
+      Set<String> dataValues = new HashSet<>();
       for (Attribute a : e.attributes()) {
         String name = a.getKey().toLowerCase(Locale.ROOT);
         if (name.startsWith("data-")) {
           lost.merge(name + "\n" + a.getValue(), -1, Integer::sum);
-        } else if (name.equals("title")) {
-          extraTitles.merge(a.getValue(), 1, Integer::sum);
+          dataValues.add(a.getValue());
         }
+      }
+      // A title beside a data-* with its value replaced nothing: the tooltip is doubled.
+      if (e.hasAttr("title") && !dataValues.contains(e.attr("title"))) {
+        extraTitles.merge(e.attr("title"), 1, Integer::sum);
       }
     }
     for (Element e : old.getAllElements()) {
