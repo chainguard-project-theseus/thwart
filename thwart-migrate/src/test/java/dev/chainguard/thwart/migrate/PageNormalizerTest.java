@@ -368,6 +368,14 @@ class PageNormalizerTest {
         "<span title=\"Section \u00ef\ufffd\u00a1 of\">x</span>"));
     assertEquals(FORCED, PageNormalizer.compare("<p>a\u0001b</p>", "<p>a\ufffdb</p>"));
     assertEquals(FORCED, PageNormalizer.compare("<p>a\ufdd0b</p>", "<p>a\ufffdb</p>"));
+    assertEquals(FORCED, PageNormalizer.compare("<p>a\uffffb</p>", "<p>a\ufffdb</p>"));
+    // Each arm of the set, without depending on what jsoup does with a lone surrogate.
+    assertEquals("a\ufffdb", PageNormalizer.asThwartWrites("a\ud800b"));
+    assertEquals("a\ufffdb", PageNormalizer.asThwartWrites("a\udfffb"));
+    assertEquals("a\ufffdb", PageNormalizer.asThwartWrites("a\ufffeb"));
+    assertEquals("a\ufffdb", PageNormalizer.asThwartWrites("a" + new String(Character.toChars(0x1FFFF)) + "b"));
+    assertEquals("a\ufffdb", PageNormalizer.asThwartWrites("a\u009fb"));
+    assertEquals("a\ud83d\ude00b\t\n\f\r", PageNormalizer.asThwartWrites("a\ud83d\ude00b\t\n\f\r"));
     // Only a parse-error code point stands for U+FFFD: a letter, a space or a tab still differs.
     assertEquals(DIFFERS, PageNormalizer.compare("<p>ab</p>", "<p>a\ufffdb</p>"));
     assertEquals(DIFFERS, PageNormalizer.compare("<p>axb</p>", "<p>a\ufffdb</p>"));
