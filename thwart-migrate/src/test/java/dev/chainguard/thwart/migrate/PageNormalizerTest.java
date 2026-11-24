@@ -179,6 +179,15 @@ class PageNormalizerTest {
       dialect xmlns on html          | <html lang="en" xmlns:salat="http://x.de/s"><body>a</body></html> | <html lang="en"><body>a</body></html>
       xhtml xmlns on html            | <html xmlns="http://www.w3.org/1999/xhtml"><body>a</body></html> | <html><body>a</body></html>
       csrf input added to a form     | <form method="post" hx-post="/s"><input name="q"></form> | <form method="post" hx-post="/s"><input type="hidden" name="_csrf" value="t"><input name="q"></form>
+      space in a path encoded        | <a href="/c/World of Nature?id=1">w</a>  | <a href="/c/World%20of%20Nature?id=1">w</a>
+      space in a query encoded       | <a href="/r?name=UUI Designer&amp;page=0">r</a> | <a href="/r?name=UUI%20Designer&amp;page=0">r</a>
+      greater-than in a query encoded | <a href="/s?q=salary>1800">s</a>        | <a href="/s?q=salary%3E1800">s</a>
+      quote in a query encoded       | <a href="/s?q=it's">s</a>                 | <a href="/s?q=it%27s">s</a>
+      non-ascii path encoded         | <img src="/t/café.png" alt="c">           | <img src="/t/caf%C3%A9.png" alt="c">
+      absolute http url encoded      | <a href="https://x.org/a b#c d">x</a>    | <a href="https://x.org/a%20b#c%20d">x</a>
+      form action encoded            | <form action="/f/a b"></form>             | <form action="/f/a%20b"></form>
+      data-hx- rename encoded        | <form hx-get="/a b"></form>               | <form data-hx-get="/a%20b"></form>
+      data-hx- query moved and encoded | <a hx-get="/c/World of Nature?page=2">n</a> | <a data-hx-get="/c/World%20of%20Nature" data-page="2">n</a>
       """)
   void forcedChanges(String rule, String a, String b) {
     String x = a.replace("\\n", "\n");
@@ -189,7 +198,14 @@ class PageNormalizerTest {
 
   @ParameterizedTest(name = "not forced: {0}")
   @CsvSource(delimiter = '|', quoteCharacter = '`', textBlock = """
-      data-hx- value changed         | <form hx-get="/a b"></form>               | <form data-hx-get="/a%20b"></form>
+      data-hx- value changed         | <form hx-get="/a b"></form>               | <form data-hx-get="/a%20c"></form>
+      slash encoded                  | <a href="/a/b">x</a>                      | <a href="/a%2Fb">x</a>
+      encoded letter                 | <a href="/a">x</a>                        | <a href="/%61">x</a>
+      space in a query as a plus     | <a href="/s?q=a b">x</a>                  | <a href="/s?q=a+b">x</a>
+      quote in a path encoded        | <a href="/it's">x</a>                     | <a href="/it%27s">x</a>
+      mailto encoded                 | <a href="mailto:a b@x.org">x</a>          | <a href="mailto:a%20b@x.org">x</a>
+      encoded text                   | <p>a b</p>                                | <p>a%20b</p>
+      encoded title                  | <a title="a b">x</a>                      | <a title="a%20b">x</a>
       hx- attribute replaced         | <a hx-get="/p" href="/p">p</a>            | <a hx-boost="true" href="/p">p</a>
       real link next to a handler    | <a href="/r?mode=" onclick="t()">r</a>    | <a href="/r?mode" data-action="t">r</a>
       text next to a handler         | <p onclick="a()">Name</p>                 | <p data-action="a">Email</p>
