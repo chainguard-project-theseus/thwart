@@ -59,6 +59,7 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
+ * a control character written as U+FFFD,
  * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
  * (with {@code hx-params="not _csrf"} on its form),
  * a custom attribute or an {@code hx-vals} value moved to {@code data-*}, a URL percent-encoded
@@ -686,7 +687,8 @@ final class PageNormalizer {
         continue;
       }
       if (node instanceof TextNode) {
-        text.append(((TextNode) node).getWholeText());
+        String t = ((TextNode) node).getWholeText();
+        text.append(forced ? asThwartWrites(t) : t);
         continue;
       }
       if (node instanceof DataNode) { // script and style content
@@ -1169,6 +1171,39 @@ final class PageNormalizer {
     return pub.isEmpty() ? "" : " public \"" + pub + "\"";
   }
 
+  /**
+   * {@code s} with each code point the HTML parser reports as an error written as U+FFFD, as
+   * Thwart's escapers write it: a control other than ASCII whitespace (U+0000-U+001F but tab, LF,
+   * FF and CR, and U+007F-U+009F), a noncharacter (U+FDD0-U+FDEF, U+xFFFE, U+xFFFF) or a lone
+   * surrogate. A stray control in a message (a mis-decoded U+0081) then compares equal to
+   * the U+FFFD Thwart writes for it; any other changed character still differs.
+   */
+  static String asThwartWrites(String s) {
+    StringBuilder sb = null;
+    for (int i = 0; i < s.length(); ) {
+      int cp = s.codePointAt(i);
+      int len = Character.charCount(cp);
+      if (parseErrorCodePoint(cp)) {
+        if (sb == null) {
+          sb = new StringBuilder(s.length()).append(s, 0, i);
+        }
+        sb.append('\uFFFD');
+      } else if (sb != null) {
+        sb.appendCodePoint(cp);
+      }
+      i += len;
+    }
+    return sb == null ? s : sb.toString();
+  }
+
+  private static boolean parseErrorCodePoint(int cp) {
+    if (cp < 0x20) {
+      return cp != '\t' && cp != '\n' && cp != '\f' && cp != '\r';
+    }
+    return cp >= 0x7F && cp <= 0x9F || cp >= 0xD800 && cp <= 0xDFFF
+        || cp >= 0xFDD0 && cp <= 0xFDEF || (cp & 0xFFFE) == 0xFFFE;
+  }
+
   private static void flushText(StringBuilder text, List<Line> out) {
     String collapsed = Compat.strip(WS.matcher(text).replaceAll(" "));
     text.setLength(0);
@@ -1203,7 +1238,8 @@ final class PageNormalizer {
       if (name.equals("nonce")) {
         continue;
       }
-      String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
+      String value = Compat.strip(WS.matcher(forced ? asThwartWrites(a.getValue()) : a.getValue())
+          .replaceAll(" "));
       if (forced) {
         if (name.startsWith("data-hx-") && !e.hasAttr(name.substring(5))) {
           name = name.substring(5);
