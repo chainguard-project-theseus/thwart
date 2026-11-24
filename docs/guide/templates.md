@@ -673,7 +673,7 @@ The script reads both tags, `document.querySelector('meta[name="_csrf"]').conten
 in an `htmx:configRequest` listener). A computed `content` on a `<meta name="_csrf">` is a build error. Use
 htmx 2 or set `htmx.config.selfRequestsOnly = true`. A `method="post"` form that only htmx submits
 gets the token input too, and htmx 2 puts it in the URL of an `hx-delete`: add
-`hx-params="not _csrf"` there.
+`hx-params="not _csrf"` there (`compare` counts it `forced` beside the token input).
 
 - The tags put the token on every page whose layout has them, not only on pages with a POST form,
   and load a deferred token there (with the default repository, creating a session). Spring

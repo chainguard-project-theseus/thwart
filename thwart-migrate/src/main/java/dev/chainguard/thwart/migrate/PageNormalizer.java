@@ -59,7 +59,8 @@ import org.jsoup.nodes.TextNode;
  * (inline handlers moved to {@code data-*} hooks and a listener script, {@code javascript:} URLs,
  * computed {@code hx-*} renamed to {@code data-hx-*}, a query moved out of a custom attribute,
  * {@code <svg>} in a table replaced, {@code <style>} rewritten, {@code xmlns} attributes dropped,
- * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added,
+ * an HTML 4 or XHTML 1.x doctype replaced by {@code <!DOCTYPE html>}, a CSRF token input added
+ * (with {@code hx-params="not _csrf"} on its form),
  * a custom attribute moved to {@code data-*} with its value, a URL percent-encoded where a
  * browser encodes it anyway, a {@code <meta itemprop>} moved into
  * JSON-LD, a {@code *-on:*} attribute removed, and what the sanitizer and {@code css.url} write:
@@ -607,6 +608,21 @@ final class PageNormalizer {
         && asciiLower(form.attr("method")).equals("post");
   }
 
+  /**
+   * Whether {@code form} holds a CSRF token input that {@link #isCsrfInput} sets aside. The guide
+   * has a form that only htmx submits say {@code hx-params="not _csrf"}, so that htmx 2 doesn't
+   * put the token Thwart added into an {@code hx-delete} URL; the forced form drops that
+   * attribute with the token input, and nowhere else.
+   */
+  private static boolean hasCsrfInput(Element form) {
+    for (Element child : form.children()) {
+      if (isCsrfInput(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static String asciiLower(String s) {
     StringBuilder sb = new StringBuilder(s.length());
     for (int i = 0; i < s.length(); i++) {
@@ -1024,6 +1040,8 @@ final class PageNormalizer {
    */
   private static String startTag(Element e, boolean forced) {
     String tag = e.normalName();
+    // Before iterating: jsoup caches the child list in the attributes.
+    boolean tokenForm = forced && tag.equals("form") && hasCsrfInput(e);
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
       String name = a.getKey().toLowerCase();
@@ -1036,6 +1054,7 @@ final class PageNormalizer {
           name = name.substring(5);
         }
         if (HANDLER.matcher(name).matches()
+            || tokenForm && name.equals("hx-params") && value.equals("not _csrf")
             || name.equals("href") && (value.equals("#")
                 || value.toLowerCase(Locale.ROOT).startsWith("javascript:"))
             || name.startsWith("data-")

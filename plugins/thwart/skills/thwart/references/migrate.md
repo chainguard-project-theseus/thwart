@@ -160,7 +160,8 @@ with characters percent-encoded that the browser encodes anyway when it follows 
 `%20`, `>` in a query as `%3E`, a non-ASCII letter; a `%2F` for `/` still differs), an HTML 4
 or XHTML 1.x doctype replaced by `<!DOCTYPE html>` (the only one Thwart accepts; it can change
 the browser's rendering mode, so look at the page), the hidden `_csrf` input Thwart adds to a
-`method="post"` form, a custom attribute (a name HTML doesn't define) moved to a
+`method="post"` form (with the `hx-params="not _csrf"` that [Forms](templates.md#forms) puts on
+such a form for htmx), a custom attribute (a name HTML doesn't define) moved to a
 `data-*` attribute with the same name less its hyphens and the same value (`productid="1"` became
 `data-product-id="1"`, the compiler's fix-it for a computed custom attribute; each `data-*` stands
 in for one such attribute), a `<meta itemprop content>` whose `content` a
