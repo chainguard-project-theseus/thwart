@@ -252,15 +252,21 @@ final class Crawler {
    */
   private static String readBody(HttpURLConnection http, int status) throws IOException {
     InputStream stream = status >= 400 ? http.getErrorStream() : http.getInputStream();
+    long length = http.getContentLengthLong();
     byte[] bytes;
     if (stream == null) {
       bytes = new byte[0];
     } else {
       try (InputStream in = stream) {
         bytes = Compat.readAllBytes(in);
+      } catch (IOException e) {
+        // Newer JDKs (25, not 21) fail the read of a short body themselves ("Premature EOF").
+        if (length < 0 || e.getClass() != IOException.class) {
+          throw e;
+        }
+        throw new IOException("response truncated: " + e.getMessage() + " before " + length + " bytes", e);
       }
     }
-    long length = http.getContentLengthLong();
     if (length >= 0 && bytes.length < length) {
       throw new IOException("response truncated: got " + bytes.length + " of " + length + " bytes");
     }

@@ -6,7 +6,7 @@ version: 1
 # Chainguard Checks has no cron, so it runs after every merge to main, and on a PR on request.
 environment:
   packages:
-    - nodejs-22
+    - nodejs-26
     - npm
     - chromium
     - bash
@@ -72,8 +72,8 @@ environment:
     - libudev
     - krb5-libs
     # ProfileOracleTest exports the cases (#324): run.sh builds thwart-compiler with Maven.
-    - openjdk-21-default-jdk
-    - maven-3.9
+    - openjdk-25-default-jdk
+    - maven-3.10
   vars:
     JAVA_HOME: /usr/lib/jvm/default-jvm
     CHROMIUM_PATH: /usr/bin/chromium

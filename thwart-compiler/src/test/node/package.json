@@ -4,7 +4,7 @@
   "description": "Spec-parser and browser oracle over the cases ProfileOracleTest exports (#322). Not part of mvn verify.",
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=26.0.0"
   },
   "dependencies": {
     "acorn": "8.19.0",
