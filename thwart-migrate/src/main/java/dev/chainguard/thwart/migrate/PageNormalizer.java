@@ -242,8 +242,10 @@ final class PageNormalizer {
       return Verdict.DIFFERS;
     }
     dropRemovedInlineCode(da, db);
-    dropValsMovedToData(da, db);
-    dropCustomMovedToData(da, db);
+    // One budget of added data-* attributes, so each stands in for one value across both rules.
+    Map<String, Integer> added = addedData(da, db);
+    dropValsMovedToData(da, db, added);
+    dropCustomMovedToData(da, db, added);
     dropMicrodataMovedToJsonLd(da, db);
     return sortedForm(children(da, false, true)).equals(sortedForm(children(db, false, true)))
         ? Verdict.FORCED : Verdict.DIFFERS;
@@ -285,25 +287,12 @@ final class PageNormalizer {
    * page, not per element): {@code productid="1"} and {@code data-product-id="1"}.
    * Thwart computes no custom attribute, and its fix-it moves the value to {@code data-*}.
    */
-  private static void dropCustomMovedToData(Document old, Document now) {
+  private static void dropCustomMovedToData(Document old, Document now,
+      Map<String, Integer> moved) {
     Set<String> kept = new HashSet<>();
-    Map<String, Integer> moved = new HashMap<>();
     for (Element e : now.getAllElements()) {
       for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        kept.add(name + "=" + a.getValue());
-        if (name.startsWith("data-")) {
-          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
-        }
-      }
-    }
-    // Only a data-* the new page added stands in: one the old page had replaces nothing.
-    for (Element e : old.getAllElements()) {
-      for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        if (name.startsWith("data-")) {
-          moved.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
-        }
+        kept.add(a.getKey().toLowerCase(Locale.ROOT) + "=" + a.getValue());
       }
     }
     for (Element e : old.getAllElements()) {
@@ -326,34 +315,21 @@ final class PageNormalizer {
 
   /**
    * Removes from the old page each {@code hx-vals} that the new page doesn't have with the same
-   * value, if it is a flat JSON object and the new page added, for each of its keys, a
+   * value, if it is a flat JSON object of numbers and the new page added, for each of its keys, a
    * {@code data-*} attribute whose name, without {@code data-} and hyphens, is the key (ASCII case
    * folded) and whose value is the key's value: {@code hx-vals='{"productId": 1}'} and
    * {@code data-product-id="1"}. Thwart computes no {@code hx-vals}; the guide moves each number
    * into {@code t:data-*} for an {@code htmx:configRequest} listener, as for a query. Each added
-   * {@code data-*} stands in for one value, matched across the page; a value that went missing
-   * still differs, and so does an {@code hx-vals} that is not a flat JSON object
-   * ({@code js:...}).
+   * {@code data-*} stands in for one value, matched across the page and shared with
+   * {@link #dropCustomMovedToData}; a value that went missing still differs, and so does an
+   * {@code hx-vals} that is not a flat JSON object of numbers (a string goes in a JSON block,
+   * and {@code js:...} is code).
    */
-  private static void dropValsMovedToData(Document old, Document now) {
+  private static void dropValsMovedToData(Document old, Document now,
+      Map<String, Integer> added) {
     Set<String> kept = new HashSet<>();
-    Map<String, Integer> added = new HashMap<>();
     for (Element e : now.getAllElements()) {
       kept.add(e.attr("hx-vals"));
-      for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        if (name.startsWith("data-")) {
-          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
-        }
-      }
-    }
-    for (Element e : old.getAllElements()) {
-      for (Attribute a : e.attributes()) {
-        String name = a.getKey().toLowerCase(Locale.ROOT);
-        if (name.startsWith("data-")) {
-          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
-        }
-      }
     }
     for (Element e : old.select("[hx-vals]")) {
       String json = Compat.strip(e.attr("hx-vals"));
@@ -370,17 +346,50 @@ final class PageNormalizer {
       boolean all = true;
       for (String[] kv : pairs) {
         String key = asciiLower(kv[0]) + "=" + kv[1];
-        if (kv[0].isEmpty() || left.getOrDefault(key, 0) <= 0) {
+        if (kv[0].isEmpty() || !isJsonNumber(kv) || left.getOrDefault(key, 0) <= 0) {
           all = false;
           break;
         }
         left.merge(key, -1, Integer::sum);
       }
       if (all) {
-        added = left;
+        added.clear();
+        added.putAll(left);
         e.removeAttr("hx-vals");
       }
     }
+  }
+
+  /**
+   * The {@code data-*} attributes the new page added, by name less {@code data-} and hyphens, then
+   * {@code =} and the value: those the new page has less those the old page had, which replace
+   * nothing.
+   */
+  private static Map<String, Integer> addedData(Document old, Document now) {
+    Map<String, Integer> added = new HashMap<>();
+    for (Element e : now.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), 1, Integer::sum);
+        }
+      }
+    }
+    for (Element e : old.getAllElements()) {
+      for (Attribute a : e.attributes()) {
+        String name = a.getKey().toLowerCase(Locale.ROOT);
+        if (name.startsWith("data-")) {
+          added.merge(name.substring(5).replace("-", "") + "=" + a.getValue(), -1, Integer::sum);
+        }
+      }
+    }
+    return added;
+  }
+
+  /** A {@link #jsonPairs} entry whose value is an unquoted JSON number. */
+  private static boolean isJsonNumber(String[] kv) {
+    return kv[2] != null && JSON_ATOM.matcher(kv[1]).matches() && !kv[1].equals("true")
+        && !kv[1].equals("false") && !kv[1].equals("null");
   }
 
   private static boolean isCustom(String name) {
