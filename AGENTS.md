@@ -118,7 +118,7 @@ keep the change additive and minimal and call it out in the PR description.
   Maven with `-o`; set `ONLINE=1` when an artifact is missing. CI still runs the full `mvn verify`.
 - `hack/corpus.sh [app ...]` builds and tests each bench app that has a past run's
   `diff.patch` under `RESULTS` against the installed 0.1.0-SNAPSHOT. `JOBS=3` runs three apps
-  at once. It needs jq, procps, and Node 22 with npm.
+  at once. It needs jq, procps, and Node 26 with npm.
 
 ## Workflow for agents
 

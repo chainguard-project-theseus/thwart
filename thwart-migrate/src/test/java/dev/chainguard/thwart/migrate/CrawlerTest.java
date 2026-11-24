@@ -141,6 +141,9 @@ class CrawlerTest {
       // /cut promises more than it sends, then hangs up.
       ex.sendResponseHeaders(status, path.equals("/cut") ? page.length + 100 : page.length);
       ex.getResponseBody().write(page);
+      // Flushed so the short body goes out: JDK 25's HttpServer (unlike 21's) drops an
+      // unflushed response that closes short of its Content-Length, headers and all.
+      ex.getResponseBody().flush();
       ex.close();
     });
     server.start();

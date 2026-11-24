@@ -1,6 +1,6 @@
 version: 1
 environment:
-  packages: [openjdk-21-default-jdk, maven-3.9, gradle-9, bash]
+  packages: [openjdk-25-default-jdk, maven-3.10, gradle-9, bash]
   # Mounts ~/.m2/repository and Gradle's artifact store from the pools identities.yaml defines (#698).
   caches:
     java: {}
