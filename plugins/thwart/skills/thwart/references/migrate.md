@@ -160,7 +160,10 @@ a URL in `href`, `src`, `action`, `formaction`, `cite`, `poster` or such a path 
 with characters percent-encoded that the browser encodes anyway when it follows it (a space as
 `%20`, `>` in a query as `%3E`, a non-ASCII letter; a `%2F` for `/` still differs), a control
 character or other code point the HTML parser reports as an error (a stray `U+0081` in a message)
-written as `U+FFFD`, as Thwart's escapers write it, an HTML 4
+written as `U+FFFD`, as Thwart's escapers write it, a `title` holding the value of a `data-*`
+attribute the same element had on the old page and lost (the tooltip recipe in
+[Output contexts](templates.md#output-contexts): `data-tooltip="Edit"` became `title="Edit"`), an
+HTML 4
 or XHTML 1.x doctype replaced by `<!DOCTYPE html>` (the only one Thwart accepts; it can change
 the browser's rendering mode, so look at the page), the hidden `_csrf` input Thwart adds to a
 `method="post"` form (with the `hx-params="not _csrf"` that [Forms](templates.md#forms) puts on
