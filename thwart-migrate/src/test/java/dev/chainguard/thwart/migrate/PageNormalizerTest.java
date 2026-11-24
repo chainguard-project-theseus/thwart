@@ -226,6 +226,7 @@ class PageNormalizerTest {
       hx-vals as script              | <a hx-vals='js:{id: getId()}'>n</a>      | <a data-id="1">n</a>
       nested hx-vals                 | <a hx-vals='{"o": {"id": 1}}'>n</a>      | <a data-id="1">n</a>
       hx-vals with an array          | <a hx-vals='{"ids": [1]}'>n</a>          | <a data-ids="1">n</a>
+      hx-vals key with an equals sign | <a hx-vals='{"a=1": 1}'>n</a>         | <a data-a="1=1">n</a>
       hx-vals string to data         | <a hx-vals='{"q": "a b"}'>n</a>          | <a data-q="a b">n</a>
       hx-vals boolean to data        | <a hx-vals='{"f": true}'>n</a>           | <a data-f="true">n</a>
       one data for hx-vals and a custom attribute | <span productid="1">x</span><button hx-vals='{"productId": 1}'>y</button> | <span>x</span><button data-product-id="1">y</button>

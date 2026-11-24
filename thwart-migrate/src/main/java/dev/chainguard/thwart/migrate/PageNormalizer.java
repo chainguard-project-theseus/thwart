@@ -133,6 +133,8 @@ final class PageNormalizer {
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
       "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected");
+  /** An {@code hx-vals} key a {@code data-*} name less its hyphens can spell. */
+  private static final Pattern DATA_KEY = Pattern.compile("[A-Za-z0-9_]+");
   private static final Pattern WS = Pattern.compile("[ \\t\\n\\f\\r]+");
   private static final Pattern TOKEN_NAME = Pattern.compile("csrf|jsessionid",
       Pattern.CASE_INSENSITIVE);
@@ -346,7 +348,9 @@ final class PageNormalizer {
       boolean all = true;
       for (String[] kv : pairs) {
         String key = asciiLower(kv[0]) + "=" + kv[1];
-        if (kv[0].isEmpty() || !isJsonNumber(kv) || left.getOrDefault(key, 0) <= 0) {
+        // A data-* name carries only these; anything else ("a=1", "a-b") stays unmatched.
+        if (!DATA_KEY.matcher(kv[0]).matches() || !isJsonNumber(kv)
+            || left.getOrDefault(key, 0) <= 0) {
           all = false;
           break;
         }
