@@ -21,8 +21,8 @@ FIREFOX_SHA256=86d049070ad80b74d8e674793e22d28923b4a7a1da06b4d65402f91c67a10314
 
 # The WebKit revision playwright-core (package.json) drives: its browsers.json, "webkit" (WebKit
 # 27.2). Bump both together.
-WEBKIT_REVISION=2370
-WEBKIT_SHA256=d0667d52a00058b7fd8b5e338b54520bbb2c835c999f468790bec47df4534f01
+WEBKIT_REVISION=2388
+WEBKIT_SHA256=cb319df755931b7206411206e297105bf234939c3d7b9772c1156d993b8d0b1f
 # Ubuntu 26.04 (resolute, release pocket) libraries the build links that Wolfi lacks (flite,
 # hyphen, libmanette and its gudev/hidapi, libsoup 3) or ships at another soname (libjxl 0.12).
 # They go into the bundle's sys/lib, which its MiniBrowser wrapper puts on LD_LIBRARY_PATH.
