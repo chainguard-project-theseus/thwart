@@ -44,6 +44,8 @@ environment:
     - mesa-egl
     - libgcrypt
     - libgpg-error
+    # WebKit r2388 (playwright-core 1.65) links OpenSSL 3's libcrypto.so.3; Wolfi's default is 4.
+    - libcrypto3
     - glib
     - gstreamer
     - gst-plugins-base
